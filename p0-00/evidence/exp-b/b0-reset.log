@@ -1,0 +1,6 @@
+=== stage:b0 date:2026-11-09T21:57:53+08:00 host:ubuntu2604 node:v24.21.0 user:ubuntu
+---SNAPSHOT:reset---
+TASKS [{"id":"t-b1","state":"READY","state_version":0},{"id":"t-b2","state":"READY","state_version":0},{"id":"t-b3","state":"READY","state_version":0}]
+LEASES []
+AUDIT []
+=== exit:0 ===

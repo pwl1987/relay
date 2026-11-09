@@ -1,0 +1,12 @@
+=== stage:b2 date:2026-11-09T21:19:01+08:00 host:ubuntu2604 node:v24.21.0 user:ubuntu
+{"op":"claim","task":"t-b2","owner":"worker-A","ok":true,"fencingToken":1}
+--- sleep 3s(等待过期) ---
+{"op":"claim","task":"t-b2","owner":"worker-B","ok":true,"fencingToken":2}
+--- 旧持有者 A 用 fencing=1 尝试推进(必须 REJECTED) ---
+{"op":"advance","task":"t-b2","owner":"worker-A","fencing":1,"ok":false,"reason":"lease_owner_mismatch:worker-B","state":"LEASED","version":2}
+--- 新持有者 B 用 fencing=2 推进(必须 OK) ---
+{"op":"advance","task":"t-b2","owner":"worker-B","fencing":2,"ok":true,"state":"RUNNING"}
+--- A 再用 fencing=2 冒充(必须 REJECTED owner mismatch) ---
+{"op":"advance","task":"t-b2","owner":"worker-A","fencing":2,"ok":false,"reason":"lease_owner_mismatch:worker-B","state":"RUNNING","version":3}
+---SNAPSHOT:b2-final---
+TASKS [{"id":"t-b1","state":"RUNNING","state_version":2},{"id":"t-b2","state":"RUNNING","state_version":3},{"id":"t-b3","state":"READY","state_version":0}]

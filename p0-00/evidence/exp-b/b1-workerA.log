@@ -1,0 +1,1 @@
+{"op":"claim","task":"t-b1","owner":"worker-A","ok":false,"reason":"state_not_claimable:LEASED"}

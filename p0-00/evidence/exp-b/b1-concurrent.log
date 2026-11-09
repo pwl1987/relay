@@ -1,0 +1,12 @@
+=== stage:b1 date:2026-11-09T21:18:21+08:00 host:ubuntu2604 node:v24.21.0 user:ubuntu
+--- claim 结果 ---
+{"op":"claim","task":"t-b1","owner":"worker-A","ok":false,"reason":"state_not_claimable:LEASED"}
+{"op":"claim","task":"t-b1","owner":"worker-B","ok":true,"fencingToken":1}
+--- 赢家: worker-B fencing=1; 双方尝试推进 ---
+{"op":"advance","task":"t-b1","owner":"worker-A","fencing":1,"ok":false,"reason":"lease_owner_mismatch:worker-B","state":"LEASED","version":1}
+{"op":"advance","task":"t-b1","owner":"worker-B","fencing":1,"ok":true,"state":"RUNNING"}
+{"op":"advance","task":"t-b1","owner":"worker-B","fencing":1,"ok":false,"reason":"state_mismatch:RUNNING","state":"RUNNING","version":2}
+---SNAPSHOT:b1-final---
+TASKS [{"id":"t-b1","state":"RUNNING","state_version":2},{"id":"t-b2","state":"READY","state_version":0},{"id":"t-b3","state":"READY","state_version":0}]
+LEASES [{"task_id":"t-b1","owner_id":"worker-B","fencing_token":"1","lease_expires_at":"2026-11-09T13:18:51.778Z","heartbeat_at":"2026-11-09T13:18:21.778Z"}]
+AUDIT [{"seq":"1","actor":"worker-B","action":"CLAIM","task_id":"t-b1","before_state":"READY","after_state":"LEASED","detail":{"fencing":1}},{"seq":"2","actor":"worker-A","action":"ADVANCE_REJECTED","task_id":"t-b1","before_state":"LEASED","after_state":"LEASED","detail":{"reason":"lease_owner_mismatch:worker-B","fencingToken":1}},{"seq":"3","actor":"worker-B","action":"ADVANCE","task_id":"t-b1","before_state":"LEASED","after_state":"RUNNING","detail":{"fencing":1}},{"seq":"4","actor":"worker-B","action":"ADVANCE_REJECTED","task_id":"t-b1","before_state":"RUNNING","after_state":"RUNNING","detail":{"reason":"state_mismatch:RUNNING","fencingToken":1}}]

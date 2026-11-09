@@ -1,0 +1,28 @@
+=== stage:d2b date:2026-11-09T21:36:57+08:00 重启后 launch() 自动恢复 ===
+Unknown log level 'WARN', defaulting to 'info'. Valid levels: debug, info, warn, error
+Initializing DBOS (v5.4.0)
+System Database URL: postgresql://postgres:***@127.0.0.1:55433/relayp000
+Executor ID: local
+Application version: 834fd0cf61b74def0d779c39bc74b8f2
+Recovering 1 workflows from application version 834fd0cf61b74def0d779c39bc74b8f2
+DBOS launched!
+Listening to 0 queues:
+{"mode":"d2b","wfID":"wf-d2","result":"ACCEPTED","status":{"workflowID":"wf-d2","status":"SUCCESS","workflowName":"processTask","workflowClassName":"TaskFlows","workflowConfigName":"","queueName":"_dbos_internal_queue","authenticatedUser":"","assumedRole":"","authenticatedRoles":[],"input":["t-d2","dbos-A",15000],"output":"ACCEPTED","executorId":"local","applicationVersion":"834fd0cf61b74def0d779c39bc74b8f2","recoveryAttempts":2,"createdAt":1794231405028,"updatedAt":1794231420090,"priority":0,"dequeuedAt":1794231418444,"wasForkedFrom":false,"completedAt":1794231420090,"applicationName":"relay-p000-exp-d"}}
+--- 恢复后状态 ---
+  id  |  state   | state_version 
+ t-d2 | ACCEPTED |             3
+(1 row)
+
+ function_name 
+ claimTask
+ markRunning
+ DBOS.sleep
+ markAccepted
+(4 rows)
+
+ seq | actor  |       action       
+   1 | dbos-A | DBOS_CLAIM
+   2 | dbos-A | DBOS_MARK_RUNNING
+   3 | dbos-A | DBOS_MARK_ACCEPTED
+(3 rows)
+

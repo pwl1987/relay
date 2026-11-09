@@ -1,0 +1,9 @@
+{
+  "name": "relay-p000-exp-b",
+  "private": true,
+  "type": "module",
+  "description": "P0-00 实验 B:PostgreSQL Tick/Lease/Fencing 崩溃恢复 POC(实验代码)",
+  "dependencies": {
+    "pg": "8.13.1"
+  }
+}

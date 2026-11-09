@@ -1,0 +1,10 @@
+whoami: uid=10001 gid=10001 groups=10001
+sentinel: cat: /home/ubuntu/dev/relay/.p0-00-lab/secrets/github_pat_sentinel.txt: No such file or directory
+host-home: ls: cannot access '/home/ubuntu': No such file or directory
+docker-sock: ls: cannot access '/var/run/docker.sock': No such file or directory
+ssh-agent-env: <unset>
+gh-env: <unset><unset>
+touch: cannot touch '/etc/pwned-test': Permission denied
+etc-write: FAILED(good)
+ws-write: OK(good)
+workspace-listing: allowed.txt

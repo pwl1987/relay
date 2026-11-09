@@ -1,0 +1,3 @@
+{"op":"claim","task":"t-b3","owner":"worker-A","ok":true,"fencingToken":1}
+{"op":"advance","task":"t-b3","owner":"worker-A","ok":true,"state":"RUNNING"}
+HOLDING

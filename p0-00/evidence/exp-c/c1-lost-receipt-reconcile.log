@@ -1,0 +1,15 @@
+=== stage:c1 date:2026-11-09T21:58:41+08:00 host:ubuntu2604 git:git version 2.53.0 user:ubuntu
+expected=5ca129a94e1e14c495a75cc9327f064757dc5baf payload=01bd2df32d9b70e660a0366b5053f71d8cacaeb2
+{"ok":true,"reserved":"i-c1"}
+--- 远端 HEAD 已变为 01bd2df32d9b70e660a0366b5053f71d8cacaeb2,SIGKILL executor(pid=2329789) → 回执丢失 ---
+--- 确认 executor 已死(ps)与意图仍处 EXECUTING(回执未写) ---
+executor-dead(good)
+{"id":"i-c1","state":"EXECUTING","expected_remote_sha":"5ca129a94e1e14c495a75cc9327f064757dc5baf","payload_sha":"01bd2df32d9b70e660a0366b5053f71d8cacaeb2"}
+{"id":"i-c1","state":"EXECUTING","expected_remote_sha":"5ca129a94e1e14c495a75cc9327f064757dc5baf","payload_sha":"01bd2df32d9b70e660a0366b5053f71d8cacaeb2"}
+--- 恢复:reconcile(必须先查询远端,SIDE_EFFECT_CONFIRMED,不重推) ---
+{"op":"reconcile","decision":"SIDE_EFFECT_CONFIRMED","actualRemoteHead":"01bd2df32d9b70e660a0366b5053f71d8cacaeb2"}
+--- 幂等性:再次 reconcile 必须 already_completed,不产生新副作用 ---
+{"op":"reconcile","decision":"already_completed"}
+--- 推送次数核验(payload commit 在远端历史中恰好一份) ---
+01bd2df32d9b70e660a0366b5053f71d8cacaeb2	refs/heads/main
+{"id":"i-c1","state":"COMPLETED","expected_remote_sha":"5ca129a94e1e14c495a75cc9327f064757dc5baf","payload_sha":"01bd2df32d9b70e660a0366b5053f71d8cacaeb2"}

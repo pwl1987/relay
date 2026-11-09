@@ -1,0 +1,19 @@
+=== stage:b3 date:2026-11-09T21:57:53+08:00 host:ubuntu2604 node:v24.21.0 user:ubuntu
+--- 任务已 RUNNING,对 worker-A(pid=2325236) 发送 SIGKILL ---
+worker-dead(good)
+--- 幽灵写入:A 的 fencing=1 在 TTL 窗口内尝试 RUNNING->VERIFYING(记录语义) ---
+{"op":"advance","task":"t-b3","owner":"worker-A","fencing":1,"ok":false,"reason":"lease_expired","state":"RUNNING","version":2}
+--- sleep 6s(等待租约过期)后 reconcile ---
+{"op":"reconcile","owner":"supervisor","reclaimed":["t-b3"]}
+--- 幽灵写入:A 仍用 fencing=1 尝试 READY 不可行;改为验证 A 无法用旧 token 领取/推进 ---
+{"op":"advance","task":"t-b3","owner":"worker-A","fencing":1,"ok":false,"reason":"lease_expired","state":"READY","version":3}
+--- worker-B 重新领取并推进到 ACCEPTED(fencing 动态取自 claim 结果) ---
+{"op":"claim","task":"t-b3","owner":"worker-B","ok":true,"fencingToken":2}
+{"op":"advance","task":"t-b3","owner":"worker-B","fencing":2,"ok":true,"state":"RUNNING"}
+{"op":"advance","task":"t-b3","owner":"worker-B","fencing":2,"ok":true,"state":"ACCEPTED"}
+--- worker-B 再用 fencing=2 重复推进(必须 REJECTED state_mismatch,禁止双接受) ---
+{"op":"advance","task":"t-b3","owner":"worker-B","fencing":2,"ok":false,"reason":"state_mismatch:ACCEPTED","state":"ACCEPTED","version":6}
+---SNAPSHOT:b3-final---
+TASKS [{"id":"t-b1","state":"READY","state_version":0},{"id":"t-b2","state":"READY","state_version":0},{"id":"t-b3","state":"ACCEPTED","state_version":6}]
+LEASES [{"task_id":"t-b3","owner_id":"worker-B","fencing_token":"2","lease_expires_at":"2026-11-09T13:58:45.690Z","heartbeat_at":"2026-11-09T13:58:15.690Z"}]
+AUDIT [{"seq":"1","actor":"worker-A","action":"CLAIM","task_id":"t-b3","before_state":"READY","after_state":"LEASED","detail":{"fencing":1,"reclaimedExpired":false}},{"seq":"2","actor":"worker-A","action":"ADVANCE","task_id":"t-b3","before_state":"LEASED","after_state":"RUNNING","detail":{"fencing":1}},{"seq":"3","actor":"worker-A","action":"ADVANCE_REJECTED","task_id":"t-b3","before_state":"RUNNING","after_state":"RUNNING","detail":{"reason":"lease_expired","fencingToken":1}},{"seq":"4","actor":"supervisor","action":"RECONCILE_EXPIRED","task_id":"t-b3","before_state":"RUNNING","after_state":"READY","detail":{"reason":"lease_expired"}},{"seq":"5","actor":"worker-A","action":"ADVANCE_REJECTED","task_id":"t-b3","before_state":"READY","after_state":"READY","detail":{"reason":"lease_expired","fencingToken":1}},{"seq":"6","actor":"worker-B","action":"CLAIM","task_id":"t-b3","before_state":"READY","after_state":"LEASED","detail":{"fencing":2,"prevOwner":"worker-A","reclaimedExpired":false}},{"seq":"7","actor":"worker-B","action":"ADVANCE","task_id":"t-b3","before_state":"LEASED","after_state":"RUNNING","detail":{"fencing":2}},{"seq":"8","actor":"worker-B","action":"ADVANCE","task_id":"t-b3","before_state":"RUNNING","after_state":"ACCEPTED","detail":{"fencing":2}},{"seq":"9","actor":"worker-B","action":"ADVANCE_REJECTED","task_id":"t-b3","before_state":"ACCEPTED","after_state":"ACCEPTED","detail":{"reason":"state_mismatch:ACCEPTED","fencingToken":2}}]

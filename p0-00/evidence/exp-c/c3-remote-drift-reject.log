@@ -1,0 +1,7 @@
+=== stage:c3 date:2026-11-09T21:24:21+08:00 host:ubuntu2604 git:git version 2.53.0 user:ubuntu
+--- 远端已被外部推进: fa900c74e71dbfdc5b3b4ee74890b9aa54bcf963 -> eddb3c194ed71a0b36982b956bd6551227ed3db1 ---
+{"ok":true,"reserved":"i-c3"}
+--- 用过期 expected 执行(必须 CONFLICT,不推送) ---
+{"op":"execute","ok":false,"reason":"remote_drift","actual":"eddb3c194ed71a0b36982b956bd6551227ed3db1"}
+--- 执行后远端 HEAD=eddb3c194ed71a0b36982b956bd6551227ed3db1(必须仍为 eddb3c194ed71a0b36982b956bd6551227ed3db1,候选 8a864f5661e2904445c2f4ab4fa84e0abbee0ba9 未覆盖) ---
+{"id":"i-c3","state":"CONFLICT","expected_remote_sha":"fa900c74e71dbfdc5b3b4ee74890b9aa54bcf963","payload_sha":"8a864f5661e2904445c2f4ab4fa84e0abbee0ba9"}

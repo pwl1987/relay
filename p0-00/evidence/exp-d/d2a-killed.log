@@ -1,0 +1,11 @@
+Unknown log level 'WARN', defaulting to 'info'. Valid levels: debug, info, warn, error
+Initializing DBOS (v5.4.0)
+System Database URL: postgresql://postgres:***@127.0.0.1:55433/relayp000
+Executor ID: local
+Application version: 834fd0cf61b74def0d779c39bc74b8f2
+No workflows to recover from application version 834fd0cf61b74def0d779c39bc74b8f2
+DBOS launched!
+Listening to 0 queues:
+{"mode":"d2a","started":"wf-d2"}
+[claimTask] received taskId="t-d2" worker="dbos-A"
+[claimTask] probe=[{"id":"t-d2","state":"READY"}] rowCount=1

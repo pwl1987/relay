@@ -1,0 +1,15 @@
+{
+  "name": "relay-p000-exp-d",
+  "private": true,
+  "type": "module",
+  "description": "P0-00 实验 D:DBOS durable workflow 与最小 PG Tick/Lease 的真实对比(实验代码)",
+  "dependencies": {
+    "@dbos-inc/dbos-sdk": "^5.4.0",
+    "pg": "8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}

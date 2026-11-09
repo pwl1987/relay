@@ -1,0 +1,12 @@
+=== stage:c2 date:2026-11-09T21:25:03+08:00 host:ubuntu2604 git:git version 2.53.0 user:ubuntu
+{"ok":true,"reserved":"i-c2"}
+--- kill 后远端 HEAD=d61e6b74065b14a4e1caffea35563d82a9c908a1(payload=f019d2d65b4e9908ec8fca28ffcf0e41abbe21ad) ---
+{"id":"i-c2","state":"EXECUTING","expected_remote_sha":"d61e6b74065b14a4e1caffea35563d82a9c908a1","payload_sha":"f019d2d65b4e9908ec8fca28ffcf0e41abbe21ad"}
+--- 恢复:reconcile(决策将写入审计) ---
+{"op":"reconcile","decision":"SIDE_EFFECT_ABSENT_REEXECUTE_SAFE","actualRemoteHead":"d61e6b74065b14a4e1caffea35563d82a9c908a1"}
+--- 决策:未发生 → 安全重推一次 ---
+To /home/ubuntu/dev/relay/.p0-00-lab/ws/c-remote.git
+   d61e6b7..f019d2d  f019d2d65b4e9908ec8fca28ffcf0e41abbe21ad -> main
+{"op":"execute","ok":true}
+f019d2d65b4e9908ec8fca28ffcf0e41abbe21ad	refs/heads/main
+{"id":"i-c2","state":"COMPLETED","expected_remote_sha":"d61e6b74065b14a4e1caffea35563d82a9c908a1","payload_sha":"f019d2d65b4e9908ec8fca28ffcf0e41abbe21ad"}
