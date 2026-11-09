@@ -232,6 +232,9 @@ export async function advanceTask(
 // 心跳续租(必须处于事务内)。续租成功不写审计(高频路径,heartbeat_at 即记录);
 // 过期/fenced/冒充/终态拒绝写审计。旧 fencing 的续租请求被拒 ⇒ 过期幽灵无法自我复活;
 // 终态任务的心跳被拒 ⇒ 不可复活已关闭任务的租约(复核 F-3 TOCTOU 处置)。
+// 残余窗口(复验实证,影响有界):NEEDS_RECONCILE 态心跳仍成功,僵尸可在"回收后、
+// 新 claim 前"续租;但 advance 被拒、新 claim 即使其 fenced(fencing 单调),
+// 窗口内本身属 B3b 权威契约 ⇒ P0-01B 以 leased-chain 校验收口。
 export async function heartbeat(
   exec: Exec,
   taskId: string,
