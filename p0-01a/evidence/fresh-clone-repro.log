@@ -1,0 +1,20 @@
+=== P0-01A 全新克隆复现(clone@ff0b1d1d1524f1bd559399c741066c4706e3a42a, 2026-11-09T22:39:47+08:00, ubuntu2604) ===
+--- npm ci ---
+npm warn install-scripts
+npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+--- db:up ---
+PG ready on 127.0.0.1:55433
+--- npm test ---
+ ✓ test/integration/heartbeat.test.ts (3 tests) 1436ms
+   ✓ 心跳续租 > 过期后续租被拒;新 Worker 回收领取  1316ms
+ ✓ test/integration/lease-basics.test.ts (2 tests) 162ms
+ ✓ test/unit/policy-scope.test.ts (8 tests) 5ms
+ ✓ test/integration/lease-expiry-fencing.test.ts (1 test) 1533ms
+   ✓ B2 租约过期与 fencing > 过期回收:fencing 单调 +1;旧 Token 与冒充一律被拒  1430ms
+
+ Test Files  11 passed (11)
+      Tests  34 passed (34)
+   Start at  22:39:50
+   Duration  25.83s (transform 216ms, setup 0ms, collect 5.41s, tests 17.74s, environment 2ms, prepare 769ms)
+
+=== REPRO_EXIT:0 ===
