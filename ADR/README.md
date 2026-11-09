@@ -1,10 +1,14 @@
-# ADR 索引
+# Relay 架构决策记录（ADR）
 
-以下 ADR 都属于首批冻结基线。`FROZEN` 表示实现必须遵守；ADR 内的 `OPEN` 只表示待补充细节，不代表可以无记录扩大范围。
+状态：**FROZEN（已接受的架构边界）**；`OPEN` 项不等于可无审计扩范围。以 [架构基线](../ARCHITECTURE_BASELINE.md) 为唯一架构叙述入口，ADR 仅记录裁决和理由。
 
-- [0001 产品边界](0001-product-boundary.md)——**FROZEN**
-- [0002 轻量 Core](0002-lightweight-core.md)——**FROZEN**
-- [0003 Agent Runtime 与 Session Fabric](0003-agent-runtime-and-session-fabric.md)——**FROZEN**
-- [0004 自治、超时与质量门禁](0004-autonomy-and-quality-gates.md)——**FROZEN**
-- [0005 Operator 能力](0005-operator-capabilities.md)——**FROZEN**
-- [0006 Memory、Knowledge 与 Code Intelligence](0006-memory-knowledge-code-intelligence.md)——**FROZEN**
+- [0001 产品边界](0001-product-boundary.md) — FROZEN
+- [0002 轻量 Core 与 P0 边界](0002-lightweight-core.md) — FROZEN
+- [0003 Pi 与 Session / 协议边界](0003-agent-runtime-and-session-fabric.md) — FROZEN，Pi 集成方式 OPEN
+- [0004 自治与质量门](0004-autonomy-and-quality-gates.md) — FROZEN，数值阈值 OPEN
+- [0005 Operator 能力排序](0005-operator-capabilities.md) — FROZEN
+- [0006 Context/Memory/Code Intelligence](0006-memory-knowledge-code-intelligence.md) — FROZEN，P1 具体实现 OPEN
+- [0007 Durable Workflow 技术选型](0007-durable-workflow.md) — **OPEN / POC REQUIRED**
+- [0008 Method Packs 与扩展](0008-extensions-and-method-packs.md) — FROZEN（职责）；Registry OPEN
+
+修改 FROZEN 决策须说明替代方案、验证和迁移影响；不要删除旧 ADR 或建立第二个权威目录。

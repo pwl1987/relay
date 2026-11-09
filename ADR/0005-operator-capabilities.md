@@ -1,9 +1,11 @@
-# ADR-0005：Operator 能力
+# ADR-0005：Operator Scope 与阶段排序
 
-状态：**FROZEN**
+状态：**FROZEN**；Credential Broker/Sandbox OPEN。
 
-Operator 是窄化、经过 Policy 检查的适配器：文件系统/进程、Git、GitHub、Docker、SSH（P0）；Playwright Browser、Search/Crawler（P1）。每个 Operator 都必须声明权限、凭据、超时、输出限制、脱敏、幂等和 Audit 行为。
+**决定**：所有外部动作均经 `Agent → Action Proposal → Policy → Scoped Executor → Observation`；Agent 不持有宽权限 GitHub/SSH/生产凭据，Operator 不推进 Lifecycle。必须有路径/主机 Allowlist、超时、预算、秘密脱敏、审计、幂等/副作用核对。
 
-GitHub 写操作、Browser 副作用、远程 SSH、破坏性文件系统/数据库操作以及生产相关操作都是独立能力。必须使用最小权限、路径 Allowlist 和主机 Allowlist。Operator 只报告 Observation，不能批准自己的工作，也不能修改 Lifecycle 状态。
+**P0**：仅受限 FS/Shell/Git、本地测试/CI、最小 GitHub API 受控读写；Playwright Test 可验证交付，不开放通用浏览能力。需要真实沙箱与隔离验证，不能只靠提示词限制。
 
-OPEN：凭据 Broker 实现和托管 Runner 隔离。
+**P1**：Playwright Browser Operator、Search/HTTP Crawler、SSH/Docker/Deploy Adapter、外部 CI Provider。P0 的 Docker 运行容器不等于已授权 Agent 操作 Docker 守护进程。
+
+**延期**：任意主机高权限运维、自动生产部署、全能 Operator Registry。

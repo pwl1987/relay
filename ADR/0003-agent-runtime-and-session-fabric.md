@@ -1,9 +1,9 @@
-# ADR-0003：Agent Runtime 与 Session Fabric
+# ADR-0003：Pi first、Runtime/Model 与 Session 分界
 
-状态：**FROZEN**
+状态：**FROZEN（边界）**；**OPEN（SDK/RPC 选择）**。
 
-Pi 是第一个 Runtime Adapter。Session Fabric 是围绕有边界 Run 的持久化上下文层，负责 Checkpoint、Handoff、Resume、Trace Hash 和 Recovery Metadata。Lifecycle/Supervisor 仍然是调度与状态转换的唯一所有者。
+**决定**：Pi 是第一个 AgentRuntime，但 Runtime!=Model。Relay Core 管 Goal/Task/Lease/Gate/Policy；Pi 返回事件/动作提议/结果，不拥有独立工作流状态。P0 的 Session 仅保留 Run Context、Checkpoint、Handoff 和恢复引用；恢复以重建上下文为保证，非模型内部状态原样重启。
 
-可以支持 ACP 作为互操作适配器，但必须映射到同一套 Run/Session Contract，不能引入并行 Lifecycle。Session 断开或失败后，必须能够从持久化 Checkpoint 恢复；通知不构成状态转换。
+ACP 是 Runtime 互操作协议（P1），MCP 是工具调用传输，不得替代授权层。ACP v2 为演进中的草案时不得无 POC 绑定；Agent-to-Agent Session Fabric 的 send/steer/spawn 为 P1 研究，不是首版多 Agent 总线。
 
-OPEN：其他 Runtime 与 Handoff 序列化格式。
+**风险**：同进程 SDK 在未隔离的默认 Shell/FS 工具下可能旁路 Policy；RPC 有进程隔离便利但并不天然等于沙箱。P0-00 对比两者的授权和恢复实测后选择。

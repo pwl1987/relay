@@ -1,80 +1,60 @@
-# 架构基线
+# Relay 顶层架构基线
 
-状态：**FROZEN**
+状态：**FROZEN（原则与所有权）**；实现、服务可用性及性能尚未验证。
 
-## 产品边界
+## 1. 使命及非目标
 
-Relay 是面向项目的自治软件工作运行时。它的核心承诺是：围绕明确目标，持续产生可恢复、经过证据门禁的进展。它不是通用助手、IDE、浏览器自动化产品、向量数据库或模型训练平台。
+Relay 是自主软件**交付控制系统**：将目标/模糊反馈变为可验证的 ChangeSet，保持受控执行、真实质量门和可恢复交接。它**不重写** Pi、Git、CI、Playwright 或现有模型能力，也不依赖 ChatGPT。
 
-### Core 包含
+不是多 Agent 聊天平台、AI 公司 ERP、通用 DevOps 产品或自我修改而不经评审的 RSI 运行时。
 
-1. Goal 与 Lifecycle 状态。
-2. 带有依赖、所有者、尝试次数和证据状态的 Task DAG。
-3. Supervisor 与有边界的执行循环。
-4. 用于可恢复运行和确定性交接的 Session Fabric。
-5. Policy 评估、Decision 记录、Checkpoint、Audit Event 和 Approval Gate。
-6. 面向本地进程、Git、GitHub、Browser、Search/Crawler、Docker、SSH 的窄 Operator 接口和适配器。
-
-### Core 不包含
-
-ChatGPT/Codex UI、模型 Provider、长期 Memory、Knowledge Index、Code Graph、领域工作流以及厂商专属协议都属于可替换集成。
-
-## 分层与职责不重叠
+## 2. 唯一状态/调度所有者
 
 ```text
-入口（CLI/API/ChatGPT 适配器）
-  -> Lifecycle + Supervisor
-      -> Task DAG + Policy/Gate
-          -> Session Fabric + Run 记录
-              -> Agent Runtime（Pi 适配器）
-                  -> Operator（GitHub、Browser、Search、Crawler、SSH、Docker、FS）
-                      -> 外部系统
+Web(最小界面) / CLI / HTTP API / 可选 ChatGPT Client
+              |
+      Relay Server（Lifecycle + Policy + State）
+              |                   PostgreSQL（任务、租约、决策、审计、证据索引）
+      Relay Worker（单队列轮询/受限运行）
+              |
+       Run / Session Context + Pi Adapter（Runtime != Model）
+              |
+ Action Proposal -> Policy -> Scoped Executor -> Observation
+              |
+   Git / FS / Shell / CI（先）；Browser / Search / SSH / Deploy（按里程碑）
 ```
 
-ACP 是 Agent Runtime 互操作适配器。MCP 是工具传输适配器。Plugin 负责适配器和配置的封装。Skill 负责指令、Schema 和检查项。它们都不能拥有 Lifecycle 状态，也不能绕过 Policy Gate。
+只有 Relay 的状态机负责 Lifecycle、任务就绪、Lease、Retry/Replan、Gate、接受与最终状态。Worker 执行运行步骤，**不私有化另一套任务调度**；Pi/ACP 及 Plugin 不能自行批准交付或越权。Session Persistence/Handoff 是运行上下文能力，**不是第二个 Workflow Engine**。
 
-## 24×7 循环
+默认服务边界：`relay-server`、`relay-worker`、PostgreSQL；P0 允许 server/worker 同进程起步，证明确有故障隔离需求再拆。Chromium 等按需启动。不得因未来扩展提前部署消息总线或服务网格。
 
-循环是持久化的 Supervisor Tick，不是永不退出的模型会话：
+## 3. 六阶段与风险裁剪
 
-1. 使用 Lease 领取一个 Ready Task；
-2. 创建或恢复 Session Checkpoint；
-3. 在 Policy 和预算约束下执行一个有边界的步骤；
-4. 持久化输出、证据和下一步动作；
-5. 检查进度和验收标准；
-6. 重试、重新规划、升级模型、延期或阻塞路径。
+`DISCOVER → DESIGN → BUILD → VERIFY → DELIVER → OPERATE`；每阶段有准入/产出/可跳过理由，不强制逐阶段执行。BUG 可以 BUILD→VERIFY→DELIVER，大功能才包含 DISCOVER/OPERATE。验证失败必须 REWORK，不能直接由 BUILD 标记 ACCEPTED。细节见 [交付规范](docs/DELIVERY.md)。
 
-每个 Task 都必须设置尝试次数、墙钟时间、Token/Cost 预算、相同错误次数和返工次数上限。Watchdog 负责恢复过期 Lease；Progress Guard 负责识别停滞并阻止盲目重复。
+## 4. P0 重点与不提前承诺的能力
 
-## Decision Timeout / Safe Continuation
+P0 仅证明**一条单仓端到端垂直路径**（最小模糊需求澄清、任务持久化、Pi、Scope 受控的本地动作、独立测试/观察、允许的 Git 交付、崩溃恢复）。24×7 指能在服务存活或恢复后持续安全推进**有资格执行**的工作，**不承诺无供电、无网络、无模型时仍产出**。
 
-每个 Decision 都记录风险、可逆性、过期时间、Fallback、受影响 Task 和回滚信息。超时后的处理规则：
+Web UI 仅需展示状态、证据与审批，不建复杂控制台。通用 Search、Crawler、SSH、Docker、Deploy、ACP/MCP 通用互操作及完整跨仓 ChangeSet 不属于 P0 的必经路径。
 
-- 低风险且可逆：采用推荐方案继续，并写入 Assumption；
-- 中风险且可逆：制作 Prototype 或 Branch，不 Merge、不发布；
-- 高风险或不可逆：只阻塞依赖该 Decision 的路径；
-- 始终重新评估新证据是否已经消除了人工审批需求。
+## 5. 开放边界
 
-超时不得授权生产发布、破坏性数据操作、凭据暴露、Force Push、不可逆迁移或放宽安全策略。
+- `Project != Repository`；逻辑上支持项目组/多仓/跨仓 ChangeSet，P0 只实现单仓验证。多仓协调、原子性与补偿语义留 P1。
+- `Runtime != Model`；首个 Runtime 为 Pi，模型提供商、能力层级及版本均独立配置。
+- Agent-to-Agent 的 Session Fabric *方法*（spawn/send/handoff 等）不是 P0 承诺。P0 先做 Session 引用与结构化 Handoff；交互式 Session Fabric 属 P1 设计与 POC。
+- ACP 是 Client↔Agent Runtime 互操作，MCP 是 Agent↔Tool 传输方式；均不得成为任务状态 Authority。
+- Skill 是方法；Capability 是所需抽象能力；Plugin/Adapter 是实现提供者；API/CLI/MCP/Native 是调用方式。插件不是权限授予系统。
+- Context Resolver 仅按需组合来源、权限、时效、token 预算和来源标识；不把全历史默认塞给 Agent。
+- 质量来自确定性 Gate、隔离 Reviewer 和真实环境观察，而非模型自评或多个角色相互背书。
 
-## P0/P1/P2 审计
+## 6. 系统性安全/可恢复不变量
 
-- **P0 保留：** 持久化状态、Task DAG、Supervisor、Session Fabric、Policy/Gate、Audit、Recovery、Pi Runtime 适配器、本地/Git/GitHub Operator、Safe Continuation。
-- **P1 保留：** Browser/Search/Crawler/SSH/Docker Operator、模型梯度、Plugin/Skill Pack、可选 ChatGPT 适配器、Memory/Knowledge/Code Intelligence 扩展点。
-- **P2 收缩：** 多 Runtime 联邦、分布式队列、向量原生 Memory、自治生产部署、复杂可视化编排和厂商专属工作流引擎延期。
+1. 外部写操作统一经 `Action Proposal → Policy → Scoped Executor`，模型看不到高权限令牌；凭据由执行器按动作最小授权取得。
+2. 对 DB 内部状态使用事务/租约/栅栏版本。外部副作用按**至少一次可能重放**设计，带幂等键、事后核查或转人工；**绝不声称 GitHub/SSH/部署恰好执行一次**。
+3. 崩溃后从 DB 持久状态和 Git 现实恢复；若动作结果不确定，先 Reconcile 再重试，不能盲目重放。
+4. 未经授权不得生产发布、强推、破坏数据、扩权、泄露凭据或改变核心 Policy。超时仅决定**可授权的 Fallback**，不制造新权限。
+5. Accepted 必须可追溯到基于具体提交/环境的 Requirement、Review、Test、Reality Evidence。Task 全通过≠ChangeSet 或 Project 已验收。
+6. 单写者下 `main` 唯一长期分支；集成需校验 base SHA 与快进，不能覆盖并行写入。
 
-本次审计补上的主要遗漏是明确的 **Progress Guard + Evidence Contract**。本次删减的主要过度设计是：不再把每种方法或能力都当作 Core 一级子系统。
-
-## 可靠性、安全与运维
-
-PostgreSQL 是运行时持久化状态的事实来源。Claim、Lease、状态转换和 Audit Append 使用事务。Checkpoint 应具备幂等性，并在可行时使用内容寻址。Recovery 只能从持久化状态恢复；通知本身不授予权限。
-
-Operator 使用 Allowlist、范围受限的凭据、超时、输出限制和脱敏 Audit 记录。破坏性操作或外部副作用必须经过 Policy Decision，并在配置要求时等待人工审批。Plugin 不能自行扩大权限。ChatGPT 绑定是可选的，不能伪造 Runtime 身份。
-
-## OPEN
-
-- API 传输方式（HTTP、Unix Socket 或两者）；
-- Pi 集成面和备用 Runtime；
-- 默认保留期和脱敏策略；
-- 部署打包方式和多主机拓扑；
-- 各类 Task 的量化质量阈值。
+详见 [核心契约](CONTRACTS.md)、[自治运维](docs/OPERATIONS.md)及 ADR。

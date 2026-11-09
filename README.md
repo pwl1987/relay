@@ -1,33 +1,37 @@
-# Relay 设计基线
+# Relay / HIVE Next
 
-状态：**FROZEN 基线，尚未开始实现**
+**状态：FROZEN（顶层设计基线）；产品尚未实现。** 最后审计：2026-11-09。
 
-Relay 是一个小型、可独立运行的项目自治运行时。它接收目标，将目标转化为持久化工作，通过获准的 Operator 执行受边界约束的 Agent 运行，基于证据完成验证，并在中断后恢复。ChatGPT 只是可选入口，运行时不依赖 ChatGPT。
+Relay 是**轻量内核、可独立运行、证据驱动、可恢复地持续推进的软件交付系统**（Autonomous Software Delivery Engine）。用户提供目标或模糊问题，系统负责质疑、查证、设计、执行、验证与交接。ChatGPT 仅是可选入口，**不是控制面或运行依赖**。
 
-本仓库是独立的 clean-room 设计，不包含从其他系统复制的源代码或实现文本。本仓库冻结顶层架构和首批交付边界，不冻结产品最终名称、界面、模型厂商、Provider 凭据或生产部署策略。
+长期愿景包括自我改进，但 P0 不做 RSI。Relay 不是多 Agent 聊天室、软件公司角色模拟器、IDE、通用 DevOps/Kubernetes 控制平台，也不替代已有编程 Agent。
 
-## 审计结论
+## 已冻结与尚未实现的区别
 
-此前方向只有在完成以下收窄后才适合冻结：
+- **FROZEN**：设计必须遵守的边界，不表示代码已经实现或完成可靠性测试。
+- **OPEN**：需要 POC、测量或 ADR 才能决定。
+- **RESEARCH**：仅进行对比实验，不作交付承诺。
+- **DEFERRED**：不纳入当前里程碑。
+- **REJECTED**：有意识否决，不应无依据重新引入。
 
-- **只保留一个控制流所有者：** Lifecycle、Task DAG 和 Supervisor 统一负责状态、调度、重试、检查点和质量门禁。
-- **将 Session Fabric 定义为运行时原语：** 它负责持久化运行上下文和交接，不再成为另一套工作流引擎。
-- **将 ACP、MCP、Plugin、Skill 放在不同适配边界：** 分别承担协议互操作、工具传输、扩展封装和方法内容职责。
-- **让 24×7 运行有边界：** 进度预算、看门狗、检查点和进度守卫是强制能力；禁止无界 Agent 循环。
-- **让人工缺席只影响局部路径：** 安全且可逆的工作可以带着已记录的假设继续；不可逆或高风险动作只阻塞自己的依赖路径。
-- **保持 Core 轻量：** PostgreSQL 负责持久化；Memory、Knowledge Retrieval 和 Code Intelligence 都是带证据契约的可选插件。
-- **优先模块化单体：** TypeScript/Node、PostgreSQL、Pi、Playwright、Git/GitHub、Docker 和 SSH。Kafka、Kubernetes、Qdrant、OPA、Temporal、Restate 明确延期。
+## 设计入口（避免多份事实源）
 
-## 文档
+- [架构与职责边界](ARCHITECTURE_BASELINE.md)：产品、组件、协议与状态所有权。
+- [路线图与里程碑](P0_P1_ROADMAP.md)：P0 可验收切片及延期项。
+- [领域模型](DOMAIN_MODEL.md)：Project、Goal、WorkPackage、Task、Run、ChangeSet。
+- [核心契约](CONTRACTS.md)：状态转换、Operator、Evidence 和门禁不变量。
+- [交付方法与质量门](docs/DELIVERY.md)：DISCOVER → OPERATE、独立复核、Reality Check。
+- [自治运行与安全](docs/OPERATIONS.md)：24×7、Decision Timeout、恢复与预算。
+- [Runtime、扩展及技术候选](docs/INTEGRATIONS.md)：Pi、ACP/MCP、Skill/Plugin、Context、技术栈。
+- [最终专业审计](docs/FINAL_AUDIT.md)：采纳、修正与拒绝理由。
+- [ADR 索引](ADR/README.md)：不可忽略的架构决策及待定 POC。
+- [执行治理](AGENTS.md)、[当前任务](CURRENT.md)、[窗口续接](docs/CONTINUATION.md)。
 
-- [架构基线](ARCHITECTURE_BASELINE.md)
-- [P0/P1 路线图](P0_P1_ROADMAP.md)
-- [领域模型](DOMAIN_MODEL.md)
-- [契约](CONTRACTS.md)
-- [ADR 索引](ADR/README.md)
+## 第一版的真正目标
 
-## 状态词汇
+在**单仓、单写者、受限工作区**中，以 CLI/API（配最小状态/审批界面）实现一个可重启的完整垂直闭环：
+`目标/澄清 → 有界任务 → Pi 执行 → 独立证据 → 审批与接纳 → Git 交付/恢复`。
 
-- **FROZEN**：实现必须遵守的边界；变更需要新增 ADR。
-- **OPEN**：有意保留的未决事项；扩展实现前必须用证据决定。
-- **DEFERRED**：明确排除在 P0/P1 之外，不提供兼容承诺。
+GitHub Issue 可作为任务展示与协作记录，**不是调度器，也不是 PostgreSQL 运行状态的替代品**。先证明恢复、权限和交付，再扩展多仓、通用 Browser Operator 和 Agent-to-Agent 编排。
+
+本仓库所有正式设计文档使用中文；只用 `main`，不强推。

@@ -1,11 +1,9 @@
-# ADR-0004：自治、超时与质量门禁
+# ADR-0004：24×7 Safe Continuation 与证据门
 
-状态：**FROZEN**
+状态：**FROZEN（安全语义）**；数值阈值 OPEN。
 
-24×7 运行必须是带 Supervisor、预算、Lease、Watchdog、Checkpoint、Progress Guard、相同错误上限和升级策略的循环。禁止无界的 `while(true)` 模型循环。
+**决定**：用持久化 tick/Lease、Watchdog、Progress Guard、预算、退避和停滞熔断实现有限条件下的 24×7 持续推进。Goal/Project/Maintenance 只是不同触发策略。任务失败需先核对现实，再有界重试/重新规划；禁止无界循环及对不确定外部副作用盲重放。
 
-Decision Timeout 只能使用已声明的 Fallback：带着 Assumption 继续、制作不合并的 Prototype、延期，或只阻塞依赖路径。高风险/不可逆动作始终需要规定的 Authority，不能由 Timeout 自动授权。
+D0–D4 决策等级按风险、可逆性、权限、波及面与成本判定。D2 的自动采用必须先获**有范围的授权**；D3 需要用户明确确认；D4 禁止。超时只能局部阻塞或执行原已授权的可逆 Fallback，不能给生产发布、强推、破坏数据等新增权限。Assumption Ledger 记录系统代选的依据和回滚。
 
-Quality Gate 依据 Evidence 和 Task 类型阈值工作。模型置信度本身不能通过门禁。只有在 Gate、Review 和升级策略允许时，较弱模型才可承担低风险工作。
-
-OPEN：各类 Task 的默认数值阈值。
+Quality Gate 必须绑定具体任务/ChangeSet/提交和可信 Evidence；Reviewer 与 Coder 分离上下文，模型自报不能接受。适用门禁按风险裁剪，真实浏览器/API/目标环境观察属于必需的 Reality Check。

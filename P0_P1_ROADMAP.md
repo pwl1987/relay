@@ -1,33 +1,42 @@
 # P0 / P1 路线图
 
-状态：**范围 FROZEN；排序细节 OPEN**
+状态：**FROZEN（阶段目标及负面范围）**；具体工具版本、工期和阈值 OPEN。
 
-## P0——轻量自治内核
+## P0 的原则：先证明一条端到端纵向能力
 
-1. PostgreSQL Schema：Project、Goal、Task、Run、Checkpoint、Decision、Approval、Lease、Evidence 和 Audit Event。
-2. Lifecycle 状态机与确定性的 Task DAG 状态转换。
-3. Supervisor Tick、Lease、重试、退避、Watchdog Recovery、Progress Guard 和有边界预算。
-4. Session Fabric：运行上下文、Checkpoint、Handoff Package、Resume 和 Trace Hash。
-5. 面向风险、可逆性和权限的 Policy Engine，以及 Decision Timeout 与 Safe Continuation。
-6. 带 Model Capability Tier 和 Quality Gate Hook 的 Pi Runtime 适配器。
-7. Core Operator：文件系统/进程、Git、GitHub、Docker、SSH；全部具备 Allowlist 和 Audit。
-8. CLI 与本地 API；不依赖 ChatGPT。
-9. 证据优先的验收：测试、Diff、命令结果和 Review Finding 都是 Artifact，不接受口头声明代替证据。
+**P0-00：设计后的可行性/安全 POC（下一工作包，尚未 ACTIVE）**
+- 验证 Pi SDK 与子进程 RPC 的工具权限/隔离边界，确认默认工具是否会绕过 Policy。
+- 比较 PostgreSQL 事务+租约实现与 DBOS；复现实验：中途崩溃、重试、外部副作用结果未知、恢复去重、重复触发。
+- 为单仓样例制定从模糊反馈到接受的可执行验收，包含运行预算/停止条件、责任边界与故障矩阵。
+- 产出短 ADR/POC 结果，**失败也作为决策证据，不直接开工大框架**。
 
-## P1——能力适配器与 Operator 扩展
+**P0-01：单仓最小可恢复执行闭环**
+- PostgreSQL 只持久化必要的 Goal/Task/Run、状态事件、Lease、Decision、Evidence 引用；WorkPackage/ChangeSet 可以先是轻量关联或文档，不强制完整表。
+- CLI + 最小 HTTP API；单实例定时 Tick、预算、退避、Watchdog、Pause/Resume、重启后 Recovery。
+- Pi 一个 Runtime/一种可替换模型 Provider；Scope 限定的工作区 FS/Shell/Git；只允许声明范围内执行。
+- 每次 Run 有界输出与结构化 Handoff；日志/证据带来源、Run/commit SHA；阻止相同故障无限轮转。
 
-1. Playwright Browser Operator 与 Search/Crawler 适配器。
-2. 在统一 Runtime Contract 后接入 ACP 和 MCP 适配器。
-3. Plugin Registry 与签名/Allowlist Plugin 加载。
-4. Skill Pack 与方法模板（OpenSpec 兼容、工程 Review、Discovery），但不拥有控制流。
-5. 可选 Memory、Knowledge 和 Code Intelligence Plugin。
-6. ChatGPT 适配器、通知、过夜报告和审批收件箱。
-7. Model Ladder、Evaluation Harness 和按 Task 类型配置的 Quality Threshold。
+**P0-02：安全交付与实际质量**
+- 加入 Action Proposal/Policy/Executor，默认拒绝未经授予的写/远程/破坏性能力。
+- 独立 Review + 真实测试（至少 API 或一个 Web Journey）+ Task/ChangeSet Gate；验收只认特定 commit 的证据。
+- GitHub 最小读/受控写集成；使用 HEAD compare-and-swap/快进，默认不自动发布生产。
+- 最小 Web 状态/人工审批视图（非可视化编排器）；无 ChatGPT 的 CLI/API/Web 本地演示。
 
-## P2 / DEFERRED
+P0 出口：**至少一个真实的模糊需求/缺陷 → 计划 → 有界改动 → 独立验证 → 安全集成**，可重启恢复；拒绝越权；无权限/预算/安全任务时停在可解释状态而非空烧 Token。P0 目标是**有限条件下 24×7 可持续推进能力**，不是“完全无人负责所有生产风险”。
 
-Kafka、Kubernetes、Qdrant、OPA、Temporal、Restate、分布式事件网格、自治生产部署、跨租户联邦以及强制性的多 Agent 委员会。
+## P1：经 P0 数据证明后按需扩展
 
-## 退出门禁
+- 多仓 Project/Project Group/ChangeSet 与跨仓补偿；进一步拆分 worker/执行隔离。
+- Browser Operator（Playwright）、Search/Crawler Provider、SSH/Docker/Deploy Scoped Adapter；P0 仅可把 Playwright 用作**测试工具**。
+- ACP 兼容层、MCP 工具桥接、结构化多 Session handoff/steer，第二 Runtime 证明抽象边界。
+- Method/Skill Pack（OpenSpec、Superpowers、BMAD、Comet 的理念吸收，不嵌套其工作流引擎）。
+- 模型能力档位与路由、Project Memory/FTS、Code Intelligence；评价体系按风险调整。
+- 审批通知、可选 ChatGPT 接入、运维报告和持续评测。
 
-P0 只有在以下条件全部满足后才算完成：运行时被终止并重启后可以从 Checkpoint 恢复 Task；未经授权的 Operator 动作会被拒绝；超时 Decision 会被记录；验收可以由持久化 Evidence 证明。P1 还必须证明同一套 Contract 能穿过至少一个外部 Operator 和一个可选 Plugin。
+## P2 / RESEARCH / DEFERRED
+
+- **RESEARCH**：DBOS（先 POC）、pgvector/CodeGraph 方案、复杂 Session Fabric、受限自我改进候选评测。
+- **DEFERRED**：Kafka/NATS/Redis/Qdrant/Neo4j/Elasticsearch/OPA/Kubernetes/Temporal/Restate/OpenBao/Marketplace、分布式控制面、自动生产发布、全量 RSI。
+- **REJECTED（首版）**：固定 16 阶段、完整软件公司角色体系、双 Workflow Engine、必须多 Agent 委员会、把 GitHub Issue 当任务调度器、无上限 Loop。
+
+任何 P1 项目进入 P0 都需新 ADR 证明必须性，并退出等量范围，避免 P0 膨胀。

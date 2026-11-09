@@ -1,9 +1,9 @@
-# ADR-0006：Memory、Knowledge 与 Code Intelligence
+# ADR-0006：Context、Memory 与 Code Intelligence
 
-状态：**FROZEN**
+状态：**FROZEN（分层）**；Provider 选择 OPEN。
 
-这些能力属于 Plugin，不属于 Core。Core 只存储 Recovery、Policy、Task 状态、Evidence 和 Audit 所需的最小持久化事实。可选 Plugin 可以通过带有来源、时效、范围和删除行为的 Query/Index Contract 提供 Memory、文档 Knowledge 或 Code Intelligence。
+**决定**：P0 保存恢复必需的 Goal/Task/Run/Decision/失败/Evidence/Handoff；用 PostgreSQL 元数据和有来源的 Markdown/结构化引用即可。按任务/权限/时效/token 预算组 Context Pack，不默认将全会话历史注入 Agent。
 
-Plugin 结果只能作为 Evidence 或 Context，不能成为 Authority。任何 Plugin 都不能静默修改 Task、Policy、Permission 或 Acceptance 状态。初始实现使用 PostgreSQL 元数据和普通 Search；只有在有度量支持的使用场景下，才引入 Embedding、Vector Store 或 Code Graph。
+P1 才评估 Project Memory、PostgreSQL FTS/pgvector、Code Intelligence；P2 研究 CodeGraph、Graphiti、Qdrant 等。检索结果只作 Context/Evidence，不能改写 Policy、Task/Acceptance 状态或成为仓库 Authority。
 
-OPEN：保留策略、索引周期和首个 Plugin API。
+ContextResolver 等接口仅在有实际消费方时实现，不提前搭建 Knowledge Platform。
