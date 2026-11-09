@@ -272,7 +272,7 @@ export async function reconcileIntent(
       await exec.execute(sql`
         UPDATE tasks SET state = 'BLOCKED', blocked_reason = 'remote_moved_needs_human',
           state_version = state_version + 1, updated_at = now()
-        WHERE id = ${ref.taskId} AND state IN ('NEEDS_RECONCILE','RUNNING','LEASED','READY')
+        WHERE id = ${ref.taskId} AND state IN ('NEEDS_RECONCILE','RUNNING','LEASED','READY','SUBMITTED','VERIFYING')
       `);
     }
   }

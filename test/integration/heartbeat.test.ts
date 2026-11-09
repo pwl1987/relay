@@ -63,6 +63,16 @@ describe("心跳续租", () => {
     expect(b.fencingToken).toBe(a.fencingToken + 1);
   });
 
+  it("终态任务心跳被拒(不可复活已关闭任务的租约;复核 F-3)", async () => {
+    await t.db.execute(sql`UPDATE tasks SET state='ACCEPTED' WHERE id='t-hb'`);
+    const ghost = await t.db.transaction(async (tx) =>
+      heartbeat(tx as unknown as Exec, "t-hb", "worker-B", 999, 30),
+    );
+    expect(ghost.ok).toBe(false);
+    expect(ghost.reason).toBe("state_terminal:ACCEPTED");
+    await t.db.execute(sql`UPDATE tasks SET state='FAILED' WHERE id='t-hb'`); // 还原供审计计数
+  });
+
   it("续租拒绝全部落审计", async () => {
     const res = await t.db.execute(sql`
       SELECT count(*)::int AS n FROM audit_events

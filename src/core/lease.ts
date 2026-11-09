@@ -230,7 +230,8 @@ export async function advanceTask(
 }
 
 // 心跳续租(必须处于事务内)。续租成功不写审计(高频路径,heartbeat_at 即记录);
-// 过期/fenced/冒充拒绝写审计。旧 fencing 的续租请求被拒 ⇒ 过期幽灵无法自我复活。
+// 过期/fenced/冒充/终态拒绝写审计。旧 fencing 的续租请求被拒 ⇒ 过期幽灵无法自我复活;
+// 终态任务的心跳被拒 ⇒ 不可复活已关闭任务的租约(复核 F-3 TOCTOU 处置)。
 export async function heartbeat(
   exec: Exec,
   taskId: string,
@@ -238,6 +239,11 @@ export async function heartbeat(
   fencingToken: number,
   ttlSeconds: number,
 ): Promise<HeartbeatResult> {
+  const task = await lockTask(exec, taskId);
+  if (isTerminal(task.state)) {
+    await auditHeartbeatRejected(exec, taskId, ownerId, fencingToken, `state_terminal:${task.state}`);
+    return { ok: false, reason: `state_terminal:${task.state}` };
+  }
   const lease = await lockLease(exec, taskId);
   if (!lease) {
     await auditHeartbeatRejected(exec, taskId, ownerId, fencingToken, "no_lease");

@@ -55,6 +55,8 @@ export const TRANSITIONS: Readonly<Record<TaskState, readonly TaskState[]>> = {
   VERIFYING: ["ACCEPTED", "REWORK", "NEEDS_RECONCILE", "FAILED", "CANCELLED"],
   REWORK: ["READY", "FAILED", "CANCELLED"],
   NEEDS_RECONCILE: ["READY", "BLOCKED", "FAILED", "CANCELLED"],
+  // NEEDS_DECISION/PAUSED/BLOCKED -> READY 的恢复属 Supervisor/Owner 运维动作
+  // (决策解析/恢复授权,P0-01C Goal Loop 落地;P0-01A 仅承载转移表合法性本身)
   NEEDS_DECISION: ["READY", "BLOCKED", "FAILED", "CANCELLED"],
   PAUSED: ["READY", "FAILED", "CANCELLED"],
   BLOCKED: ["READY", "FAILED", "CANCELLED"],

@@ -135,9 +135,11 @@ describe("V04 SIGKILL 崩溃恢复", () => {
     expect(actions.filter((a) => a === "CLAIM")).toHaveLength(2);
   });
 
-  it("audit_events 结构性 append-only:UPDATE/DELETE 被 PG 触发器阻断", async () => {
+  it("audit_events 结构性 append-only:UPDATE/DELETE/TRUNCATE 全部被 PG 触发器阻断", async () => {
     await assertAppendOnlyBlocked(sql`UPDATE audit_events SET action='TAMPERED' WHERE task_id='t-v04'`);
     await assertAppendOnlyBlocked(sql`DELETE FROM audit_events WHERE task_id='t-v04'`);
+    // F-1 处置:TRUNCATE 不触发行级触发器,需语句级触发器单独阻断(否则可无痕清空审计)
+    await assertAppendOnlyBlocked(sql`TRUNCATE audit_events`);
     const res = await t.db.execute(sql`
       SELECT count(*)::int AS n FROM audit_events WHERE task_id='t-v04' AND action='TAMPERED'
     `);

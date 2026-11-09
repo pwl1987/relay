@@ -34,7 +34,9 @@ export async function closeDb(handle: DbHandle): Promise<void> {
 }
 
 // audit_events append-only 守卫(NFR-02:动作日志不可无痕改写)。
-// 以幂等 SQL 在每次迁移应用后确保存在;不进入 drizzle journal。
+// 以幂等 SQL 在每次迁移应用后确保存在;不进入 drizzle journal
+// ⇒ 部署必须使用 applyMigrations(db.ts),不得裸跑 drizzle-kit migrate(否则守卫缺失)。
+// UPDATE/DELETE 走行级触发器;TRUNCATE 走语句级触发器(行级触发器不拦 TRUNCATE)。
 export const AUDIT_APPEND_ONLY_GUARD = `
 CREATE OR REPLACE FUNCTION relay_forbid_audit_mutation() RETURNS trigger AS $fn$
 BEGIN
@@ -45,6 +47,10 @@ DROP TRIGGER IF EXISTS audit_events_append_only ON audit_events;
 CREATE TRIGGER audit_events_append_only
   BEFORE UPDATE OR DELETE ON audit_events
   FOR EACH ROW EXECUTE FUNCTION relay_forbid_audit_mutation();
+DROP TRIGGER IF EXISTS audit_events_no_truncate ON audit_events;
+CREATE TRIGGER audit_events_no_truncate
+  BEFORE TRUNCATE ON audit_events
+  FOR EACH STATEMENT EXECUTE FUNCTION relay_forbid_audit_mutation();
 `;
 
 interface JournalEntry {
