@@ -84,3 +84,39 @@ export const taskGateVerdicts = pgTable("task_gate_verdicts", {
   reviewer: text("reviewer").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Run 记录(P0-01B;架构 §2 裁剪:worker/event writer 写入)。
+// Pi 是 RPC 子进程,不拥有工作流状态;run 行是 Relay 侧唯一权威事实。
+// outcome: RUNNING | SUCCEEDED | FAILED | TIMEOUT | CANCELLED | INTERRUPTED(租约丢失中止)
+// sandbox: docker | host-fallback(后者非安全边界,仅测试环境显式使用并如实记录)
+export const runs = pgTable("runs", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id")
+    .notNull()
+    .references(() => tasks.id),
+  attempt: integer("attempt").notNull(),
+  runtime: text("runtime").notNull().default("pi-rpc"),
+  modelRef: text("model_ref").notNull(),
+  inputCommitSha: text("input_commit_sha"),
+  budget: jsonb("budget").$type<Record<string, unknown>>(),
+  sandbox: text("sandbox").notNull(),
+  outcome: text("outcome").notNull().default("RUNNING"),
+  detail: jsonb("detail").$type<Record<string, unknown>>(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+});
+
+// Session Context(P0-01B;架构 §2 裁剪:1 run : 1 session)。
+// checkpoint_ref 在 --no-session 下恒空(不留 Pi 侧会话);恢复=重建上下文,
+// resume_mode: fresh | context_rebuild(不假装恢复模型内部状态)。
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  runId: text("run_id")
+    .notNull()
+    .references(() => runs.id),
+  checkpointRef: text("checkpoint_ref"),
+  handoffRef: jsonb("handoff_ref").$type<Record<string, unknown>>(),
+  contextDigest: text("context_digest").notNull(),
+  resumeMode: text("resume_mode").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

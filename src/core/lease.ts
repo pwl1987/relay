@@ -230,11 +230,11 @@ export async function advanceTask(
 }
 
 // 心跳续租(必须处于事务内)。续租成功不写审计(高频路径,heartbeat_at 即记录);
-// 过期/fenced/冒充/终态拒绝写审计。旧 fencing 的续租请求被拒 ⇒ 过期幽灵无法自我复活;
+// 过期/fenced/冒充/终态/非工作链拒绝写审计。旧 fencing 的续租请求被拒 ⇒ 过期幽灵无法自我复活;
 // 终态任务的心跳被拒 ⇒ 不可复活已关闭任务的租约(复核 F-3 TOCTOU 处置)。
-// 残余窗口(复验实证,影响有界):NEEDS_RECONCILE 态心跳仍成功,僵尸可在"回收后、
-// 新 claim 前"续租;但 advance 被拒、新 claim 即使其 fenced(fencing 单调),
-// 窗口内本身属 B3b 权威契约 ⇒ P0-01B 以 leased-chain 校验收口。
+// 非工作链状态(如 NEEDS_RECONCILE)心跳被拒(P0-01B 落地,复核 F-3 残余窗口收口):
+// worker 可合法 advance 到 NEEDS_RECONCILE 而租约仍活,reclaim 路径之外该状态也曾可被僵尸续租;
+// 现在租约权威仅在工作链(LEASED/RUNNING/SUBMITTED/VERIFYING)内有效,出链即失去心跳资格。
 export async function heartbeat(
   exec: Exec,
   taskId: string,
@@ -246,6 +246,10 @@ export async function heartbeat(
   if (isTerminal(task.state)) {
     await auditHeartbeatRejected(exec, taskId, ownerId, fencingToken, `state_terminal:${task.state}`);
     return { ok: false, reason: `state_terminal:${task.state}` };
+  }
+  if (!inLeasedChain(task.state)) {
+    await auditHeartbeatRejected(exec, taskId, ownerId, fencingToken, `state_not_leased_chain:${task.state}`);
+    return { ok: false, reason: `state_not_leased_chain:${task.state}` };
   }
   const lease = await lockLease(exec, taskId);
   if (!lease) {
