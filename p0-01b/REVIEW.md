@@ -81,3 +81,46 @@ TSC_EXIT=0   (无诊断输出)
 - 全部发现为 MINOR(F-1~F-5)/OBSERVATION(F-6~F-9),无一项破坏本包验收的可判定性。**不要求返工代码即可通过复核**。
 - 附带条件(关闭本包前必须完成,均属 Outcome 8 既有收尾动作+披露义务,非新增阻断):①落盘 REPORT.md,如实披露 F-1(工具层边界引用 ADR-0003)、F-5(debug schema 清理+非 E2E 模型调用次数+预算合规性)、F-6(host 网络偏差承接)、F-7(接真 key 前的凭据改造义务);②清理测试库 3 个 debug 残留 schema;③快进 push 唯一 main 并核验 `origin/main==HEAD`+worktree clean;④更新 CURRENT.md/docs/CONTINUATION.md。
 - F-2(审计可销毁)、F-3(心跳吞错)、F-4(启动校验 2/3 legs)建议随下一个工作包或小补丁处置;F-6/F-7 在接入真实模型凭据/P1 前必须收敛。
+
+---
+
+# 复验(6fc276e)
+
+- **复验人**:同一独立上下文 Reviewer(第二轮)
+- **日期**:2026-11-10
+- **被复验 HEAD**:`6fc276e515e87f05fd696d5260897f80aedbd779`(父 7676477;处置提交仅触碰 src/runtime/sandbox.ts +5 行、REPORT.md、REVIEW.md 入库、2 个证据日志;**提交版 REVIEW.md 与复核人首轮原稿逐字一致,未被改动**——已 diff 核实)。工作区含写者正在准备的收尾改动(CURRENT.md 完成态 + docs/CONTINUATION.md 更新,均为未提交状态;src/ 与 test/ 相对 HEAD 干净——本轮亲测覆盖的就是 6fc276e 的代码)
+- **复核人亲测**(2026-11-10 07:19,RELAY_PI_BASE_URL=http://127.0.0.1:1/v1):
+  - `npx vitest run` → **68 passed + 2 skipped**(42.67s,exit 0)——此轮运行在 HEAD==6fc276e(含 F-4 修复)上进行,补上了写者日志无法提供的关键证明(写者的 vitest-full-run.log 重跑于 07:13:28,先于处置提交 07:15:46,且非模型测试对 sandbox.ts 修复前后**不可区分**,故其无法单独证明"修复后仍绿";复核人本轮运行填补该缺口)。
+  - `npx tsc --noEmit` → 0 错误。
+  - 测试库残留:`p01a_%/p01b_%` 常规 schema 零残留;**`p01b_dbg_e2e`/`p01b_dbg_runner` 已确认 DROP**,但空 schema **`undefined` 仍在**(见 F-5 复验)。
+- **模型调用**:复验全程零模型调用(约束遵守;pi-e2e 未运行,E2E 真实性沿用首轮采信基线)。
+
+## 逐条处置结论
+
+| 发现 | 处置结论 | 证据 |
+| --- | --- | --- |
+| F-1 relay_exec 无命令白名单(MINOR) | **VERIFIED(已声明边界)** | REPORT §4 F-1 + §6.2:如实引用 ADR-0003"工具层非安全边界",约束面(cwd/env/超时/审计)与 OS 层兜底(A4/沙箱强制测试)如实列出,细粒度白名单保留至 P0-02 Policy 引擎;CURRENT.md(未提交)风险清单同步承接。与首轮建议一致 |
+| F-2 tool-audit 可销毁(MINOR) | **VERIFIED(已声明+保留)** | REPORT §4 F-2 + §6.1:当前防线=OS 层+run 结束时 detail 快照;"不可篡改审计链属 P0-02"如实声明 |
+| F-3 心跳回调 catch 吞错(MINOR) | **VERIFIED(已声明,保留至 P0-01C)** | REPORT §4 F-3 + §6.5:处置描述准确(该 catch 仅覆盖心跳查询本身失败,DB 闪断时保持运行);CURRENT.md 风险清单含"心跳回调熔断计数"承接 |
+| F-4 verifyPiRuntime 未接入启动链(MINOR) | **VERIFIED(已修,2 项边界如实记录)** | sandbox.ts:199-201:docker 分支启动前调用 `verifyPiRuntime(pi)`,argvOverride 分支(189-196)在其前 return 不受影响,修复位置正确;复核人在 HEAD==6fc276e 重跑 68+2skip+tsc 0 独立证实不破坏。**边界①**:host-fallback 非 override 直启分支**未**接入——REPORT 措辞"stub 测试路径除外"略强于实际(当前无任何测试经过该分支,合同定位其为测试专用 fallback,风险为零,但措辞应精确);**边界②** 见 N-3(修复的 docker 分支无运行时覆盖,E2E 证据漂移) |
+| F-5 debug 残留+未披露模型调用(MINOR) | **PARTIAL(主体已处置)** | `p01b_dbg_e2e`/`p01b_dbg_runner` 已 DROP(psql 实查确认);18-20 次模型调用在 REPORT §5 诚实披露(构成/超限原因/处置三要素齐全);**残留:空 schema `undefined` 未清理**(首轮建议清理 3 个,实际清 2 个;空壳无数据,风险为零,一条 DROP SCHEMA 即收尾) |
+| F-6 `--network host`(OBSERVATION) | **VERIFIED(已承接)** | REPORT §6.3 如实记录(ufw 事实/牺牲网络命名空间/FS·凭据·能力边界完整/bridge+代理属 P1);CURRENT.md 风险清单同步 |
+| F-7 模型凭据面(models.json 经 HOME 可被 relay_exec 读取;api-key 在宿主 argv 可见)(OBSERVATION) | **FAILED(处置遗漏)** | REPORT §4/§6 均无对应承接——§4 表的"F-6/F-7"行处理的是 REVIEW.md 中不存在的发现(见 N-1),导致首轮 F-7 凭据面无人认领。本发现为记录性 OBSERVATION 且本包密钥为假(影响为零),不构成代码缺陷,但接真 key 前必须有人记得:REPORT 修订时必须补该承接行(建议挂 P0-01C Worker 循环或"接真凭据前"检查单) |
+| F-8 白名单字面/typebox 未声明/fakeDir 不清理等杂项(OBSERVATION) | **PARTIAL(记录性,可接受)** | 仅 fresh-clone 头部一项被处置(证据已重生成,头部含克隆 SHA/env/PG ready/tsc: 0 errors,格式达标);typebox 直接 import 未声明、migrations/meta 字面、pi-version.test.ts fakeDir 残留等未提及——均为首轮已记录的观察项,不阻断,维持记录 |
+| F-9 收尾待办(OBSERVATION) | **处置中(进行时,未完成)** | CURRENT.md 完成态与 docs/CONTINUATION.md 更新已在工作区(未提交;内容经只读核对与处置声明一致、无越界、无夸大,"模型 18-20 次"如实写入 CURRENT.md);origin/main(66a2c5c)仍落后 HEAD 3 个提交。关闭前必须完成:收尾提交+快进 push+`origin/main==HEAD` 核验 |
+
+## 新发现(复验新增,无升格:最高 MINOR)
+
+- **N-1|REPORT §4 处置表与 REVIEW.md 发现清单编号错位(MINOR,文档)** — REPORT §4 表的 F-6("host-fallback env 清洗与 docker 层不完全同构")、F-7("waitSettled 100ms 轮询的时延余量")、F-9("**cancelRun** 辅助函数当前无调用方")三行引用的是 REVIEW.md 中**不存在**的发现:首轮 REVIEW.md 的 F-6/F-7/F-9 分别是 `--network host`、模型凭据面、收尾待办;且 `cancelRun` 符号在 src/ 中**根本不存在**(grep 零命中;`waitSettled` 存在于 pi-rpc.ts:139 但首轮未作为发现列出)。此外 REPORT §8 写 fresh-clone "clone@**40d3639**",而日志头部实际标注 `@ **7676477**...`(代码树 src 层面两者等同,7676477 仅多 4 个证据文件,但标注必须一致)。后果:结果证明文件与复核文件失去一一对应,后续追溯会错位;首轮 F-7 凭据面因错位而漏承接。属对接失误而非掩盖(三条描述的观察本身合理,只是编号对不上),**必须修订**:REPORT §4 按 REVIEW.md 编号重排并补 F-7 承接行,§8 SHA 更正为 7676477。
+- **N-2|模型预算超限为已确认的合同纪律偏差(OBSERVATION,已披露)** — 实际 18-20 次 vs 合同上限 12(超 50-70%),REPORT §5 + CURRENT.md 均如实披露,构成(初探针 1/调试 2/E2E 3 轮含失败重试/证据 1 轮)与超限原因(docker 启动链三坑)交代清楚;"超限即停止模型相关路径并报告"的合同响应已履行:此后零模型调用(复核人全程实证),E2E 证据绑定 40d3639。属过程纪律违反而非安全违规,不可逆,不阻断验收;下包预算分段计数建议已写入 CONTINUATION.md(未提交)。记录在案,不追究 further。
+- **N-3|E2E 证据与 HEAD 的代码漂移(6fc276e 修改了 docker 启动分支)(OBSERVATION)** — pi-e2e-run.log 绑定 40d3639,而 6fc276e 改动了唯一被 pi-e2e 覆盖的代码路径(launchPi docker 分支);F-4 修复因此处于"无运行时测试覆盖"状态(非模型测试全部不经该分支;fresh-clone@7676477 亦不含修复)。风险评估为极低:verifyPiRuntime 在当前环境恒通过(单测证实 vendored cli --version==1.5.0,resolveVendoredPi 已校验包声明,修复仅新增一个前置调用),tsc 0 错误,复核人已在 HEAD==6fc276e 全量复跑绿。处置:本轮以复验记录+HEAD 复跑消化该漂移;若 Operator 要求"E2E 绑定最终 SHA"的字面满足,需在下个授权窗口追加模型预算重跑 E2E——不擅自执行。建议 REPORT/收尾提交中如实注明"E2E 证据绑定 40d3639,6fc276e 仅加启动前校验(复核人 HEAD 复跑 68+2skip+tsc 0)"。
+
+## 最终总裁决:**PASS-WITH-FIXES**
+
+- 处置提交 6fc276e 的**代码修复正确且最小**(F-4:sandbox.ts 仅 +4 行校验,位置与语义均对);F-1/F-2/F-3/F-6 的边界声明如实到位;F-5 主体(debug schema + 模型调用披露)处置诚实;证据格式达标;复核人在 HEAD==6fc276e 独立复现 68 passed + 2 skipped + tsc 0 错误。首轮 9 项发现中**无升格**,新增 3 项(N-1 MINOR 文档错位、N-2/N-3 OBSERVATION)。
+- **关闭本包前必须完成(全部为文档/卫生级,零代码返工、零模型调用)**:
+  1. **N-1**:修订 REPORT §4 处置表按 REVIEW.md 编号对齐(现 F-6/F-7/F-9 三行引用不存在的发现,含不存在的 `cancelRun` 符号),补 F-7 凭据面承接行,§8 的 fresh-clone SHA 更正为 7676477;
+  2. **F-5 收尾**:DROP 空 schema `undefined`;
+  3. **F-9**:落盘收尾提交(CURRENT.md/docs/CONTINUATION.md/修订后的 REPORT),快进 push 唯一 main,核验 `origin/main==HEAD` + worktree clean;
+  4. **N-3**:收尾提交中如实注明 E2E 证据绑定 40d3639 与漂移消化方式(复核人 HEAD 复跑),不做任何"证据绑定最终 SHA"的过强措辞。
+- 上述完成后,本包在文档层面即可视为与首轮 PASS 裁决的预期状态一致;代码与测试本身自首轮以来维持 PASS 判断,无任何放宽或回退。
