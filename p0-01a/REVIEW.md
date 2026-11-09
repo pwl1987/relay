@@ -87,3 +87,45 @@
 4. 未对 PG 容器/宿主 Docker 配置做安全评估(权限边界内只读观察:512Mi 上限、127.0.0.1 绑定由脚本声明并经 `docker ps` 证实运行中)。
 5. V08 完整 Gate 编排(证据绑定 commit/environment)、V09、V10 的完整验收属后续包;本复核仅核验"最小门锁/最小单测"级别的声称(合同本身如此限定,未发现夸大)。
 6. 未复核 npm 依赖供应链(仅核对根 package.json 直接依赖 5 项与 exp-c 独立依赖 1 项的合理性与 lockfile 存在性,未逐包审计)。
+
+---
+
+# 复验(40c27a3)
+
+- **复验人**:同一独立上下文 Reviewer(第二轮)
+- **日期**:2026-11-09
+- **被复验 HEAD**:`40c27a340c6b4004257226506535331b8b041b46`(父 cc07804;工作区仅含写者正在准备的收尾改动:CURRENT.md、docs/CONTINUATION.md、p0-01a/evidence/vitest-full-run.log,均为未提交状态,src/ 与 test/ 相对 HEAD 干净——即本轮亲测覆盖的就是 40c27a3 的代码)
+- **复核人亲测**:
+  - `npm test` @ 40c27a3 → **11 文件 / 35 测试全部通过**(26.28s,exit 0);heartbeat 3→4 例、v04 的 append-only 测试内新增 TRUNCATE 断言,与处置声明一致;`npx tsc --noEmit` → 0 错误。
+  - **TRUNCATE 阻断独立实证**(不依赖新测试):在测试库自建 scratch schema `rv_truncate_check`,手工应用已提交迁移表结构 + db.ts 的守卫 SQL 原文后直连 psql 实测——`TRUNCATE audit_events` → `ERROR: audit_events is append-only: TRUNCATE is not allowed`(探针行存活未被清除);UPDATE/DELETE 同样被拦;`pg_trigger` 确认 `audit_events_append_only` 与 `audit_events_no_truncate` 双触发器就位。
+  - **F-3 运行时探针**(scratch schema `rv_hb_probe`,经领域层 claim 后直改状态模拟):`heartbeat@ACCEPTED` → `{"ok":false,"reason":"state_terminal:ACCEPTED"}`(新校验生效);`heartbeat@NEEDS_RECONCILE` → `{"ok":true,...}`(残余窗口实证,见下)。
+  - 提交版 `p0-01a/REVIEW.md`(89 行)与本复核人原稿**逐字一致,未被改动**。
+
+## 逐条处置结论
+
+| 发现 | 处置结论 | 证据 |
+| --- | --- | --- |
+| F-1(MAJOR)TRUNCATE 绕过 append-only | **VERIFIED(已修复)** | db.ts 守卫追加 `BEFORE TRUNCATE ... FOR EACH STATEMENT` 触发器(`audit_events_no_truncate`),幂等性与原守卫一致(DROP IF EXISTS + CREATE);v04 append-only 测试补 `TRUNCATE audit_events` 阻断断言(测试标题同步更新);复核人以独立 scratch schema 直连 psql 复现阻断。承诺"NFR-02 不可无痕改写"现已覆盖 UPDATE/DELETE/TRUNCATE 三条路径 |
+| F-2 死端状态无恢复路径 | **VERIFIED(已声明边界)** | lifecycle.ts 在 NEEDS_DECISION/PAUSED/BLOCKED 行上方注释声明"恢复属 Supervisor/Owner 运维动作,P0-01C Goal Loop 落地;P0-01A 仅承载转移表合法性本身"。与建议一致 |
+| F-3 heartbeat 与 reclaim TOCTOU | **PARTIAL(处置可接受,残余窗口仍在)** | heartbeat 现先 `lockTask` 并拒绝终态(与 reclaim 在任务行上串行化 + 终态不可续租,均为真实硬化,测试覆盖);**但 NEEDS_RECONCILE 态的心跳仍会成功**(复核人运行时探针实证)——reclaim 提交后僵尸 Worker 仍可在新 claim 覆盖前续活租约。影响不变且有界(advance 被 state_mismatch 拒、新 claim 即 fenced、窗口内动作=B3b 已声明契约),且原建议允许"注释声明窄窗口"的替代方案;lease.ts 新注释声称"F-3 TOCTOU 处置"但未明示该残余窗口。非阻断;建议 P0-01B 引入真实 Worker 心跳循环前补 leased-chain 校验或在注释中如实标注 |
+| F-4 REMOTE_MOVED WHERE 集不全 | **VERIFIED(已修复)** | intents.ts:275 WHERE 集已补 `'SUBMITTED','VERIFYING'`,与建议完全一致 |
+| F-5 Gate PASS 不绑定 attempt/commit | **VERIFIED(已声明边界)** | gates.ts 顶部注释声明"PASS 尚不绑定 attempt/commit——旧 PASS 跨 attempt 有效;V09 的绑定在 P0-02A Gate 编排中落地"。与建议的"文档标注"选项一致 |
+| F-6 exp-c lockfile 白名单字面 | **处置中(待 REPORT.md 落盘)** | 按处置声明将记入即将撰写的 p0-01a/REPORT.md;复验时点该文件尚未存在,以最终收尾提交为准 |
+| F-7 "每测试独立 schema"措辞 | **VERIFIED(措辞已改,在未提交的 CURRENT.md 中)** | 工作区 CURRENT.md(收尾提交内容)已改为"每测试文件独立 schema";提交后即兑现 |
+| F-8 守卫不入 drizzle journal | **VERIFIED(已声明)** | db.ts 守卫注释已注明"部署必须使用 applyMigrations(db.ts),不得裸跑 drizzle-kit migrate(否则守卫缺失)",并补注 TRUNCATE 走语句级触发器的原因。与建议一致 |
+| F-9 CONTINUATION.md 未更新 | **处置中(更新已在工作区,待提交)** | 工作区 docs/CONTINUATION.md 已改写为"P0-01A 完成 + P0-01B(唯一下一任务,NOT_ACTIVE)",引用 p0-01a/REPORT.md 与 REVIEW.md,内容与 CURRENT.md 一致且无夸大表述;复验时点为未提交状态,**P0-01A 关闭前必须随收尾提交落地** |
+| F-10 测试单 commit 断言演变不可审计 | **处置中(待 REPORT.md 落盘)** | 按处置声明将记入 REPORT.md;另注:40c27a3 对测试的改动均为**纯增量**(新增断言/用例,未弱化任何既有断言,标题更新除外),已逐行核对 |
+
+## 遗漏与处置不当检查
+
+- **提交边界**:40c27a3 仅触碰 8 个文件(src/core 5、test 2、p0-01a/REVIEW.md),全部在白名单内;无构建产物/依赖目录。
+- **断言强度**:新增均为收紧性断言,无放宽;v04 审计序列断言未变。
+- **未发现新问题**:本轮复查 5 个源文件 diff + 全量测试,无新增 BLOCKER/MAJOR/MINOR。
+- **唯一保留项**:F-3 残余窗口(NEEDS_RECONCILE 态心跳可续租)——已实证存在,非阻断,移交 P0-01B 处置(见逐条表)。
+- **写者并发注意**:复验期间工作区存在写者正在准备的收尾改动(CURRENT.md/CONTINUATION.md/vitest-full-run.log);其内容经只读核对与处置声明一致、无越界路径,但**在本复验报告落盘时点尚未提交**,本裁决以"收尾提交包含上述三个文件 + p0-01a/REPORT.md"为前提。
+
+## 更新总裁决:**PASS**
+
+- F-1(MAJOR,唯一必须修复项)已修复并经复核人独立于新测试的双重实证(psql 直连 + 运行时探针);F-2/F-4/F-5/F-8 按建议处置到位;测试 34→35 全绿且纯增量。
+- 无阻断项。附带条件(收尾步骤,均为合同 Outcome 8 既定动作,非复核发现):收尾提交须落地 CURRENT.md / docs/CONTINUATION.md / p0-01a/REPORT.md(F-6/F-7/F-9/F-10 的处置承诺);F-3 残余窗口移交 P0-01B(Worker 心跳循环落地时补 leased-chain 校验或注释明示)。
+- 复核人在本报告头部与首轮结论中对 cc07804 的全部其余判断(状态机/Lease/Reconcile/测试质量/安全扫描)经 40c27a3 增量复核后均不受影响,维持 VERIFIED。
