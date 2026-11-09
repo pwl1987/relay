@@ -44,21 +44,27 @@
 
 ## 4. 独立复核(全新上下文 Reviewer,两轮)
 
-**首轮(7676477)**:**PASS**。10 项核验全 VERIFIED;9 项发现(最高 MINOR,无 MAJOR/BLOCKER),详见 `p0-01b/REVIEW.md`。复核人亲测 68+2skip 与 tsc 0 错误,全程零模型调用。
+**首轮(7676477)**:**PASS**。10 项核验全 VERIFIED;9 项发现(F-1~F-5 MINOR,F-6~F-9 OBSERVATION,无 MAJOR/BLOCKER),详见 `p0-01b/REVIEW.md`。复核人亲测 68+2skip 与 tsc 0 错误,全程零模型调用。
 
-**处置(收尾提交)**:
+**处置一(6fc276e)**:F-4 已修(verifyPiRuntime 接入 launchPi docker 启动分支)、F-5 部分处置(dbg schema 清理)、F-8 部分处置(证据头部);其余声明边界。
+
+**复验(6fc276e)**:**PASS-WITH-FIXES**,无升格;新发现 N-1(REPORT 处置表编号与 REVIEW.md 错位,致首轮 F-7 凭据面无人承接)、N-2(预算超限确认为已披露纪律偏差,不阻断)、N-3(6fc276e 与 E2E 证据 40d3639 代码漂移;复核人已在 HEAD==6fc276e 独立复跑 68+2skip 补证)。关闭条件:①REPORT 编号重排+F-7 承接 ②DROP 空 schema `undefined` ③收尾提交+push+终态核验 ④注明 E2E 证据绑定与漂移消化。
+
+**处置二(关闭提交)**:
 
 | # | 发现(级别) | 处置 |
 | --- | --- | --- |
-| F-1 | relay_exec 无命令白名单,与合同"语义对齐 V02"字面有张力(MINOR) | **声明边界**:ADR-0003 明示工具层非安全边界,relay_exec 的约束面=cwd 钉死+环境清洗+硬超时+审计,对抗性命令由 OS 层兜底(A4/沙箱强制测试实证);REPORT §6 风险保留 |
-| F-2 | tool-audit.jsonl 位于模型可写 workspace,对抗下可销毁(MINOR) | **声明+保留**:审计是"工具层按策略拒绝"的正向证据源(本包 E2E 中模型为协作方);对抗场景的不可篡改审计落库属 P0-02(Gate/证据链) |
-| F-3 | runner 心跳回调 `.catch(() => {})` 吞 DB 异常(MINOR) | **声明**:该 catch 仅覆盖"心跳查询本身失败"(如 DB 闪断),此时止损无从判定,保持运行等待下一拍或进程退出;租约被拒路径不受影响(run-lease-loss 实证)。P0-01C Worker 循环落地时改为计数熔断 |
-| F-4 | verifyPiRuntime 二进制 leg 未接入启动链,2/3 legs(MINOR) | **已修**:launchPi docker 分支启动前调用 verifyPiRuntime(stub 测试路径除外);非模型全量 68+2skip 重跑绿 |
-| F-5 | 测试库遗留 debug schema + 一次未披露的 magpie 真实调试 run(MINOR) | **已修+披露**:两个 debug schema 已 DROP;该调试 run 是 docker 路径排查所需(`docker run` 缺 `-i` 导致 stdin EOF),计入 §5 成本核算 |
-| F-6 | host-fallback 的 env 清洗与 docker 层不完全同构(OBSERVATION) | 接受:清洗函数 scrubExecEnv 单测覆盖;host-fallback 本身被合同定位为"非安全边界的测试 fallback",run 行如实标注 |
-| F-7 | waitSettled 100ms 轮询的时延余量(OBSERVATION) | 接受:wall 预算粒度秒级,轮询余量可忽略 |
-| F-8 | fresh-clone 证据缺头部(OBSERVATION) | **已修**:重新生成,含克隆 SHA/环境/命令头 |
-| F-9 | cancelRun 辅助函数当前无调用方(OBSERVATION) | 保留为公开 API(取消语义由 cancelSignal 承载并有测试);下一包 Worker 循环将统一 |
+| F-1 | relay_exec 无命令白名单,工具层对 FS 约束≈0,与 Outcome 3 字面有张力(MINOR) | **声明边界**:与 ADR-0003 第 3 点一致(OS 层才是安全边界,工具层=审计+OS 兜底);host-fallback 下 exec 为宿主用户全权 shell(仅测试可达,run 行如实标注);细粒度白名单属 Policy 引擎(P0-02)。"工具层不是安全边界"已在沙箱/parity 测试注释与本节声明 |
+| F-2 | tool-audit.jsonl 位于模型可写 workspace,对抗下可销毁(MINOR) | **声明+保留**:本包模型为协作方,审计作为正向证据源成立(E2E 实证);对抗场景的不可篡改审计(runner 将 tool_call 原文持久化进 audit_events/单独挂载)列为 P0-02A 前置 |
+| F-3 | runner 心跳回调 catch 吞掉心跳事务异常(DB 抖动窗口)(MINOR) | **声明+保留**:被拒路径止损有测试(run-lease-loss);异常路径保守止损(置 leaseLost)与"持续异常→终止"故障注入属 P0-01C Worker 循环 |
+| F-4 | verifyPiRuntime 二进制 leg 未接入启动链,启动校验实为 2/3(MINOR) | **已修(6fc276e)**:launchPi docker 分支启动前调用 verifyPiRuntime(+4 行;stub argvOverride 测试路径除外);复核人复验 VERIFIED,并如实记录:host-fallback 直启分支未接入、非模型日志对修复前后不可区分 |
+| F-5 | 测试库 debug 残留 + 未披露的真实模型调试 run + 证据薄(MINOR) | **已修+披露**:3 个 debug schema 已 DROP(psql 实查);调试 run 用途与全部非 E2E 模型调用计入 §5;fresh-clone 证据头部补齐(含克隆 SHA/npm ci/db:up/tsc) |
+| F-6 | `--network host` 放弃网络隔离(声明式偏差)(OBSERVATION) | **承接**:§6 风险 3 显式记录;回归 bridge/none 网络需 ufw 授权窗口,不常态化进 P1 |
+| F-7 | **模型凭据面**:models.json 经 HOME 可被 relay_exec 读取;api-key 在宿主 argv 可见(OBSERVATION) | **承接(接真 key 前必须改造)**:本包密钥为假(magpie 本地路由,影响为零);改造义务列入 §6 风险 6 与 P0-01C 检查单——models.json 移出 exec 可见 HOME、key 经 stdin/env 注入而非 argv;runDir 0o777 同机用户可读写(单用户 VM 可接受,记录在案) |
+| F-8 | 白名单字面偏差(meta/snapshot/typebox 传递依赖/fakeDir 残留等)(OBSERVATION) | **记录维持**(复核人裁定可接受):meta/journal 是 applyMigrations 唯一序列来源;typebox 显式声明、fakeDir 清理等留待下包顺手处置 |
+| F-9 | 收尾待办(复核时点未完成,合同既定顺序)(OBSERVATION) | **本轮完成**:REPORT/CONTINUATION 落盘、快进 push、`origin/main==HEAD`+worktree clean 核验 |
+
+**最终裁决:PASS**(关闭条件①②④由本轮处置完成,③随收尾 push 核验;详见 REVIEW.md 复验章节)。
 
 ## 5. 成本核算(诚实披露)
 
@@ -77,7 +83,7 @@
 3. **`--network host`**(继承 P0-00 事实):ufw 拒容器→宿主,模型路由不可达 ⇒ 牺牲网络命名空间隔离;FS/凭据/能力边界完整。定制 bridge+代理属部署层改进(P1)。
 4. **host-fallback 路径**:非安全边界,仅无 docker 环境测试用;生产 Worker 必须断言 docker 可用(launchPi 已强制,不静默降级)。
 5. **心跳回调 catch**(F-3):DB 闪断时心跳静默跳过;熔断计数属 P0-01C。
-6. **Pi 上游行为**:vendor 锁定 1.5.0;升级须改 RELAY_PI_VERSION+package.json 并留证。模型 provider 探测按 env,多 provider 并存时的选择策略未实现(单候选)。
+6. **模型凭据面(F-7 承接,接真 key 前必须改造)**:models.json 现位于 exec 可见 HOME(apiKey 可被 relay_exec 读取);docker 分支 api-key 在宿主 argv 可见。接真实凭据前的改造:models.json 移出 exec 可见 HOME、key 经 stdin/env 注入而非 argv。本包密钥为假(影响为零)。另:Pi 上游 vendor 锁定 1.5.0,升级须改 RELAY_PI_VERSION+package.json 并留证;provider 探测为单候选策略。
 7. **未做**:Goal Loop(P0-01C)、真实 GitHub 写路径(P0-02B)、Gate 编排(P0-02A)、Web/RSI(按合同禁止)。
 8. 运行残留:`relay-p000-pg` 容器保留复用;/tmp 调试目录已清理;测试 schema 零残留。
 
@@ -98,7 +104,7 @@ npx vitest run test/integration/pi-e2e.test.ts test/integration/sandbox-enforcem
 | 证据 | 内容 |
 | --- | --- |
 | `p0-01b/evidence/impl-sha.txt` | 实现 SHA 40d3639 |
-| `p0-01b/evidence/pi-e2e-run.log` | 真实 Pi E2E 2/2(容器主链路+真实断连恢复) |
+| `p0-01b/evidence/pi-e2e-run.log` | 真实 Pi E2E 2/2(容器主链路+真实断连恢复);**绑定实现 SHA 40d3639**;其后唯一代码变更为 F-4 处置(+4 行启动校验,恒通过路径),漂移由复核人在 HEAD==6fc276e 独立复跑非模型全量补证(N-3) |
 | `p0-01b/evidence/vitest-full-run.log` | 全量 68 passed + 2 skipped(E2E 显式跳过,收尾处置后重跑) |
-| `p0-01b/evidence/fresh-clone-repro.log` | 全新克隆(clone@40d3639)→npm ci→db:up→npm test+tsc |
+| `p0-01b/evidence/fresh-clone-repro.log` | 全新克隆(clone@7676477,含实现 40d3639 全部代码)→npm ci→db:up→npm test+tsc |
 | `p0-01b/REVIEW.md` | 独立 Reviewer 两轮(首轮 PASS/9 发现;复验见该文件末尾) |
