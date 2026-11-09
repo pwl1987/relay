@@ -1,80 +1,80 @@
-# Architecture Baseline
+# 架构基线
 
-Status: **FROZEN**
+状态：**FROZEN**
 
-## Product boundary
+## 产品边界
 
-Relay is an autonomous software-work runtime for projects. Its core promise is durable, evidence-gated progress on an explicit goal. It is not a general-purpose assistant, IDE, browser automation product, vector database, or model-training platform.
+Relay 是面向项目的自治软件工作运行时。它的核心承诺是：围绕明确目标，持续产生可恢复、经过证据门禁的进展。它不是通用助手、IDE、浏览器自动化产品、向量数据库或模型训练平台。
 
-### In the core
+### Core 包含
 
-1. Goal and lifecycle state.
-2. Task DAG with dependency, ownership, attempt, and evidence state.
-3. Supervisor and bounded execution loop.
-4. Session Fabric for resumable runs and deterministic handoffs.
-5. Policy evaluation, decision records, checkpoints, audit events, and approval gates.
-6. A narrow operator interface and adapters for local process, Git, GitHub, browser, search/crawl, Docker, and SSH.
+1. Goal 与 Lifecycle 状态。
+2. 带有依赖、所有者、尝试次数和证据状态的 Task DAG。
+3. Supervisor 与有边界的执行循环。
+4. 用于可恢复运行和确定性交接的 Session Fabric。
+5. Policy 评估、Decision 记录、Checkpoint、Audit Event 和 Approval Gate。
+6. 面向本地进程、Git、GitHub、Browser、Search/Crawler、Docker、SSH 的窄 Operator 接口和适配器。
 
-### Outside the core
+### Core 不包含
 
-ChatGPT/Codex UI, model providers, long-term memory, knowledge indexing, code graph, domain workflows, and vendor-specific protocols are replaceable integrations.
+ChatGPT/Codex UI、模型 Provider、长期 Memory、Knowledge Index、Code Graph、领域工作流以及厂商专属协议都属于可替换集成。
 
-## Layering and non-overlap
+## 分层与职责不重叠
 
 ```text
-Entry points (CLI/API/ChatGPT adapter)
+入口（CLI/API/ChatGPT 适配器）
   -> Lifecycle + Supervisor
-      -> Task DAG + Policy/Gates
-          -> Session Fabric + Run records
-              -> Agent runtime (Pi adapter)
-                  -> Operators (GitHub, Browser, Search, Crawler, SSH, Docker, FS)
-                      -> External systems
+      -> Task DAG + Policy/Gate
+          -> Session Fabric + Run 记录
+              -> Agent Runtime（Pi 适配器）
+                  -> Operator（GitHub、Browser、Search、Crawler、SSH、Docker、FS）
+                      -> 外部系统
 ```
 
-ACP is an agent-runtime interoperability adapter. MCP is a tool transport adapter. Plugins package adapters and configuration. Skills package instructions, schemas, and checks. None may own lifecycle state or bypass policy gates.
+ACP 是 Agent Runtime 互操作适配器。MCP 是工具传输适配器。Plugin 负责适配器和配置的封装。Skill 负责指令、Schema 和检查项。它们都不能拥有 Lifecycle 状态，也不能绕过 Policy Gate。
 
-## 24×7 loop
+## 24×7 循环
 
-The loop is a durable supervisor tick, not a forever-running model session:
+循环是持久化的 Supervisor Tick，不是永不退出的模型会话：
 
-1. claim one ready task with a lease;
-2. create/resume a session checkpoint;
-3. run a bounded step under policy and budgets;
-4. persist outputs, evidence, and next action;
-5. verify progress and acceptance criteria;
-6. retry, replan, escalate model, defer, or block the path.
+1. 使用 Lease 领取一个 Ready Task；
+2. 创建或恢复 Session Checkpoint；
+3. 在 Policy 和预算约束下执行一个有边界的步骤；
+4. 持久化输出、证据和下一步动作；
+5. 检查进度和验收标准；
+6. 重试、重新规划、升级模型、延期或阻塞路径。
 
-Every task has limits for attempts, wall time, token/cost budget, same-error count, and rework count. A watchdog recovers expired leases; a progress guard marks stalled work and prevents blind repetition.
+每个 Task 都必须设置尝试次数、墙钟时间、Token/Cost 预算、相同错误次数和返工次数上限。Watchdog 负责恢复过期 Lease；Progress Guard 负责识别停滞并阻止盲目重复。
 
 ## Decision Timeout / Safe Continuation
 
-A decision has risk, reversibility, expiry, fallback, affected tasks, and rollback metadata. On timeout:
+每个 Decision 都记录风险、可逆性、过期时间、Fallback、受影响 Task 和回滚信息。超时后的处理规则：
 
-- low-risk/reversible: continue with the recommendation and write an assumption;
-- medium-risk/reversible: prototype or branch, do not merge or publish;
-- high-risk/irreversible: block only the dependent path;
-- always: re-evaluate whether new evidence removes the need for approval.
+- 低风险且可逆：采用推荐方案继续，并写入 Assumption；
+- 中风险且可逆：制作 Prototype 或 Branch，不 Merge、不发布；
+- 高风险或不可逆：只阻塞依赖该 Decision 的路径；
+- 始终重新评估新证据是否已经消除了人工审批需求。
 
-No timeout may authorize production release, destructive data action, credential exposure, force-push, irreversible migration, or policy weakening.
+超时不得授权生产发布、破坏性数据操作、凭据暴露、Force Push、不可逆迁移或放宽安全策略。
 
-## P0/P1/P2 audit
+## P0/P1/P2 审计
 
-- **P0 retained:** durable state, task DAG, supervisor, Session Fabric, policy/gates, audit, recovery, Pi runtime adapter, local/Git/GitHub operators, safe continuation.
-- **P1 retained:** browser/search/crawler/SSH/Docker operators, model ladder, plugin/skill packs, optional ChatGPT adapter, memory/knowledge/code-intelligence extension points.
-- **P2 reduced:** multi-runtime federation, distributed queues, vector-native memory, autonomous production deployment, complex visual orchestration, and vendor-specific workflow engines remain deferred.
+- **P0 保留：** 持久化状态、Task DAG、Supervisor、Session Fabric、Policy/Gate、Audit、Recovery、Pi Runtime 适配器、本地/Git/GitHub Operator、Safe Continuation。
+- **P1 保留：** Browser/Search/Crawler/SSH/Docker Operator、模型梯度、Plugin/Skill Pack、可选 ChatGPT 适配器、Memory/Knowledge/Code Intelligence 扩展点。
+- **P2 收缩：** 多 Runtime 联邦、分布式队列、向量原生 Memory、自治生产部署、复杂可视化编排和厂商专属工作流引擎延期。
 
-The main omission corrected by this audit is an explicit **progress guard + evidence contract**. The main overreach removed is treating every method or capability as a first-class core subsystem.
+本次审计补上的主要遗漏是明确的 **Progress Guard + Evidence Contract**。本次删减的主要过度设计是：不再把每种方法或能力都当作 Core 一级子系统。
 
-## Reliability, security, and operations
+## 可靠性、安全与运维
 
-PostgreSQL is the source of durable runtime state. Transactions cover claims, leases, state transitions, and audit append. Checkpoints are idempotent and content-addressed where practical. Recovery resumes only from persisted state; notifications never grant authority.
+PostgreSQL 是运行时持久化状态的事实来源。Claim、Lease、状态转换和 Audit Append 使用事务。Checkpoint 应具备幂等性，并在可行时使用内容寻址。Recovery 只能从持久化状态恢复；通知本身不授予权限。
 
-Operators run with an allowlist, scoped credentials, timeouts, output limits, and redacted audit records. Destructive or external side effects require a policy decision and, where configured, human approval. A plugin cannot expand its own permissions. ChatGPT bindings are optional and cannot impersonate a runtime identity.
+Operator 使用 Allowlist、范围受限的凭据、超时、输出限制和脱敏 Audit 记录。破坏性操作或外部副作用必须经过 Policy Decision，并在配置要求时等待人工审批。Plugin 不能自行扩大权限。ChatGPT 绑定是可选的，不能伪造 Runtime 身份。
 
 ## OPEN
 
-- exact API transport (HTTP, Unix socket, or both);
-- Pi integration surface and fallback runtime;
-- default retention and redaction policy;
-- deployment packaging and multi-host topology;
-- quantitative quality thresholds per task class.
+- API 传输方式（HTTP、Unix Socket 或两者）；
+- Pi 集成面和备用 Runtime；
+- 默认保留期和脱敏策略；
+- 部署打包方式和多主机拓扑；
+- 各类 Task 的量化质量阈值。

@@ -1,9 +1,9 @@
-# ADR-0002: Lightweight modular-monolith core
+# ADR-0002：轻量模块化单体 Core
 
-Status: **FROZEN**
+状态：**FROZEN**
 
-Use TypeScript/Node with PostgreSQL as the durable store, Pi as the initial agent runtime, Playwright for browser automation, Git/GitHub, Docker, and SSH for operators. Start as a modular monolith with explicit ports and adapters.
+使用 TypeScript/Node、PostgreSQL 持久化存储、Pi 初始 Agent Runtime、Playwright Browser Automation，以及 Git/GitHub、Docker、SSH Operator。以明确的 Port 和 Adapter 开始，优先模块化单体。
 
-Do not require Kafka, Kubernetes, Qdrant, OPA, Temporal, or Restate for P0/P1. Add one only when measured load, recovery, tenancy, or policy requirements prove the monolith insufficient and a new ADR defines the migration boundary.
+P0/P1 不要求 Kafka、Kubernetes、Qdrant、OPA、Temporal 或 Restate。只有当经过度量的负载、Recovery、租户隔离或 Policy 需求证明单体不足时，才可引入其中组件，并用新 ADR 定义迁移边界。
 
-OPEN: exact PostgreSQL client/migration library and deployment packaging.
+OPEN：具体 PostgreSQL Client/Migration Library 与部署打包方式。

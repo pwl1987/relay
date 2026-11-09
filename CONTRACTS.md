@@ -1,32 +1,32 @@
-# Contracts
+# 契约
 
-Status: **FROZEN principles; wire schemas OPEN**
+状态：**原则 FROZEN；线协议 Schema OPEN**
 
-## Lifecycle contract
+## Lifecycle 契约
 
-`DISCOVER -> SPECIFY -> PLAN -> EXECUTE -> VERIFY -> DELIVER -> OPERATE` is the canonical vocabulary. Implementations may skip a phase only with a recorded reason and policy decision.
+`DISCOVER -> SPECIFY -> PLAN -> EXECUTE -> VERIFY -> DELIVER -> OPERATE` 是统一词汇。实现可以跳过阶段，但必须记录原因并产生 Policy Decision。
 
-## Task contract
+## Task 契约
 
-A task declares `id`, `goal_id`, `depends_on`, `owner`, `acceptance`, `risk`, `reversibility`, `budget`, and `allowed_operators`. State changes are monotonic except explicit replan/reopen events.
+Task 声明 `id`、`goal_id`、`depends_on`、`owner`、`acceptance`、`risk`、`reversibility`、`budget` 和 `allowed_operators`。状态转换原则上单向，只有明确的 Replan/Reopen Event 可以回退。
 
-## Session contract
+## Session 契约
 
-A checkpoint contains objective, completed work, remaining work, changed artifacts, evidence, failures, decisions, and next action. Handoffs are deterministic, size-bounded, and hashable.
+Checkpoint 包含目标、已完成工作、剩余工作、变更 Artifact、Evidence、失败、Decision 和下一步动作。Handoff 必须确定性生成、有大小上限并可计算 Hash。
 
-## Operator contract
+## Operator 契约
 
-Every operator exposes capability metadata, input schema, authorization check, timeout, output limit, redaction, idempotency key, and audit result. Operators return observations; they do not advance lifecycle state.
+每个 Operator 暴露 Capability Metadata、Input Schema、Authorization Check、Timeout、Output Limit、Redaction、Idempotency Key 和 Audit Result。Operator 返回 Observation，不推进 Lifecycle 状态。
 
-## Quality contract
+## Quality 契约
 
-A quality gate receives task class, model tier, acceptance criteria, and evidence. It returns `PASS`, `REWORK`, `ESCALATE`, or `BLOCK`; free-form model confidence cannot replace evidence.
+Quality Gate 接收 Task 类型、Model Tier、验收标准和 Evidence，返回 `PASS`、`REWORK`、`ESCALATE` 或 `BLOCK`。自由文本形式的模型置信度不能取代 Evidence。
 
-## Adapter boundaries
+## 适配边界
 
-- ACP: agent/runtime session interoperability.
-- MCP: tool invocation transport.
-- Plugin: installation, versioning, and capability packaging.
-- Skill: reusable method content and checks.
+- ACP：Agent Runtime 会话互操作。
+- MCP：工具调用传输。
+- Plugin：安装、版本管理和能力封装。
+- Skill：可复用的方法内容和检查项。
 
-These adapters may emit events and observations but cannot claim tasks, override policy, or approve their own output.
+这些适配器可以发出 Event 和 Observation，但不能 Claim Task、覆盖 Policy 或批准自己的输出。

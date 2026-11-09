@@ -1,9 +1,9 @@
-# ADR-0001: Product boundary
+# ADR-0001：产品边界
 
-Status: **FROZEN**
+状态：**FROZEN**
 
-Relay is an independently runnable, evidence-gated autonomy runtime for software projects. It owns goals, work, policy, execution coordination, recovery, and audit. ChatGPT is an optional client.
+Relay 是面向软件项目、独立运行、以证据为门禁的自治运行时。它拥有 Goal、Work、Policy、执行协调、Recovery 和 Audit。ChatGPT 只是可选 Client。
 
-It does not own a general assistant UI, a model marketplace, a browser product, a vector store, or a domain-specific product workflow. Domain methods are packs consumed by the runtime.
+它不拥有通用助手 UI、模型市场、浏览器产品、向量存储或领域专属产品工作流。领域方法以 Pack 的形式被 Runtime 消费。
 
-This boundary prevents the prior design from becoming a second operating system around every tool and methodology.
+该边界避免 Relay 围绕每种工具和方法论再次形成一个庞大操作系统。

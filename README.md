@@ -1,35 +1,33 @@
-# Relay Design Baseline
+# Relay 设计基线
 
-Status: **FROZEN baseline, implementation intentionally not started**
+状态：**FROZEN 基线，尚未开始实现**
 
-Relay is a small, independently runnable project-autonomy runtime. It accepts a goal, turns it into durable work, executes bounded agent runs through approved operators, verifies evidence, and resumes after interruption. ChatGPT is an optional entry point; the runtime does not depend on it.
+Relay 是一个小型、可独立运行的项目自治运行时。它接收目标，将目标转化为持久化工作，通过获准的 Operator 执行受边界约束的 Agent 运行，基于证据完成验证，并在中断后恢复。ChatGPT 只是可选入口，运行时不依赖 ChatGPT。
 
-This repository is an independent clean-room design. It contains no copied source code or implementation text from prior systems.
+本仓库是独立的 clean-room 设计，不包含从其他系统复制的源代码或实现文本。本仓库冻结顶层架构和首批交付边界，不冻结产品最终名称、界面、模型厂商、Provider 凭据或生产部署策略。
 
-This repository freezes the top-level architecture and the first delivery boundary. It does not freeze product naming, UI, model vendors, provider credentials, or production deployment policy.
+## 审计结论
 
-## Audit decision
+此前方向只有在完成以下收窄后才适合冻结：
 
-The prior direction was mature enough to freeze only after these changes:
+- **只保留一个控制流所有者：** Lifecycle、Task DAG 和 Supervisor 统一负责状态、调度、重试、检查点和质量门禁。
+- **将 Session Fabric 定义为运行时原语：** 它负责持久化运行上下文和交接，不再成为另一套工作流引擎。
+- **将 ACP、MCP、Plugin、Skill 放在不同适配边界：** 分别承担协议互操作、工具传输、扩展封装和方法内容职责。
+- **让 24×7 运行有边界：** 进度预算、看门狗、检查点和进度守卫是强制能力；禁止无界 Agent 循环。
+- **让人工缺席只影响局部路径：** 安全且可逆的工作可以带着已记录的假设继续；不可逆或高风险动作只阻塞自己的依赖路径。
+- **保持 Core 轻量：** PostgreSQL 负责持久化；Memory、Knowledge Retrieval 和 Code Intelligence 都是带证据契约的可选插件。
+- **优先模块化单体：** TypeScript/Node、PostgreSQL、Pi、Playwright、Git/GitHub、Docker 和 SSH。Kafka、Kubernetes、Qdrant、OPA、Temporal、Restate 明确延期。
 
-- **Keep one owner of control flow:** Lifecycle + Task DAG + Supervisor own state, scheduling, retries, checkpoints, and gates.
-- **Make Session Fabric a runtime primitive:** it owns durable run context and handoff; it does not become another workflow engine.
-- **Treat ACP/MCP/Plugin/Skill as adapters at different boundaries:** protocol transport, tool transport, extension packaging, and method content respectively.
-- **Make 24×7 bounded:** progress budgets, watchdogs, checkpoints, and a progress guard are mandatory; an unbounded agent loop is forbidden.
-- **Make human absence local:** safe reversible work may continue with a recorded assumption; irreversible/high-risk actions block only their path.
-- **Keep Core small:** PostgreSQL is the durable store; memory, knowledge retrieval, and code intelligence are optional plugins with evidence contracts.
-- **Prefer a modular monolith:** TypeScript/Node, PostgreSQL, Pi, Playwright, Git/GitHub, Docker, and SSH. Kafka, Kubernetes, Qdrant, OPA, Temporal, and Restate are explicitly deferred.
+## 文档
 
-## Documents
+- [架构基线](ARCHITECTURE_BASELINE.md)
+- [P0/P1 路线图](P0_P1_ROADMAP.md)
+- [领域模型](DOMAIN_MODEL.md)
+- [契约](CONTRACTS.md)
+- [ADR 索引](ADR/README.md)
 
-- [Architecture baseline](ARCHITECTURE_BASELINE.md)
-- [P0/P1 roadmap](P0_P1_ROADMAP.md)
-- [Domain model](DOMAIN_MODEL.md)
-- [Contracts](CONTRACTS.md)
-- [ADR index](ADR/README.md)
+## 状态词汇
 
-## Status vocabulary
-
-- **FROZEN**: required boundary for implementation; changes require a new ADR.
-- **OPEN**: intentionally unresolved and must be decided with evidence before implementation expands.
-- **DEFERRED**: explicitly outside P0/P1; no compatibility promise.
+- **FROZEN**：实现必须遵守的边界；变更需要新增 ADR。
+- **OPEN**：有意保留的未决事项；扩展实现前必须用证据决定。
+- **DEFERRED**：明确排除在 P0/P1 之外，不提供兼容承诺。

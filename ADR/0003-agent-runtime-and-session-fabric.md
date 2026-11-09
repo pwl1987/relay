@@ -1,9 +1,9 @@
-# ADR-0003: Agent runtime and Session Fabric
+# ADR-0003：Agent Runtime 与 Session Fabric
 
-Status: **FROZEN**
+状态：**FROZEN**
 
-Pi is the first runtime adapter. Session Fabric is the durable context layer around a bounded run: checkpoint, handoff, resume, trace hash, and recovery metadata. Lifecycle/Supervisor remains the only owner of scheduling and state transitions.
+Pi 是第一个 Runtime Adapter。Session Fabric 是围绕有边界 Run 的持久化上下文层，负责 Checkpoint、Handoff、Resume、Trace Hash 和 Recovery Metadata。Lifecycle/Supervisor 仍然是调度与状态转换的唯一所有者。
 
-ACP may be supported as an interoperability adapter. It must map into the same run/session contracts and cannot introduce a parallel lifecycle. A failed or disconnected session is recoverable from persisted checkpoints; a notification is not a state transition.
+可以支持 ACP 作为互操作适配器，但必须映射到同一套 Run/Session Contract，不能引入并行 Lifecycle。Session 断开或失败后，必须能够从持久化 Checkpoint 恢复；通知不构成状态转换。
 
-OPEN: additional runtimes and exact handoff serialization.
+OPEN：其他 Runtime 与 Handoff 序列化格式。
