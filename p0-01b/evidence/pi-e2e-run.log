@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/integration/pi-e2e.test.ts (2 tests) 30248ms
+   ✓ 真实 Pi RPC E2E(容器+当前可用 Provider) > 端到端:真实模型读文件/越权被拒/写结果/handoff/推进与 Gate  13766ms
+   ✓ 真实 Pi RPC E2E(容器+当前可用 Provider) > 真实断连恢复:docker kill → rpc_disconnect → 回收重领 → context_rebuild  16347ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  06:56:24
+   Duration  31.36s (transform 162ms, setup 0ms, collect 835ms, tests 30.25s, environment 0ms, prepare 78ms)
+
