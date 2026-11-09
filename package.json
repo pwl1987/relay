@@ -1,0 +1,25 @@
+{
+  "name": "relay",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0-p0",
+  "description": "Relay 自治软件交付引擎(P0-01A:持久状态与可靠执行内核)",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:up": "bash scripts/test-db-up.sh"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.0",
+    "drizzle-kit": "^0.31.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "relay-p000-exp-c",
+  "private": true,
+  "type": "module",
+  "description": "P0-00 实验 C(外部副作用 Reconcile)。依赖独立安装,不再符号链接 exp-b。",
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}

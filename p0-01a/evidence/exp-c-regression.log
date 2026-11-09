@@ -1,0 +1,45 @@
+=== exp-c 独立依赖回归(node_modules 符号链接修复后,2026-11-09T22:39:19+08:00) ===
+node_modules: drwxrws---+
+[SETUP] 本地 mock 仓库(工作仓 + bare 远端)
+=== stage:setup date:2026-11-09T22:39:19+08:00 host:ubuntu2604 git:git version 2.53.0 user:ubuntu
+remote HEAD: ba7cb6e52f60c24ece008f70433bd8d619f63b7b	refs/heads/main
+{"ok":true,"remoteHead":"ba7cb6e52f60c24ece008f70433bd8d619f63b7b"}
+[C1] 外部写成功+回执丢失:kill 注入 -> reconcile 先查询远端真实状态
+=== stage:c1 date:2026-11-09T22:39:19+08:00 host:ubuntu2604 git:git version 2.53.0 user:ubuntu
+expected=ba7cb6e52f60c24ece008f70433bd8d619f63b7b payload=5802958b95b7bae1d8ae36599ebc6db4b1208b64
+{"ok":true,"reserved":"i-c1"}
+--- 远端 HEAD 已变为 5802958b95b7bae1d8ae36599ebc6db4b1208b64,SIGKILL executor(pid=2424459) → 回执丢失 ---
+--- 确认 executor 已死(ps)与意图仍处 EXECUTING(回执未写) ---
+executor-dead(good)
+{"id":"i-c1","state":"EXECUTING","expected_remote_sha":"ba7cb6e52f60c24ece008f70433bd8d619f63b7b","payload_sha":"5802958b95b7bae1d8ae36599ebc6db4b1208b64"}
+{"id":"i-c1","state":"EXECUTING","expected_remote_sha":"ba7cb6e52f60c24ece008f70433bd8d619f63b7b","payload_sha":"5802958b95b7bae1d8ae36599ebc6db4b1208b64"}
+--- 恢复:reconcile(必须先查询远端,SIDE_EFFECT_CONFIRMED,不重推) ---
+{"op":"reconcile","decision":"SIDE_EFFECT_CONFIRMED","actualRemoteHead":"5802958b95b7bae1d8ae36599ebc6db4b1208b64"}
+--- 幂等性:再次 reconcile 必须 already_completed,不产生新副作用 ---
+{"op":"reconcile","decision":"already_completed"}
+--- 推送次数核验(payload commit 在远端历史中恰好一份) ---
+5802958b95b7bae1d8ae36599ebc6db4b1208b64	refs/heads/main
+{"id":"i-c1","state":"COMPLETED","expected_remote_sha":"ba7cb6e52f60c24ece008f70433bd8d619f63b7b","payload_sha":"5802958b95b7bae1d8ae36599ebc6db4b1208b64"}
+[C2] 外部写未发生:恢复方必须能安全重推(恰好一次)
+=== stage:c2 date:2026-11-09T22:39:21+08:00 host:ubuntu2604 git:git version 2.53.0 user:ubuntu
+{"ok":true,"reserved":"i-c2"}
+--- kill 后远端 HEAD=5802958b95b7bae1d8ae36599ebc6db4b1208b64(payload=a8fd51830d8c45afc2ea48559e747ecaefcd910f) ---
+{"id":"i-c2","state":"EXECUTING","expected_remote_sha":"5802958b95b7bae1d8ae36599ebc6db4b1208b64","payload_sha":"a8fd51830d8c45afc2ea48559e747ecaefcd910f"}
+--- 恢复:reconcile(决策将写入审计) ---
+{"op":"reconcile","decision":"SIDE_EFFECT_ABSENT_REEXECUTE_SAFE","actualRemoteHead":"5802958b95b7bae1d8ae36599ebc6db4b1208b64"}
+--- 决策:未发生 → 安全重推一次 ---
+To /home/ubuntu/dev/relay/.p0-00-lab/ws/c-remote.git
+   5802958..a8fd518  a8fd51830d8c45afc2ea48559e747ecaefcd910f -> main
+{"op":"execute","ok":true}
+a8fd51830d8c45afc2ea48559e747ecaefcd910f	refs/heads/main
+{"id":"i-c2","state":"COMPLETED","expected_remote_sha":"5802958b95b7bae1d8ae36599ebc6db4b1208b64","payload_sha":"a8fd51830d8c45afc2ea48559e747ecaefcd910f"}
+[C3] 远端漂移:expected SHA 过期 → 拒绝执行,不覆盖
+=== stage:c3 date:2026-11-09T22:39:22+08:00 host:ubuntu2604 git:git version 2.53.0 user:ubuntu
+--- 远端已被外部推进: a8fd51830d8c45afc2ea48559e747ecaefcd910f -> ae5f04d3c518697a491c7574bd41ed2e1f3befe3 ---
+{"ok":true,"reserved":"i-c3"}
+--- 用过期 expected 执行(必须 CONFLICT,不推送) ---
+{"op":"execute","ok":false,"reason":"remote_drift","actual":"ae5f04d3c518697a491c7574bd41ed2e1f3befe3"}
+--- 执行后远端 HEAD=ae5f04d3c518697a491c7574bd41ed2e1f3befe3(必须仍为 ae5f04d3c518697a491c7574bd41ed2e1f3befe3,候选 dae3565ce7ba4f7554f3f50ba44ba503abbb7551 未覆盖) ---
+{"id":"i-c3","state":"CONFLICT","expected_remote_sha":"a8fd51830d8c45afc2ea48559e747ecaefcd910f","payload_sha":"dae3565ce7ba4f7554f3f50ba44ba503abbb7551"}
+ALL REQUESTED STAGES DONE
+=== exit:0 ===
