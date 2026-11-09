@@ -1,42 +1,42 @@
 
  RUN  v3.2.7 /home/ubuntu/dev/relay
 
- ↓ test/integration/pi-e2e.test.ts (2 tests | 2 skipped)
- ✓ test/integration/v04-crash-recovery.test.ts (2 tests) 10663ms
-   ✓ V04 SIGKILL 崩溃恢复 > 崩溃 → 窗口内权威 → 过期回收 → fencing+1 重领 → 幽灵被拒 → 审计完整  10488ms
- ✓ test/integration/run-crash-recovery.test.ts (1 test) 4802ms
-   ✓ Run 崩溃恢复:SIGKILL → Tick 回收 → context_rebuild(V04 延伸) > 全链路:A 被杀→回收→B 重领(fencing+1)→重建上下文→VERIFYING;旧 token 推进被拒  4672ms
- ✓ test/integration/run-lifecycle.test.ts (7 tests) 3504ms
-   ✓ Run 生命周期(stub RPC,真实进程) > 成功路径:settle+handoff→run=SUCCEEDED→任务 VERIFYING→Gate 后 ACCEPTED  324ms
-   ✓ Run 生命周期(stub RPC,真实进程) > 超时:wall 预算到点→run=TIMEOUT→任务 FAILED(attempt 已消耗)  2111ms
-   ✓ Run 生命周期(stub RPC,真实进程) > 取消:cancelSignal→run=CANCELLED→任务 CANCELLED(终态锁定)  495ms
- ✓ test/integration/v05-reexecute-safe.test.ts (2 tests) 2232ms
+ ✓ test/integration/v04-crash-recovery.test.ts (2 tests) 10686ms
+   ✓ V04 SIGKILL 崩溃恢复 > 崩溃 → 窗口内权威 → 过期回收 → fencing+1 重领 → 幽灵被拒 → 审计完整  10506ms
+ ✓ test/integration/run-crash-recovery.test.ts (1 test) 4785ms
+   ✓ Run 崩溃恢复:SIGKILL → Tick 回收 → context_rebuild(V04 延伸) > 全链路:A 被杀→回收→B 重领(fencing+1)→重建上下文→VERIFYING;旧 token 推进被拒  4663ms
+ ✓ test/integration/run-lifecycle.test.ts (7 tests) 3518ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 成功路径:settle+handoff→run=SUCCEEDED→任务 VERIFYING→Gate 后 ACCEPTED  325ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 超时:wall 预算到点→run=TIMEOUT→任务 FAILED(attempt 已消耗)  2118ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 取消:cancelSignal→run=CANCELLED→任务 CANCELLED(终态锁定)  496ms
+ ✓ test/integration/v05-reexecute-safe.test.ts (2 tests) 2245ms
    ✓ V05 执行前崩溃安全重试(C2) > 执行前被杀 → ABSENT 判定 → 安全重推恰好一次  1992ms
- ✓ test/integration/lease-expiry-fencing.test.ts (1 test) 1553ms
-   ✓ B2 租约过期与 fencing > 过期回收:fencing 单调 +1;旧 Token 与冒充一律被拒  1432ms
- ✓ test/integration/heartbeat.test.ts (4 tests) 1466ms
-   ✓ 心跳续租 > 过期后续租被拒;新 Worker 回收领取  1317ms
- ✓ test/integration/v05-lost-receipt.test.ts (1 test) 1263ms
-   ✓ V05 丢回执恢复(C1) > push 已发生、回执未写时被杀 → reconcile 确认 → 不重推 → 幂等  1027ms
- ✓ test/integration/sandbox-enforcement.test.ts (1 test) 805ms
-   ✓ OS 沙箱强制(容器层) > 容器内边界:uid/能力/文件系统/环境四方面全部收紧  803ms
- ✓ test/integration/run-lease-loss.test.ts (1 test) 643ms
-   ✓ 失效 Run 止损:租约丢失 → RPC 子进程立即终止 > reclaim 后:心跳被拒(state_not_leased_chain)→ stub 被杀 → run=INTERRUPTED → 任务不被 A 推进  534ms
- ✓ test/integration/extension-policy-parity.test.ts (12 tests) 517ms
+ ✓ test/integration/lease-expiry-fencing.test.ts (1 test) 1559ms
+   ✓ B2 租约过期与 fencing > 过期回收:fencing 单调 +1;旧 Token 与冒充一律被拒  1431ms
+ ✓ test/integration/heartbeat.test.ts (4 tests) 1468ms
+   ✓ 心跳续租 > 过期后续租被拒;新 Worker 回收领取  1318ms
+ ✓ test/integration/v05-lost-receipt.test.ts (1 test) 1239ms
+   ✓ V05 丢回执恢复(C1) > push 已发生、回执未写时被杀 → reconcile 确认 → 不重推 → 幂等  1009ms
+ ✓ test/integration/sandbox-enforcement.test.ts (1 test) 817ms
+   ✓ OS 沙箱强制(容器层) > 容器内边界:uid/能力/文件系统/环境四方面全部收紧  815ms
+ ✓ test/integration/run-lease-loss.test.ts (1 test) 660ms
+   ✓ 失效 Run 止损:租约丢失 → RPC 子进程立即终止 > reclaim 后:心跳被拒(state_not_leased_chain)→ stub 被杀 → run=INTERRUPTED → 任务不被 A 推进  545ms
+ ✓ test/integration/extension-policy-parity.test.ts (12 tests) 518ms
    ✓ relay_exec 与环境清洗 > 超时被硬性终止  503ms
- ✓ test/unit/pi-version.test.ts (3 tests) 368ms
-   ✓ Pi 版本锁定 > 运行时二探:实际执行 --version 与锁定版本一致  318ms
- ✓ test/integration/intent-drift-reject.test.ts (1 test) 326ms
- ✓ test/integration/supervisor-tick.test.ts (3 tests) 204ms
- ✓ test/integration/v08-gate.test.ts (4 tests) 199ms
- ✓ test/integration/lease-basics.test.ts (2 tests) 187ms
- ✓ test/integration/heartbeat-leased-chain.test.ts (2 tests) 178ms
+ ✓ test/unit/pi-version.test.ts (3 tests) 371ms
+   ✓ Pi 版本锁定 > 运行时二探:实际执行 --version 与锁定版本一致  321ms
+ ✓ test/integration/intent-drift-reject.test.ts (1 test) 307ms
+ ✓ test/integration/supervisor-tick.test.ts (3 tests) 217ms
+ ✓ test/integration/v08-gate.test.ts (4 tests) 203ms
+ ✓ test/integration/lease-basics.test.ts (2 tests) 192ms
+ ✓ test/integration/heartbeat-leased-chain.test.ts (2 tests) 169ms
  ✓ test/unit/lifecycle.test.ts (7 tests) 11ms
  ✓ test/unit/context.test.ts (6 tests) 8ms
  ✓ test/unit/policy-scope.test.ts (8 tests) 6ms
+ ↓ test/integration/pi-e2e.test.ts (2 tests | 2 skipped)
 
  Test Files  19 passed | 1 skipped (20)
       Tests  68 passed | 2 skipped (70)
-   Start at  06:57:03
-   Duration  42.83s (transform 340ms, setup 0ms, collect 9.01s, tests 28.93s, environment 4ms, prepare 1.41s)
+   Start at  07:13:28
+   Duration  42.76s (transform 345ms, setup 0ms, collect 8.89s, tests 28.98s, environment 4ms, prepare 1.40s)
 

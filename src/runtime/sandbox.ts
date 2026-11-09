@@ -11,7 +11,7 @@ import { join, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { PiRpcSession, type PiSpawnOptions } from "./pi-rpc.ts";
-import type { PiInstallation } from "./pi-version.ts";
+import { verifyPiRuntime, type PiInstallation } from "./pi-version.ts";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
@@ -196,6 +196,9 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
   }
   if (spec.mode === "docker") {
     ensureNodeModulesReadable(pi.repoRoot);
+    // 启动链第三道校验(合同条款 2):真实 Pi 启动前,二进制 --version 必须等于锁定版本
+    // (包声明+路径钉死已在 resolveVendoredPi;stub argvOverride 测试路径不经过此处)
+    verifyPiRuntime(pi);
     // 容器扩展从 runDir/ext 挂载(walk-up 解析 typebox:/opt/relay/ext -> /opt/relay/node_modules)
     const extDest = join(spec.runDir, "ext", "relay-tools.extension.ts");
     cpSync(spec.extSourcePath, extDest);
