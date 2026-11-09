@@ -1,37 +1,33 @@
 # Relay / HIVE Next
 
-**状态：FROZEN（顶层设计基线）；产品尚未实现。** 最后审计：2026-11-09。
+**状态：FROZEN（顶层原则、完整 PRD、建设路线与验收要求）；代码未实现、关键技术 POC 仍 OPEN。** 更新：2026-11-09。
 
-Relay 是**轻量内核、可独立运行、证据驱动、可恢复地持续推进的软件交付系统**（Autonomous Software Delivery Engine）。用户提供目标或模糊问题，系统负责质疑、查证、设计、执行、验证与交接。ChatGPT 仅是可选入口，**不是控制面或运行依赖**。
+Relay 是轻量、可独立运行、证据驱动、可恢复地持续推进的自主软件交付系统（Autonomous Software Delivery Engine）。用户提出模糊或明确目标，Relay 负责质疑、调查、规划、开发、独立验证、受控交付与持续反馈。ChatGPT 是**可选入口**，不是运行依赖。
 
-长期愿景包括自我改进，但 P0 不做 RSI。Relay 不是多 Agent 聊天室、软件公司角色模拟器、IDE、通用 DevOps/Kubernetes 控制平台，也不替代已有编程 Agent。
+第一版以**单人、自托管、本地模型为主、单仓、唯一 Writer、main-only**为约束，采用模块化单体 + Pi First + PostgreSQL；常驻服务优先 `relay-server`、`relay-worker`、`postgres`。不做 AI 软件公司 ERP、IDE、Kubernetes 控制平台、重型中间件平台及无门禁 RSI。
 
-## 已冻结与尚未实现的区别
+## 设计阅读路线（避免重复 Authority）
 
-- **FROZEN**：设计必须遵守的边界，不表示代码已经实现或完成可靠性测试。
-- **OPEN**：需要 POC、测量或 ADR 才能决定。
-- **RESEARCH**：仅进行对比实验，不作交付承诺。
-- **DEFERRED**：不纳入当前里程碑。
-- **REJECTED**：有意识否决，不应无依据重新引入。
+**产品/建设/验收**：
+- [完整版 PRD](docs/PRD.md)：用户任务、需求 US-01～US-13、MVP/NFR、业务交付条件。
+- [建设实施计划](docs/CONSTRUCTION_PLAN.md)：VM80/Mac 分工、P0-00～P0-ACCEPT 的有界切片。
+- [验证与验收矩阵](docs/VALIDATION_PLAN.md)：测试 fixture、故障注入 V01～V20、质量门与证据。
+- [Web / CLI / API UX](docs/UI_UX.md)：页面、状态与审批交互。
+- [自托管部署方案](docs/DEPLOYMENT_PLAN.md)：VM80 选址、目录/网络/恢复/监控。
 
-## 设计入口（避免多份事实源）
+**架构/安全/扩展**：
+- [架构基线](ARCHITECTURE_BASELINE.md) 和 [详细架构](docs/DETAILED_ARCHITECTURE.md)。
+- [领域模型](DOMAIN_MODEL.md)、[核心契约](CONTRACTS.md)、[安全威胁模型](docs/SECURITY_MODEL.md)。
+- [生命周期与质量](docs/DELIVERY.md)、[24×7 自治原则](docs/OPERATIONS.md)、[Runtime/插件/技术候选](docs/INTEGRATIONS.md)。
+- [路线图](P0_P1_ROADMAP.md)、[ADR](ADR/README.md)、[最终审计](docs/FINAL_AUDIT.md)。
+- [治理规则](AGENTS.md)、[当前唯一工作包](CURRENT.md)、[新窗口续接](docs/CONTINUATION.md)。
 
-- [架构与职责边界](ARCHITECTURE_BASELINE.md)：产品、组件、协议与状态所有权。
-- [路线图与里程碑](P0_P1_ROADMAP.md)：P0 可验收切片及延期项。
-- [领域模型](DOMAIN_MODEL.md)：Project、Goal、WorkPackage、Task、Run、ChangeSet。
-- [核心契约](CONTRACTS.md)：状态转换、Operator、Evidence 和门禁不变量。
-- [交付方法与质量门](docs/DELIVERY.md)：DISCOVER → OPERATE、独立复核、Reality Check。
-- [自治运行与安全](docs/OPERATIONS.md)：24×7、Decision Timeout、恢复与预算。
-- [Runtime、扩展及技术候选](docs/INTEGRATIONS.md)：Pi、ACP/MCP、Skill/Plugin、Context、技术栈。
-- [最终专业审计](docs/FINAL_AUDIT.md)：采纳、修正与拒绝理由。
-- [ADR 索引](ADR/README.md)：不可忽略的架构决策及待定 POC。
-- [执行治理](AGENTS.md)、[当前任务](CURRENT.md)、[窗口续接](docs/CONTINUATION.md)。
+## 状态词汇
 
-## 第一版的真正目标
+- **FROZEN**：产品结果、架构不变量或安全边界已经决定；修改需证据和 ADR。
+- **OPEN**：未验证或需要 POC 的选择，不能当已实现能力。
+- **RESEARCH**：探索，不是当前交付承诺。
+- **DEFERRED**：明确延期。
+- **REJECTED**：明确否决。
 
-在**单仓、单写者、受限工作区**中，以 CLI/API（配最小状态/审批界面）实现一个可重启的完整垂直闭环：
-`目标/澄清 → 有界任务 → Pi 执行 → 独立证据 → 审批与接纳 → Git 交付/恢复`。
-
-GitHub Issue 可作为任务展示与协作记录，**不是调度器，也不是 PostgreSQL 运行状态的替代品**。先证明恢复、权限和交付，再扩展多仓、通用 Browser Operator 和 Agent-to-Agent 编排。
-
-本仓库所有正式设计文档使用中文；只用 `main`，不强推。
+**当前状态**：设计达到可拆分可验收的施工基线，尚无 Relay 实现或 24×7 实际运行证据。下一唯一包是 `P0-00` 的 Pi 隔离/恢复语义 POC，不能跳过。
