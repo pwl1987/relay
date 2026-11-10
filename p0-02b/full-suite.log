@@ -1,0 +1,9 @@
+# P0-02B 全量回归(写者侧,VM80 工作树 == 提交 61139d5)
+# 时间: 2026-11-10T13:45:05+08:00  环境: VM80(docker + 本地 PG 55433 + magpie 本地假密钥路由,零真实成本)
+# 模型调用(既有回归测试固有):gate-e2e 6 次经 budget_ledger(6/12)+ pi-e2e ~5 次(legacy 未走账本,如实披露);全部假密钥本地路由
+
+ Test Files  37 passed | 1 skipped (38)
+      Tests  141 passed | 2 skipped (143)
+   Start at  13:32:59
+   Duration  224.26s (transform 769ms, setup 0ms, collect 19.34s, tests 195.58s, environment 8ms, prepare 2.67s)
+
