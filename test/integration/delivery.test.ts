@@ -404,6 +404,13 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(seeded.remote.commitCount()).toBe(countAfterFirst);
     const intentsAfterSecond = await t.db.execute(sql`SELECT count(*)::int AS n FROM action_intents WHERE task_id = ${taskId}`);
     expect(Number(intentsAfterSecond.rows[0]!["n"])).toBe(1);
+
+    // 记录面完整性:已 CONSUMED 的 proposal 重复 propose 不得翻转状态(幂等读回)
+    const p3 = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
+    expect(p3.ok && p3.created === false).toBe(true);
+    if (!p3.ok) return;
+    expect(p3.proposal.id).toBe(p1.proposal.id);
+    expect(p3.proposal.state).toBe("CONSUMED");
   });
 
   it("反例9 远端提交失败 ⇒ ChangeSet 不得标 DELIVERED(pre-receive 拒绝 ⇒ FAILED + 审计)", { timeout: 60_000 }, async () => {

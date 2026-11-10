@@ -175,6 +175,8 @@ export async function proposeDelivery(exec: Exec, input: ProposeDeliveryInput): 
   const state = verdict.allowed ? "POLICY_APPROVED" : "POLICY_DENIED";
   const policyDetail = { reason: verdict.reason, repoSlug: verdict.repoSlug, gateVerdictId, verified: true };
   const id = `prop-${randomUUID()}`;
+  // CONSUMED(已交付)的 proposal 记录面不可翻转(WHERE 守卫):重复 propose 只读回原行,
+  // 防止交付后重提把状态搅回 POLICY_APPROVED(即使 git push 同 SHA 是 no-op,记录也不得变脸)。
   const res = await exec.execute(sql`
     INSERT INTO action_proposals
       (id, task_id, attempt, changeset_id, gate_verdict_id, capability, target, branch,
@@ -187,8 +189,22 @@ export async function proposeDelivery(exec: Exec, input: ProposeDeliveryInput): 
       expected_remote_sha = EXCLUDED.expected_remote_sha, commit_sha = EXCLUDED.commit_sha,
       gate_verdict_id = EXCLUDED.gate_verdict_id, state = EXCLUDED.state,
       policy_detail = EXCLUDED.policy_detail, updated_at = now()
+      WHERE action_proposals.state <> 'CONSUMED'
     RETURNING id, (xmax = 0) AS created
   `);
+  if (res.rows.length === 0) {
+    // 已 CONSUMED:读回原行幂等返回(不翻转、不重审)
+    const existing = await exec.execute(sql`${PROPOSAL_SELECT} WHERE changeset_id = ${cs.id}`);
+    const proposal = (await getProposal(exec, String(existing.rows[0]!["id"])))!;
+    await appendAudit(exec, {
+      actor,
+      authority: "WORKER",
+      action: "PROPOSAL_ALREADY_CONSUMED",
+      taskId: input.taskId,
+      detail: { proposalId: proposal.id, changesetId: cs.id, note: "已交付变更集重复 propose ⇒ 幂等读回" },
+    });
+    return { ok: true, proposal, created: false };
+  }
   const proposalId = String(res.rows[0]!["id"]);
   const created = res.rows[0]!["created"] === true;
   const proposal = (await getProposal(exec, proposalId))!;
