@@ -26,14 +26,33 @@ import { assertOk } from "../setup/assert.ts";
 
 const MODEL: ProviderConfig | null = await probeProvider();
 
-describe.skipIf(!MODEL || !dockerAvailable())("真实 Pi RPC E2E(容器+当前可用 Provider)", () => {
+function sudoIptablesAvailable(): boolean {
+  try {
+    execFileSync("sudo", ["-n", "iptables", "-L", "DOCKER-USER", "-n"], { stdio: "ignore", timeout: 10_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+describe.skipIf(!MODEL || !dockerAvailable() || !sudoIptablesAvailable())("真实 Pi RPC E2E(容器+当前可用 Provider)", () => {
   let t: TestDb;
+  let eg: import("../../src/runtime/egress.ts").EgressStatus | null = null;
   const sandboxes: SandboxSpec[] = [];
   beforeAll(async () => {
     t = await createTestDb("pi-e2e");
+    // 自备出口约束(FAIL-CLOSED 自洽;不依赖其它文件留下的全局 egress 栈;ensure 幂等)
+    const model = MODEL!;
+    const { ensureEgress, verifyEgressEffective } = await import("../../src/runtime/egress.ts");
+    const s = await ensureEgress(model.baseUrl);
+    const v = await verifyEgressEffective(s);
+    expect(v.ok, `出口约束未生效: ${v.reason}`).toBe(true);
+    eg = v;
   });
   afterAll(async () => {
     for (const s of sandboxes) cleanupSandbox(s);
+    const { teardownEgress } = await import("../../src/runtime/egress.ts");
+    teardownEgress();
     await t.cleanup();
   });
 
@@ -44,9 +63,11 @@ describe.skipIf(!MODEL || !dockerAvailable())("真实 Pi RPC E2E(容器+当前�
 
   it("端到端:真实模型读文件/越权被拒/写结果/handoff/推进与 Gate", { timeout: 420_000 }, async () => {
     const model = MODEL!;
+    // P0-02B 修复留痕:P0-02A 起 relay_exec 默认全拒(白名单制),本任务须显式授权写手段
+    // (与 gate-e2e 先例一致:echo 重定向;`>` 允许);否则模型只能读不能写,断言恒失败。
     await t.db.execute(sql`
-      INSERT INTO tasks (id, state, goal_id, allowed_scope)
-      VALUES ('t-e2e', 'READY', 'e2e goal', '["/workspace"]'::jsonb)
+      INSERT INTO tasks (id, state, goal_id, allowed_scope, allowed_commands)
+      VALUES ('t-e2e', 'READY', 'e2e goal', '["/workspace"]'::jsonb, '["echo"]'::jsonb)
     `);
     const c = await t.db.transaction(async (tx) => claimTask(tx as unknown as Exec, "t-e2e", "worker-e2e", 120));
     assertOk(c);
@@ -59,11 +80,14 @@ describe.skipIf(!MODEL || !dockerAvailable())("真实 Pi RPC E2E(容器+当前�
         "另外用 relay_read 尝试读取 /etc/passwd,观察结果;无论是否被拒绝都继续完成任务。",
       ].join(" "),
       allowedScope: ["/workspace"],
+      // P0-02B 修复留痕:executeRun 的 exec 白名单来自 RunSpec(不读 DB);漏传 ⇒ 全拒(FAIL-CLOSED)
+      allowedCommands: ["echo"],
       attempt: c.attempt,
       ownerId: c.ownerId,
       fencingToken: c.fencingToken,
       model,
       sandbox: "docker",
+      egress: eg!,
       wallSeconds: 300,
       heartbeatSeconds: 2,
       prepareWorkspace: (ws) => writeFileSync(join(ws, "brief.txt"), "numbers: 12 30 45\n", "utf8"),
@@ -161,6 +185,7 @@ describe.skipIf(!MODEL || !dockerAvailable())("真实 Pi RPC E2E(容器+当前�
       fencingToken: c.fencingToken,
       model,
       sandbox: "docker",
+      egress: eg!,
       wallSeconds: 300,
       heartbeatSeconds: 2,
       onRecord: () => {
@@ -211,6 +236,7 @@ describe.skipIf(!MODEL || !dockerAvailable())("真实 Pi RPC E2E(容器+当前�
       fencingToken: claimB.fencingToken,
       model,
       sandbox: "docker",
+      egress: eg!,
       wallSeconds: 300,
       heartbeatSeconds: 2,
       priorHandoff: { runId: prior!.runId, handoff: prior!.handoff },

@@ -30,8 +30,9 @@ import type { PiInstallation } from "./pi-version.ts";
 import { PiRpcSession, type PiSpawnOptions, type RpcRecord } from "./pi-rpc.ts";
 import { buildRunPrompt, contextDigest, parseHandoff, type Handoff, type HandoffParse } from "./context.ts";
 import { reserveBudget, settleBudget, releaseBudget } from "../core/budget.ts";
-import { recordChangeset } from "../core/changesets.ts";
+import { recordChangeset, bindCandidateCommit } from "../core/changesets.ts";
 import { snapshotManifest } from "./workspace-manifest.ts";
+import { createCandidateCommit, GitCandidateError } from "./git-candidate.ts";
 
 export type RunOutcome = "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMEOUT" | "CANCELLED" | "INTERRUPTED" | "BUDGET_EXHAUSTED";
 
@@ -74,6 +75,9 @@ export interface RunSpec {
   argvOverride?: string[];
   envOverride?: Record<string, string>;
   onRecord?: PiSpawnOptions["onRecord"];
+  /** P0-02B D-2:交付绑定的任务必须提供 stage 根目录(候选 commit 在此构建,独立于 run 目录)。
+   * 缺省 = 不构建候选 commit(git_* 列为 null ⇒ Proposal 拒绝 no_commit_binding)。 */
+  deliveryStaging?: { baseDir: string };
 }
 
 export interface RunResult {
@@ -87,6 +91,8 @@ export interface RunResult {
   sandboxSpec: SandboxSpec;
   /** 候选变更集(SUCCEEDED 时由 Worker 侧记录;失败路径无候选) */
   changesetId: string | null;
+  /** P0-02B D-2:候选 commit stage 仓库宿主路径(交付绑定任务且构建成功时存在) */
+  candidateStageRepoDir?: string;
 }
 
 async function insertRun(exec: Exec, spec: RunSpec, model: ModelConfig, runId: string, sandbox: SandboxSpec): Promise<void> {
@@ -443,6 +449,52 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
           );
           changesetId = cs.id;
           detail = { ...detail, changeset: { id: cs.id, baseSha: cs.baseSha, candidateSha: cs.candidateSha, requirementSha: cs.requirementSha, diff: cs.diff, violations: cs.violations } };
+          // 5.6) 候选 Git Commit(D-2):交付绑定任务在独立 stage 仓库构建并绑定(树==清单往返核验);
+          // 失败 ⇒ 阻断交付(无绑定 ⇒ Proposal 拒 no_commit_binding),不影响 Run/Gate 质量链。
+          if (spec.deliveryStaging) {
+            try {
+              const baseCommit = detectInputCommitSha(sandboxSpec.workspaceDir);
+              if (!baseCommit) throw new GitCandidateError("base_commit_missing");
+              const staged = await createCandidateCommit({
+                workspaceDir: sandboxSpec.workspaceDir,
+                baseCommitSha: baseCommit,
+                candidateManifest,
+                diff: cs.diff,
+                taskId: spec.taskId,
+                attempt: spec.attempt,
+                changesetId: cs.id,
+                stagingDir: spec.deliveryStaging.baseDir,
+              });
+              const bound = await db.transaction(async (tx) =>
+                bindCandidateCommit(tx as unknown as Exec, {
+                  changesetId: cs.id,
+                  taskId: spec.taskId,
+                  attempt: spec.attempt,
+                  baseCommitSha: staged.baseCommitSha,
+                  treeSha: staged.treeSha,
+                  commitSha: staged.commitSha,
+                  stageRepoDir: staged.stageRepoDir,
+                }, spec.ownerId),
+              );
+              if (!bound.ok) {
+                detail = { ...detail, candidateCommitError: bound.reason };
+              } else {
+                detail = {
+                  ...detail,
+                  candidateCommit: {
+                    commitSha: staged.commitSha,
+                    treeSha: staged.treeSha,
+                    baseCommitSha: staged.baseCommitSha,
+                    stageRepoDir: staged.stageRepoDir,
+                    filesChanged: staged.filesChanged,
+                    treeVerified: staged.treeVerified,
+                  },
+                };
+              }
+            } catch (e) {
+              detail = { ...detail, candidateCommitError: e instanceof GitCandidateError ? `${e.reason}: ${e.message}` : (e as Error).message };
+            }
+          }
         } catch (e) {
           detail = { ...detail, changesetError: (e as Error).message };
         }
@@ -554,6 +606,10 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
     detail,
     sandboxSpec,
     changesetId,
+    // P0-02B:候选 stage 仓库(交付绑定任务;调用方在 DELIVERED/处置后清理)
+    ...(typeof detail["candidateCommit"] === "object" && detail["candidateCommit"] !== null
+      ? { candidateStageRepoDir: (detail["candidateCommit"] as { stageRepoDir?: string }).stageRepoDir }
+      : {}),
   };
 }
 

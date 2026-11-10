@@ -8,8 +8,9 @@
 // 门:provider 探测 + docker + sudo iptables,缺一显式 skip(不假装)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync, chmodSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { planGoal } from "../../src/core/goals.ts";
@@ -46,12 +47,16 @@ const iptOk = sudoIptablesAvailable();
 describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提交+独立 Reviewer 全闭环(预算账本)", () => {
   let t: TestDb;
   let egress: EgressStatus | null = null;
+  let keyFile: string;
   const sandboxes: SandboxSpec[] = [];
   beforeAll(async () => {
     t = await createTestDb("p02a-e2e");
     const model = MODEL!;
-    // 密钥隔离模式:真实(本环境仍为假)key 只注入代理;Run 容器只见占位
-    const s = await ensureEgress(model.baseUrl, { realKey: model.apiKey });
+    // 密钥隔离模式(G-3):真实(本环境仍为假)key 只存宿主 0600 文件并只读挂载进代理;Run 容器只见占位
+    keyFile = join(mkdtempSync(join(tmpdir(), "relay-fwd-key-")), "real-key");
+    writeFileSync(keyFile, model.apiKey, { mode: 0o600 });
+    chmodSync(keyFile, 0o600);
+    const s = await ensureEgress(model.baseUrl, { realKeyFile: keyFile });
     egress = await verifyEgressEffective(s);
     expect(egress.ok, `出口约束未生效: ${egress.reason}(合同停止条件)`).toBe(true);
     expect(egress.keyIsolation).toBe(true);

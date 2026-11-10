@@ -182,6 +182,9 @@ export interface LaunchOptions {
   argvOverride?: string[];
   envOverride?: Record<string, string>;
   onRecord?: PiSpawnOptions["onRecord"];
+  /** P0-02B G-4:工作区 FS 级只读挂载(docker;Reviewer 检查候选面)。
+   * 工具审计随之移出候选面(/pihome),候选工作区零写入(OS 层强制)。host-fallback 不支持,如实降级。 */
+  workspaceReadOnly?: boolean;
 }
 
 /** pi 进程 argv(密钥隔离自证用导出:断言无 --api-key;launchPi 内部同源)。 */
@@ -195,6 +198,44 @@ export function buildPiArgs(model: ModelConfig, extMountPath: string): string[] 
     "--no-session",
     "--no-builtin-tools",
     "--extension", extMountPath,
+  ];
+}
+
+/** docker run 完整 argv(launchPi 同源;导出仅供测试断言挂载/审计面,如 G-4 只读挂载)。 */
+export function buildDockerRunArgs(
+  spec: SandboxSpec,
+  pi: PiInstallation,
+  opts: {
+    piArgs: string[];
+    containerCli: string;
+    allowedCommands?: readonly string[];
+    execTimeoutMs?: number;
+    workspaceReadOnly?: boolean;
+  },
+): string[] {
+  return [
+    DOCKER_BIN, "run", "--rm", "-i", // -i:RPC 走 stdin;无 -i 容器 stdin EOF ⇒ pi 静默退出(实测坑)
+    "--name", basename(spec.runDir), // 可寻址:测试可对真实容器注入 docker kill(断连故障)
+    "--user", `${SANDBOX_UID}:${SANDBOX_UID}`,
+    "--cap-drop", "ALL",
+    "--network", EGRESS_NETWORK, // 专用 bridge + iptables 白名单(egress.ts;host 网络已于 P0-01C 废止)
+    // G-4:只读面(workspaceReadOnly)时候选工作区以 :ro 挂载 —— 写/删/替换在 OS 层被拒
+    "-v", `${spec.workspaceDir}:/workspace${opts.workspaceReadOnly ? ":ro" : ""}`,
+    "-v", `${spec.homeDir}:/pihome`,
+    "-v", `${spec.runDir}/ext:/opt/relay/ext:ro`,
+    "-v", `${join(pi.repoRoot, "node_modules")}:/opt/relay/node_modules:ro`,
+    "-e", "HOME=/pihome",
+    "-e", "TERM=dumb",
+    "-e", "NO_COLOR=1",
+    "-e", `RELAY_ALLOWED_ROOT=/workspace`,
+    // 工具审计是 infra 写入面:只读候选面时必须移出候选(落一次性 HOME),候选零写入
+    "-e", `RELAY_TOOL_AUDIT=${opts.workspaceReadOnly ? "/pihome/tool-audit.jsonl" : "/workspace/.relay/tool-audit.jsonl"}`,
+    "-e", `RELAY_EXEC_TIMEOUT_MS=${opts.execTimeoutMs ?? 10_000}`,
+    "-e", `RELAY_ALLOWED_COMMANDS=${JSON.stringify(opts.allowedCommands ?? [])}`,
+    "-w", "/workspace",
+    SANDBOX_IMAGE,
+    "node", opts.containerCli,
+    ...opts.piArgs,
   ];
 }
 
@@ -235,28 +276,13 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
       "/opt/relay/node_modules",
       pi.cliPath.slice(join(pi.repoRoot, "node_modules").length + 1),
     );
-    const argv = [
-      DOCKER_BIN, "run", "--rm", "-i", // -i:RPC 走 stdin;无 -i 容器 stdin EOF ⇒ pi 静默退出(实测坑)
-      "--name", basename(spec.runDir), // 可寻址:测试可对真实容器注入 docker kill(断连故障)
-      "--user", `${SANDBOX_UID}:${SANDBOX_UID}`,
-      "--cap-drop", "ALL",
-      "--network", EGRESS_NETWORK, // 专用 bridge + iptables 白名单(egress.ts;host 网络已于 P0-01C 废止)
-      "-v", `${spec.workspaceDir}:/workspace`,
-      "-v", `${spec.homeDir}:/pihome`,
-      "-v", `${spec.runDir}/ext:/opt/relay/ext:ro`,
-      "-v", `${join(pi.repoRoot, "node_modules")}:/opt/relay/node_modules:ro`,
-      "-e", "HOME=/pihome",
-      "-e", "TERM=dumb",
-      "-e", "NO_COLOR=1",
-      "-e", `RELAY_ALLOWED_ROOT=/workspace`,
-      "-e", `RELAY_TOOL_AUDIT=/workspace/.relay/tool-audit.jsonl`,
-      "-e", `RELAY_EXEC_TIMEOUT_MS=${opts.execTimeoutMs ?? 10_000}`,
-      "-e", `RELAY_ALLOWED_COMMANDS=${JSON.stringify(opts.allowedCommands ?? [])}`,
-      "-w", "/workspace",
-      SANDBOX_IMAGE,
-      "node", containerCli,
-      ...piArgs,
-    ];
+    const argv = buildDockerRunArgs(spec, pi, {
+      piArgs,
+      containerCli,
+      allowedCommands: opts.allowedCommands,
+      execTimeoutMs: opts.execTimeoutMs,
+      workspaceReadOnly: opts.workspaceReadOnly,
+    });
     return PiRpcSession.spawn({
       argv,
       cwd: spec.runDir, // docker client 的 cwd 必须是宿主存在的目录;容器内工作目录由 -w 指定

@@ -118,7 +118,42 @@ export const candidateChangesets = pgTable("candidate_changesets", {
   changedFiles: jsonb("changed_files").$type<Record<string, string[]>>().notNull(),
   // 与 allowed_scope 的交集核验结果 { inScope: string[], violations: string[] }
   impactScope: jsonb("impact_scope").$type<Record<string, string[]>>().notNull(),
+  // P0-02B D-1:三 SHA 区分 —— 清单 SHA(base_sha/candidate_sha)≠ Git Tree SHA ≠ Git Commit SHA。
+  gitBaseCommitSha: text("git_base_commit_sha"),
+  gitTreeSha: text("git_tree_sha"),
+  gitCommitSha: text("git_commit_sha"),
+  // P0-02B D-8:交付状态(NONE|PROPOSED|DELIVERING|DELIVERED|CONFLICT|FAILED);
+  // DELIVERED 必须以远端核对(HEAD==payload 且树内容==候选清单)为前提。
+  deliveryState: text("delivery_state").notNull().default("NONE"),
+  deliveryIntentId: text("delivery_intent_id"),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  deliveredRemoteHead: text("delivered_remote_head"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// P0-02B D-4:Action Proposal(交付授权基础 = 已消费 Gate PASS 裁决)。
+// Policy 确定性裁决后 PROPOSED→POLICY_APPROVED|POLICY_DENIED;消费后 CONSUMED。
+export const actionProposals = pgTable("action_proposals", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id")
+    .notNull()
+    .references(() => tasks.id),
+  attempt: integer("attempt").notNull(),
+  changesetId: text("changeset_id")
+    .notNull()
+    .unique()
+    .references(() => candidateChangesets.id),
+  gateVerdictId: text("gate_verdict_id").notNull(),
+  capability: text("capability").notNull(),
+  target: text("target").notNull(),
+  branch: text("branch").notNull(),
+  expectedRemoteSha: text("expected_remote_sha").notNull(),
+  commitSha: text("commit_sha").notNull(),
+  // POLICY_APPROVED | POLICY_DENIED | CONSUMED
+  state: text("state").notNull(),
+  policyDetail: jsonb("policy_detail").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // P0-02A C-3:可信 Evidence(Worker 侧执行器采集:原始输出/时间/环境/内容摘要;

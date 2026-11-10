@@ -152,13 +152,20 @@ export interface ChangesetRow {
   requirementSha: string;
   changedFiles: Record<string, string[]>;
   impactScope: Record<string, string[]>;
+  // P0-02B D-1:三 SHA 区分(候选 commit 绑定;未构建 commit 时为 null)
+  gitBaseCommitSha: string | null;
+  gitTreeSha: string | null;
+  gitCommitSha: string | null;
+  deliveryState: string;
+  deliveredRemoteHead: string | null;
 }
 
 /** 当前生效变更集(该 task 最新 attempt 的最新一条;Gate 绑定的比对基准)。 */
 export async function latestChangeset(exec: Exec, taskId: string): Promise<ChangesetRow | null> {
   const res = await exec.execute(sql`
     SELECT id, task_id, run_id, attempt, base_sha, candidate_sha, requirement_sha,
-           changed_files, impact_scope
+           changed_files, impact_scope,
+           git_base_commit_sha, git_tree_sha, git_commit_sha, delivery_state, delivered_remote_head
     FROM candidate_changesets WHERE task_id = ${taskId}
     ORDER BY attempt DESC, created_at DESC LIMIT 1
   `);
@@ -174,5 +181,51 @@ export async function latestChangeset(exec: Exec, taskId: string): Promise<Chang
     requirementSha: String(r["requirement_sha"]),
     changedFiles: r["changed_files"] as Record<string, string[]>,
     impactScope: r["impact_scope"] as Record<string, string[]>,
+    gitBaseCommitSha: (r["git_base_commit_sha"] as string | null) ?? null,
+    gitTreeSha: (r["git_tree_sha"] as string | null) ?? null,
+    gitCommitSha: (r["git_commit_sha"] as string | null) ?? null,
+    deliveryState: String(r["delivery_state"] ?? "NONE"),
+    deliveredRemoteHead: (r["delivered_remote_head"] as string | null) ?? null,
   };
+}
+
+/** 绑定候选 commit 到变更集(D-2 产物落库;binding 前提:仍是该 task 最新变更集)。 */
+export async function bindCandidateCommit(
+  exec: Exec,
+  spec: {
+    changesetId: string;
+    taskId: string;
+    attempt: number;
+    baseCommitSha: string;
+    treeSha: string;
+    commitSha: string;
+    stageRepoDir: string;
+  },
+  actor = "worker",
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  // 仍须是最新变更集(绑定过期候选 ⇒ 拒绝)
+  const latest = await latestChangeset(exec, spec.taskId);
+  if (!latest || latest.id !== spec.changesetId) return { ok: false, reason: "changeset_not_latest" };
+  await exec.execute(sql`
+    UPDATE candidate_changesets
+    SET git_base_commit_sha = ${spec.baseCommitSha}, git_tree_sha = ${spec.treeSha},
+        git_commit_sha = ${spec.commitSha}
+    WHERE id = ${spec.changesetId}
+  `);
+  await appendAudit(exec, {
+    actor,
+    authority: "WORKER",
+    action: "GIT_COMMIT_BOUND",
+    taskId: spec.taskId,
+    detail: {
+      changesetId: spec.changesetId,
+      attempt: spec.attempt,
+      baseCommitSha: spec.baseCommitSha,
+      treeSha: spec.treeSha,
+      commitSha: spec.commitSha,
+      stageRepoDir: spec.stageRepoDir,
+      note: "三 SHA 区分:candidate_sha(清单)≠ tree_sha ≠ commit_sha;树==清单往返核验已通过",
+    },
+  });
+  return { ok: true };
 }

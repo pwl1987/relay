@@ -6,7 +6,9 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { WorkspaceManifest } from "../core/changesets.ts";
 
-export const MANIFEST_EXCLUDE = new Set([".relay"]);
+// P0-02B:候选面语义 = 工作文件;".git" 是仓库元数据(候选 commit 由 git-candidate 单独构建),
+// 混入清单会让 candidate_sha 随 git 内部状态抖动。既有测试种子无 .git,行为兼容。
+export const MANIFEST_EXCLUDE = new Set([".relay", ".git"]);
 
 export function snapshotManifest(rootDir: string): WorkspaceManifest {
   const manifest = new Map<string, string>();

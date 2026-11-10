@@ -18,6 +18,14 @@ import { expireStaleDecisions } from "./decisions.ts";
 import { setGoalState } from "./goals.ts";
 import { startSafeLoop, type SafeLoopHandle } from "./loop-safety.ts";
 import { orchestrateGate, type GateOrchestrationOptions, type GateOrchestrationResult } from "./gate-orchestrator.ts";
+import {
+  proposeDelivery,
+  executeDelivery,
+  type DeliveryExecutionResult,
+  type DeliveryIO,
+  type ProposeDeliveryInput,
+  type ProposeDeliveryResult,
+} from "./delivery.ts";
 
 export interface RunOutcomeDigest {
   outcome: string; // SUCCEEDED | FAILED | TIMEOUT | CANCELLED | INTERRUPTED | BUDGET_EXHAUSTED | ...
@@ -46,6 +54,12 @@ export interface GoalLoopTickOptions {
   idleSeconds?: number;
   /** Gate 编排(P0-02A):SUCCEEDED 后 验证租约→证据→独立 Reviewer→绑定版消费 */
   gate?: GateOrchestrationOptions;
+  /** 交付(P0-02B):Gate ACCEPTED 后 Proposal→Policy→Intent→Scoped Executor→DELIVERED。
+   * propose/execute 的 IO(executor/核验回调)由 runtime 注入,core 不做 git/网络 IO。 */
+  delivery?: {
+    propose: (input: { taskId: string; attempt: number }) => Promise<ProposeDeliveryInput>;
+    io: (taskId: string) => Promise<DeliveryIO> | DeliveryIO;
+  };
 }
 
 export interface GoalLoopTickReport {
@@ -53,6 +67,7 @@ export interface GoalLoopTickReport {
   tick?: TickReport;
   run?: RunOutcomeDigest & { disposition?: string };
   gate?: GateOrchestrationResult;
+  delivery?: { propose: { ok: boolean; reason?: string }; execute: DeliveryExecutionResult | { skipped: string } };
   goalStates?: Array<{ goalId: string; state: string }>;
   idleHintSeconds?: number;
 }
@@ -275,6 +290,7 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
   // a) 若本拍领到任务且注入了 runTask:执行并处置
   let run: GoalLoopTickReport["run"];
   let gateReport: GateOrchestrationResult | undefined;
+  let deliveryReport: GoalLoopTickReport["delivery"];
   if (tick.claimed && options.runTask) {
     const claim = tick.claimed;
     const result = await options.runTask({
@@ -304,6 +320,20 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
         },
         options.gate,
       );
+      // a.6) 交付(P0-02B):Gate ACCEPTED ⇒ Proposal→Policy→Intent→Executor→DELIVERED。
+      // 交付层任何失败不回滚质量结论(ACCEPTED 终态);CONFLICT/FAILED 落 D3 决策行(人工处置)。
+      if (options.delivery && gateReport?.status === "ACCEPTED") {
+        const proposeInput = await options.delivery.propose({ taskId: claim.taskId, attempt: claim.attempt });
+        const proposed = await db.transaction(async (tx) =>
+          proposeDelivery(tx as unknown as Exec, proposeInput),
+        );
+        deliveryReport = {
+          propose: proposed.ok ? { ok: true } : { ok: false, reason: proposed.reason },
+          execute: proposed.ok
+            ? await executeDelivery(db, await options.delivery.io(claim.taskId), proposed.proposal.id, { actor })
+            : { skipped: `propose_rejected:${proposed.reason}` },
+        };
+      }
     }
   }
 
@@ -321,6 +351,7 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
     tick,
     run,
     ...(gateReport ? { gate: gateReport } : {}),
+    ...(deliveryReport ? { delivery: deliveryReport } : {}),
     goalStates,
     ...(status === "IDLE" ? { idleHintSeconds: options.idleSeconds ?? 30 } : {}),
   };

@@ -1,0 +1,41 @@
+# Relay 最小 CI(P0-02B 合同第四节):类型检查 + 非模型测试 + PostgreSQL 集成。
+# 模型/真实 provider 相关用例按既有探测门自动 skip(probeProvider 探不到 ⇒ skip,不假装);
+# egress 类容器门需要宿主 iptables + 本地模型路由,CI 环境不可用 ⇒ 自动 skip。
+# 容器层确定性测试(OS 沙箱/只读挂载)在 runner 自带 docker 上真实执行。
+name: ci
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: relayp000local
+          POSTGRES_DB: relayp000
+        ports:
+          - 55433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      RELAY_DB_URL: postgresql://postgres:relayp000local@127.0.0.1:55433/relayp000
+      RELAY_PI_BASE_URL: http://127.0.0.1:1/v1 # 模型 E2E 显式不可达 ⇒ skip(非模型测试不受影响)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: typecheck
+        run: npx tsc --noEmit
+      - name: tests(非模型 + 真 PG + 确定性容器门)
+        run: npx vitest run

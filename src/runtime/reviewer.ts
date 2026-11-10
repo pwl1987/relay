@@ -193,6 +193,8 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
       model,
       egress: spec.egress,
       allowedCommands: [], // Reviewer 只读:禁一切 exec
+      // G-4:docker 模式对共享候选工作区强制 FS 级只读挂载(prompt 级禁令之外的 OS 层强制)
+      workspaceReadOnly: spec.sandbox === "docker" && Boolean(spec.workspaceDirOverride),
       execTimeoutMs: spec.execTimeoutMs,
       argvOverride: spec.argvOverride,
       envOverride: spec.envOverride,

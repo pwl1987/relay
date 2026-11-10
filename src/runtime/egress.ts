@@ -17,6 +17,7 @@
 // (不得以 --network host 降级)。规则仅作用域本子网/本端口,不改 ufw 策略。
 import { execFileSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
+import { existsSync, statSync } from "node:fs";
 import { DOCKER_BIN, dockerAvailable, SANDBOX_IMAGE } from "./sandbox.ts";
 
 export const EGRESS_NETWORK = process.env.RELAY_EGRESS_NETWORK ?? "relay-egress-net";
@@ -109,14 +110,18 @@ function inputRuleExists(hostIp: string, port: number, subnet: string): boolean 
   }
 }
 
-// HTTP 反向代理(P0-02A C-8/C-9):密钥改写 + 1:1 请求转发计数 + 本机计数端点。
+// HTTP 反向代理(P0-02A C-8/C-9;P0-02B G-3 持钥 0600 化):密钥改写 + 1:1 请求转发计数 + 本机计数端点。
 // 计数语义:http server 每收到一个请求即 +1 且恰好转发一次上游 —— 该数即真实 Provider 请求数。
+// G-3:真实 key 不再经 docker 环境变量注入(docker inspect 可见)——宿主 0600 文件只读挂载,
+// 代理进程启动时读一次;inspect 可见面/env 全程零 key。
 const FWD_SCRIPT = `
 const http = require("http");
+const fs = require("fs");
 const ORIGIN_PORT = Number(process.env.FWD_ORIGIN_PORT ?? "3425");
 const LISTEN_PORT = Number(process.env.FWD_LISTEN_PORT ?? "13425");
 const COUNT_PORT = Number(process.env.FWD_COUNT_PORT ?? "13426");
-const REAL_KEY = process.env.FWD_REAL_KEY || "";
+let REAL_KEY = "";
+try { REAL_KEY = fs.readFileSync("/run/relay-fwd/real-key", "utf8").trim(); } catch {}
 let requests = 0;
 let completions = 0;
 let connections = 0;
@@ -213,13 +218,25 @@ export function readEgressRequestCount(timeoutMs = 3000): Promise<{ requests: nu
   });
 }
 
+/** 宿主持钥文件要求:存在、常规文件、0600(G-3;调用方在 ensureEgress 前自证)。 */
+export function realKeyFileValid(path: string | null | undefined): boolean {
+  if (!path) return false;
+  try {
+    if (!existsSync(path)) return false;
+    const st = statSync(path);
+    return st.isFile() && (st.mode & 0o777) === 0o600;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 幂等建立出口约束(网络 + RELAY-EGRESS 链 + DOCKER-USER 挂载 + INPUT 放行 + 代理容器)。
- * opts.realKey:真实模型 key(仅注入代理容器环境;Run 容器/argv/models.json 永不见真值)。
- * 缺省 = 透传模式(假密钥本地路由,机制仍计数;真密钥接入前必须带 realKey 走改写模式)。
- * 代理容器每次 ensure 重建(env 可能变化;结果幂等)。失败即返回 ok:false(调用方 FAIL-CLOSED)。
+ * opts.realKeyFile:宿主 0600 持钥文件路径(G-3:只读挂载进代理容器,env/inspect 零可见;
+ * Run 容器/argv/models.json 永不见真值)。缺省 = 透传模式(假密钥本地路由,机制仍计数)。
+ * 代理容器每次 ensure 重建(挂载/端口可能变化;结果幂等)。失败即返回 ok:false(调用方 FAIL-CLOSED)。
  */
-export async function ensureEgress(modelBaseUrl: string, opts: { realKey?: string } = {}): Promise<EgressStatus> {
+export async function ensureEgress(modelBaseUrl: string, opts: { realKeyFile?: string } = {}): Promise<EgressStatus> {
   if (!dockerAvailable()) return { ok: false, network: EGRESS_NETWORK, reason: "docker_unavailable" };
   const hostIp = detectHostIp();
   const originPort = parseModelPort(modelBaseUrl);
@@ -246,8 +263,8 @@ export async function ensureEgress(modelBaseUrl: string, opts: { realKey?: strin
       ipt(["-I", "INPUT", "1", "-p", "tcp", "-s", subnet, "-d", hostIp, "--dport", String(EGRESS_FORWARD_PORT), "-j", "ACCEPT", "-m", "comment", "--comment", RULE_TAG]);
     }
 
-    // 代理容器(host 网络:模型连接源回到宿主 loopback;真实 key 仅存于代理进程环境)。
-    // 每次 ensure 重建(env 可能变化;结果幂等)。容器不存在时 rm 报错被吞(首建场景)。
+    // 代理容器(host 网络:模型连接源回到宿主 loopback;真实 key 经宿主 0600 文件只读挂载,G-3)。
+    // 每次 ensure 重建(挂载/端口可能变化;结果幂等)。容器不存在时 rm 报错被吞(首建场景)。
     try {
       docker(["rm", "-f", FWD_CONTAINER]);
     } catch {
@@ -258,8 +275,15 @@ export async function ensureEgress(modelBaseUrl: string, opts: { realKey?: strin
       "-e", `FWD_LISTEN_PORT=${EGRESS_FORWARD_PORT}`,
       "-e", `FWD_COUNT_PORT=${EGRESS_COUNT_PORT}`,
     ];
-    if (opts.realKey !== undefined) envArgs.push("-e", `FWD_REAL_KEY=${opts.realKey}`);
-    docker(["run", "-d", "--name", FWD_CONTAINER, "--network", "host", "--restart", "unless-stopped", ...envArgs, SANDBOX_IMAGE, "node", "-e", FWD_SCRIPT]);
+    const mountArgs: string[] = [];
+    if (opts.realKeyFile !== undefined) {
+      // FAIL-CLOSED:持钥文件不满足 0600 常规文件 ⇒ 拒绝建立(绝不降级为 env 注入)
+      if (!realKeyFileValid(opts.realKeyFile)) {
+        return { ok: false, network: EGRESS_NETWORK, subnet, hostIp, modelPort: EGRESS_FORWARD_PORT, originPort, reason: "real_key_file_invalid" };
+      }
+      mountArgs.push("-v", `${opts.realKeyFile}:/run/relay-fwd/real-key:ro`);
+    }
+    docker(["run", "-d", "--name", FWD_CONTAINER, "--network", "host", "--restart", "unless-stopped", ...envArgs, ...mountArgs, SANDBOX_IMAGE, "node", "-e", FWD_SCRIPT]);
 
     const rules = chainRules();
     if (rules.length < 2 || !forwarderUp()) {
@@ -276,7 +300,7 @@ export async function ensureEgress(modelBaseUrl: string, opts: { realKey?: strin
       hostIp,
       modelPort: EGRESS_FORWARD_PORT,
       originPort,
-      keyIsolation: opts.realKey !== undefined,
+      keyIsolation: opts.realKeyFile !== undefined,
     };
   } catch (e) {
     return { ok: false, network: EGRESS_NETWORK, hostIp, modelPort: EGRESS_FORWARD_PORT, originPort, reason: `ensure_failed:${(e as Error).message}` };
