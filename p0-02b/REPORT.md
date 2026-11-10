@@ -99,7 +99,8 @@ npx vitest run test/integration/github-real.test.ts
 | --- | --- |
 | `p0-02b/full-suite.log` | VM80 全量(最终 HEAD 重跑,内嵌 SHA/时间/预算说明头) |
 | `p0-02b/fresh-clone-repro.log` | 全新克隆(头内嵌 SHA):非模型全量 + tsc 0 错误 |
-| `p0-02b/github-api-verification.log` | GitHub API 只读核验(四端点状态码 + 凭据形态;无令牌明文) |
+| `p0-02b/github-api-verification.log` | GitHub API 只读核验(四端点状态码 + 凭据形态 + 判定口径;无令牌明文) |
+| `p0-02b/ci-run.log` | GitHub Actions CI 结果(run `42791803470` @ `5f91b3b`:success;148 passed+15 skipped;typecheck 0) |
 | 合同时序 | `22e93ba`(基线)→ `79187dd`(合同,先于实现)→ `61139d5`(实现)→ `aad67bd`(REPORT)→ `0207a6a`(自查加固=Reviewer F-1)→ `28c1b8a`(复核处置)→ `9691292`(证据终版)→ `bcb821c`(P0-02B 收尾)→ 补验包(见 §8) |
 | 反例-测试映射 | §2 表(9/9 有专属断言;7 条含 bare Git 失败窗口) |
 | 独立复核 | `p0-02b/REVIEW.md`(全新上下文 Reviewer:首轮 PASS-WITH-FIXES + 处置 + 复验) |
@@ -148,7 +149,14 @@ npx vitest run test/integration/github-real.test.ts
 
 **覆盖条件说明(N-7)**:「历史未丢」的精确计数断言(`countAfter === countBefore + 1` + 旧头对象仍在)位于「远端此前已存在 main」的分支内;沙箱仓库当前 main 为空 ⇒ 首次真实写入走「创建分支」路径,该断言不参与 —— 待第二次运行(远端已有 main)时自动生效。祖先关系断言同理按分支适用。
 
-### 8.5 补验时序与治理留痕
+### 8.5 补验最终状态与治理留痕
+
+- **推送**:`bcb821c..5f91b3b`(6 提交,fast-forward);`origin/main == HEAD == 5f91b3b`,worktree clean;**CI 在同一 SHA 上 success**(run `42791803470`)。
+- **测试账(最终)**:全量 **163 用例 = 161 passed + 2 skipped**;全新克隆复现 **152 passed + 11 skipped + tsc 0**;CI **148 passed + 15 skipped**。
+- **独立复核三轮**:补验包首轮 PASS-WITH-FIXES(13 项发现)→ 第二轮 PASS-WITH-FIXES(9 项新发现,N-1 为必须在 PAT 实验前修的夹具真缺陷)→ 全部处置 → 最终 PASS(见 `REVIEW.md` §七)。
+- **诚实记录**:首次克隆复现出现 1 个 vitest 未捕获错误(瞬时;细节未捕获——当时日志仅保留尾部),连续两次重跑均全绿;缓解已就位(git 子进程 60s 超时、API 探测 20s 超时)。
+
+### 8.6 补验时序与治理留痕
 
 - 冷启动:`bcb821c` == origin/main,worktree clean;写者=本会话(唯一)。
 - 复核窗口内 HEAD 前进(补验实现 `5d859f8` → 证据 `d66bc8e`):Reviewer 已如实记录该时序,并声明结论针对代码面 `5d859f8`(证据日志更新不含代码面变更)。

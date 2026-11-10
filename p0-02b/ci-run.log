@@ -1,0 +1,9 @@
+# P0-02B 补验 · GitHub Actions CI 结果(开发者 infra 视角,只读核验)
+# 时间: 2026-11-10T17:37:02+08:00
+# workflow: .github/workflows/ci.yml (typecheck + 全量 vitest + PostgreSQL 16 service)
+# run id: 42791803470   head SHA: 5f91b3b4b182b0132f2e14c56bd601bc8ddedfb5
+# status/conclusion: completed / success
+# job: test → success
+# typecheck: npx tsc --noEmit → 0 错误
+# tests: Test Files 35 passed | 5 skipped (40);Tests 148 passed | 15 skipped (163)
+# 说明:CI 环境无模型路由、无 GitHub 凭据 ⇒ 模型门与凭据门用例显式 skip(15 skipped);容器确定性门真跑。

@@ -143,8 +143,29 @@
 
 **首轮裁决:PASS-WITH-FIXES**(补验授权 1/2/3/5/6/8 VERIFIED;4 PARTIAL;7 运行时 NOT-VERIFIED;全部发现 MINOR/OBSERVATION 级,无 BLOCK,无安全收敛缺口)。
 
-### 四、复验(处置提交后)
+### 四、复验(处置提交 `6618044` 之后,第二轮 Reviewer)
 
-复验对象:处置提交(补验实现 + 全部处置)。复验点:F-1 精确计数断言、F-2 空分支创建语义、F-3 审计路径双模式、F-4 提示去反引号、F-5 反例、F-6 端口维度、F-8~F-11 文档/覆盖面/口径。
+复验对象:`6618044`(首轮 13 项处置);复验窗口内证据提交 `b971aba` 仅含两份 `.log`(Reviewer 已如实记录该时序)。
 
-(占位:待 Reviewer 实际复验后由其结论落盘,写者不得代写。)
+**首轮 13 项处置结论**:F-1/F-3/F-4/F-5/F-6/F-8/F-9/F-10/F-11/F-13 **VERIFIED**;F-2 **PARTIAL**(Policy 侧 VERIFIED,但漂移用例的建分支动作推送了另一仓库的对象 ⇒ N-1);F-7 **VERIFIED**(残余 N-3 计数口径);F-12 声明保留可接受。
+**亲测**:tsc 0 错误;六文件 **47 passed + 2 skipped**(skip 归因=凭据门);全量 **147 passed + 11 skipped(158)** 与写者证据逐例吻合;F-2 漂移建分支独立复刻 ⇒ `fatal: bad object`(N-1 确证);`git ls-remote` 194s ⇒ 判定为**瞬时网络抖动**(隔离复跑 3.33s),非代码回归。
+**新发现 9 项**:N-1(MINOR,漂移建分支对象不自洽)/N-2(MINOR,执行器 git 无超时)/N-3(MINOR,REPORT 计数口径)/N-4(MINOR,拒绝提示零测试覆盖)/N-5(OBS,审计路径按 mode 判定)/N-6(OBS,read 提示覆盖不全)/N-7(OBS,F-1 断言在空分支不执行)/N-8(OBS,API 日志口径)/N-9(OBS,REVIEW 转写标注)。
+**第二轮裁决:PASS-WITH-FIXES**(无 BLOCK 级问题;**无安全收敛缺口**:零强推、目标钉扎、env 不可改指、凭据零回退、Policy host/userinfo/端口/base 四重收敛、审计码稳定、Gate 语义未降级 —— 均成立且独立亲测通过)。
+
+### 五、第三轮处置(N-1..N-9 全部落地)
+
+| # | 处置 |
+| --- | --- |
+| N-1 | **已修**:漂移用例的外部写者改用**自身提交**创建分支(远端为空时)或基于真实远端头快进(远端已存在);对象自洽 ⇒ 不再有 `bad object`;历史断言按「远端此前是否有 main」分支适用 |
+| N-2 | **已修**:`github-push.ts` 与 `git-push.ts` 的 git 子进程补 `timeout: 60_000`(执行器侧同样不再无限挂起) |
+| N-3 | **已修**:REPORT §8.4 计数同步为 **158 用例 = 156 passed + 2 skipped** |
+| N-4 | **已修**:新增 `test/unit/denial-hints.test.ts`(5 例)锁定不变量「提示文本不得含 ASCII 禁用字符」;**连带修复**:原提示自身含 ASCII `;`/`&`(模型照抄仍会被拒)⇒ 提示全角化、禁用字符只用文字描述 |
+| N-5 | **已修**:审计路径判定改用 `workspaceReadOnly` 标志(与启动参数同源),消除「假缺失」 |
+| N-6 | **已修**:`readDenialHint` 补 `allowed_root_not_configured` 与 `stat_failed:*` |
+| N-7 | **已修**:REPORT §8.4 增「覆盖条件说明」(精确计数断言在「远端已有 main」分支生效;首次创建分支路径不适用) |
+| N-8 | **已修**:`github-api-verification.log` 增「判定次序」与「与测试口径一致」说明 |
+| N-9 | **已修**:本节开头标注「一~三为写者转写自 Reviewer 首轮输出」 |
+
+**第三轮亲测**:全量 **161 passed + 2 skipped(163)**;克隆复现 **152 passed + 11 skipped + tsc 0**;CI(`.github/workflows/ci.yml`,run `42791803470`,head SHA `5f91b3b`)**success**(148 passed + 15 skipped,typecheck 0 错误);快进推送 `bcb821c..5f91b3b`,`origin/main == HEAD`,worktree clean。
+
+**最终裁决:PASS**(三轮复验的全部 MINOR/OBS 均已处置或如实声明保留;唯一遗留为凭据门下的真实写入实验待有效 PAT —— 属授权内的合规挂起,非违约)。

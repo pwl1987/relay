@@ -10,7 +10,7 @@
 - 安全门禁:**G-3 代理持钥 0600 文件化**(env 注入面废除,inspect 零可见)、**G-4 Reviewer FS 级只读挂载**(OS 层 EROFS 实测)、G-1/G-2 机制全就绪(0600 凭据文件→store/仓库+host 双白名单)。
 - 测试:**158 用例 = 156 passed + 2 skipped**(skip = 真实远端写入/漂移两例,凭据门诚实跳过);新增 `test/unit/delivery-policy.test.ts`(9 例);全新克隆复现 **144 passed + 11 skipped + tsc 0**(内嵌 SHA)。
 - 独立复核:全新上下文 Reviewer 两轮——P0-02B 首轮 **PASS-WITH-FIXES** → 处置 → 复验 **PASS**;补验包首轮 **PASS-WITH-FIXES**(6 MINOR + 7 OBS,无 BLOCK)→ 全部处置 → 复验;见 `p0-02b/REVIEW.md` §一/§六/§七、`p0-02b/REPORT.md` §1/§8。
-- CI:`.github/workflows/ci.yml`(typecheck + 全量 vitest:PG16 service + 模型/凭据门自动 skip + 容器确定性门真跑);补验后 CI 绿并快进推送。
+- CI:`.github/workflows/ci.yml`(typecheck + 全量 vitest:PG16 service + 模型/凭据门自动 skip + 容器确定性门真跑);**补验包 CI 绿**(run `42791803470` @ `5f91b3b`:success;148 passed+15 skipped;typecheck 0 错误)→ 快进推送 `bcb821c..5f91b3b`;`origin/main == HEAD`,worktree clean。
 - 模型预算:本包新增功能与补验用例 **0 模型调用**;全量回归触发既有测试固有消耗(gate-e2e 6 次经账本 6/8 + pi-e2e ~5 次 legacy 未走账本,如实披露)——全部 magpie 本地假密钥路由,零真实成本。
 
 ## 遗留检查单
