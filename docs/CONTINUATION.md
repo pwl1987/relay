@@ -1,37 +1,36 @@
 # Relay / HIVE Next 续接(以最新 live main 为准)
 
-状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09 已完成 P0-00(可行性/安全/恢复语义实验,`p0-00/REPORT.md`)与 **P0-01A(持久状态与可靠执行内核,`p0-01a/REPORT.md`)**;2026-11-10 已完成 **P0-01B(有界 Pi Run,`p0-01b/REPORT.md`)**。**P0-01C 尚未实施,不代表产品功能存在。**
+状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09 完成 P0-00(实验,`p0-00/REPORT.md`)与 P0-01A(状态内核,`p0-01a/REPORT.md`);2026-11-10 完成 **P0-01B(有界 Pi Run,`p0-01b/REPORT.md`)** 与 **P0-01C(受控 Goal Loop,`p0-01c/REPORT.md`)**。**P0-02A 尚未实施,不代表产品功能存在。**
 
 ## 唯一事实源及阅读
 
 仓库:`https://github.com/pwl1987/relay`,只用 `main`,禁止强推。启动时务必读取 **live** HEAD 和分支、`AGENTS.md`、`CURRENT.md`、`README.md`、架构/契约/ADR,以及:
 - 产品:`docs/PRD.md`;技术:`docs/DETAILED_ARCHITECTURE.md`;建设:`docs/CONSTRUCTION_PLAN.md`
-- 交互:`docs/UI_UX.md`;安全:`docs/SECURITY_MODEL.md`;验证:`docs/VALIDATION_PLAN.md`;环境:`docs/DEPLOYMENT_PLAN.md`
-- **P0-00 结果:`p0-00/REPORT.md`**(ADR-0003/0007 裁决依据)
-- **P0-01A 结果:`p0-01a/REPORT.md`**(状态层/35 测试/复核)
-- **P0-01B 结果:`p0-01b/REPORT.md`**(有界 Pi Run/70 测试/双层隔离/成本核算)
+- 安全:`docs/SECURITY_MODEL.md`;验证:`docs/VALIDATION_PLAN.md`;环境:`docs/DEPLOYMENT_PLAN.md`
+- **P0-00**:`p0-00/REPORT.md`(ADR-0003/0007 依据);**P0-01A**:`p0-01a/REPORT.md`;**P0-01B**:`p0-01b/REPORT.md`;**P0-01C**:`p0-01c/REPORT.md`(含 §5 密钥隔离设计、§3.1 合同时序治理事实)
 
-产品原则:唯一 Lifecycle/State owner;六阶段 SDLC;Pi first 且 Runtime≠Model;ChatGPT optional;Action Proposal→Policy→Scoped Executor;外部副作用结果不明先 Reconcile;证据/真实体验为 Gate;24×7 是有资源、权限和 Ready Task 时持续安全推进。
+产品原则:唯一 Lifecycle/State owner;六阶段 SDLC;Pi first 且 Runtime≠Model;Action Proposal→Policy→Scoped Executor;外部副作用结果不明先 Reconcile;证据/真实体验为 Gate;24×7 是有资源、权限和 Ready Task 时持续安全推进。
 
-## 已裁决并落地(2026-11-10 更新)
+## 已裁决并落地(2026-11-10,P0-01C 更新)
 
-- **ADR-0003**:Pi 集成=RPC 子进程+`--no-builtin-tools`+扩展注入受控工具+每 Run 一次性 HOME+OS 容器隔离(双层缺一不可)。→ **已在 P0-01B 代码化:`src/runtime`**(pi-version 版本锁定/sandbox 双层沙箱/pi-rpc 协议客户端/runner 生命周期/relay-tools.extension 受控工具/context+handoff)。
-- **ADR-0007**:自研 PG 事务+租约+fencing+append-only 审计 → **P0-01A 已代码化 `src/core`**。
-- **Lease TTL 契约**:TTL 窗口=权威窗口;Worker 必须心跳续租;**心跳权威仅在工作链内(P0-01B F-3 收口:NEEDS_RECONCILE/终态心跳拒绝)**;Supervisor 仅过期后回收;终态绝对优先。
-- **Reconcile 契约**:执行前核对 expected;RESERVED→EXECUTING→COMPLETED/CONFLICT/FAILED;恢复先查目标真实状态三分类,绝不盲目重试。
-- **Run 生命周期契约(P0-01B 新增)**:Run 成功 ≠ 任务 ACCEPTED(VERIFYING 后必过 Gate);超时→TIMEOUT+任务 FAILED;取消→CANCELLED;心跳被拒→立即杀 Pi+零推进(INTERRUPTED);断连→rpc_disconnect+任务留 RUNNING;恢复=从 DB 重建上下文(resume_mode=context_rebuild),不假装恢复模型内部状态。
-- **测试基建**:Vitest 70 用例(真实 PG+真实 SIGKILL+真实 docker kill+真实容器模型 E2E),每测试文件独立 schema;`npm ci && npm run db:up && npm test` 非模型 68 例全新克隆可复现,E2E/沙箱在缺 provider/docker 时显式跳过。测试库 `relay-p000-pg`(127.0.0.1:55433,512Mi)。
-- 运行环境事实:VM80=ubuntu2604;**Pi 1.5.0 已 vendored(升级须改 RELAY_PI_VERSION+package.json 并留证,禁全局 pi)**;模型路由 magpie 127.0.0.1:3425 当前可用(Provider 探测驱动,env RELAY_PI_* 可覆盖);宿主 ufw 拒容器→宿主(沙箱用 --network host,网络隔离妥协已记录);gh 令牌超范围,P0-02B 前必须换细粒度 PAT;宿主 umask/ACL 对 other 关闭(容器挂载依赖 ensureNodeModulesReadable/chmod 链,勿删)。
+- **ADR-0003 双层边界已完整代码化并加厚**:工具层 = vendored Pi 1.5.0(路径钉死三道校验)+ `--no-builtin-tools` + relay_read/**relay_exec(命令前缀白名单,`$()`/`${}`/控制字符全禁)** + toolEvents Worker 侧持久化;OS 层 = docker `--cap-drop ALL`/uid 10001/限挂载 + **网络出口三层**(专用 bridge + RELAY-EGRESS/DOCKER-USER 出站白名单 + loopback 转发器容器;规则缺失 FAIL-CLOSED 拒启,无 host 网络降级路径)。
+- **机器预算(P0-01C 新裁决)**:budget_ledger 先预留再执行后核算;model_calls 无带 limit 行 = FAIL-CLOSED;**Run 中回合硬顶**(assistant 回合 ≥ 预留 ⇒ SIGKILL+BUDGET_EXHAUSTED+任务 BLOCKED),单 Run 机械不可破账本;token 实测/保守估算。
+- **D0-D4 裁决语义**:D2 仅执行创建时已声明的 fallback;**D3 永不超时自动批准**(过期仅标 EXPIRED_STILL_BLOCKED);恢复动作需 actor 授权(RELAY_OPERATORS)+ expected state_version + 合法转移 + OPERATOR 审计。
+- **自治恢复语义**:retry_not_before 指数退避;相同失败签名 ≥3 熔断 CIRCUIT_OPEN;attempt 预算;并发 Tick 恰一赢家;进程重启从 PG 恢复(无内存权威);IDLE/模型断供探测不烧 token;goal 聚合 COMPLETED/FAILED。
+- **Lease 契约(累计)**:TTL=权威窗口;心跳权威仅工作链内(NEEDS_RECONCILE/终态拒);心跳 DB 连续异常 ≥2 ⇒ Run 止损;VERIFYING 后租约仅剩心跳窗口,Gate 须窗口内完成(边界移交 P0-02A Gate 编排)。
+- **测试基建**:Vitest 97 用例(真实 PG/SIGKILL/docker kill/iptables 实测/stub RPC/回合硬顶),每文件独立 schema;非模型 94 例全新克隆可复现,模型相关显式 skip。测试库 `relay-p000-pg`(127.0.0.1:55433)。
+- **运行环境事实(累计)**:VM80=ubuntu2604;Pi 1.5.0 vendored(升级改 RELAY_PI_VERSION+package.json 留证);magpie 127.0.0.1:3425 当前可用(**非 loopback 源 401**——容器模型连接必须经 relay-egress-fwd 转发器);bridge 容器默认可出外网(iptables 白名单约束);ufw 拒容器→宿主(INPUT 需单条放行转发端口);gh 令牌超范围(P0-02B 前必须换细粒度 PAT);宿主 node_modules ACL 对 other 关闭(勿删 ensureNodeModulesReadable/chmod 链)。
+- **治理流程改进(P0-01C F-4)**:工作包 ACTIVE 合同必须**先于实现提交**落盘(独立首提交);模型预算按阶段分段计数+运行前声明。
 
-## 唯一下一任务:P0-01C(Goal Loop,NOT_ACTIVE)
+## 唯一下一任务:P0-02A(提交与独立验证,NOT_ACTIVE)
 
 1. 只读冷启动,核对 live main、写者、工作区。
-2. 按 CONSTRUCTION_PLAN P0-01C 行起草 ACTIVE Contract:简单目标→任务分解→状态推进、Decision Fallback、重试/replan/停滞熔断;复用 `src/core`(Supervisor Tick 四步)与 `src/runtime`(Runner 单任务闭环);NEEDS_DECISION/PAUSED/BLOCKED 恢复 API 在此落地(P0-01A F-2 遗留)。
-3. 验收对齐:人工缺席时安全 Task 继续;D3 一直被阻断;无限失败有限停止(V11 预算熔断:token/attempt/wall)。
-4. 边界:不做真实 GitHub 写路径(P0-02B)、不做 Gate 编排(P0-02A)、不大量写 MVP、不启动 Web/RSI。
-5. 模型预算:按阶段分段计数+每次运行前声明(P0-01B 教训:整包总额上限在排查期易超)。
+2. **先起草 ACTIVE 合同并独立提交落盘**(P0-01C F-4 流程改进),再实施。合同要点按 CONSTRUCTION_PLAN P0-02A 行:Candidate Diff、独立 Reviewer(与 Coder 上下文隔离)、测试/Reality Gate、Evidence 绑定 commit(gate_attempt 绑定,消化 P0-01A F-5/V09 旧 PASS 跨 attempt 边界);Gate 编排消费 P0-01C 遗留的"VERIFYING 后租约窗口"。
+3. 验收对齐:错误答案/假 DONE 必失败;证据绑定 commit;Gate 缺失 ⇒ 不得 DELIVER。
+4. 边界:不做 GitHub 真实写路径(P0-02B)、不做 Web(P0-02C)、不生产部署、不 RSI。
+5. 模型预算:按阶段分段计数,每次运行前声明;继续经 budget_ledger 预留。
 6. 完成后:独立复核、快进 push main、核验 `origin/main==HEAD` 且 worktree clean、更新 `CURRENT.md` 与本文件。
 
 ## 新窗口可复制指令
 
-> 继续 Relay / HIVE Next,全部使用中文。唯一事实源为 https://github.com/pwl1987/relay 的 live main。先核对 HEAD、分支、写者锁和脏工作区,读取 README.md、AGENTS.md、CURRENT.md、ARCHITECTURE_BASELINE.md、CONTRACTS.md、ADR/README.md、docs/PRD.md、docs/DETAILED_ARCHITECTURE.md、docs/CONSTRUCTION_PLAN.md、docs/SECURITY_MODEL.md、docs/VALIDATION_PLAN.md、docs/CONTINUATION.md、p0-00/REPORT.md、p0-01a/REPORT.md、p0-01b/REPORT.md。严格 main-only、单 Writer、禁强推。只激活并执行 P0-01C(Goal Loop):按 CONSTRUCTION_PLAN P0-01C 行起草有边界验收合同与分段模型预算,复用 src/core 状态层与 src/runtime Runner 实现简单目标→任务→状态推进、Decision Fallback、重试/replan/停滞熔断(V11),落地 NEEDS_DECISION/PAUSED/BLOCKED 恢复 API;不做真实 GitHub 写路径,不做 Gate 编排,不生产部署,不自动 RSI。测试沿用 Vitest+独立 schema 模式并真实故障注入;E2E 在缺 provider/docker 时显式跳过。遇写者冲突、权限旁路或不可确认副作用时保持只读或阻断并说明原因。完成后独立复核、快进 push main、核验 SHA 与干净工作区、更新 CURRENT.md 和 docs/CONTINUATION.md。
+> 继续 Relay / HIVE Next,全部使用中文。唯一事实源为 https://github.com/pwl1987/relay 的 live main。先核对 HEAD、分支、写者锁和脏工作区,读取 README.md、AGENTS.md、CURRENT.md、ARCHITECTURE_BASELINE.md、CONTRACTS.md、ADR/README.md、docs/PRD.md、docs/DETAILED_ARCHITECTURE.md、docs/CONSTRUCTION_PLAN.md、docs/SECURITY_MODEL.md、docs/VALIDATION_PLAN.md、docs/CONTINUATION.md、p0-00/REPORT.md、p0-01a/REPORT.md、p0-01b/REPORT.md、p0-01c/REPORT.md。严格 main-only、单 Writer、禁强推。**先把 P0-02A ACTIVE 合同独立提交落盘,再实施**:提交与独立验证——Candidate Diff、独立 Reviewer(与 Coder 上下文隔离)、测试/Reality Gate、Evidence 绑定 commit(gate_attempt 绑定,消化旧 PASS 跨 attempt 边界与 VERIFYING 租约窗口);复用 src/core 状态层/src/runtime Runner/budget_ledger。不做 GitHub 真实写路径,不做 Web,不生产部署,不 RSI。测试沿用 Vitest+独立 schema+真实故障注入;模型相关显式 skip;预算按阶段分段计数经账本预留。遇写者冲突、门禁失败或需要增加预算时阻断并说明,不自动扩大。完成后独立复核、快进 push main、核验 SHA 与干净工作区、更新 CURRENT.md 和 docs/CONTINUATION.md。
