@@ -71,6 +71,18 @@
 
 复验:处置提交后送 Reviewer 复验(见末尾)。
 
-## 六、Reviewer 复验(处置提交后)
+## 六、Reviewer 复验(处置提交 380084d 后)
 
-待补。
+**复验对象**:处置提交 380084d(Reviewer 首轮对象 6ec5ff9 之上的全部处置)。
+
+| 点 | 裁决 | 依据 |
+| --- | --- | --- |
+| F-1 状态层旧 PASS 直接断言 | **VERIFIED** | gate-binding.test.ts:140-150:新 attempt 走完至 VERIFYING 后,VERIFYING→ACCEPTED 断言失败且 reason==gate_not_passed;断言非恒真(夹具唯一 PASS 绑定 attempt 1,若 countGatePass 可见该转移会成功);单跑 5/5 |
+| F-2 预留口径一致 | **VERIFIED** | gate-e2e.test.ts:122 reviewer 预留 3(注释 5+3 ≤ 8;合同声明口径),coder 保持 5;代码/REPORT/提交信息口径一致。附带观察(不阻塞):reviewer 回合硬顶随预留降 3,REPORT §5.5 已披露波动 3-5,重跑存在触顶保守停机的预算纪律残余 |
+| F-6 uuid / 直连 UPDATE 保留 | **VERIFIED(保留可接受)** | randomUUID 已用;REWORK→READY 直连 UPDATE 与 advanceTask 同事务(行锁至提交,无并发窗口)+ state 守卫 + version 递增 + 退避 + 审计,原子性与可观测性成立 |
+| 附带核查 | 0727c53 仅 egress 助手显式 stdio pipe(日志去噪),失败仍抛、FAIL-CLOSED 不变 |
+| F-3 | NOT-VERIFIED(收尾提交承诺项,不阻塞)——收尾提交纳入证据;push 后核验 origin/main==HEAD 与 worktree clean |
+
+**Reviewer 亲测**:tsc 0 错误;全量 **114 passed + 8 skipped**;gate-binding 单独 5/5;worktree clean。
+
+**最终裁决:PASS**(三点处置全部 VERIFIED;F-3 为收尾提交的已承诺条件)。

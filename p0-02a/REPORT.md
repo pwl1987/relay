@@ -1,6 +1,6 @@
 # P0-02A 交付报告:候选变更与独立质量验证
 
-状态:**COMPLETE(待复核收尾)**。执行:VM80 唯一 Writer 会话,2026-11-10,起点 `origin/main == db5ebed`。合同 `87e1db3`(独立首提交,**先于实现落盘**——P0-01C F-4 流程改进兑现)→ 实现 `772eb0c` → E2E 修复 `6ec5ff9`。最终 HEAD 以远端 main 为准。
+状态:**COMPLETE(Reviewer 终裁 PASS,待收尾推送)**。执行:VM80 唯一 Writer 会话,2026-11-10,起点 `origin/main == db5ebed`。合同 `87e1db3`(独立首提交,**先于实现落盘**——P0-01C F-4 流程改进兑现)→ 实现 `772eb0c` → E2E 修复 `6ec5ff9` → 复核处置 `380084d`(Reviewer 终裁 **PASS**,见 REVIEW.md §六)→ 收尾提交。最终 HEAD 以远端 main 为准。
 
 ## 0. 交付标识
 
@@ -104,5 +104,6 @@ npx vitest run test/integration/gate-e2e.test.ts
 | `p0-02a/e2e-run.log` | 最终验收 E2E(6ec5ff9):C-9 核验行 completions=6==turns=6(3+3)、ledger 6/8、1/1 passed |
 | 容器门 | egress-proxy 4 + sandbox-enforcement 2,全过(2026-11-10 实测;Reviewer 可复跑) |
 | 全量 | 114 passed + 8 skipped + tsc 0 错误(6ec5ff9;Reviewer 亲测口径相同) |
-| `p0-02a/REVIEW.md` | 独立 Reviewer(全新上下文)复核报告与处置 |
-| 合同时序 | `87e1db3`(合同)→ `772eb0c`(实现)→ `6ec5ff9`(修复)——合同先于实现,F-4 流程改进兑现 |
+| `p0-02a/REVIEW.md` | 独立 Reviewer(全新上下文):首轮 **PASS-WITH-FIXES**(C-1..C-9 全 VERIFIED + 亲跑 egress-proxy 5/5 + 全量独立复现)→ 处置 `380084d` → 复验 **PASS**(三点处置全 VERIFIED) |
+| `p0-02a/fresh-clone-repro.log` | 全新克隆 @ `380084d`(实现终态,头内嵌 SHA):114 passed + 8 skipped + tsc 0 错误 |
+| 合同时序 | `87e1db3`(合同)→ `772eb0c`(实现)→ `6ec5ff9`(E2E 修复)→ `0727c53`(日志去噪)→ `380084d`(复核处置)——合同先于实现,F-4 流程改进兑现;此后证据文件内嵌 HEAD SHA(F-3 流程改进) |

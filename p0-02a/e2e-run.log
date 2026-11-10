@@ -1,3 +1,7 @@
+# P0-02A 最终验收 E2E 日志(写者侧产出)
+# 工作树内容 == 提交 6ec5ff9(Reviewer 首轮确认其与测试断言互证;后续 380084d 仅改测试断言/注释/id,不改被测实现行为面)
+# 环境:VM80 / magpie 本地假密钥路由(零真实成本);goal 账本硬限 8,实测 used=6/8
+# C-9 对账:代理层 completions 计数 == coder+reviewer assistant 回合数(断言强制,不一致即失败)
 
  RUN  v3.2.7 /home/ubuntu/dev/relay
 
