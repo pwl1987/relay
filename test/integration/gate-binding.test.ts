@@ -13,6 +13,7 @@ import { recordEvidence } from "../../src/core/evidence.ts";
 import { acquireVerificationLease } from "../../src/core/verify-lease.ts";
 import { recordGateVerdict, consumeGateVerdict, type RecordGateSpec } from "../../src/core/gates.ts";
 import { seedReviewerRun } from "../setup/gate-helper.ts";
+import { assertAdvanceFail } from "../setup/assert.ts";
 import { assertOk } from "../setup/assert.ts";
 import type { Exec } from "../../src/core/db.ts";
 
@@ -136,12 +137,18 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     );
     expect(consume.ok).toBe(false);
     expect((consume as { reason: string }).reason).toMatch(/stale_attempt/);
-    // 状态层 backstop:即使有合法租约,advance 也因 gate_not_passed 拒绝(旧 PASS 不可见)
-    const adv = await t.db.transaction(async (tx) =>
-      advanceTask(tx as unknown as Exec, f.taskId, c2.ownerId, c2.fencingToken, "LEASED", "RUNNING"),
+    // 状态层 backstop(F-1 处置):新 attempt 推进到 VERIFYING 后,gated 转移对旧 PASS 不可见
+    for (const [from, to] of [["LEASED", "RUNNING"], ["RUNNING", "SUBMITTED"], ["SUBMITTED", "VERIFYING"]] as const) {
+      const r = await t.db.transaction(async (tx) =>
+        advanceTask(tx as unknown as Exec, f.taskId, c2.ownerId, c2.fencingToken, from, to),
+      );
+      expect(r.ok).toBe(true);
+    }
+    const gatedWithOldPass = await t.db.transaction(async (tx) =>
+      advanceTask(tx as unknown as Exec, f.taskId, c2.ownerId, c2.fencingToken, "VERIFYING", "ACCEPTED"),
     );
-    expect(adv.ok).toBe(true);
-    // (推进到 VERIFYING 后直接 ACCEPT 仍需当前 attempt 的 PASS)
+    assertAdvanceFail(gatedWithOldPass);
+    expect(gatedWithOldPass.reason).toBe("gate_not_passed"); // 唯一 PASS 绑定旧 attempt,countGatePass 不可见
   });
 
   it("反例:Candidate SHA 变化后旧证据与旧 PASS 全部失效", async () => {

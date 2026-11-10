@@ -9,6 +9,7 @@
 // 任何一步失败都保持可恢复:验证租约有 TTL ⇒ 到期被 reclaim ⇒ 新 attempt 重验;
 // 旧 PASS 因绑定失配不可消费 —— 无假通过、无双重裁决、无永久失联。
 import { sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import type { RelayDb, Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
 import { advanceTask } from "./lease.ts";
@@ -216,7 +217,7 @@ export async function orchestrateGate(
       await db.transaction(async (tx) =>
         (tx as unknown as Exec).execute(sql`
           INSERT INTO decisions (id, task_id, goal_id, level, question, state)
-          VALUES (${"dec-rv-" + Math.random().toString(36).slice(2)}, ${input.taskId}, ${goalId}, 'D3',
+          VALUES (${"dec-rv-" + randomUUID()}, ${input.taskId}, ${goalId}, 'D3',
             ${"review_failed:Reviewer Run 有界重试耗尽,需人工裁决(永不自动批准)"}, 'OPEN')
         `),
       );

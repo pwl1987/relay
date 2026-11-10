@@ -119,7 +119,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提�
         egress: egress!,
         heartbeatSeconds: 5,
         wallSeconds: 240,
-        budget: { goalId, reserveCallsPerRun: 5 }, // reviewer 与 coder 同一 goal 账本(4+4 ≤ 8)
+        budget: { goalId, reserveCallsPerRun: 3 }, // reviewer 与 coder 同一 goal 账本(5+3 ≤ 8;合同声明口径)
         heartbeatFn: input.heartbeat,
         // Reviewer 共享 Coder 候选工作区(独立 Run/上下文,同一候选面)
         ...(input.workspaceDir ? { workspaceDirOverride: input.workspaceDir } : {}),
