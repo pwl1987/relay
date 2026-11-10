@@ -112,7 +112,7 @@ export interface ExecOutcome {
 /**
  * P0-01C C-1:relay_exec 最小命令能力(按任务授权,V02 段语义的命令版)。
  * - 空白名单 ⇒ 一律拒绝(默认拒绝;任务未授权命令能力即禁 exec);
- * - shell 控制字符全禁(; & | ` 换行 $( 等)——白名单匹配针对"单条简单命令";
+ * - shell 控制字符与命令替换全禁(; & | ` 换行 $( ${ —— /bin/sh -c 下无任何求值逃逸面);
  * - 匹配规则:请求命令须等于某前缀,或以"前缀+空格"开头(段边界,防 "npmx" 命中 "npm")。
  */
 export function checkCommandScope(
@@ -120,7 +120,9 @@ export function checkCommandScope(
   command: string,
 ): { ok: boolean; reason?: string } {
   if (!allowed || allowed.length === 0) return { ok: false, reason: "exec_not_authorized" };
-  if (/[;&|`\n]/.test(command)) return { ok: false, reason: "shell_metacharacters_forbidden" };
+  if (/[;&|`\n]/.test(command) || /\$[({]/.test(command)) {
+    return { ok: false, reason: "shell_metacharacters_forbidden" };
+  }
   const trimmed = command.trim();
   if (!trimmed) return { ok: false, reason: "empty_command" };
   for (const raw of allowed) {

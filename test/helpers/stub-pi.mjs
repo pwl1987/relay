@@ -3,6 +3,7 @@
 //   ok         prompt 后输出 assistant 文本(含 relay-handoff)+ agent_settled
 //   hang       prompt 后静默(不 settle)—— 超时/取消/租约丢失测试用
 //   no-handoff settled 但无 handoff 块(缺失如实记录路径)
+//   chatty      多回合 assistant message_end(模拟工具往返)后再 settle(回合硬顶测试)
 //   with-tools settled 且发出 tool_call/tool_result 事件(Worker 侧持久化断言)
 //   usage      message_end 携带 usage(token 实测核算路径)
 //   exit-mid   prompt 后立即退出(断连路径)
@@ -50,6 +51,20 @@ function handle(req) {
     }
     setTimeout(() => {
       if (mode === "hang") return; // 永不 settle
+      if (mode === "chatty") {
+        // 5 个 assistant 回合(每回合一条 message_end),之后才 settle —— 回合硬顶应在 cap 处止损
+        const turns = Number(process.env.STUB_TURNS ?? "5");
+        let n = 0;
+        const timer = setInterval(() => {
+          n += 1;
+          send({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: `回合 ${n}` }] } });
+          if (n >= turns) {
+            clearInterval(timer);
+            send({ type: "agent_settled" });
+          }
+        }, 120);
+        return;
+      }
       if (mode === "with-tools") {
         send({ type: "tool_call", name: "relay_read", params: { path: "brief.txt" } });
         send({ type: "tool_result", name: "relay_read", denied: false });

@@ -22,7 +22,16 @@ describe("checkCommandScope(最小命令能力)", () => {
 
   it("shell 控制字符全禁(白名单只针对单条简单命令)", () => {
     const allow = ["echo"];
-    for (const bad of ["echo a;cat /etc/passwd", "echo a|cat", "echo a&whoami", "echo `id`", "echo a\nrm -rf /"]) {
+    for (const bad of [
+      "echo a;cat /etc/passwd",
+      "echo a|cat",
+      "echo a&whoami",
+      "echo `id`",
+      "echo a\nrm -rf /",
+      "echo $(cat /etc/passwd)", // 命令替换(复核 MAJOR:此前未禁)
+      "echo ${HOME}/secret", // 变量展开逃逸
+      "echo $((1+1))", // 算术展开
+    ]) {
       const r = checkCommandScope(allow, bad);
       expect(r.ok, bad).toBe(false);
       expect(r.reason).toBe("shell_metacharacters_forbidden");
