@@ -140,7 +140,8 @@ export async function reconcilePendingTasks(
 }
 
 // c) REWORK ⇒ READY(新 attempt 由下次 claim 计数;审计留痕)。
-export async function releaseRework(exec: Exec, actor = "supervisor"): Promise<string[]> {
+// backoffSeconds:REWORK→READY 时设置退避(此前不进候选);缺省清零(保持旧行为)。
+export async function releaseRework(exec: Exec, actor = "supervisor", backoffSeconds?: number): Promise<string[]> {
   const rows = await exec.execute(sql`
     SELECT id FROM tasks WHERE state = 'REWORK' ORDER BY id FOR UPDATE SKIP LOCKED
   `);
@@ -148,7 +149,9 @@ export async function releaseRework(exec: Exec, actor = "supervisor"): Promise<s
   for (const row of rows.rows) {
     const taskId = String(row["id"]);
     await exec.execute(sql`
-      UPDATE tasks SET state = 'READY', state_version = state_version + 1, updated_at = now()
+      UPDATE tasks SET state = 'READY', state_version = state_version + 1,
+        retry_not_before = ${backoffSeconds !== undefined ? sql`now() + make_interval(secs => ${backoffSeconds})` : sql`NULL`},
+        updated_at = now()
       WHERE id = ${taskId}
     `);
     await appendAudit(exec, {
@@ -173,6 +176,7 @@ export async function claimNextReady(
 ): Promise<Extract<ClaimResult, { ok: true }> | { ok: false; reason: string }> {
   const candidates = await exec.execute(sql`
     SELECT id FROM tasks WHERE state = 'READY'
+      AND (retry_not_before IS NULL OR retry_not_before <= now())
     ORDER BY priority DESC, created_at ASC, id ASC
     FOR UPDATE SKIP LOCKED
   `);

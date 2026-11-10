@@ -25,11 +25,13 @@ import {
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
+import { detectHostIp, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import type { PiInstallation } from "./pi-version.ts";
-import { PiRpcSession, type PiSpawnOptions } from "./pi-rpc.ts";
+import { PiRpcSession, type PiSpawnOptions, type RpcRecord } from "./pi-rpc.ts";
 import { buildRunPrompt, contextDigest, parseHandoff, type Handoff, type HandoffParse } from "./context.ts";
+import { reserveBudget, settleBudget, releaseBudget } from "../core/budget.ts";
 
-export type RunOutcome = "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMEOUT" | "CANCELLED" | "INTERRUPTED";
+export type RunOutcome = "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMEOUT" | "CANCELLED" | "INTERRUPTED" | "BUDGET_EXHAUSTED";
 
 export interface RunSpec {
   taskId: string;
@@ -40,6 +42,16 @@ export interface RunSpec {
   fencingToken: number;
   model: ModelConfig;
   sandbox: "docker" | "host-fallback";
+  /** 出口约束状态(docker 必需;executeRun 内核验并改写 baseUrl 为宿主出口 IP) */
+  egress?: EgressStatus;
+  /** 预算账本(goal 级 model_calls 必须有带 limit 的行,FAIL-CLOSED);缺省 = 不走账本(仅测试) */
+  budget?: {
+    goalId: string;
+    /** 每 Run 预留的模型请求数(实际按 assistant 回合核算;超出部分如实入账并标 overshoot) */
+    reserveCallsPerRun?: number;
+    tokenReserveIn?: number;
+    tokenReserveOut?: number;
+  };
   /** wall-clock 预算(秒):到点终止 Pi,run=TIMEOUT */
   wallSeconds: number;
   /** 心跳间隔(秒);租约 TTL = 3×interval(interval = TTL/3) */
@@ -52,6 +64,8 @@ export interface RunSpec {
   cancelSignal?: { cancelled: boolean };
   /** 工作区种子(宿主侧,prepareRunDirs 后、启动前调用;任务初始化/测试预置) */
   prepareWorkspace?: (workspaceDir: string) => void;
+  /** 心跳函数注入口(默认真实 heartbeat;故障注入测试用) */
+  heartbeatFn?: (tx: Exec) => Promise<{ ok: boolean; reason?: string }>;
   /** 测试注入口:stub RPC argv/env(仅 host-fallback 语义;正式路径禁用) */
   argvOverride?: string[];
   envOverride?: Record<string, string>;
@@ -69,11 +83,11 @@ export interface RunResult {
   sandboxSpec: SandboxSpec;
 }
 
-async function insertRun(exec: Exec, spec: RunSpec, runId: string, sandbox: SandboxSpec): Promise<void> {
+async function insertRun(exec: Exec, spec: RunSpec, model: ModelConfig, runId: string, sandbox: SandboxSpec): Promise<void> {
   await exec.execute(sql`
     INSERT INTO runs (id, task_id, attempt, runtime, model_ref, input_commit_sha, budget, sandbox, outcome)
     VALUES (${runId}, ${spec.taskId}, ${spec.attempt}, 'pi-rpc',
-      ${spec.model.provider + "/" + spec.model.model},
+      ${model.provider + "/" + model.model},
       ${detectInputCommitSha(sandbox.workspaceDir)},
       ${JSON.stringify({ wallSeconds: spec.wallSeconds })}::jsonb,
       ${sandbox.mode}, 'RUNNING')
@@ -150,8 +164,25 @@ export async function latestSession(
  * 心跳被拒 ⇒ INTERRUPTED,不做任何任务推进(无权威)。
  */
 export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec): Promise<RunResult> {
+  // docker 路径:出口白名单必须已建立(FAIL-CLOSED);baseUrl 指向宿主的 localhost 须改写为出口 IP
+  let model = spec.model;
+  if (spec.sandbox === "docker") {
+    const eg = spec.egress;
+    if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
+      throw new Error("egress_rules_missing:docker Run 需先 ensureEgress+verify,FAIL-CLOSED");
+    }
+    // localhost → 宿主出口 IP;端口 → 转发端口(egress.ts:模型连接源回到宿主 loopback)
+    model = {
+      ...spec.model,
+      baseUrl: spec.model.baseUrl
+        .replace(/\/\/127\.0\.0\.1:(\d+)/, `//${eg.hostIp}:${eg.modelPort}`)
+        .replace(/\/\/localhost:(\d+)/, `//${eg.hostIp}:${eg.modelPort}`)
+        .replace(/\/\/127\.0\.0\.1\//, `//${eg.hostIp}:${eg.modelPort}/`)
+        .replace(/\/\/localhost\//, `//${eg.hostIp}:${eg.modelPort}/`),
+    };
+  }
   const runId = newRunId();
-  const sandboxSpec = prepareRunDirs(tmpdir(), spec.sandbox, spec.model);
+  const sandboxSpec = prepareRunDirs(tmpdir(), spec.sandbox, model);
   spec.prepareWorkspace?.(sandboxSpec.workspaceDir);
   // 种子文件须对容器 SANDBOX_UID 可读/可写(宿主 umask 可能 660)
   execFileSync("chmod", ["-R", "o+rwX", sandboxSpec.workspaceDir], { timeout: 30_000 });
@@ -159,21 +190,45 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
   let outcome: RunOutcome = "FAILED";
   let detail: Record<string, unknown> = {};
   let handoff: HandoffParse = { found: false, error: "absent" };
+  // Worker 侧工具事件(可信持久化源):RPC 事件流的 tool_call 原文,与 workspace 内
+  // 可被模型改写的 tool-audit.jsonl 互为印证;后者仅辅助(P0-01C C-1)。
+  const toolEvents: RpcRecord[] = [];
+  const onRecord: PiSpawnOptions["onRecord"] = (r) => {
+    if (String(r.type ?? "").includes("tool")) toolEvents.push(r);
+    spec.onRecord?.(r);
+  };
 
-  let leaseLost = false;
+  // 止损状态:lease_lost(业务拒绝=权威已失)/ heartbeat_errors(DB 连续异常=权威不可验证)。
+  // 两者都 ⇒ 立即终止 Pi 且不做任何任务推进;后者由 Supervisor 过期回收收尾(TTL 有界)。
+  let abortReason: "lease_lost" | "heartbeat_errors" | null = null;
+  let hbErrorStreak = 0;
   const hbTimer = setInterval(() => {
-    void db
-      .transaction(async (tx) =>
-        heartbeat(tx as unknown as Exec, spec.taskId, spec.ownerId, spec.fencingToken, spec.heartbeatSeconds * 3),
-      )
+    void Promise.resolve()
+      .then(() => {
+        const hb = spec.heartbeatFn ?? ((tx: Exec) => heartbeat(tx, spec.taskId, spec.ownerId, spec.fencingToken, spec.heartbeatSeconds * 3));
+        return db.transaction(async (tx) => hb(tx as unknown as Exec));
+      })
       .then((r) => {
+        hbErrorStreak = 0;
         if (!r.ok) {
-          leaseLost = true;
+          abortReason = "lease_lost";
           session?.kill("SIGKILL"); // 失效 Run 止损:立即终止 Pi(租约已失,无权推进任务)
         }
       })
-      .catch(() => {});
+      .catch((e: Error) => {
+        // 心跳事务本身失败(DB 抖动/连接断):权威不可验证,P0-01C 合同要求连续失败即停。
+        hbErrorStreak += 1;
+        hbLastError = e.message;
+        if (hbErrorStreak >= 2) {
+          abortReason = "heartbeat_errors";
+          session?.kill("SIGKILL");
+        }
+      });
   }, spec.heartbeatSeconds * 1000);
+  let hbLastError: string | undefined = undefined;
+  let ledgerId: string | null = null;
+  let reservedCalls = 0;
+  const tokenLedgers: Array<{ ledgerId: string; reserved: number; kind: "tokens_in" | "tokens_out" }> = [];
 
   try {
     // 1) LEASED -> RUNNING(租约权威内)
@@ -182,8 +237,51 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
     );
     if (!adv.ok) throw new Error(`advance to RUNNING rejected: ${adv.reason}`);
 
+    // 1.5) 预算预留(FAIL-CLOSED):model_calls 无带 limit 的账本行或超限 ⇒ 不启动 Pi,
+    //      任务 RUNNING→BLOCKED(budget_exhausted),run 行如实落 BUDGET_EXHAUSTED。
+    if (spec.budget) {
+      const reserveAmount = spec.budget.reserveCallsPerRun ?? 4;
+      const reserve = await db.transaction(async (tx) =>
+        reserveBudget(tx as unknown as Exec, {
+          kind: "model_calls", amount: reserveAmount,
+          scopeType: "goal", scopeId: spec.budget!.goalId,
+          taskScope: { scopeType: "task", scopeId: spec.taskId },
+        }),
+      );
+      if (!reserve.ok) {
+        await db.transaction(async (tx) => insertRun(tx as unknown as Exec, spec, model, runId, sandboxSpec));
+        await db.transaction(async (tx) =>
+          advanceTask(tx as unknown as Exec, spec.taskId, spec.ownerId, spec.fencingToken, "RUNNING", "BLOCKED"),
+        );
+        outcome = "BUDGET_EXHAUSTED";
+        detail = { reason: reserve.reason, ledgerId: reserve.ledgerId };
+        // 落库与审计统一由 finally 完成(此处 return,finally 写 BUDGET_EXHAUSTED)
+        return {
+          runId, outcome, handoff,
+          toolAuditPath: join(sandboxSpec.workspaceDir, ".relay", "tool-audit.jsonl"),
+          toolCallEvents: 0, detail,
+          sandboxSpec,
+        };
+      }
+      ledgerId = reserve.ledgerId!;
+      reservedCalls = spec.budget.reserveCallsPerRun ?? 4;
+      // tokens 预留(有行才限流,无行跳过):保守默认 50k(FAIL-CLOSED 方向);
+      // 预算极紧的调用方显式传 tokenReserveIn/Out 调低。
+      for (const [kind, amount] of [["tokens_in", spec.budget.tokenReserveIn ?? 50_000], ["tokens_out", spec.budget.tokenReserveOut ?? 50_000]] as const) {
+        if (amount <= 0) continue;
+        const tr = await db.transaction(async (tx) =>
+          reserveBudget(tx as unknown as Exec, {
+            kind, amount,
+            scopeType: "goal", scopeId: spec.budget!.goalId,
+            taskScope: { scopeType: "task", scopeId: spec.taskId },
+          }),
+        );
+        if (tr.ok && tr.ledgerId) tokenLedgers.push({ ledgerId: tr.ledgerId, reserved: amount, kind });
+      }
+    }
+
     // 2) run 行落库(RUNNING)
-    await db.transaction(async (tx) => insertRun(tx as unknown as Exec, spec, runId, sandboxSpec));
+    await db.transaction(async (tx) => insertRun(tx as unknown as Exec, spec, model, runId, sandboxSpec));
 
     // 3) 上下文与 prompt(恢复 Run 注入上一 handoff)
     const paths = sandboxPaths(sandboxSpec);
@@ -214,11 +312,12 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
     session = launchPi({
       spec: sandboxSpec,
       pi,
-      model: spec.model,
+      model,
+      egress: spec.egress,
       execTimeoutMs: spec.execTimeoutMs,
       argvOverride: spec.argvOverride,
       envOverride: spec.envOverride,
-      onRecord: spec.onRecord,
+      onRecord,
     });
     await session.request("get_state", undefined, 20_000);
     await session.prompt(prompt);
@@ -231,7 +330,7 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
         settled = true;
         break;
       }
-      if (leaseLost) break;
+      if (abortReason) break;
       if (spec.cancelSignal?.cancelled) {
         session.kill("SIGTERM");
         await raceExit(session, 2000);
@@ -249,9 +348,9 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
       }
       if (session.exitStatus !== null) {
         const exit = session.exitStatus;
-        if (leaseLost) {
+        if (abortReason) {
           outcome = "INTERRUPTED";
-          detail = { reason: "lease_lost", exit };
+          detail = { reason: abortReason, exit };
         } else {
           outcome = "FAILED";
           detail = { reason: "rpc_disconnect", exit };
@@ -262,12 +361,15 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
     }
 
     if (outcome === "FAILED") {
-      if (leaseLost && !settled) {
-        // 等待循环内租约丢失(IPC 断开即退出);确认子进程死透
+      if (abortReason && !settled) {
+        // 等待循环内止损触发(IPC 断开即退出);确认子进程死透
         await raceExit(session, 3000);
         if (session.exitStatus === null) session.kill("SIGKILL");
         outcome = "INTERRUPTED";
-        detail = { reason: "lease_lost", killedBy: "heartbeat_rejection" };
+        detail =
+          abortReason === "heartbeat_errors"
+            ? { reason: "heartbeat_errors", killedBy: "heartbeat_db_error_streak", lastError: hbLastError }
+            : { reason: "lease_lost", killedBy: "heartbeat_rejection" };
       } else if (settled) {
         // settled:结构化 Handoff 解析(缺失/畸形如实记录,不虚构);结果回写 session 行
         handoff = parseHandoff(session.assistantText());
@@ -290,6 +392,8 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
           toolCallEvents: session.countToolCallEvents(),
           toolAuditLines: audit.length,
           toolDenied: deniedCount,
+          // Worker 侧可信工具事件(RPC 事件流原文;workspace 文件仅辅助,P0-01C C-1)
+          toolEvents: toolEvents.slice(0, 200),
           handoff: handoff.found
             ? handoff.handoff
             : { error: handoff.error, detail: (handoff as { detail?: string }).detail },
@@ -329,9 +433,9 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
       // 外因进程死亡(docker kill/崩溃):真实 RPC 断连,非 Runner 自身错误
       await raceExit(session!, 3000);
       detail = { reason: "rpc_disconnect", exit, stderrTail: session?.stderrText.slice(-2000) || undefined };
-    } else if (leaseLost) {
+    } else if (abortReason) {
       outcome = "INTERRUPTED";
-      detail = { reason: "lease_lost", error: msg };
+      detail = { reason: abortReason, error: msg, lastError: hbLastError };
     } else {
       detail = {
         reason: "runner_error",
@@ -343,6 +447,42 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
   } finally {
     clearInterval(hbTimer);
     session?.kill("SIGKILL"); // 幂等:已退出无害
+    // 预算核算:实际 assistant 回合数(不可测 ⇒ 保守记 1);tokens 按 usage 实测,
+    // 缺失 ⇒ 保守估算入账(FAIL-CLOSED 方向:宁可多记不少记)。
+    if (ledgerId) {
+      const assistantEnds = session
+        ? session.allRecords().filter((r) => r.type === "message_end" && r.message?.role === "assistant")
+        : [];
+      const actualCalls = session ? Math.max(assistantEnds.length, 1) : 0;
+      if (actualCalls > reservedCalls) detail = { ...detail, budgetOvershoot: { reserved: reservedCalls, actual: actualCalls } };
+      const usage = assistantEnds.reduce(
+        (acc, r) => {
+          const u = (r.message as { usage?: { input?: number; output?: number } } | undefined)?.usage;
+          return { in: acc.in + (u?.input ?? 0), out: acc.out + (u?.output ?? 0) };
+        },
+        { in: 0, out: 0 },
+      );
+      const conservativeIn = usage.in > 0 ? usage.in : 20_000;
+      const conservativeOut = usage.out > 0 ? usage.out : 4_000;
+      detail = { ...detail, budget: { actualCalls, tokensIn: conservativeIn, tokensOut: conservativeOut } };
+      await db
+        .transaction(async (tx) =>
+          settleBudget(tx as unknown as Exec, ledgerId!, { reservedAmount: reservedCalls, actualAmount: actualCalls }),
+        )
+        .catch(() => {});
+      for (const tl of tokenLedgers) {
+        const actual = tl.kind === "tokens_in" ? conservativeIn : conservativeOut;
+        await db
+          .transaction(async (tx) =>
+            settleBudget(tx as unknown as Exec, tl.ledgerId, { reservedAmount: tl.reserved, actualAmount: actual }),
+          )
+          .catch(() => {});
+      }
+    } else if (tokenLedgers.length > 0) {
+      for (const tl of tokenLedgers) {
+        await db.transaction(async (tx) => releaseBudget(tx as unknown as Exec, tl.ledgerId, tl.reserved)).catch(() => {});
+      }
+    }
     await db
       .transaction(async (tx) => updateRun(tx as unknown as Exec, runId, outcome, detail))
       .catch(() => {});

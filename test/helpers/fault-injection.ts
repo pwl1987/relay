@@ -20,7 +20,7 @@ export interface HelperChild extends ChildProcess {
 }
 
 export function spawnHelper(
-  helperName: "hold-worker.ts" | "push-execute.ts" | "run-worker.ts",
+  helperName: "hold-worker.ts" | "push-execute.ts" | "run-worker.ts" | "run-loop.ts",
   args: string[],
   env: Record<string, string>,
 ): HelperChild {

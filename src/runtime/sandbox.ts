@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { PiRpcSession, type PiSpawnOptions } from "./pi-rpc.ts";
 import { verifyPiRuntime, type PiInstallation } from "./pi-version.ts";
+import { EGRESS_NETWORK, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
@@ -162,6 +163,8 @@ export interface LaunchOptions {
   spec: SandboxSpec;
   pi: PiInstallation;
   model: ModelConfig;
+  /** 出口约束状态(docker 分支必需;ok=false/缺失 ⇒ FAIL-CLOSED 拒启) */
+  egress?: EgressStatus;
   execTimeoutMs?: number;
   /** 测试注入口:覆盖默认 argv(stub RPC 进程)。仅供测试,正式路径禁用。 */
   argvOverride?: string[];
@@ -195,6 +198,12 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
     });
   }
   if (spec.mode === "docker") {
+    // 网络出口约束(P0-01C C-1):docker Run 必须在带白名单的专用网络上;规则缺失 ⇒ 拒启。
+    // 不得以 --network host 降级(合同停止条件)。
+    const eg = opts.egress;
+    if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
+      throw new Error("egress_rules_missing:无人值守 Run 的网络白名单未建立/验证失败,FAIL-CLOSED 拒启");
+    }
     ensureNodeModulesReadable(pi.repoRoot);
     // 启动链第三道校验(合同条款 2):真实 Pi 启动前,二进制 --version 必须等于锁定版本
     // (包声明+路径钉死已在 resolveVendoredPi;stub argvOverride 测试路径不经过此处)
@@ -213,7 +222,7 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
       "--name", basename(spec.runDir), // 可寻址:测试可对真实容器注入 docker kill(断连故障)
       "--user", `${SANDBOX_UID}:${SANDBOX_UID}`,
       "--cap-drop", "ALL",
-      "--network", "host", // ufw 事实(p0-00 §0.2);网络隔离由 A4a 独立证明,见文件头
+      "--network", EGRESS_NETWORK, // 专用 bridge + iptables 白名单(egress.ts;host 网络已于 P0-01C 废止)
       "-v", `${spec.workspaceDir}:/workspace`,
       "-v", `${spec.homeDir}:/pihome`,
       "-v", `${spec.runDir}/ext:/opt/relay/ext:ro`,

@@ -109,6 +109,30 @@ export interface ExecOutcome {
   durationMs: number;
 }
 
+/**
+ * P0-01C C-1:relay_exec 最小命令能力(按任务授权,V02 段语义的命令版)。
+ * - 空白名单 ⇒ 一律拒绝(默认拒绝;任务未授权命令能力即禁 exec);
+ * - shell 控制字符全禁(; & | ` 换行 $( 等)——白名单匹配针对"单条简单命令";
+ * - 匹配规则:请求命令须等于某前缀,或以"前缀+空格"开头(段边界,防 "npmx" 命中 "npm")。
+ */
+export function checkCommandScope(
+  allowed: readonly string[] | null,
+  command: string,
+): { ok: boolean; reason?: string } {
+  if (!allowed || allowed.length === 0) return { ok: false, reason: "exec_not_authorized" };
+  if (/[;&|`\n]/.test(command)) return { ok: false, reason: "shell_metacharacters_forbidden" };
+  const trimmed = command.trim();
+  if (!trimmed) return { ok: false, reason: "empty_command" };
+  for (const raw of allowed) {
+    const prefix = raw.trim();
+    if (!prefix) continue;
+    if (trimmed === prefix || trimmed.startsWith(prefix + " ")) {
+      return { ok: true };
+    }
+  }
+  return { ok: false, reason: `command_not_allowed:${trimmed.split(/\s+/)[0]}` };
+}
+
 /** 执行 relay_exec(独立函数便于测试;扩展注册处只做参数搬运)。 */
 export function runScopedExec(
   opts: { cwd: string; command: string; timeoutMs?: number; env?: Record<string, string> },
@@ -149,6 +173,16 @@ export default function registerRelayTools(pi: ExtensionAPI) {
   }
   const auditPath = process.env.RELAY_TOOL_AUDIT ?? null;
   const execTimeoutMs = Number(process.env.RELAY_EXEC_TIMEOUT_MS ?? "") || EXEC_DEFAULT_TIMEOUT_MS;
+  // 命令白名单(JSON 数组,来自 task.allowed_commands);缺省/空 = 禁 exec
+  let allowedCommands: string[] | null = null;
+  if (process.env.RELAY_ALLOWED_COMMANDS) {
+    try {
+      const parsed = JSON.parse(process.env.RELAY_ALLOWED_COMMANDS) as unknown;
+      allowedCommands = Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      allowedCommands = []; // 配置损坏 ⇒ 全拒(FAIL-CLOSED)
+    }
+  }
 
   const audit = (line: ToolAuditLine) => appendToolAudit(auditPath, line);
 
@@ -187,6 +221,14 @@ export default function registerRelayTools(pi: ExtensionAPI) {
         return {
           content: [{ type: "text", text: "DENIED: allowed_root_not_configured" }],
           details: { denied: true, reason: "allowed_root_not_configured" },
+        };
+      }
+      const cmdScope = checkCommandScope(allowedCommands, params.command);
+      if (!cmdScope.ok) {
+        audit({ ts: new Date().toISOString(), tool: "relay_exec", params: { command: params.command }, denied: true, reason: cmdScope.reason });
+        return {
+          content: [{ type: "text", text: `DENIED: ${cmdScope.reason}` }],
+          details: { denied: true, reason: cmdScope.reason },
         };
       }
       const outcome = runScopedExec({

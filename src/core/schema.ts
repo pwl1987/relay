@@ -23,8 +23,12 @@ export const tasks = pgTable("tasks", {
   priority: integer("priority").notNull().default(0),
   // V02 最小作用域:允许写入的绝对路径前缀列表;空列表 = 默认拒绝(NFR-03)
   allowedScope: jsonb("allowed_scope").$type<string[]>().notNull().default([]),
+  // P0-01C:relay_exec 命令前缀白名单;空列表 = 禁止一切命令执行(默认拒绝)
+  allowedCommands: jsonb("allowed_commands").$type<string[]>().notNull().default([]),
   // V08 最小门锁:VERIFYING->ACCEPTED 需要存在 PASS 裁决
   gateRequired: boolean("gate_required").notNull().default(true),
+  // P0-01C:退避——此前不参与 claimNextReady 候选(到期后自动回到候选池)
+  retryNotBefore: timestamp("retry_not_before", { withTimezone: true }),
   blockedReason: text("blocked_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -119,4 +123,49 @@ export const sessions = pgTable("sessions", {
   contextDigest: text("context_digest").notNull(),
   resumeMode: text("resume_mode").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------- P0-01C:Goal Loop / Decision / Budget ----------
+
+// Goal(架构 §2 裁剪;P0 单 Goal 单 WorkPackage,task.goal_id 直挂)。
+// budget.modelCalls 为 Run 级模型调用上限来源;budget 缺 modelCalls ⇒ FAIL-CLOSED(不许模型 Run)。
+// state: ACTIVE | PAUSED | EXHAUSTED | COMPLETED | FAILED
+export const goals = pgTable("goals", {
+  id: text("id").primaryKey(),
+  rawInput: text("raw_input").notNull(),
+  state: text("state").notNull().default("ACTIVE"),
+  budget: jsonb("budget").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Decision(架构 §6:D0/D1 作用域内自动;D2 仅事先授权 fallback;D3 需人批准,
+// **永不超时自动批准**(T07)——deadline 只标记 EXPIRED_STILL_BLOCKED,状态停留;
+// D4 禁止)。state: OPEN | RESOLVED_AUTO | RESOLVED_FALLBACK | RESOLVED_MANUAL | REJECTED | EXPIRED_STILL_BLOCKED
+export const decisions = pgTable("decisions", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id").references(() => tasks.id),
+  goalId: text("goal_id"),
+  level: text("level").notNull(),
+  question: text("question").notNull(),
+  fallback: jsonb("fallback").$type<Record<string, unknown>>(),
+  deadline: timestamp("deadline", { withTimezone: true }),
+  state: text("state").notNull().default("OPEN"),
+  verdict: jsonb("verdict").$type<Record<string, unknown>>(),
+  decidedBy: text("decided_by"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 预算账本(机器强制,先预留再执行后核算;FAIL-CLOSED:kind=model_calls 无账本行 ⇒ 拒绝)。
+// kind: model_calls | tokens_in | tokens_out | wall_seconds;limit null = 仅记账不设限。
+export const budgetLedger = pgTable("budget_ledger", {
+  id: text("id").primaryKey(),
+  scopeType: text("scope_type").notNull(), // goal | task | run
+  scopeId: text("scope_id").notNull(),
+  kind: text("kind").notNull(),
+  limitValue: integer("limit_value"),
+  reserved: integer("reserved").notNull().default(0),
+  used: integer("used").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

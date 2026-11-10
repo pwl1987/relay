@@ -3,7 +3,8 @@
 import { sql } from "drizzle-orm";
 import type { Exec } from "./db.ts";
 
-export type AuditAuthority = "OWNER" | "SUPERVISOR" | "WORKER" | "RECONCILER" | "GATE";
+// OPERATOR:P0-01C 恢复动作(resolveDecision/resumeTask 等 owner/运维权威,架构 §6 授权模型)
+export type AuditAuthority = "OWNER" | "SUPERVISOR" | "WORKER" | "RECONCILER" | "GATE" | "OPERATOR";
 
 export interface AuditEvent {
   actor: string;
