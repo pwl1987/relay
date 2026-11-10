@@ -21,10 +21,13 @@ const loop = startGoalLoop(db, {
   circuitThreshold: 3,
   backoffBaseSeconds: 1,
   runTask: async (claim) => {
+    const trow = await db.execute(sql`SELECT allowed_commands FROM tasks WHERE id=${claim.taskId}`);
+    const allowedCommands = (trow.rows[0]?.["allowed_commands"] ?? []) as string[];
     const result = await executeRun(db, pi, {
       taskId: claim.taskId,
       goal: "loop stub goal",
       allowedScope: ["/workspace"],
+      allowedCommands,
       attempt: claim.attempt,
       ownerId: owner,
       fencingToken: claim.fencingToken,

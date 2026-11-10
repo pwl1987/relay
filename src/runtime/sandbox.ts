@@ -6,7 +6,7 @@
 // 模型路由事实(p0-00 §0):宿主 ufw 拒绝容器→宿主,故容器用 --network host;
 // 网络隔离由 p0-00 A4a(--network none)独立证明,FS/凭据边界由本层强制。
 import { spawnSync, execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, chmodSync, rmSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, chmodSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -25,9 +25,11 @@ import { dirname } from "node:path";
 let nmReadableDone = false;
 export function ensureNodeModulesReadable(repoRoot: string): void {
   if (nmReadableDone) return;
-  const probe = join(repoRoot, "node_modules", "@earendil-works", "pi-coding-agent", "package.json");
-  if (existsSync(probe) && (statSync(probe).mode & 0o004) === 0) {
-    execFileSync("chmod", ["-R", "o+rX", join(repoRoot, "node_modules")], { timeout: 120_000 });
+  // 无条件幂等 chmod:P0-01C 实测 — npm install 会新增嵌套 node_modules(如 jiti),
+  // 单点探测会漏;chmod -R o+rX 每进程一次,成本可接受,权限正常环境为 no-op 效果。
+  const nm = join(repoRoot, "node_modules");
+  if (existsSync(nm)) {
+    execFileSync("chmod", ["-R", "o+rX", nm], { timeout: 120_000 });
   }
   nmReadableDone = true;
 }
@@ -165,6 +167,8 @@ export interface LaunchOptions {
   model: ModelConfig;
   /** 出口约束状态(docker 分支必需;ok=false/缺失 ⇒ FAIL-CLOSED 拒启) */
   egress?: EgressStatus;
+  /** relay_exec 命令白名单(来自 task.allowed_commands;缺省 = 禁 exec) */
+  allowedCommands?: readonly string[];
   execTimeoutMs?: number;
   /** 测试注入口:覆盖默认 argv(stub RPC 进程)。仅供测试,正式路径禁用。 */
   argvOverride?: string[];
@@ -233,6 +237,7 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
       "-e", `RELAY_ALLOWED_ROOT=/workspace`,
       "-e", `RELAY_TOOL_AUDIT=/workspace/.relay/tool-audit.jsonl`,
       "-e", `RELAY_EXEC_TIMEOUT_MS=${opts.execTimeoutMs ?? 10_000}`,
+      "-e", `RELAY_ALLOWED_COMMANDS=${JSON.stringify(opts.allowedCommands ?? [])}`,
       "-w", "/workspace",
       SANDBOX_IMAGE,
       "node", containerCli,
@@ -255,6 +260,7 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
     RELAY_ALLOWED_ROOT: paths.workspace,
     RELAY_TOOL_AUDIT: paths.audit,
     RELAY_EXEC_TIMEOUT_MS: String(opts.execTimeoutMs ?? 10_000),
+    RELAY_ALLOWED_COMMANDS: JSON.stringify(opts.allowedCommands ?? []),
     ...(opts.envOverride ?? {}),
   };
   // docker 不传宿主环境,host-fallback 需显式保证凭据类变量不进入 Run

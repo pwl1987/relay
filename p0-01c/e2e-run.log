@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+Error response from daemon: network relay-egress-net not found
+error: no such object: relay-egress-fwd
+Error response from daemon: No such container: relay-egress-fwd
+ ✓ test/integration/pi-e2e-c.test.ts (1 test) 28871ms
+   ✓ P0-01C 验收:真实模型自治 Goal 闭环(预算账本预留) > 自治闭环:2 任务经 GoalLoop 自动执行(容器真实模型+预算预留)→ goal COMPLETED  15876ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  09:25:55
+   Duration  30.09s (transform 221ms, setup 0ms, collect 958ms, tests 28.87s, environment 0ms, prepare 77ms)
+

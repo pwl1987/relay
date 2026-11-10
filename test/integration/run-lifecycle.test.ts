@@ -56,6 +56,7 @@ describe("Run 生命周期(stub RPC,真实进程)", () => {
     wallSeconds?: number;
     heartbeatSeconds?: number;
     cancelSignal?: { cancelled: boolean };
+    allowedCommands?: string[];
   }
 
   async function runStub(args: RunArgs) {
@@ -70,6 +71,7 @@ describe("Run 生命周期(stub RPC,真实进程)", () => {
       sandbox: "host-fallback",
       wallSeconds: args.wallSeconds ?? 20,
       heartbeatSeconds: args.heartbeatSeconds ?? 2,
+      allowedCommands: args.allowedCommands,
       argvOverride: STUB_ARGV,
       envOverride: { STUB_MODE: args.stubMode },
       cancelSignal: args.cancelSignal,

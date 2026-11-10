@@ -37,6 +37,8 @@ export interface RunSpec {
   taskId: string;
   goal: string;
   allowedScope: readonly string[];
+  /** relay_exec 命令白名单(透传 task.allowed_commands;缺省 = 禁 exec) */
+  allowedCommands?: readonly string[];
   attempt: number;
   ownerId: string;
   fencingToken: number;
@@ -314,6 +316,7 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
       pi,
       model,
       egress: spec.egress,
+      allowedCommands: spec.allowedCommands,
       execTimeoutMs: spec.execTimeoutMs,
       argvOverride: spec.argvOverride,
       envOverride: spec.envOverride,
@@ -322,15 +325,31 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
     await session.request("get_state", undefined, 20_000);
     await session.prompt(prompt);
 
-    // 5) 等待终态:settled / 进程退出 / wall 预算 / 取消信号
+    // 5) 等待终态:settled / 进程退出 / wall 预算 / 取消信号 / **回合硬顶(机器强制预算)**
     const deadline = Date.now() + spec.wallSeconds * 1000;
     let settled = false;
+    const liveSession = session;
+    const countAssistantTurns = () =>
+      liveSession.allRecords().filter((r) => r.type === "message_end" && r.message?.role === "assistant").length;
     for (;;) {
       if (session.allRecords().some((r) => r.type === "agent_settled")) {
         settled = true;
         break;
       }
       if (abortReason) break;
+      if (spec.budget && countAssistantTurns() >= (spec.budget.reserveCallsPerRun ?? 4)) {
+        // 回合硬顶:预留数即本 Run 允许的 assistant 回合上限,达顶即终止(机械不可破,
+        // 结算实际用量 ≤ 预留,账本上限不可能被单个 Run 突破)
+        session.kill("SIGKILL");
+        await raceExit(session, 3000);
+        outcome = "BUDGET_EXHAUSTED";
+        detail = {
+          reason: "budget_turns_cap",
+          cap: spec.budget.reserveCallsPerRun ?? 4,
+          turns: countAssistantTurns(),
+        };
+        break;
+      }
       if (spec.cancelSignal?.cancelled) {
         session.kill("SIGTERM");
         await raceExit(session, 2000);
@@ -415,6 +434,14 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
           }
         }
       }
+    }
+
+    // 回合硬顶(仍持租约):任务 RUNNING→BLOCKED(budget_exhausted);与预留失败同语义。
+    if (outcome === "BUDGET_EXHAUSTED" && detail["reason"] === "budget_turns_cap") {
+      const advBlk = await db.transaction(async (tx) =>
+        advanceTask(tx as unknown as Exec, spec.taskId, spec.ownerId, spec.fencingToken, "RUNNING", "BLOCKED"),
+      );
+      if (!advBlk.ok) detail = { ...detail, taskAdvanceRejected: advBlk.reason };
     }
 
     // 超时/取消(仍持租约):按合法转移收尾任务;推进被拒(租约已失)则留给 Supervisor。
