@@ -1,9 +1,11 @@
-# p0-02b 补验 fresh-clone repro @ SHA=661804408f7ead1aecbb3521a185a1e4099f212d
-# 时间: 2026-11-10T17:02:57+08:00  环境: VM80 (docker+本地 PG+magpie 假密钥路由)
+# p0-02b 补验 fresh-clone repro @ SHA=b4982e67bfb4adae7d5f1342a53e969645c5cb0f
+# 时间: 2026-11-10T17:33:56+08:00  环境: VM80 (docker+本地 PG+magpie 假密钥路由)
 # 命令: RELAY_PI_BASE_URL=http://127.0.0.1:1/v1 npm test (模型/凭据门显式 skip;容器门真跑) + npx tsc --noEmit
-      Tests  147 passed | 11 skipped (158)
-   Start at  17:02:57
-   Duration  287.97s (transform 789ms, setup 0ms, collect 18.74s, tests 259.75s, environment 8ms, prepare 2.75s)
-
+# 诚实记录:首次克隆复现出现 1 个 vitest 未捕获错误(瞬时;细节未捕获——当时日志仅保留尾部);
+#   连续两次重跑均 152 passed + 11 skipped、exit 0、无 Errors。缓解已就位:git 子进程 60s 显式超时、
+#   provider/API 探测 20s 超时;git-candidate 与 delivery 用例均为本地 bare 仓库(零网络)。
+ Test Files  37 passed | 3 skipped (40)
+      Tests  152 passed | 11 skipped (163)
+   Duration  97.15s (transform 719ms, setup 0ms, collect 18.80s, tests 68.70s, environment 8ms, prepare 2.81s)
 === tsc ===
 tsc exit=0
