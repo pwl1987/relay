@@ -1,7 +1,9 @@
-# P0-02B 全量回归(写者侧,VM80 工作树 == 提交 28c1b8a(复核处置))
-# 时间: 2026-11-10T14:19:29+08:00  环境: VM80(docker + 本地 PG 55433 + magpie 本地假密钥路由,零真实成本)
-# 模型调用(既有回归测试固有):gate-e2e 6 次经 budget_ledger + pi-e2e ~5 次(legacy 未走账本,如实披露);全部假密钥本地路由
-      Tests  142 passed | 2 skipped (144)
-   Start at  14:13:27
-   Duration  350.16s (transform 774ms, setup 0ms, collect 19.36s, tests 321.52s, environment 8ms, prepare 2.67s)
+# P0-02B 补验 · 全量回归(写者侧,VM80 工作树 == 提交 5d859f8)
+# 时间: 2026-11-10T16:35:50+08:00  环境: VM80(docker + 本地 PG 55433 + magpie 本地假密钥路由,零真实成本)
+# 模型调用(既有回归测试固有):gate-e2e 6 次经 budget_ledger(6/8)+ pi-e2e ~5 次(legacy 未走账本,如实披露);全部假密钥本地路由
+# 补验包新增测试为确定性(零模型)
+[C-9 核验] completions=6 == turns=6(coder=3, reviewer=3);total requests=6;ledger used=6/8
+      Tests  153 passed | 2 skipped (155)
+   Start at  16:22:57
+   Duration  547.01s (transform 801ms, setup 0ms, collect 19.45s, tests 518.11s, environment 8ms, prepare 2.71s)
 

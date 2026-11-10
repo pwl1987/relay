@@ -1,9 +1,9 @@
-# p0-02b fresh-clone repro @ SHA=28c1b8ac6b4ba7df5e7a3f3085ef54ce44256949
-# 时间: 2026-11-10T14:11:25+08:00  环境: VM80 (docker+本地 PG+magpie 假密钥路由)
+# p0-02b 补验 fresh-clone repro @ SHA=5d859f8015482bbb4d8960c77bb87f0d5212e1af
+# 时间: 2026-11-10T16:33:04+08:00  环境: VM80 (docker+本地 PG+magpie 假密钥路由)
 # 命令: RELAY_PI_BASE_URL=http://127.0.0.1:1/v1 npm test (模型/凭据门显式 skip;容器门真跑) + npx tsc --noEmit
-      Tests  133 passed | 11 skipped (144)
-   Start at  14:11:25
-   Duration  94.61s (transform 683ms, setup 0ms, collect 18.72s, tests 66.46s, environment 8ms, prepare 2.68s)
+      Tests  144 passed | 11 skipped (155)
+   Start at  16:33:05
+   Duration  134.16s (transform 710ms, setup 0ms, collect 18.74s, tests 105.93s, environment 8ms, prepare 2.73s)
 
 === tsc ===
 tsc exit=0
