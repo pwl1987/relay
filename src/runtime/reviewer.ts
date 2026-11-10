@@ -189,14 +189,16 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
     : null;
 
   try {
+    // G-4:docker 模式对共享候选工作区强制 FS 级只读挂载(prompt 级禁令之外的 OS 层强制);
+    // 该标志同时决定工具审计落点(HOME 或工作区),读回时用同一判定(避免"假缺失")。
+    const workspaceReadOnly = spec.sandbox === "docker" && Boolean(spec.workspaceDirOverride);
     const live: PiRpcSession = launchPi({
       spec: sandboxSpec,
       pi,
       model,
       egress: spec.egress,
       allowedCommands: [], // Reviewer 只读:禁一切 exec
-      // G-4:docker 模式对共享候选工作区强制 FS 级只读挂载(prompt 级禁令之外的 OS 层强制)
-      workspaceReadOnly: spec.sandbox === "docker" && Boolean(spec.workspaceDirOverride),
+      workspaceReadOnly,
       execTimeoutMs: spec.execTimeoutMs,
       argvOverride: spec.argvOverride,
       envOverride: spec.envOverride,
@@ -277,7 +279,7 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
     }, {});
     // G-4 后 Reviewer 的工具审计落在一次性 HOME(/pihome)而非候选面(候选面只读)。
     // 该文件随 run 目录消亡 ⇒ 在此读回并摘要入 runs.detail(否则 Worker 侧看不到 Reviewer 的工具决策)。
-    const toolAudit = readReviewerToolAudit(sandboxSpec);
+    const toolAudit = readReviewerToolAudit(sandboxSpec, workspaceReadOnly);
     await db
       .transaction(async (tx) =>
         (tx as unknown as Exec).execute(sql`
@@ -370,16 +372,19 @@ async function appendAuditSafe(
 }
 
 /**
- * 读回 Reviewer 的工具审计摘要(G-4:只读候选面 ⇒ docker 模式审计落在一次性 HOME /pihome;
- * host-fallback 模式仍落在工作区 .relay)。
+ * 读回 Reviewer 的工具审计摘要(G-4:只读候选面 ⇒ 审计落在一次性 HOME /pihome;
+ * 非只读场景 ⇒ 审计落在工作区 .relay)。
+ * 路径判定与启动参数一致(workspaceReadOnly 决定 RELAY_TOOL_AUDIT 指向),避免"假缺失"。
  * 返回 {lines, denied, reasons, missing} —— 让 Worker/运维在看板上看到 Reviewer 读了什么、被拒了什么;
  * 文件缺失时显式标记 missing=true(不静默吞掉可观测性缺口)。
  */
-function readReviewerToolAudit(spec: SandboxSpec): { lines: number; denied: number; reasons: string[]; missing?: boolean } | null {
-  const path =
-    spec.mode === "docker"
-      ? join(spec.homeDir, "tool-audit.jsonl") // RELAY_TOOL_AUDIT=/pihome/tool-audit.jsonl → 宿主 homeDir
-      : join(spec.workspaceDir, ".relay", "tool-audit.jsonl"); // host-fallback:工作区内审计
+function readReviewerToolAudit(
+  spec: SandboxSpec,
+  workspaceReadOnly: boolean,
+): { lines: number; denied: number; reasons: string[]; missing?: boolean } | null {
+  const path = workspaceReadOnly
+    ? join(spec.homeDir, "tool-audit.jsonl") // RELAY_TOOL_AUDIT=/pihome/tool-audit.jsonl → 宿主 homeDir
+    : join(spec.workspaceDir, ".relay", "tool-audit.jsonl"); // 常规:工作区内审计
   try {
     if (!existsSync(path)) return { lines: 0, denied: 0, reasons: [], missing: true };
     const raw = readFileSync(path, "utf8");

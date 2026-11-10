@@ -1,8 +1,10 @@
 # P0-02B 补验 · GitHub API 核验(只读探测;无令牌明文)
-# 时间: 2026-11-10T08:23:17.587Z
+# 时间: 2026-11-10T09:15:32.723Z
 # 目标仓库(固定,不可由环境变量改指): pwl1987/relay-delivery-sandbox
 # 凭据来源: /home/ubuntu/.relay/credentials/github-sandbox-pat(0600);绝不回退本机 gh 宽权限令牌
 # 凭据形态: {"length":11,"fine_grained_prefix":false,"classic_prefix":false,"printable_ascii":true}
+# 判定次序(与测试一致):形态检查先于 API 探测 —— 形态非法即短路,不打 API;形态合法但 API 401 ⇒ 凭据被拒。
+# 说明:测试输出的 mode=malformed/apiStatus=null 与本日志的 401 是同一口径的两端(形态判定 vs 认证判定),不矛盾。
 PROBE user status=401 url=https://api.github.com/user keys=message,documentation_url,status
 PROBE repo status=401 url=https://api.github.com/repos/pwl1987/relay-delivery-sandbox keys=message,documentation_url,status
 PROBE branch_main status=401 url=https://api.github.com/repos/pwl1987/relay-delivery-sandbox/branches/main keys=message,documentation_url,status

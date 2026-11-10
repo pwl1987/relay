@@ -420,23 +420,22 @@ describe.skipIf(!credential.present)(
         // 候选基于**当前真实远端 HEAD**构建(此时远端头 R)
         const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-drift", payload: "p0-02b drift experiment", fileName: "drift.txt" });
 
-        // 外部写者:基于同一 HEAD 新增提交并**正常快进**推送(不重写历史)
+        // 外部写者:自己的仓库、自己的提交(对象自洽;不借用其它仓库的对象)
         const other = workspaceIn("ws-drift-other");
         git(other.dir, credentialFile, "remote", "add", "origin", SANDBOX_URL);
-        let headAtBuild = built.remoteHeadAtBuild;
-        if (!headAtBuild) {
-          // 远端尚无 main:外部写者先用**正常推送**建立基线(创建分支;非强推、非历史改写)
-          git(other.dir, credentialFile, "push", "origin", `${built.baseSha}:refs/heads/main`);
-          headAtBuild = built.baseSha;
+        const headAtBuild = built.remoteHeadAtBuild;
+        if (headAtBuild) {
+          // 远端已有 main:外部写者基于该真实头新增提交并**正常快进**推送(不重写历史)
+          git(other.dir, credentialFile, "fetch", "--quiet", "origin", "main");
+          git(other.dir, credentialFile, "reset", "--quiet", "--hard", headAtBuild);
         }
-        git(other.dir, credentialFile, "fetch", "--quiet", "origin", "main");
-        git(other.dir, credentialFile, "reset", "--quiet", "--hard", headAtBuild);
         other.apply({ "foreign.txt": "external writer was here\n" });
         git(other.dir, credentialFile, "add", "-A");
         git(other.dir, credentialFile, "-c", "user.email=ext@l", "-c", "user.name=ext", "commit", "--quiet", "-m", "foreign");
-        git(other.dir, credentialFile, "push", "origin", "HEAD:refs/heads/main"); // 快进,无强推
+        // 远端为空时,外部写者用**自身提交**创建分支(普通推送;对象自洽 ⇒ 无 bad object)
+        git(other.dir, credentialFile, "push", "origin", "HEAD:refs/heads/main"); // 非 FF 必被 git 拒
         const foreignHead = remoteHead(other.dir);
-        expect(foreignHead).not.toBe(headAtBuild);
+        expect(foreignHead).not.toBe(headAtBuild ?? "");
 
         // Relay 交付:expected = 旧头 ⇒ 远端已漂移 ⇒ 拒绝
         const proposed = await t.db.transaction(async (tx) =>
@@ -445,7 +444,7 @@ describe.skipIf(!credential.present)(
             attempt: 1,
             target: SANDBOX_URL,
             branch: "main",
-            expectedRemoteSha: headAtBuild,
+            expectedRemoteSha: headAtBuild ?? "", // Relay 已知头(空串 = 分支此前不存在 ⇒ 本次远端已漂移)
             policy: { ...DEFAULT_DELIVERY_POLICY, allowedRepos: [SANDBOX_REPO.toLowerCase()] },
             credentialPresent: true,
             verifyCommitBinding: makeCommitBindingVerifier(() => built.staged.stageRepoDir),
@@ -466,7 +465,13 @@ describe.skipIf(!credential.present)(
         execFileSync("git", ["init", "--quiet", hist], { encoding: "utf8" });
         git(hist, credentialFile, "remote", "add", "origin", SANDBOX_URL);
         git(hist, credentialFile, "fetch", "--quiet", "origin", "main");
-        expect(git(hist, credentialFile, "merge-base", "--is-ancestor", headAtBuild, foreignHead)).toBe("");
+        // 历史完整:若远端此前已有 main,则旧头仍是外来头的祖先(快进链未被改写);
+        // 若此前为空(分支由外部写者创建),则以"远端头可达且提交链自洽"为准。
+        if (headAtBuild) {
+          expect(git(hist, credentialFile, "merge-base", "--is-ancestor", headAtBuild, foreignHead)).toBe("");
+        } else {
+          expect(git(hist, credentialFile, "rev-parse", "FETCH_HEAD")).toBe(foreignHead);
+        }
         // ChangeSet 不得标 DELIVERED;人工处置行(D3)落库
         const csRow = await latestChangeset(t.db as unknown as Exec, "t-gh-drift");
         expect(csRow?.deliveryState).not.toBe("DELIVERED");

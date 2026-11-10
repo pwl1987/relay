@@ -15,6 +15,7 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   const { stdout } = await execFileP("git", ["-C", cwd, ...args], {
     encoding: "utf8",
     maxBuffer: 8 * 1024 * 1024,
+    timeout: 60_000, // 显式超时:不得无限挂起
   });
   return stdout.trim();
 }

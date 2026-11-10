@@ -143,19 +143,20 @@ export function checkCommandScope(
 export function execDenialHint(reason: string | undefined): string {
   if (!reason) return "";
   if (reason.startsWith("shell_metacharacters_forbidden")) {
-    return "只允许单条命令:禁止 ; & | 反引号 换行 $( ${ ;写文件请用重定向(> 允许),例如 echo sum=87 > result.txt ;不要追加 && cat ... 之类的复合命令。";
+    // 提示文本自身不得含 ASCII 禁用字符(模型可能照抄示例):禁用字符一律用文字描述(全角标点)
+    return "只允许单条命令：请勿使用 shell 控制字符（分号、与号、竖线、反引号）或命令替换语法。写文件请用重定向（大于号，允许），例如 echo sum=87 > result.txt 。请勿再追加第二条命令或校验命令。";
   }
   if (reason.startsWith("command_not_allowed")) {
-    return "该命令未获任务授权:只能使用任务 allowed_commands 中已授权的命令(写文件通常授权 echo + 重定向);不要改用 python3/ls/cat 等替代命令。";
+    return "该命令未获任务授权：只能使用任务已授权的命令（写文件通常是 echo 加重定向）。请勿改用 python3、ls、cat 等替代命令。";
   }
   if (reason === "exec_not_authorized") {
-    return "任务未授权任何命令能力:若任务需要写文件,需由编排方在 allowed_commands 授权对应命令(例如 echo)。";
+    return "任务未授权任何命令能力：若任务需要写文件，需由编排方在 allowed_commands 中授权对应命令（例如 echo）。";
   }
   if (reason === "empty_command") {
-    return "命令为空:请给出单条可执行命令。";
+    return "命令为空：请给出单条可执行命令。";
   }
   if (reason.startsWith("outside_allowed_root")) {
-    return "路径越出允许根:只能访问工作区内文件。";
+    return "路径越出允许根：只能访问工作区内的文件。";
   }
   return "";
 }
@@ -163,17 +164,23 @@ export function execDenialHint(reason: string | undefined): string {
 /** relay_read 拒绝提示(读取路径越界/解析失败的可行动说明;F-9 收敛:消除死分支)。 */
 export function readDenialHint(reason: string | undefined): string {
   if (!reason) return "";
+  if (reason === "allowed_root_not_configured") {
+    return "工作区根未配置：无法读取任何文件（请由编排方配置 RELAY_ALLOWED_ROOT）。";
+  }
   if (reason.startsWith("outside_allowed_root")) {
-    return "路径越出允许根:只能读取工作区(/workspace)内的文件。";
+    return "路径越出允许根：只能读取工作区内的文件。";
   }
   if (reason.startsWith("resolve_failed:EACCES")) {
-    return "无法解析该路径(权限不足):请确认文件在工作区内且可读;不要反复重试同一路径。";
+    return "无法解析该路径（权限不足）：请确认文件在工作区内且可读。请勿反复重试同一路径。";
   }
   if (reason.startsWith("resolve_failed:ENOENT")) {
-    return "文件不存在:请使用变更清单中列出的确切文件名。";
+    return "文件不存在：请使用变更清单中列出的确切文件名。";
   }
   if (reason === "not_regular_file") {
-    return "目标不是普通文件:请读取具体文件而非目录或链接。";
+    return "目标不是普通文件：请读取具体文件，而非目录或链接。";
+  }
+  if (reason.startsWith("stat_failed:")) {
+    return "无法读取该文件的状态（权限或文件类型问题）：请改读工作区内可读的具体文件。";
   }
   return "";
 }

@@ -47,6 +47,8 @@ async function git(options: GitHubPushExecutorOptions, ...args: string[]): Promi
     const { stdout } = await execFileP(options.gitBin ?? "git", ["-C", options.sourceRepo, ...cred, ...args], {
       encoding: "utf8",
       maxBuffer: 16 * 1024 * 1024,
+      // 显式超时:网络/凭据异常时不得无限挂起(可诊断地失败,而非拖死整个交付流程)
+      timeout: 60_000,
       env: {
         PATH: "/usr/local/bin:/usr/bin:/bin",
         GIT_TERMINAL_PROMPT: "0",

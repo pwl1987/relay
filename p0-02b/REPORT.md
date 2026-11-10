@@ -144,7 +144,9 @@ npx vitest run test/integration/github-real.test.ts
 
 ### 8.4 补验后测试账
 
-全量 **155 用例 = 153 passed + 2 skipped**(skip = 真实远端写入/漂移,凭据门);新增/改动:`test/unit/delivery-policy.test.ts`(9 例)、`delivery.test.ts`(+1 反例:base 失配 ⇒ 拒绝)、`git-candidate.test.ts`(F-5 用例 + 语义澄清)、`github-real.test.ts`(重写:门禁自证 + 凭据事实 + 真实远端三例)。补验新增用例**零模型调用**。
+全量 **158 用例 = 156 passed + 2 skipped**(skip = 真实远端写入/漂移,凭据门);新增/改动:`test/unit/delivery-policy.test.ts`(9 例)、`test/unit/denial-hints.test.ts`(5 例:提示不得含禁止字符)、`delivery.test.ts`(+1 反例:base 失配 ⇒ 拒绝)、`git-candidate.test.ts`(F-5 用例 + 语义澄清)、`github-real.test.ts`(重写:门禁自证 + 凭据事实 + 真实远端三例)。补验新增用例**零模型调用**。
+
+**覆盖条件说明(N-7)**:「历史未丢」的精确计数断言(`countAfter === countBefore + 1` + 旧头对象仍在)位于「远端此前已存在 main」的分支内;沙箱仓库当前 main 为空 ⇒ 首次真实写入走「创建分支」路径,该断言不参与 —— 待第二次运行(远端已有 main)时自动生效。祖先关系断言同理按分支适用。
 
 ### 8.5 补验时序与治理留痕
 
