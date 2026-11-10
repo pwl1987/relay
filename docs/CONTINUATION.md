@@ -18,7 +18,7 @@
 - **DELIVERED ≠ 用户 ACCEPTED**:goal 聚合语义不变;交付层失败仅落 changeset CONFLICT/FAILED + D3。
 - **G-3 持钥 0600 化**:代理真实 key 从 docker env 改为宿主 0600 文件只读挂载;inspect 零可见(容器实测断言)。
 - **G-4 Reviewer FS 只读**:docker 模式共享候选面 `:ro` 挂载+工具审计移出候选面;EROFS 实测(host-fallback 保持 prompt 级隔离并如实标注)。
-- **测试基建**:158 用例(39 文件);非模型全新克隆 144+11skip 可复现;CI 落盘(`.github/workflows/ci.yml`:typecheck+全量 vitest+PG16 service;模型/凭据门自动 skip,容器确定性门真跑)。
+- **测试基建(P0-02B 终态)**:163 用例(40 文件;全量 161 passed+2 skipped);非模型全新克隆 152+11skip+tsc 0 可复现;CI 落盘(`.github/workflows/ci.yml`:typecheck+全量 vitest+PG16 service;模型/凭据门自动 skip,容器确定性门真跑)。
 - **补验收敛(P0-02B 第二轮)**:测试夹具**零强推**(剥离注释后的可执行代码面自证)+ 目标固定沙箱仓库(env 不可改指)+ 每轮读真实远端 HEAD 建候选 + 外部写者正常快进 + 历史未丢断言(祖先关系/提交数恰好 +1/旧头对象仍在);Policy **host 白名单**(默认仅 github.com,含端口维度)+ **userinfo 拒**;候选 base **恒等于 runs.input_commit_sha**(runner 取 Run 前记录 + stage 复位 + Proposal 一致性校验);relay_exec/relay_read **拒绝提示可行动化**(审计码不变);Reviewer 预算 4+4≤8 且提示明确可读范围(断言未放宽)。
 - **运行环境事实(新增)**:① Node strip-types 子进程(裸 `node` 跑 .ts)不支持 TS 参数属性——helper/子进程加载链上的类禁用 `constructor(readonly x)`;② vitest 全量与克隆复现共享宿主 egress 栈,**不可并行**(fileParallelism:false 已设,人工并行跑两份会互踩);③ provider 门文件(gate-e2e/pi-e2e/egress-proxy)**必须自备 ensureEgress**(FAIL-CLOSED 自洽,不得依赖他文件残留的全局栈);④ executeRun 的 exec 白名单来自 RunSpec.allowedCommands(不读 DB),漏传 ⇒ 全拒。
 - **治理流程(累计)**:ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模型预算分阶段声明经 budget_ledger;复核窗口内的追加提交须在 REVIEW 中记录时序并由 Reviewer 补审(0207a6a 先例)。

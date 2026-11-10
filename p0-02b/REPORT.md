@@ -11,7 +11,7 @@
 | 变更 | `changesets.ts`(git_* 三列 + bindCandidateCommit + ChangesetRow 交付字段)/ `goal-loop.ts`(gate ACCEPTED → propose/execute 注入式交付)/ `runner.ts`(deliveryStaging 接线)/ `sandbox.ts`(workspaceReadOnly :ro + buildDockerRunArgs 抽出)/ `reviewer.ts`(共享候选面强制 ro)/ `workspace-manifest.ts`(MANIFEST_EXCLUDE 增 .git)/ `egress.ts`(G-3:持钥 0600 文件只读挂载,env 注入面废除) |
 | 迁移 | `0004_delivery.sql`(手写)+ meta/_journal.json 条目:candidate_changesets 七交付列 + action_proposals 表 |
 | CI | `.github/workflows/ci.yml`:typecheck + 全量 vitest(真 PG16 service + RELAY_PI_BASE_URL 不可达门;模型/egress 门自动 skip,容器确定性门真跑) |
-| 测试 | 全量 **143 用例 = 141 passed + 2 skipped**(skip = github-real 凭据门,诚实跳过);新增 4 文件 20 用例:delivery 10(反例 1/2a/2b/3/4/5/6/8/9 + 正链 + goal-loop 全链 DELIVERED)/ git-candidate 6 / reviewer-readonly 2(容器 OS 实测)/ github-real 2(凭据门控) |
+| 测试 | P0-02B 主体新增 4 文件 20 用例:delivery 10(反例 1/2a/2b/3/4/5/6/8/9 + 正链 + goal-loop 全链 DELIVERED)/ git-candidate 6 / reviewer-readonly 2(容器 OS 实测)/ github-real 2(凭据门控)。**最终测试账以 §8.4/§8.5 为准**(补验后全量 **163 用例 = 161 passed + 2 skipped**;143/158 为增量过程的中间口径,P0-02C 时修正不再引用) |
 | 模型调用 | 新增交付链测试 **零模型**(stub/确定性);全量回归时**既有**测试固有消耗:gate-e2e 6 次(经 budget_ledger 6/12)+ pi-e2e ~5 次(legacy 未走账本,如实披露)——全部 magpie 本地假密钥路由,**零真实成本** |
 
 ## 1. 合同对照(G-1..G-5 / D-1..D-10)
@@ -155,6 +155,7 @@ npx vitest run test/integration/github-real.test.ts
 - **测试账(最终)**:全量 **163 用例 = 161 passed + 2 skipped**;全新克隆复现 **152 passed + 11 skipped + tsc 0**;CI **148 passed + 15 skipped**。
 - **独立复核三轮**:补验包首轮 PASS-WITH-FIXES(13 项发现)→ 第二轮 PASS-WITH-FIXES(9 项新发现,N-1 为必须在 PAT 实验前修的夹具真缺陷)→ 全部处置 → 最终 PASS(见 `REVIEW.md` §七)。
 - **诚实记录**:首次克隆复现出现 1 个 vitest 未捕获错误(瞬时;细节未捕获——当时日志仅保留尾部),连续两次重跑均全绿;缓解已就位(git 子进程 60s 超时、API 探测 20s 超时)。
+- **未消除风险(登记,P0-02C D-11 复核确认)**:上述"首次克隆瞬时未捕获 vitest 错误"根因未定位,属**未消除风险**而非已关闭项;缓解措施降低概率但不保证消除。若在未来克隆复现中再现,须保留完整日志(含 vitest 全输出)后归因,不得以"重跑变绿"替代归因。
 
 ### 8.6 补验时序与治理留痕
 

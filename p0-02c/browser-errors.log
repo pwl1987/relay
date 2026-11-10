@@ -1,0 +1,15 @@
+# produced on commit cb3ccebf1a0ddb19888de26cf78461f91081f8a5(P0-02C 实现;RELAY_E2E=1 vitest run test/e2e;真 Chromium + 真 PG + stub worker)
+
+
+2026-11-10T12:05:59.879Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-10T12:05:59.879Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:43589/app.js:88:23)
+    at http://127.0.0.1:43589/changeset.js:186:18
+    at Object.guarded (http://127.0.0.1:43589/app.js:165:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:43589/changeset.js:185:27)
+2026-11-10T12:05:59.881Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-10T12:05:59.881Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:43589/app.js:88:23)
+    at http://127.0.0.1:43589/changeset.js:200:18
+    at Object.guarded (http://127.0.0.1:43589/app.js:165:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:43589/changeset.js:199:27)
