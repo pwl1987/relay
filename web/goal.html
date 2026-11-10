@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · Goal</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header" id="app-header"></header>
+    <main>
+      <div id="conn-banner" hidden data-testid="conn-banner"></div>
+      <div class="toolbar">
+        <h1 id="page-title">Goal</h1>
+        <span class="spacer"></span>
+        <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
+        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+      </div>
+
+      <section class="card" id="create-card" hidden>
+        <h2>新建 Goal</h2>
+        <label for="goal-input">一句自然语言描述你要交付什么(可只写一句模糊话)</label>
+        <textarea id="goal-input" data-testid="goal-input" placeholder="例如:感觉登录页不好用,想让登录更快更清楚"></textarea>
+        <div class="row mt8">
+          <button class="btn btn-primary" id="btn-create-goal" type="button" data-testid="btn-create-goal">创建 Goal</button>
+          <span class="small dim" id="create-msg" data-testid="create-msg"></span>
+        </div>
+        <p class="small dim mt8">
+          派生计划为<strong>确定性默认计划</strong>(非模型规划):一个任务 + 最小作用域 + Gate 必需。
+          模型驱动的需求发现与推荐在本包<strong>未实现</strong>,页面只展示由数据库事实规则推导的理解与建议。
+        </p>
+      </section>
+
+      <div id="goal-detail" data-testid="goal-detail" hidden>
+        <section class="card">
+          <h2>目标与验收</h2>
+          <div id="goal-header" data-testid="goal-header"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>系统理解与可验证建议</h2>
+          <div id="goal-analysis" data-testid="goal-analysis"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>任务进度</h2>
+          <div id="goal-tasks" data-testid="goal-tasks"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>候选变更与交付</h2>
+          <div id="goal-changesets" data-testid="goal-changesets"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>运行记录</h2>
+          <div id="goal-runs" data-testid="goal-runs"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>执行证据</h2>
+          <div id="goal-evidence" data-testid="goal-evidence"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>Gate 裁决</h2>
+          <div id="goal-gates" data-testid="goal-gates"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>审计轨迹</h2>
+          <div id="goal-audit" data-testid="goal-audit"></div>
+        </section>
+      </div>
+    </main>
+    <script src="/app.js"></script>
+    <script src="/goal.js"></script>
+  </body>
+</html>

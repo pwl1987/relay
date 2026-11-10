@@ -108,6 +108,71 @@ export async function expireStaleDecisions(exec: Exec, actor = "supervisor"): Pr
   return ids;
 }
 
+/**
+ * 推迟决策(P0-02C D-3/G-6):**只改截止时间,不改状态**。
+ * - 状态必须仍是待决(OPEN / EXPIRED_STILL_BLOCKED);已裁决的决策不可再推迟;
+ * - 乐观并发:任务 state_version 必须与 expectedStateVersion 一致(防止与并发状态转移打架);
+ * - D3 依然**永不超时自动批准** —— 推迟只是把"必须由人裁决"这件事的截止点后移。
+ */
+export async function deferDecision(
+  exec: Exec,
+  spec: {
+    decisionId: string;
+    taskId: string;
+    expectedStateVersion: number;
+    newDeadline: Date;
+    actor: string;
+  },
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const decRes = await exec.execute(sql`
+    SELECT id, state, task_id FROM decisions WHERE id = ${spec.decisionId} FOR UPDATE
+  `);
+  const d = decRes.rows[0];
+  if (!d) return { ok: false, reason: "decision_not_found" };
+  if (d["task_id"] !== null && String(d["task_id"]) !== spec.taskId) {
+    return { ok: false, reason: "decision_task_mismatch" };
+  }
+  const state = String(d["state"]);
+  if (state !== "OPEN" && state !== "EXPIRED_STILL_BLOCKED") {
+    return { ok: false, reason: `decision_not_pending:${state}` };
+  }
+  const taskRes = await exec.execute(sql`
+    SELECT state_version FROM tasks WHERE id = ${spec.taskId}
+  `);
+  const t = taskRes.rows[0];
+  if (!t) return { ok: false, reason: "task_not_found" };
+  if (Number(t["state_version"]) !== spec.expectedStateVersion) {
+    await appendAudit(exec, {
+      actor: spec.actor,
+      authority: "OPERATOR",
+      action: "DECISION_DEFER_REJECTED",
+      taskId: spec.taskId,
+      detail: {
+        decisionId: spec.decisionId,
+        reason: "state_version_mismatch",
+        expected: spec.expectedStateVersion,
+        actual: Number(t["state_version"]),
+      },
+    });
+    return { ok: false, reason: "state_version_mismatch" };
+  }
+  await exec.execute(sql`
+    UPDATE decisions SET deadline = ${spec.newDeadline} WHERE id = ${spec.decisionId}
+  `);
+  await appendAudit(exec, {
+    actor: spec.actor,
+    authority: "OPERATOR",
+    action: "DECISION_DEFERRED",
+    taskId: spec.taskId,
+    detail: {
+      decisionId: spec.decisionId,
+      newDeadline: spec.newDeadline.toISOString(),
+      note: "仅推迟截止时间;状态不变;D3 永不超时自动批准",
+    },
+  });
+  return { ok: true };
+}
+
 /** 决策裁决写入(供 ops.resolveDecision / fallback 自动执行路径复用)。 */
 export async function resolveDecisionRow(
   exec: Exec,

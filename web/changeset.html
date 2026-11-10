@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · ChangeSet / Evidence</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header" id="app-header"></header>
+    <main>
+      <div id="conn-banner" hidden data-testid="conn-banner"></div>
+      <div class="toolbar">
+        <h1>ChangeSet / Evidence</h1>
+        <span class="spacer"></span>
+        <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
+        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+      </div>
+
+      <section class="card" id="picker-card">
+        <h2>选择变更集</h2>
+        <div id="cs-picker" data-testid="cs-picker"><span class="empty">读取中…</span></div>
+      </section>
+
+      <div id="cs-detail" data-testid="cs-detail" hidden>
+        <section class="card">
+          <h2>变更集与三 SHA</h2>
+          <div id="cs-header" data-testid="cs-header"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>Diff 摘要</h2>
+          <div id="cs-diff" data-testid="cs-diff"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>独立 Review 与 Gate</h2>
+          <div id="cs-gates" data-testid="cs-gates"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>真实测试证据</h2>
+          <div id="cs-evidence" data-testid="cs-evidence"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>交付状态</h2>
+          <div id="cs-delivery" data-testid="cs-delivery"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>运行记录</h2>
+          <div id="cs-runs" data-testid="cs-runs"></div>
+        </section>
+      </div>
+    </main>
+    <script src="/app.js"></script>
+    <script src="/changeset.js"></script>
+  </body>
+</html>

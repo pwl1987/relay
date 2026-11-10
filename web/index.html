@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · Dashboard</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header" id="app-header"></header>
+    <main>
+      <div id="conn-banner" hidden data-testid="conn-banner"></div>
+      <div class="toolbar">
+        <h1>Dashboard</h1>
+        <span class="spacer"></span>
+        <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
+        <button class="btn" id="btn-tick" type="button" data-testid="btn-tick">推进一拍(Worker)</button>
+        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+      </div>
+
+      <div class="grid">
+        <section class="card" id="health-card">
+          <h2>运行健康</h2>
+          <div id="health-body" data-testid="health-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>任务状态统计</h2>
+          <div id="task-counts" data-testid="task-counts"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>预算消耗</h2>
+          <div id="budget-body" data-testid="budget-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>阻塞与待裁决</h2>
+          <div id="blocked-body" data-testid="blocked-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>异常</h2>
+          <div id="anomalies-body" data-testid="anomalies-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>最新进展(审计)</h2>
+          <div id="audit-body" data-testid="audit-body"><span class="empty">读取中…</span></div>
+        </section>
+      </div>
+
+      <section class="card mt14">
+        <h2>Goal 状态</h2>
+        <div id="goals-body" data-testid="goals-body"><span class="empty">读取中…</span></div>
+      </section>
+
+      <section class="card mt14">
+        <h2>新建 Goal</h2>
+        <label for="goal-input">一句自然语言描述你要交付什么(可只写一句模糊话)</label>
+        <textarea id="goal-input" data-testid="goal-input" placeholder="例如:感觉登录页不好用,想让登录更快更清楚"></textarea>
+        <div class="row mt8">
+          <button class="btn btn-primary" id="btn-create-goal" type="button" data-testid="btn-create-goal">创建 Goal</button>
+          <span class="small dim" id="create-msg" data-testid="create-msg"></span>
+        </div>
+        <p class="small dim mt8">
+          创建走 core.planGoal(goal + 任务 + 预算账本行)。派生计划为<strong>确定性默认计划</strong>(非模型规划);
+          模型驱动的需求发现与推荐在本包<strong>未实现</strong>,创建后请在 Goal 页查看规则推导的理解与可验证建议。
+        </p>
+      </section>
+
+      <section class="card mt14">
+        <h2>能力登记表</h2>
+        <div id="capabilities-body" data-testid="capabilities-body"><span class="empty">读取中…</span></div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+    <script src="/dashboard.js"></script>
+  </body>
+</html>

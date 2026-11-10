@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · 登录</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="login-wrap">
+    <h1>Relay 控制台</h1>
+    <div class="card">
+      <label for="password">操作口令</label>
+      <input id="password" type="password" autocomplete="current-password" />
+      <div class="err" id="login-error" data-testid="login-error"></div>
+      <div class="row" class="mt10">
+        <button id="btn-login" class="btn btn-primary" type="button" data-testid="login-submit">登录</button>
+      </div>
+      <p class="small dim mt14">
+        自托管单操作者模型:口令只用于服务端 scrypt 派生比对,永不写入日志或响应;
+        会话仅存于服务器内存,Cookie 为 HttpOnly + SameSite=Strict。写操作还需 CSRF 令牌与状态版本校验。
+      </p>
+    </div>
+    <script src="/app.js"></script>
+    <script src="/login.js"></script>
+  </body>
+</html>

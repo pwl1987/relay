@@ -39,3 +39,35 @@ jobs:
         run: npx tsc --noEmit
       - name: tests(非模型 + 真 PG + 确定性容器门)
         run: npx vitest run
+
+  e2e:
+    # P0-02C D-10:真实浏览器用户旅程(Playwright Chromium + 真 PG;模型用确定性桩)。
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: relayp000local
+          POSTGRES_DB: relayp000
+        ports:
+          - 55433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      RELAY_DB_URL: postgresql://postgres:relayp000local@127.0.0.1:55433/relayp000
+      RELAY_E2E: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: install chromium
+        run: npx playwright install --with-deps chromium
+      - name: browser journeys(J1..J5)
+        run: npx vitest run test/e2e

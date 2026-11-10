@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · Decision Inbox</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header" id="app-header"></header>
+    <main>
+      <div id="conn-banner" hidden data-testid="conn-banner"></div>
+      <div class="toolbar">
+        <h1>Decision Inbox</h1>
+        <span class="spacer"></span>
+        <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
+        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+      </div>
+
+      <div class="notice info" data-testid="d3-policy-notice">
+        <strong>D3 永不超时自动批准。</strong>
+        <span
+          >本页没有、也不会有"超时自动通过"或"批量批准"入口:D3 超时只会把决策标记为
+          <code>EXPIRED_STILL_BLOCKED</code>,任务停留在 <code>NEEDS_DECISION</code> 等待人裁决。
+          推迟只延长截止时间,不改变决策状态,也不构成批准。</span
+        >
+      </div>
+
+      <section class="card">
+        <h2>待裁决</h2>
+        <div id="decisions-open" data-testid="decisions-open"><span class="empty">读取中…</span></div>
+      </section>
+
+      <section class="card mt14">
+        <h2>已裁决(历史)</h2>
+        <div id="decisions-history" data-testid="decisions-history"><span class="empty">读取中…</span></div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+    <script src="/decisions.js"></script>
+  </body>
+</html>
