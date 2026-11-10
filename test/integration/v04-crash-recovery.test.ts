@@ -6,7 +6,7 @@ import { sql } from "drizzle-orm";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { advanceTask } from "../../src/core/lease.ts";
 import { supervisorTick } from "../../src/core/supervisor.ts";
-import { recordGateVerdict } from "../../src/core/gates.ts";
+import { recordBoundGate } from "../setup/gate-helper.ts";
 import type { Exec } from "../../src/core/db.ts";
 import { assertAdvanceFail, assertAdvanceOk, assertOk } from "../setup/assert.ts";
 import {
@@ -96,9 +96,11 @@ describe("V04 SIGKILL 崩溃恢复", () => {
     );
     assertAdvanceFail(noGate);
     expect(noGate.reason).toBe("gate_not_passed");
-    await t.db.transaction(async (tx) =>
-      recordGateVerdict(tx as unknown as Exec, { taskId: "t-v04", verdict: "PASS", reviewer: "reviewer-1" }),
-    );
+    // 本链路无 runner/变更集(null 绑定合法);PASS 证据由 gate-helper 播种
+    const gate04 = await recordBoundGate(t.db, {
+      taskId: "t-v04", verdict: "PASS", reviewer: "reviewer-1",
+    });
+    expect(gate04.ok).toBe(true);
     const accepted = await t.db.transaction(async (tx) =>
       advanceTask(tx as unknown as Exec, "t-v04", "worker-B", 2, "VERIFYING", "ACCEPTED"),
     );

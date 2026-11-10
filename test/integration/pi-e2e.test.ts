@@ -11,7 +11,11 @@ import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { claimTask, advanceTask } from "../../src/core/lease.ts";
+import { latestChangeset } from "../../src/core/changesets.ts";
+import { acquireVerificationLease } from "../../src/core/verify-lease.ts";
+import { collectCheckEvidence } from "../../src/core/evidence.ts";
 import { recordGateVerdict } from "../../src/core/gates.ts";
+import { seedReviewerRun } from "../setup/gate-helper.ts";
 import { reclaimExpiredLeases, claimNextReady, reconcilePendingTasks } from "../../src/core/supervisor.ts";
 import type { Exec } from "../../src/core/db.ts";
 import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
@@ -91,14 +95,48 @@ describe.skipIf(!MODEL || !dockerAvailable())("真实 Pi RPC E2E(容器+当前�
     expect(existsSync(resultPath), "result.txt 应存在(真实文件副作用)").toBe(true);
     expect(readFileSync(resultPath, "utf8")).toContain("87");
 
-    // handoff + 任务推进 + Gate(Run 成功 != ACCEPTED)
+    // handoff + 任务推进 + Gate(Run 成功 != ACCEPTED;P0-02A:验证租约接管 + 绑定版 PASS)
     expect(result.handoff.found).toBe(true);
     expect(await taskState("t-e2e")).toBe("VERIFYING");
-    await t.db.transaction(async (tx) =>
-      recordGateVerdict(tx as unknown as Exec, { taskId: "t-e2e", verdict: "PASS", reviewer: "reviewer-e2e" }),
+    const vl = await t.db.transaction(async (tx) =>
+      acquireVerificationLease(tx as unknown as Exec, "t-e2e", "verifier-e2e", 60),
     );
+    if (!vl.ok) throw new Error(`verify lease rejected: ${vl.reason}`);
+    const csE2e = await latestChangeset(t.db as unknown as Exec, "t-e2e");
+    expect(csE2e, "Run 成功应有候选变更集").not.toBeNull();
+    // 真实确定性检查证据:工作区 result.txt 含 87(Worker 侧执行,绑定 attempt+候选 SHA)
+    const evCheck = await collectCheckEvidence(
+      t.db as unknown as Exec,
+      {
+        kind: "deterministic_test",
+        command: ["node", "-e", `const fs=require('fs');const t=fs.readFileSync('result.txt','utf8');if(!t.includes('87'))process.exit(1);console.log('result ok')`],
+        cwdWorkspace: true,
+        taskId: "t-e2e",
+        attempt: c.attempt,
+        candidateSha: csE2e!.candidateSha,
+        producedBy: "verifier-e2e",
+      },
+      result.sandboxSpec.workspaceDir,
+    );
+    expect(evCheck.passed).toBe(true);
+    const rvRun = await seedReviewerRun(t.db, { taskId: "t-e2e", attempt: c.attempt });
+    const gateRec = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, {
+        taskId: "t-e2e",
+        verdict: "PASS",
+        reviewer: "verifier-e2e",
+        attempt: c.attempt,
+        candidateSha: csE2e!.candidateSha,
+        requirementSha: csE2e!.requirementSha,
+        testEnv: { mode: "docker", node: process.version, host: "vm80" },
+        reviewerRunId: rvRun,
+        coderRunId: result.runId,
+        evidenceIds: [evCheck.id],
+      }),
+    );
+    expect(gateRec.ok).toBe(true);
     const adv = await t.db.transaction(async (tx) =>
-      advanceTask(tx as unknown as Exec, "t-e2e", c.ownerId, c.fencingToken, "VERIFYING", "ACCEPTED"),
+      advanceTask(tx as unknown as Exec, "t-e2e", vl.ownerId, vl.fencingToken, "VERIFYING", "ACCEPTED"),
     );
     expect(adv.ok).toBe(true);
   });

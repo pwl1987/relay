@@ -45,6 +45,13 @@ export interface ModelConfig {
   baseUrl: string;
 }
 
+/**
+ * Run 容器内 models.json 的占位 key(P0-02A C-8 密钥隔离):真实 key 只存在于
+ * 出口代理进程环境(relay-egress-fwd 的 FWD_REAL_KEY);容器内可见面(models.json/env/argv)
+ * 只出现本占位值,代理改写 Authorization 后转发上游。
+ */
+export const PROXY_PLACEHOLDER_APIKEY = "sk-relay-proxy-placeholder";
+
 export interface SandboxSpec {
   mode: "docker" | "host-fallback";
   /** 一次性 run 目录:home/(Pi HOME) ws/(工作区) ext/(容器扩展挂载源) */
@@ -110,7 +117,8 @@ export function prepareRunDirs(baseDir: string, mode: SandboxSpec["mode"], model
         providers: {
           [model.provider]: {
             api: "openai-completions",
-            apiKey: model.apiKey,
+            // 密钥隔离(P0-02A C-8):只写占位 key;真实 key 在出口代理进程,经其改写 Authorization
+            apiKey: PROXY_PLACEHOLDER_APIKEY,
             baseUrl: model.baseUrl,
             models: [
               {
@@ -176,6 +184,20 @@ export interface LaunchOptions {
   onRecord?: PiSpawnOptions["onRecord"];
 }
 
+/** pi 进程 argv(密钥隔离自证用导出:断言无 --api-key;launchPi 内部同源)。 */
+export function buildPiArgs(model: ModelConfig, extMountPath: string): string[] {
+  return [
+    "--provider", model.provider,
+    "--model", model.model,
+    // 密钥隔离(P0-02A C-8):不再经 argv 传 key(宿主 ps 可见面,P0-01B F-7);
+    // pi 从 models.json 读占位 key,出口代理改写 Authorization。
+    "--mode", "rpc",
+    "--no-session",
+    "--no-builtin-tools",
+    "--extension", extMountPath,
+  ];
+}
+
 /** 以 ADR-0003 边界启动 Pi RPC 子进程。前置:resolveVendoredPi + verifyPiRuntime 已通过。 */
 export function launchPi(opts: LaunchOptions): PiRpcSession {
   const { spec, pi, model } = opts;
@@ -183,15 +205,7 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
   if (spec.mode === "docker" && !dockerAvailable()) {
     throw new Error("docker unavailable:正式路径 Run 必须在容器内(ADR-0003 双层边界),不得静默降级");
   }
-  const piArgs = [
-    "--provider", model.provider,
-    "--model", model.model,
-    "--api-key", model.apiKey,
-    "--mode", "rpc",
-    "--no-session",
-    "--no-builtin-tools",
-    "--extension", spec.extMountPath,
-  ];
+  const piArgs = buildPiArgs(model, spec.extMountPath);
   // 测试注入口:完整替换 argv(stub RPC 进程);正式路径必须走真实 vendored pi
   if (opts.argvOverride) {
     return PiRpcSession.spawn({

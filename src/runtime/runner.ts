@@ -30,6 +30,8 @@ import type { PiInstallation } from "./pi-version.ts";
 import { PiRpcSession, type PiSpawnOptions, type RpcRecord } from "./pi-rpc.ts";
 import { buildRunPrompt, contextDigest, parseHandoff, type Handoff, type HandoffParse } from "./context.ts";
 import { reserveBudget, settleBudget, releaseBudget } from "../core/budget.ts";
+import { recordChangeset } from "../core/changesets.ts";
+import { snapshotManifest } from "./workspace-manifest.ts";
 
 export type RunOutcome = "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMEOUT" | "CANCELLED" | "INTERRUPTED" | "BUDGET_EXHAUSTED";
 
@@ -83,6 +85,8 @@ export interface RunResult {
   detail: Record<string, unknown>;
   /** 沙箱目录(证据收集后由调用方 cleanupSandbox) */
   sandboxSpec: SandboxSpec;
+  /** 候选变更集(SUCCEEDED 时由 Worker 侧记录;失败路径无候选) */
+  changesetId: string | null;
 }
 
 async function insertRun(exec: Exec, spec: RunSpec, model: ModelConfig, runId: string, sandbox: SandboxSpec): Promise<void> {
@@ -188,6 +192,9 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
   spec.prepareWorkspace?.(sandboxSpec.workspaceDir);
   // 种子文件须对容器 SANDBOX_UID 可读/可写(宿主 umask 可能 660)
   execFileSync("chmod", ["-R", "o+rwX", sandboxSpec.workspaceDir], { timeout: 30_000 });
+  // 候选基线快照(种子后的工作区 = 变更基线;Run 结束后再快照对比,P0-02A C-1)
+  const baseManifest = snapshotManifest(sandboxSpec.workspaceDir);
+  let changesetId: string | null = null;
   let session: PiRpcSession | null = null;
   let outcome: RunOutcome = "FAILED";
   let detail: Record<string, unknown> = {};
@@ -263,6 +270,7 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
           toolAuditPath: join(sandboxSpec.workspaceDir, ".relay", "tool-audit.jsonl"),
           toolCallEvents: 0, detail,
           sandboxSpec,
+          changesetId: null,
         };
       }
       ledgerId = reserve.ledgerId!;
@@ -417,6 +425,34 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
             ? handoff.handoff
             : { error: handoff.error, detail: (handoff as { detail?: string }).detail },
         };
+        // 5.5) 候选变更集(Worker 侧可信采集;SUCCEEDED 才有候选,P0-02A C-1)
+        // 越界 violation 如实记录(sandbox 强制下不应发生;Gate 编排层消费时裁决)。
+        try {
+          const candidateManifest = snapshotManifest(sandboxSpec.workspaceDir);
+          const cs = await db.transaction(async (tx) =>
+            recordChangeset(
+              tx as unknown as Exec,
+              {
+                taskId: spec.taskId,
+                runId,
+                attempt: spec.attempt,
+                base: baseManifest,
+                candidate: candidateManifest,
+                requirement: {
+                  goalText: spec.goal,
+                  taskId: spec.taskId,
+                  allowedScope: spec.allowedScope,
+                  allowedCommands: spec.allowedCommands ?? [],
+                },
+              },
+              spec.ownerId,
+            ),
+          );
+          changesetId = cs.id;
+          detail = { ...detail, changeset: { id: cs.id, baseSha: cs.baseSha, candidateSha: cs.candidateSha, requirementSha: cs.requirementSha, diff: cs.diff, violations: cs.violations } };
+        } catch (e) {
+          detail = { ...detail, changesetError: (e as Error).message };
+        }
         // 6) 成功路径推进:RUNNING->SUBMITTED->VERIFYING(VERIFYING->ACCEPTED 属 Gate,P0-02A 编排)
         const advSub = await db.transaction(async (tx) =>
           advanceTask(tx as unknown as Exec, spec.taskId, spec.ownerId, spec.fencingToken, "RUNNING", "SUBMITTED"),
@@ -524,6 +560,7 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
     toolCallEvents: Number(detail["toolCallEvents"] ?? 0),
     detail,
     sandboxSpec,
+    changesetId,
   };
 }
 

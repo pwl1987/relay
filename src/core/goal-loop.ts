@@ -16,11 +16,17 @@ import { advanceTask, type AdvanceResult } from "./lease.ts";
 import { supervisorTick, releaseRework, type TickReport } from "./supervisor.ts";
 import { expireStaleDecisions } from "./decisions.ts";
 import { setGoalState } from "./goals.ts";
+import { startSafeLoop, type SafeLoopHandle } from "./loop-safety.ts";
+import { orchestrateGate, type GateOrchestrationOptions, type GateOrchestrationResult } from "./gate-orchestrator.ts";
 
 export interface RunOutcomeDigest {
   outcome: string; // SUCCEEDED | FAILED | TIMEOUT | CANCELLED | INTERRUPTED | BUDGET_EXHAUSTED | ...
   reason?: string;
   taskId: string;
+  /** Run 行 id(SUCCEEDED 时 Gate 编排需要,绑定 coder run) */
+  runId?: string;
+  /** Run 工作区宿主路径(SUCCEEDED 时证据检查 cwd 用) */
+  workspaceDir?: string;
 }
 
 export interface GoalLoopTickOptions {
@@ -38,12 +44,15 @@ export interface GoalLoopTickOptions {
   backoffBaseSeconds?: number;
   /** 无可执行工作时的休眠提示秒数(返回给驱动方) */
   idleSeconds?: number;
+  /** Gate 编排(P0-02A):SUCCEEDED 后 验证租约→证据→独立 Reviewer→绑定版消费 */
+  gate?: GateOrchestrationOptions;
 }
 
 export interface GoalLoopTickReport {
   status: "PROGRESSED" | "IDLE" | "IDLE_PROVIDER_DOWN" | "PARTIAL";
   tick?: TickReport;
   run?: RunOutcomeDigest & { disposition?: string };
+  gate?: GateOrchestrationResult;
   goalStates?: Array<{ goalId: string; state: string }>;
   idleHintSeconds?: number;
 }
@@ -265,6 +274,7 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
 
   // a) 若本拍领到任务且注入了 runTask:执行并处置
   let run: GoalLoopTickReport["run"];
+  let gateReport: GateOrchestrationResult | undefined;
   if (tick.claimed && options.runTask) {
     const claim = tick.claimed;
     const result = await options.runTask({
@@ -280,6 +290,21 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
       { circuitThreshold: options.circuitThreshold, backoffBaseSeconds: options.backoffBaseSeconds, actor },
     );
     run = { ...result, disposition: disposition.disposition };
+    // a.5) Gate 编排(P0-02A):Run SUCCEEDED ⇒ 验证租约→证据→独立 Reviewer→绑定版消费。
+    // 编排内部失败保持可恢复(验证租约到期被 reclaim ⇒ 新 attempt 重验;旧 PASS 绑定失配不可消费)。
+    if (options.gate && result.outcome === "SUCCEEDED" && result.runId) {
+      gateReport = await orchestrateGate(
+        db,
+        {
+          taskId: claim.taskId,
+          attempt: claim.attempt,
+          coderRunId: result.runId,
+          ...(result.workspaceDir ? { workspaceDir: result.workspaceDir } : {}),
+          actor,
+        },
+        options.gate,
+      );
+    }
   }
 
   const goalStates = await db.transaction(async (tx) => aggregateGoals(tx as unknown as Exec));
@@ -291,7 +316,14 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
       : pending > 0
         ? "PARTIAL"
         : "IDLE";
-  return { status, tick, run, goalStates, ...(status === "IDLE" ? { idleHintSeconds: options.idleSeconds ?? 30 } : {}) };
+  return {
+    status,
+    tick,
+    run,
+    ...(gateReport ? { gate: gateReport } : {}),
+    goalStates,
+    ...(status === "IDLE" ? { idleHintSeconds: options.idleSeconds ?? 30 } : {}),
+  };
 }
 
 /** 待办工作计数(READY 含退避到期 / 工作链 / 需恢复态)。 */
@@ -304,22 +336,29 @@ export async function pendingWork(db: RelayDb): Promise<number> {
   return Number(res.rows[0]?.["n"] ?? 0);
 }
 
-/** 持续驱动(进程重启后从 PG 恢复事实状态;无内存权威)。 */
+/** 持续驱动(进程重启后从 PG 恢复事实状态;无内存权威)。
+ *  P0-02A C-7:tick 异常可观测/熔断(连续 ≥ 阈值停调度),不再静默吞异常(P0-01C F-8 收口)。 */
 export function startGoalLoop(
   db: RelayDb,
-  options: GoalLoopTickOptions & { intervalMs: number },
-): { stop(): Promise<void> } {
-  let stopped = false;
-  let running: Promise<unknown> = Promise.resolve();
-  const timer = setInterval(() => {
-    if (stopped) return;
-    running = running.then(() => goalLoopTick(db, options)).catch(() => {});
-  }, options.intervalMs);
-  return {
-    async stop(): Promise<void> {
-      stopped = true;
-      clearInterval(timer);
-      await running;
-    },
-  };
+  options: GoalLoopTickOptions & {
+    intervalMs: number;
+    errorThreshold?: number;
+    onTickError?: (error: Error, consecutiveErrors: number) => void;
+    onCircuitOpen?: (error: Error, consecutiveErrors: number) => void;
+  },
+): SafeLoopHandle {
+  const { intervalMs, errorThreshold, onTickError, onCircuitOpen, ...tickOptions } = options;
+  return startSafeLoop(() => goalLoopTick(db, tickOptions), {
+    intervalMs,
+    ...(errorThreshold !== undefined ? { errorThreshold } : {}),
+    ...(onTickError ? { onTickError } : {}),
+    ...(onCircuitOpen ? { onCircuitOpen } : {}),
+    auditTickError: (e, streak) =>
+      appendAudit(db as unknown as Exec, {
+        actor: "goal-loop",
+        authority: "SUPERVISOR",
+        action: "TICK_ERROR",
+        detail: { error: e.message, consecutiveErrors: streak, loop: "goal" },
+      }),
+  });
 }

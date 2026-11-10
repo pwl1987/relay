@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { createTestDb, seedTask, type TestDb } from "../setup/testdb.ts";
 import { claimTask, advanceTask } from "../../src/core/lease.ts";
-import { recordGateVerdict } from "../../src/core/gates.ts";
+import { recordBoundGate } from "../setup/gate-helper.ts";
 import { releaseRework } from "../../src/core/supervisor.ts";
 import type { Exec } from "../../src/core/db.ts";
 import { assertAdvanceFail, assertAdvanceOk, assertOk } from "../setup/assert.ts";
@@ -49,14 +49,7 @@ describe("V08 Gate 门锁", () => {
   });
 
   it("REWORK 裁决 → VERIFYING->REWORK → tick 释放回 READY → 重领重验", async () => {
-    await t.db.transaction(async (tx) =>
-      recordGateVerdict(tx as unknown as Exec, {
-        taskId: "t-gate",
-        verdict: "REWORK",
-        reviewer: "reviewer-1",
-        commitRef: "deadbeef",
-      }),
-    );
+    await recordBoundGate(t.db, { taskId: "t-gate", verdict: "REWORK", reviewer: "reviewer-1", attempt: 1 });
     const rework = await t.db.transaction(async (tx) =>
       advanceTask(tx as unknown as Exec, "t-gate", "coder-1", 1, "VERIFYING", "REWORK"),
     );
@@ -75,14 +68,7 @@ describe("V08 Gate 门锁", () => {
     expect(c2.fencingToken).toBe(2);
     expect(c2.attempt).toBe(2);
     await chainToVerifying("t-gate", "coder-1", 2);
-    await t.db.transaction(async (tx) =>
-      recordGateVerdict(tx as unknown as Exec, {
-        taskId: "t-gate",
-        verdict: "PASS",
-        reviewer: "reviewer-2",
-        commitRef: "cafe1234",
-      }),
-    );
+    await recordBoundGate(t.db, { taskId: "t-gate", verdict: "PASS", reviewer: "reviewer-2", attempt: 2 });
     const accepted = await t.db.transaction(async (tx) =>
       advanceTask(tx as unknown as Exec, "t-gate", "coder-1", 2, "VERIFYING", "ACCEPTED"),
     );

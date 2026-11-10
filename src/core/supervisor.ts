@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import type { RelayDb, Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
 import { claimTask, type ClaimResult } from "./lease.ts";
+import { startSafeLoop, type SafeLoopHandle } from "./loop-safety.ts";
 import { reconcileIntent, type IntentExecutor, type ReconcileDecision } from "./intents.ts";
 
 export interface ReclaimedTask {
@@ -232,21 +233,28 @@ export async function supervisorTick(db: RelayDb, options: TickOptions = {}): Pr
 }
 
 // 持续驱动循环(生产形态;测试用 supervisorTick 逐拍驱动以保持确定性)。
+// P0-02A C-7:异常可观测/熔断(连续 ≥ 阈值停调度;回调 + 尽力审计),不再静默吞异常。
 export function startSupervisorLoop(
   db: RelayDb,
-  options: TickOptions & { intervalMs: number },
-): { stop(): Promise<void> } {
-  let stopped = false;
-  let running: Promise<unknown> = Promise.resolve();
-  const timer = setInterval(() => {
-    if (stopped) return;
-    running = running.then(() => supervisorTick(db, options)).catch(() => {});
-  }, options.intervalMs);
-  return {
-    async stop(): Promise<void> {
-      stopped = true;
-      clearInterval(timer);
-      await running;
-    },
-  };
+  options: TickOptions & {
+    intervalMs: number;
+    errorThreshold?: number;
+    onTickError?: (error: Error, consecutiveErrors: number) => void;
+    onCircuitOpen?: (error: Error, consecutiveErrors: number) => void;
+  },
+): SafeLoopHandle {
+  const { intervalMs, errorThreshold, onTickError, onCircuitOpen, ...tickOptions } = options;
+  return startSafeLoop(() => supervisorTick(db, tickOptions), {
+    intervalMs,
+    ...(errorThreshold !== undefined ? { errorThreshold } : {}),
+    ...(onTickError ? { onTickError } : {}),
+    ...(onCircuitOpen ? { onCircuitOpen } : {}),
+    auditTickError: (e, streak) =>
+      appendAudit(db as unknown as Exec, {
+        actor: "supervisor-loop",
+        authority: "SUPERVISOR",
+        action: "TICK_ERROR",
+        detail: { error: e.message, consecutiveErrors: streak, loop: "supervisor" },
+      }),
+  });
 }

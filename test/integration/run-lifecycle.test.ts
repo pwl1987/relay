@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { claimTask, advanceTask } from "../../src/core/lease.ts";
-import { recordGateVerdict } from "../../src/core/gates.ts";
+import { recordBoundGate } from "../setup/gate-helper.ts";
+import { latestChangeset } from "../../src/core/changesets.ts";
 import type { Exec } from "../../src/core/db.ts";
 import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
 import { executeRun, latestSession, readToolAudit } from "../../src/runtime/runner.ts";
@@ -103,9 +104,12 @@ describe("Run 生命周期(stub RPC,真实进程)", () => {
 
     // 任务推进至 VERIFYING;Gate 后 ACCEPTED(V08 延续)
     expect(await taskState("t-run-ok")).toBe("VERIFYING");
-    await t.db.transaction(async (tx) =>
-      recordGateVerdict(tx as unknown as Exec, { taskId: "t-run-ok", verdict: "PASS", reviewer: "reviewer-1" }),
-    );
+    const cs = await latestChangeset(t.db as unknown as Exec, "t-run-ok");
+    const gate = await recordBoundGate(t.db, {
+      taskId: "t-run-ok", verdict: "PASS", reviewer: "reviewer-1",
+      candidateSha: cs!.candidateSha, requirementSha: cs!.requirementSha, coderRunId: result.runId,
+    });
+    expect(gate.ok).toBe(true);
     const adv = await t.db.transaction(async (tx) =>
       advanceTask(tx as unknown as Exec, "t-run-ok", c.ownerId, c.fencingToken, "VERIFYING", "ACCEPTED"),
     );

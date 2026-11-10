@@ -76,7 +76,8 @@ export const actionIntents = pgTable("action_intents", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// V08 最小门锁:独立 Reviewer/Gate 的裁决记录;PASS 才允许 VERIFYING->ACCEPTED
+// V08 最小门锁 → P0-02A 绑定版 Gate:PASS 绑定 (attempt, candidate_sha, requirement_sha, test_env,
+// reviewer_run_id, evidence_ids);消费一次性(consumed_at/consumed_by),旧 PASS 不跨 attempt/候选版本。
 export const taskGateVerdicts = pgTable("task_gate_verdicts", {
   id: text("id").primaryKey(),
   taskId: text("task_id")
@@ -86,6 +87,56 @@ export const taskGateVerdicts = pgTable("task_gate_verdicts", {
   // PASS | REWORK | BLOCK
   verdict: text("verdict").notNull(),
   reviewer: text("reviewer").notNull(),
+  // ---- P0-02A 绑定列 ----
+  attempt: integer("attempt"),
+  candidateSha: text("candidate_sha"),
+  requirementSha: text("requirement_sha"),
+  testEnv: jsonb("test_env").$type<Record<string, unknown>>(),
+  reviewerRunId: text("reviewer_run_id"),
+  coderRunId: text("coder_run_id"),
+  evidenceIds: jsonb("evidence_ids").$type<string[]>(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  consumedBy: text("consumed_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// P0-02A C-1:Candidate ChangeSet(Worker 侧对 Run 工作区前后清单 diff;
+// candidate_sha = 清单内容 sha256,requirement_sha = 需求快照 sha256)。
+export const candidateChangesets = pgTable("candidate_changesets", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id")
+    .notNull()
+    .references(() => tasks.id),
+  runId: text("run_id")
+    .notNull()
+    .references(() => runs.id),
+  attempt: integer("attempt").notNull(),
+  baseSha: text("base_sha").notNull(),
+  candidateSha: text("candidate_sha").notNull(),
+  requirementSha: text("requirement_sha").notNull(),
+  // { added: string[], modified: string[], removed: string[] }
+  changedFiles: jsonb("changed_files").$type<Record<string, string[]>>().notNull(),
+  // 与 allowed_scope 的交集核验结果 { inScope: string[], violations: string[] }
+  impactScope: jsonb("impact_scope").$type<Record<string, string[]>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// P0-02A C-3:可信 Evidence(Worker 侧执行器采集:原始输出/时间/环境/内容摘要;
+// passed 由 Worker 按退出码判定,非模型判定;绑定 (task, attempt, candidate_sha))。
+export const gateEvidence = pgTable("gate_evidence", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id")
+    .notNull()
+    .references(() => tasks.id),
+  attempt: integer("attempt").notNull(),
+  candidateSha: text("candidate_sha").notNull(),
+  // deterministic_test | api_behavior | reviewer_output
+  kind: text("kind").notNull(),
+  passed: boolean("passed").notNull(),
+  rawOutput: text("raw_output").notNull(),
+  env: jsonb("env").$type<Record<string, unknown>>().notNull(),
+  contentSha256: text("content_sha256").notNull(),
+  producedBy: text("produced_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

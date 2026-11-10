@@ -52,7 +52,9 @@ export const TRANSITIONS: Readonly<Record<TaskState, readonly TaskState[]>> = {
     "CANCELLED",
   ],
   SUBMITTED: ["VERIFYING", "NEEDS_RECONCILE", "FAILED", "CANCELLED"],
-  VERIFYING: ["ACCEPTED", "REWORK", "NEEDS_RECONCILE", "FAILED", "CANCELLED"],
+  // VERIFYING→NEEDS_DECISION(P0-02A):Gate 消费 BLOCK / Review 有界失败 ⇒ 需人裁决,
+  // 永不自动批准(T07);恢复仅经 ops API(actor 授权 + state_version 校验)。
+  VERIFYING: ["ACCEPTED", "REWORK", "NEEDS_DECISION", "NEEDS_RECONCILE", "FAILED", "CANCELLED"],
   REWORK: ["READY", "FAILED", "CANCELLED"],
   NEEDS_RECONCILE: ["READY", "BLOCKED", "FAILED", "CANCELLED"],
   // NEEDS_DECISION/PAUSED/BLOCKED -> READY 的恢复属 Supervisor/Owner 运维动作

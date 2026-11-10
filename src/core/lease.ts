@@ -90,10 +90,19 @@ async function countExecutingIntents(exec: Exec, taskId: string): Promise<number
   return Number(res.rows[0]?.["n"] ?? 0);
 }
 
+// 绑定版门槛(P0-02A C-4):仅统计仍有效的 PASS —— 未消费 + attempt/候选/需求均匹配当前事实。
+// 旧 attempt/旧候选 SHA 的 PASS 在此即不可见(旧 PASS 不跨版本;与 gates.ts 消费校验双保险)。
 async function countGatePass(exec: Exec, taskId: string): Promise<number> {
   const res = await exec.execute(sql`
-    SELECT count(*)::int AS n FROM task_gate_verdicts
-    WHERE task_id = ${taskId} AND verdict = 'PASS'
+    SELECT count(*)::int AS n FROM task_gate_verdicts v
+    WHERE v.task_id = ${taskId} AND v.verdict = 'PASS' AND v.consumed_at IS NULL
+      AND v.attempt = (SELECT attempt FROM tasks WHERE id = ${taskId})
+      AND v.candidate_sha IS NOT DISTINCT FROM (
+        SELECT candidate_sha FROM candidate_changesets
+        WHERE task_id = ${taskId} ORDER BY attempt DESC, created_at DESC LIMIT 1)
+      AND v.requirement_sha IS NOT DISTINCT FROM (
+        SELECT requirement_sha FROM candidate_changesets
+        WHERE task_id = ${taskId} ORDER BY attempt DESC, created_at DESC LIMIT 1)
   `);
   return Number(res.rows[0]?.["n"] ?? 0);
 }
