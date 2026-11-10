@@ -1,40 +1,39 @@
 # Relay / HIVE Next 续接(以最新 live main 为准)
 
-状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09 完成 P0-00(实验)与 P0-01A(状态内核);2026-11-10 完成 P0-01B(有界 Pi Run)、P0-01C(受控 Goal Loop)、**P0-02A(候选变更与独立质量验证)**。**P0-02B 尚未实施,不代表产品功能存在。**
+状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09 完成 P0-00(实验)与 P0-01A(状态内核);2026-11-10 完成 P0-01B(有界 Pi Run)、P0-01C(受控 Goal Loop)、P0-02A(候选变更与独立质量验证)、**P0-02B(GitHub 安全交付集成,真实写入实验待 PAT)**。**P0-02C 尚未实施,不代表产品功能存在。**
 
 ## 唯一事实源及阅读
 
 仓库:`https://github.com/pwl1987/relay`,只用 `main`,禁止强推。启动时务必读取 **live** HEAD 和分支、`AGENTS.md`、`CURRENT.md`、`README.md`、架构/契约/ADR,以及:
 - 产品:`docs/PRD.md`;技术:`docs/DETAILED_ARCHITECTURE.md`;建设:`docs/CONSTRUCTION_PLAN.md`
 - 安全:`docs/SECURITY_MODEL.md`;验证:`docs/VALIDATION_PLAN.md`;环境:`docs/DEPLOYMENT_PLAN.md`
-- 各包报告:`p0-00/REPORT.md`、`p0-01a/REPORT.md`、`p0-01b/REPORT.md`、`p0-01c/REPORT.md`(§5 密钥隔离设计)、`p0-02a/REPORT.md`(独立验证链;REVIEW 见 `p0-02a/REVIEW.md`)
+- 各包报告:`p0-00/REPORT.md`、`p0-01a/REPORT.md`、`p0-01b/REPORT.md`、`p0-01c/REPORT.md`、`p0-02a/REPORT.md`(独立验证链)、`p0-02b/REPORT.md`(GitHub 安全交付链;REVIEW 见各自 `REVIEW.md`)
 
 产品原则:唯一 Lifecycle/State owner;六阶段 SDLC;Pi first 且 Runtime≠Model;Action Proposal→Policy→Scoped Executor;外部副作用结果不明先 Reconcile;证据/真实体验为 Gate;24×7 是有资源、权限和 Ready Task 时持续安全推进。
 
-## 已裁决并落地(2026-11-10,P0-02A 更新)
+## 已裁决并落地(2026-11-10,P0-02B 更新)
 
-- **Candidate ChangeSet**:Run 工作区 Worker 侧清单 diff(base/candidate/requirement sha256 + 影响面挂载点换算);SUCCEEDED 才有候选;迁移 0003(changesets/gate_evidence/verdicts 九绑定列)。
-- **独立 Reviewer Run**:独立沙箱/上下文(需求+清单+证据,无 Coder Handoff);runs 行 role=reviewer + reviewer_run_id ≠ coder run 双重强制;只读策略;裁决围栏 `relay-gate-verdict` Worker 解析;有界失败 ⇒ NEEDS_DECISION(预算型失败不重试)。
-- **绑定 Gate**:record 前置校验 + consume 单事务二次校验 + 一次性消费;countGatePass 绑定感知——**旧 PASS 在记录/消费/状态三层均不可跨 attempt/candidate SHA/需求版本复用**;PASS 必须引用全 passed 且 digest 完整的证据;模型 DONE 文本零裁决路径。
-- **VERIFYING 独立验证租约**:acquireVerificationLease 接管(fencing+1)⇒ 模型 Worker 残留 TTL 权威即时作废;崩溃 ⇒ reclaim ⇒ 新 attempt 重验(P0-01C 6 秒窗口边界关闭)。
-- **Gate 自动消费**:PASS→ACCEPTED;REWORK→READY(+退避);BLOCK→NEEDS_DECISION(+D3 行,永不自动批准,恢复仅经 ops API)。
-- **循环熔断**(loop-safety):连续 tick 异常计数(成功清零)→ 阈值熔断停调度 + 回调 + 尽力审计;恢复 = 新实例(进程重启语义)。
-- **出口代理 v2**:HTTP 反向代理持真钥改写 Authorization;`--api-key` argv 已删;models.json 仅占位;计数端点(仅宿主)1:1 计数 + completions 单列;计数探测一律 `agent: false`(keep-alive 竞态实测坑)。
-- **C-9 对账语义**:E2E 断言 completions == coder+reviewer 回合数,不一致即失败——"硬顶已证明"必须有代理层独立计数背书。
-- **Lease/Gate 契约(累计)**:TTL=权威窗口;心跳仅工作链内;心跳 DB 连续异常 ≥2 ⇒ Run 止损;VERIFYING 由验证租约接管;VERIFYING→NEEDS_DECISION 合法(恢复仅经 ops)。
-- **测试基建**:Vitest 122 用例(34 文件;独立 schema);非模型 114 例全新克隆可复现;7 条合同反例逐条专属断言(非恒真)。测试库 `relay-p000-pg`(127.0.0.1:55433)。
-- **运行环境事实(累计)**:VM80=ubuntu2604;Pi 1.5.0 vendored;magpie 127.0.0.1:3425(非 loopback 源 401;容器模型连接必经 relay-egress-fwd HTTP 代理);relay_exec 白名单禁 `;&|` 反引号 换行 $( ${(`>` 允许);ufw 拒容器→宿主;宿主 node_modules ACL other-关闭(勿删 chmod 链);**execFileSync 会透传子进程 stderr(助手需显式 stdio pipe)**;**pi 容器内模型 baseUrl 必须重写为宿主出口代理(runner/reviewer 同源 rewriteBaseUrlForContainer,缺它 = 连自身 loopback → auto_retry → stopReason=error)**。
-- **治理流程(累计)**:ACTIVE 合同先于实现提交落盘(独立首提交);证据文件内嵌产出时 HEAD SHA(复核 F-3);模型预算分阶段声明经 budget_ledger;调试期失败迭代如实计入报告。
+- **交付链全通**:Candidate ChangeSet → Git Commit(stage 克隆+树==清单往返核验)→ Gate(已消费绑定 PASS 为授权基础)→ Action Proposal → Policy(默认拒绝:仓库白名单/仅 main)→ Action Intent 两阶段(幂等键 sha256(task+changeset+commit+expected))→ Scoped Executor(非 force;凭据 0600 store 文件,argv/env/错误文本零令牌)→ Observation(远端 HEAD+逐文件内容双核对)→ **DELIVERED**;结果不明 ⇒ NEEDS_RECONCILE 先查真实状态;CONFLICT/FAILED 不回滚 ACCEPTED,落 D3 行(永不自动批准)。
+- **三 SHA 区分**:candidate_sha(清单)≠ git_tree_sha ≠ git_commit_sha;Proposal 前绑定重核(commit 对象/树 sha/父 base)——树 sha 即内容承诺。
+- **DELIVERED ≠ 用户 ACCEPTED**:goal 聚合语义不变;交付层失败仅落 changeset CONFLICT/FAILED + D3。
+- **G-3 持钥 0600 化**:代理真实 key 从 docker env 改为宿主 0600 文件只读挂载;inspect 零可见(容器实测断言)。
+- **G-4 Reviewer FS 只读**:docker 模式共享候选面 `:ro` 挂载+工具审计移出候选面;EROFS 实测(host-fallback 保持 prompt 级隔离并如实标注)。
+- **测试基建**:144 用例(38 文件);非模型全新克隆 133+11skip 可复现;CI 落盘(`.github/workflows/ci.yml`:typecheck+全量 vitest+PG16 service;模型/凭据门自动 skip,容器确定性门真跑)。
+- **运行环境事实(新增)**:① Node strip-types 子进程(裸 `node` 跑 .ts)不支持 TS 参数属性——helper/子进程加载链上的类禁用 `constructor(readonly x)`;② vitest 全量与克隆复现共享宿主 egress 栈,**不可并行**(fileParallelism:false 已设,人工并行跑两份会互踩);③ provider 门文件(gate-e2e/pi-e2e/egress-proxy)**必须自备 ensureEgress**(FAIL-CLOSED 自洽,不得依赖他文件残留的全局栈);④ executeRun 的 exec 白名单来自 RunSpec.allowedCommands(不读 DB),漏传 ⇒ 全拒。
+- **治理流程(累计)**:ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模型预算分阶段声明经 budget_ledger;复核窗口内的追加提交须在 REVIEW 中记录时序并由 Reviewer 补审(0207a6a 先例)。
 
-## 唯一下一任务:P0-02B(真实 GitHub 写路径,NOT_ACTIVE)
+## 遗留(前置检查单,接真密钥/后续包前)
+
+① **真实远端写入实验(P0-02B 唯一待办)**:细粒度 PAT 放 `~/.relay/credentials/github-sandbox-pat`(0600;仅 relay-delivery-sandbox 的 Contents RW)后运行 `npx vitest run test/integration/github-real.test.ts`,日志补录 `p0-02b/`——**此补录不需要新授权**(P0-02B 合同内既定实验)。② Policy host 钉扎 + 执行器 target userinfo 校验(F-3/F-4)。③ 候选 base 与 runs.input_commit_sha 比对(F-5)。④ 经典 ghp_* 令牌仅限开发者 infra,严禁入 Operator 面。
+
+## 唯一下一任务:P0-02C(Web 控制台,NOT_ACTIVE)
 
 1. 只读冷启动,核对 live main、写者、工作区。
-2. **先起草 ACTIVE 合同并独立提交落盘**,再实施。要点按 CONSTRUCTION_PLAN P0-02B 行:Action Proposal→Policy→Scoped Executor 全链;外部副作用两阶段意图(action_intents RESERVED→EXECUTING→COMPLETED/CONFLICT)+ Reconcile;expected_remote_sha 漂移拒绝;Candidate ChangeSet(本包)→ branch/commit/PR 的绑定延伸。
-3. **前置检查单(P0-02A 遗留)**:① gh 令牌超范围,**必须先换细粒度 PAT**(仅该 repo 的 contents/PR 权限);② 代理持钥升级宿主 0600 文件;③ Reviewer 候选面 FS 级只读挂载。
-4. 验收:真实 remote 沙箱仓库演练(禁推 relay 主仓库);意图未明 Reconcile 实测;证据绑定 commit。
-5. 边界:不做 Web(P0-02C)、不生产部署、不 RSI、不强推。
-6. 模型预算:按阶段分段计数经账本预留;完成後独立复核、快进 push、核验 origin/main==HEAD 且 worktree clean、更新 CURRENT.md 与本文件。
+2. **先起草 ACTIVE 合同并独立提交落盘**,再实施。要点按 CONSTRUCTION_PLAN P0-02C 行;范围与边界见 CURRENT.md。
+3. 验收:按合同;独立 Reviewer 复核通过、完整测试达标后才能快进推送 main。
+4. 边界:不生产部署、不 RSI、不权限扩大。
+5. 模型预算按阶段分段经账本预留;完成后更新 CURRENT.md 与本文件,报告最终 SHA/CI/复核。
 
 ## 新窗口可复制指令
 
-> 继续 Relay / HIVE Next,全部使用中文。唯一事实源为 https://github.com/pwl1987/relay 的 live main。先核对 HEAD、分支、写者锁和脏工作区,读取 README.md、AGENTS.md、CURRENT.md、ARCHITECTURE_BASELINE.md、CONTRACTS.md、ADR/README.md、docs/PRD.md、docs/DETAILED_ARCHITECTURE.md、docs/CONSTRUCTION_PLAN.md、docs/SECURITY_MODEL.md、docs/VALIDATION_PLAN.md、docs/CONTINUATION.md,以及 p0-00..p0-02a 的 REPORT/REVIEW。严格 main-only、单 Writer、禁强推。**先把 P0-02B ACTIVE 合同独立提交落盘,再实施**:真实 GitHub 写路径——Action Proposal→Policy→Scoped Executor、action_intents 两阶段+Reconcile、expected_remote_sha 漂移拒绝、Candidate→branch/commit/PR 绑定;**前置:细粒度 PAT(当前 gh 令牌超范围,未换前禁真实写)、代理持钥 0600 化、Reviewer 只读挂载**。复用 src/core 状态层/绑定版 Gate/验证租约/budget_ledger。不做 Web,不生产部署,不 RSI。测试沿用 Vitest+独立 schema+真实故障注入(真实 remote 用沙箱演练仓库);预算分阶段经账本预留。遇写者冲突、门禁失败或需要增加预算时阻断并说明,不自动扩大。完成后独立复核、快进 push main、核验 SHA 与干净工作区、更新 CURRENT.md 和 docs/CONTINUATION.md。
+> 继续 Relay / HIVE Next,全部使用中文。唯一事实源为 https://github.com/pwl1987/relay 的 live main。先核对 HEAD、分支、写者锁和脏工作区,读取 README.md、AGENTS.md、CURRENT.md、ARCHITECTURE_BASELINE.md、CONTRACTS.md、ADR/README.md、docs/PRD.md、docs/DETAILED_ARCHITECTURE.md、docs/CONSTRUCTION_PLAN.md、docs/SECURITY_MODEL.md、docs/VALIDATION_PLAN.md、docs/CONTINUATION.md,以及 p0-00..p0-02b 的 REPORT/REVIEW。严格 main-only、单 Writer、禁强推。**先把 [下一包] ACTIVE 合同独立提交落盘,再实施**。复用 src/core 状态层/绑定 Gate/验证租约/budget_ledger/交付链(delivery.ts/delivery-policy.ts/github-push 执行器,凭据只经 0600 文件)。另:若 P0-02B 的细粒度 PAT 已放 ~/.relay/credentials/github-sandbox-pat(0600),先补跑 `npx vitest run test/integration/github-real.test.ts` 完成真实写入实验并补录 p0-02b/ 证据(合同内既定,无需新授权)。测试沿用 Vitest+独立 schema+真实故障注入;预算分阶段经账本预留。遇写者冲突、门禁失败或需要增加预算时阻断并说明,不自动扩大。完成后独立复核、快进 push main、核验 SHA 与干净工作区、更新 CURRENT.md 和 docs/CONTINUATION.md。

@@ -77,8 +77,17 @@
 
 复验:处置提交后送 Reviewer 复验(见末尾)。
 
-## 六、Reviewer 复验(处置提交后)
+## 六、Reviewer 复验(处置提交后,第二轮)
 
-**复验对象**:处置提交(F-2 try/catch + 专属测试 + F-6 注释清理 + REPORT §3 补记 + 最终 HEAD 全量证据)。
+**复验对象**:HEAD `9691292`(处置 `28c1b8a` + 证据终版);复验窗口内 HEAD 稳定,worktree clean,Reviewer 全程只读。
 
-(占位:待 Reviewer 实际复验后由其结论落盘,写者不得代写。)
+| 点 | 裁决 | 依据 |
+| --- | --- | --- |
+| F-2 两处 try/catch + 专属测试 | **VERIFIED** | delivery.ts:351-362(CONSUMED 路径)/430-443(写后核对)均 ⇒ NEEDS_RECONCILE + 审计且不翻转记录;专属测试断言全具体非恒真(NEEDS_RECONCILE/远端已推送但 changeset 非 DELIVERED/reconcile 补 DELIVERED/提交数==2 无重复);亲跑 delivery **11/11** |
+| F-6 注释/REPORT 补记 | **VERIFIED** | 两处注释均为 G-3 现行机制,src 目录 `grep FWD_REAL_KEY` 零残留;REPORT §3 补第 10/11 条、§7 时序完整;reviewer-readonly 容器 2/2 亲跑无碍 |
+| 最终 HEAD 全量证据 | **VERIFIED** | full-suite.log 头嵌 28c1b8a + 142+2skip(账目自洽);fresh-clone-repro.log 头嵌 SHA=28c1b8a + 133+11skip + tsc 0;9691292 仅改两日志 ⇒ 代码面 28c1b8a==9691292,SHA 链无断层 |
+| F-3/F-4/F-5 声明保留 | **VERIFIED(可接受)** | 纵深兜底成立(store host 键/受信编排面/树往返核验);加固项须按承诺记入 CURRENT 遗留检查单(收尾动作) |
+| 亲测 | tsc **0 错误**;delivery 11/11;reviewer-readonly 2/2 | — |
+| 过程核验 | REVIEW.md 首轮转写如实;复验占位纪律正确("写者不得代写");无写者冲突 | — |
+
+**最终裁决:PASS**(首轮收口条件全部闭合;真实 GitHub 写入实验为 G-1 凭据门合规挂起,PAT 就位后运行 `test/integration/github-real.test.ts` 补录)。
