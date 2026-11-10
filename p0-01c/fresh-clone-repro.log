@@ -1,0 +1,8 @@
+=== fresh-clone repro @ 3536042de03033512b6b491c02bdd12987aa6ec1 date:2026-11-10T09:29:05+08:00
+=== env: RELAY_PI_BASE_URL=http://127.0.0.1:1/v1 (E2E 显式跳过,模型预算已用尽)
+PG ready on 127.0.0.1:55433
+      Tests  93 passed | 3 skipped (96)
+   Start at  09:29:06
+   Duration  67.08s (transform 468ms, setup 0ms, collect 12.51s, tests 48.06s, environment 6ms, prepare 1.88s)
+
+tsc: 0 errors
