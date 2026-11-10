@@ -1,9 +1,9 @@
-# produced on commit cb3ccebf1a0ddb19888de26cf78461f91081f8a5(P0-02C 实现;RELAY_E2E=1 vitest run test/e2e;真 Chromium + 真 PG + stub worker)
-# stack journey-crash @ http://127.0.0.1:44379(stub worker;非真实模型)
+# produced on commit 4c8118e52fff4414071ac54677430452cd33942a(P0-02C 处置树;RELAY_E2E=1 vitest run test/e2e;真 Chromium + 真 PG + stub worker;首版证据产自 cb3cceb,处置后重跑再生)
+# stack journey-crash @ http://127.0.0.1:36049(stub worker;非真实模型)
 J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed
-# stack journey-abc @ http://127.0.0.1:41585(stub worker;非真实模型)
+# stack journey-abc @ http://127.0.0.1:43965(stub worker;非真实模型)
 J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型分析=未实现(页面标注);建议 2 条(含依据/验证方式)
 J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略
-# stack journey-deliver @ http://127.0.0.1:43589(stub worker;非真实模型)
-J4 OK:全链 DELIVERED(远端 HEAD=75920270bba4);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
+# stack journey-deliver @ http://127.0.0.1:42559(stub worker;非真实模型)
+J4 OK:全链 DELIVERED(远端 HEAD=4c9dacde8093);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
 J5 OK:刷新/断线/重连三态下,渲染值 == PostgreSQL 事实;断线期间明确显示『连接中断,不代表实时状态』
