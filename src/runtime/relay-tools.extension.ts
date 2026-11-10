@@ -135,6 +135,31 @@ export function checkCommandScope(
   return { ok: false, reason: `command_not_allowed:${trimmed.split(/\s+/)[0]}` };
 }
 
+/**
+ * 拒绝原因的可执行提示(P0-02B 补验发现:真实模型 E2E 因"拒绝文本不可行动"而反复试错、
+ * 耗尽回合预算 —— 审计 reason 码保持稳定,提示只进模型可见文本)。
+ * 语义:告诉模型**下一步该怎么做**,而不是只说"不允许"。
+ */
+export function execDenialHint(reason: string | undefined): string {
+  if (!reason) return "";
+  if (reason.startsWith("shell_metacharacters_forbidden")) {
+    return "只允许单条命令:禁止 ; & | 反引号 换行 $( ${ ;写文件请用重定向(> 允许),如 `echo sum=87 > result.txt`;不要追加 `&& cat ...` 之类的复合命令。";
+  }
+  if (reason.startsWith("command_not_allowed")) {
+    return "该命令未获任务授权:只能使用任务 allowed_commands 中已授权的命令(写文件通常授权 echo + 重定向);不要改用 python3/ls/cat 等替代命令。";
+  }
+  if (reason === "exec_not_authorized") {
+    return "任务未授权任何命令能力:若任务需要写文件,需由编排方在 allowed_commands 授权对应命令(例如 echo)。";
+  }
+  if (reason === "empty_command") {
+    return "命令为空:请给出单条可执行命令。";
+  }
+  if (reason.startsWith("outside_allowed_root")) {
+    return "路径越出允许根:只能访问工作区内文件。";
+  }
+  return "";
+}
+
 /** 执行 relay_exec(独立函数便于测试;扩展注册处只做参数搬运)。 */
 export function runScopedExec(
   opts: { cwd: string; command: string; timeoutMs?: number; env?: Record<string, string> },
@@ -228,9 +253,12 @@ export default function registerRelayTools(pi: ExtensionAPI) {
       const cmdScope = checkCommandScope(allowedCommands, params.command);
       if (!cmdScope.ok) {
         audit({ ts: new Date().toISOString(), tool: "relay_exec", params: { command: params.command }, denied: true, reason: cmdScope.reason });
+        const hint = execDenialHint(cmdScope.reason);
         return {
-          content: [{ type: "text", text: `DENIED: ${cmdScope.reason}` }],
-          details: { denied: true, reason: cmdScope.reason },
+          // 模型可见文本带可执行提示(使其能在下一回合自我纠正,少耗回合预算);
+          // details.reason 保持稳定审计码(测试与审计口径不变)。
+          content: [{ type: "text", text: `DENIED: ${cmdScope.reason}${hint ? `\n提示:${hint}` : ""}` }],
+          details: { denied: true, reason: cmdScope.reason, ...(hint ? { hint } : {}) },
         };
       }
       const outcome = runScopedExec({

@@ -61,11 +61,13 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
       await t.db.execute(sql`UPDATE tasks SET state = 'ACCEPTED' WHERE id = ${spec.taskId}`);
     }
     // 变更集外键前提:coder run 行(SUCCEEDED;候选只属于成功 Run)
-    await t.db.execute(sql`
-      INSERT INTO runs (id, task_id, attempt, runtime, model_ref, sandbox, outcome)
-      VALUES (${`run-c-${spec.taskId}`}, ${spec.taskId}, 1, 'stub', 'stub/coder', 'host-fallback', 'SUCCEEDED')
-    `);
+    // input_commit_sha = Run 前基线 commit(P0-02B F-5:候选 base 必须与之一致)
     const ws = makeWorkspaceRepo(tmpRoot("relay-dl-ws-"));
+    await t.db.execute(sql`
+      INSERT INTO runs (id, task_id, attempt, runtime, model_ref, input_commit_sha, sandbox, outcome)
+      VALUES (${`run-c-${spec.taskId}`}, ${spec.taskId}, 1, 'stub', 'stub/coder',
+        ${ws.baseCommitSha}, 'host-fallback', 'SUCCEEDED')
+    `);
     ws.apply({ "delivered.txt": `payload for ${spec.taskId}\n` });
     const candidateManifest: WorkspaceManifest = manifestOf(ws.dir, ["README.md", "src.txt", "delivered.txt"]);
     const cs = await t.db.transaction(async (tx) =>
@@ -599,6 +601,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(remote.commitCount()).toBe(2); // base + 候选(无重复提交)
     const csRow = await latestChangeset(t.db as unknown as Exec, taskId);
     expect(csRow?.deliveryState).toBe("DELIVERED");
+    // F-5 收敛:候选 base 必须等于 coder Run 记录的 input_commit_sha(Run 前基线)
+    const runRow = await t.db.execute(sql`SELECT input_commit_sha FROM runs WHERE task_id = ${taskId}`);
+    expect(String(runRow.rows[0]!["input_commit_sha"])).toBe(csRow?.gitBaseCommitSha);
     const goalRow = await t.db.execute(sql`SELECT state FROM goals WHERE id = ${goalId}`);
     expect(String(goalRow.rows[0]!["state"])).toBe("COMPLETED");
     const stRow = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskId}`);

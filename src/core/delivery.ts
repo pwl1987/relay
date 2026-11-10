@@ -158,6 +158,21 @@ export async function proposeDelivery(exec: Exec, input: ProposeDeliveryInput): 
   });
   if (!binding.ok) return reject(`commit_binding_${binding.reason}`, { changesetId: cs.id });
 
+  // 3.5) 候选 base 与 Run 输入 commit 的一致性(P0-02B 补验 F-5 收敛):
+  // 候选 commit 的 base 必须等于该 coder Run 记录的 input_commit_sha(Run 前基线)——
+  // 杜绝"事后改写 base"造成的祖先语义漂移(内容面另有往返核验兜底)。
+  const runRes = await exec.execute(sql`SELECT id, input_commit_sha FROM runs WHERE id = ${cs.runId}`);
+  const runRow = runRes.rows[0];
+  if (!runRow) return reject("run_missing", { changesetId: cs.id });
+  const inputCommitSha = (runRow["input_commit_sha"] as string | null) ?? null;
+  if (inputCommitSha !== gitBaseCommitSha) {
+    return reject("base_commit_mismatch", {
+      changesetId: cs.id,
+      runInputCommitSha: inputCommitSha,
+      candidateBaseSha: gitBaseCommitSha,
+    });
+  }
+
   // 4) 授权基础 = 已消费的绑定版 PASS(候选内容/需求版本/attempt 全对齐)
   const gateVerdictId = await findConsumedPass(exec, input.taskId, input.attempt, cs.candidateSha, cs.requirementSha);
   if (!gateVerdictId) return reject("no_gate_authorization", { changesetId: cs.id, candidateSha: cs.candidateSha });

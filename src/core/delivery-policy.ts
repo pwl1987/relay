@@ -8,13 +8,16 @@ export interface DeliveryPolicyConfig {
   allowedBranches: readonly string[];
   /** 唯一允许的远端写能力 */
   allowedCapability: string;
+  /** 允许的远端 host(P0-02B 补验 F-3 收敛:默认仅 github.com) */
+  allowedHosts: readonly string[];
 }
 
-/** 生产默认:空白名单(全拒)+ 仅 main + 仅 github.push。 */
+/** 生产默认:空白名单(全拒)+ 仅 main + 仅 github.push + 仅 github.com。 */
 export const DEFAULT_DELIVERY_POLICY: DeliveryPolicyConfig = {
   allowedRepos: [],
   allowedBranches: ["main"],
   allowedCapability: "github.push",
+  allowedHosts: ["github.com"],
 };
 
 /** 规范化仓库标识:接受 owner/repo 或任意 git URL,提取小写 owner/repo;无法解析返回 null。 */
@@ -30,6 +33,32 @@ export function normalizeRepoSlug(input: string): string | null {
   const ssh = s.match(/^git@[^:]+:([a-z0-9][a-z0-9-_.]*)\/([a-z0-9][a-z0-9-_.]+?)(?:\.git)?$/);
   if (ssh) return `${ssh[1]}/${ssh[2]}`;
   return null;
+}
+
+/** 远端 host(小写);https/git/ssh 三形态;本地路径返回 null。 */
+export function normalizeRepoHost(input: string): string | null {
+  const s = input.trim().toLowerCase();
+  const https = s.match(/^https?:\/\/([^/]+)\//);
+  if (https) return stripUserinfo(https[1]!).split(":")[0] ?? null;
+  const ssh = s.match(/^[^@/]+@([^:]+):/);
+  if (ssh) return ssh[1]!.toLowerCase();
+  const gitScheme = s.match(/^git:\/\/([^/]+)\//);
+  if (gitScheme) return stripUserinfo(gitScheme[1]!).split(":")[0] ?? null;
+  return null;
+}
+
+/** 去掉 authority 中的 userinfo(user:pass@)——只留 host[:port]。 */
+function stripUserinfo(authority: string): string {
+  const at = authority.lastIndexOf("@");
+  return at >= 0 ? authority.slice(at + 1) : authority;
+}
+
+/** target 是否含 userinfo(https://user:token@host/...)——凭据入 URL 一律拒绝(argv 泄露面)。 */
+export function targetHasUserinfo(target: string): boolean {
+  const s = target.trim();
+  const m = s.match(/^[a-z][a-z0-9+.-]*:\/\/([^/]+)\//i);
+  if (!m) return false;
+  return m[1]!.includes("@");
 }
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -64,12 +93,27 @@ export function checkDeliveryPolicy(
   if (input.capability !== config.allowedCapability) {
     return { allowed: false, reason: "capability_not_allowed", repoSlug };
   }
+  // userinfo URL 一律拒绝(凭据不得出现在 URL/argv 面;P0-02B 补验 F-4 收敛)
+  if (targetHasUserinfo(input.target)) {
+    return { allowed: false, reason: "target_userinfo_forbidden", repoSlug };
+  }
   if (repoSlug === null) {
     return { allowed: false, reason: "unparseable_target", repoSlug: null };
   }
   // 白名单默认空 = 全拒(D-5/G-2);仅精确匹配(GitHub 为 owner/repo,本地为路径)。
   if (!config.allowedRepos.map((r) => r.toLowerCase()).includes(repoSlug)) {
     return { allowed: false, reason: "repo_not_allowed", repoSlug };
+  }
+  // host 收敛(P0-02B 补验 F-3):远程目标 host 必须显式在白名单(默认仅 github.com);
+  // 本地路径目标无 host ⇒ 不受此闸约束(其准入门是上面的路径精确白名单)。
+  if (!isLocalTarget) {
+    const host = normalizeRepoHost(input.target);
+    if (host === null) {
+      return { allowed: false, reason: "unparseable_target_host", repoSlug };
+    }
+    if (!config.allowedHosts.map((h) => h.toLowerCase()).includes(host)) {
+      return { allowed: false, reason: "host_not_allowed", repoSlug };
+    }
   }
   if (!config.allowedBranches.includes(input.branch)) {
     return { allowed: false, reason: "branch_not_allowed", repoSlug };

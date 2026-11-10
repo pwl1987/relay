@@ -131,6 +131,10 @@ export async function createCandidateCommit(input: CreateCandidateCommitInput): 
   // --no-local --no-hardlinks:独立对象副本(源 run 目录之后会被删除)
   await git(input.workspaceDir, "clone", "--no-local", "--no-hardlinks", "--quiet", input.workspaceDir, stageRepoDir);
   try {
+    // 以 base 为起点(P0-02B 补验 F-5 收敛):stage 克隆的 HEAD 是工作区当前 HEAD,
+    // 若模型在 Run 期间自行 commit,候选 commit 的祖先会含模型中间提交、base 语义漂移。
+    // 复位到 base(仅本地 stage 仓库,不触碰任何远端)⇒ 候选 = base + 变更集 diff。
+    await git(stageRepoDir, "reset", "--quiet", "--hard", input.baseCommitSha);
     applyCandidate(stageRepoDir, input.workspaceDir, input.diff);
     stripSymlinks(stageRepoDir, stageRepoDir);
     await git(stageRepoDir, "add", "-A");

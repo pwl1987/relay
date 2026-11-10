@@ -90,7 +90,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提�
       const result = await executeRun(t.db, pi, {
         taskId: claim.taskId,
         allowedCommands,
-        goal: "计算任务:工作区 brief.txt 中有三个数字。步骤:1) 用 relay_read 读取 brief.txt;2) 用 relay_exec 执行 echo sum=<三数之和> > result.txt 写入结果文件;3) 输出 relay-handoff(status=done,summary 含三数之和)。请尽量少的回合完成。",
+        goal: "计算任务:工作区 brief.txt 中有三个数字。步骤:1) 用 relay_read 读取 brief.txt;2) 用 relay_exec 执行单条命令 `echo sum=<三数之和> > result.txt` 写入结果文件(只允许这一条命令,不要用 && / ; / 管道,不要追加 cat 校验,不要用 python3/ls);3) 输出 relay-handoff(status=done,summary 含三数之和)。请尽量少的回合完成。",
         allowedScope: ["/workspace"],
         attempt: claim.attempt,
         ownerId: claim.ownerId,
@@ -100,7 +100,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提�
         wallSeconds: 240,
         heartbeatSeconds: 2,
         egress: egress!,
-        budget: { goalId, reserveCallsPerRun: 5 },
+        budget: { goalId, reserveCallsPerRun: 4 }, // coder 4 回合(实测 3 回合收敛;提示收紧后)
         prepareWorkspace: (ws) => writeFileSync(join(ws, "brief.txt"), "numbers: 12 30 45\n", "utf8"),
       });
       sandboxes.push(result.sandboxSpec);
@@ -124,7 +124,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提�
         egress: egress!,
         heartbeatSeconds: 5,
         wallSeconds: 240,
-        budget: { goalId, reserveCallsPerRun: 3 }, // reviewer 与 coder 同一 goal 账本(5+3 ≤ 8;合同声明口径)
+        budget: { goalId, reserveCallsPerRun: 4 }, // reviewer 与 coder 同一 goal 账本(4+4 ≤ 8;补验:reviewer 需读变更文件+至多 1 个上下文文件再裁决)
         heartbeatFn: input.heartbeat,
         // Reviewer 共享 Coder 候选工作区(独立 Run/上下文,同一候选面)
         ...(input.workspaceDir ? { workspaceDirOverride: input.workspaceDir } : {}),

@@ -121,6 +121,17 @@ function detectInputCommitSha(workspaceDir: string): string | null {
   }
 }
 
+/** Run 前记录的输入 commit(runs.input_commit_sha)——候选 commit 的权威 base(P0-02B F-5)。 */
+async function loadInputCommitSha(db: RelayDb, runId: string): Promise<string | null> {
+  try {
+    const res = await db.execute(sql`SELECT input_commit_sha FROM runs WHERE id = ${runId}`);
+    const v = res.rows[0]?.["input_commit_sha"];
+    return typeof v === "string" && v.length > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 async function updateRun(
   exec: Exec,
   runId: string,
@@ -453,7 +464,9 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
           // 失败 ⇒ 阻断交付(无绑定 ⇒ Proposal 拒 no_commit_binding),不影响 Run/Gate 质量链。
           if (spec.deliveryStaging) {
             try {
-              const baseCommit = detectInputCommitSha(sandboxSpec.workspaceDir);
+              // 候选 base = Run 前记录的 input_commit_sha(P0-02B 补验 F-5 收敛):
+              // 不得事后重探测工作区 HEAD —— 模型若在 Run 期间自行 commit,重探测会让 base 漂移。
+              const baseCommit = await loadInputCommitSha(db, runId);
               if (!baseCommit) throw new GitCandidateError("base_commit_missing");
               const staged = await createCandidateCommit({
                 workspaceDir: sandboxSpec.workspaceDir,

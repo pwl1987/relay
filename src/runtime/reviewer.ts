@@ -8,6 +8,8 @@
 import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { RelayDb, Exec } from "../core/db.ts";
 import { appendAudit } from "../core/audit.ts";
 import { reserveBudget, settleBudget } from "../core/budget.ts";
@@ -273,6 +275,9 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
       acc[k] = (acc[k] ?? 0) + 1;
       return acc;
     }, {});
+    // G-4 后 Reviewer 的工具审计落在一次性 HOME(/pihome)而非候选面(候选面只读)。
+    // 该文件随 run 目录消亡 ⇒ 在此读回并摘要入 runs.detail(否则 Worker 侧看不到 Reviewer 的工具决策)。
+    const toolAudit = readReviewerToolAudit(sandboxSpec);
     await db
       .transaction(async (tx) =>
         (tx as unknown as Exec).execute(sql`
@@ -285,6 +290,7 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
               rawLen: rawOutput.length,
               rawHead: rawOutput.slice(0, 300),
               recordTypes,
+              ...(toolAudit ? { toolAudit } : {}),
               stderrTail: live.stderrText ? live.stderrText.slice(-400) : undefined,
             })}::jsonb,
             ended_at = now()
@@ -360,5 +366,31 @@ async function appendAuditSafe(
     );
   } catch {
     /* 尽力而为 */
+  }
+}
+
+/**
+ * 读回 Reviewer 的工具审计摘要(G-4:只读候选面 ⇒ 审计落在一次性 HOME)。
+ * 返回 {lines, denied, reasons} —— 让 Worker/运维在看板上看到 Reviewer 读了什么、被拒了什么,
+ * 而不依赖随 run 目录消亡的容器内文件。
+ */
+function readReviewerToolAudit(spec: SandboxSpec): { lines: number; denied: number; reasons: string[] } | null {
+  const path = join(spec.homeDir, "tool-audit.jsonl");
+  try {
+    if (!existsSync(path)) return null;
+    const raw = readFileSync(path, "utf8");
+    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
+    const denied: string[] = [];
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line) as { tool?: string; denied?: boolean; reason?: string };
+        if (obj.denied === true) denied.push(`${obj.tool ?? "?"}:${obj.reason ?? "unknown"}`);
+      } catch {
+        /* 单行损坏不影响摘要 */
+      }
+    }
+    return { lines: lines.length, denied: denied.length, reasons: denied.slice(0, 10) };
+  } catch {
+    return null;
   }
 }

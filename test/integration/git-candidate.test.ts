@@ -95,7 +95,7 @@ describe("P0-02B D-2:候选 Commit 构建(stage 克隆 + 树==清单往返核验
     expect(ls).not.toContain("cs-d2-bad");
   });
 
-  it("非 git 工作区 ⇒ not_a_git_workspace;父提交漂移 ⇒ base_parent_mismatch", async () => {
+  it("非 git 工作区 ⇒ not_a_git_workspace;base 不在仓库 ⇒ 阻断(候选父恒为 base,base_parent_mismatch 为纵深防线)", async () => {
     const plain = mkdtempSync(join(tmpdir(), "relay-plain-"));
     roots.push(plain);
     const e1 = await createCandidateCommit({
@@ -110,19 +110,50 @@ describe("P0-02B D-2:候选 Commit 构建(stage 克隆 + 树==清单往返核验
     }).catch((e) => e);
     expect((e1 as GitCandidateError).reason).toBe("not_a_git_workspace");
 
-    // 工作区 HEAD 已前进且工作树仍有候选改动(克隆树以 HEAD 为起点 ⇒ 新提交父=HEAD≠base)
+    // base 不存在(cat-file 前置核验失败)⇒ 阻断,绝不产出候选
     const ws = makeWorkspaceRepo();
-    ws.apply({ "later.txt": "committed later\n" });
+    const e2 = await createCandidateCommit({
+      workspaceDir: ws.dir,
+      baseCommitSha: "c".repeat(40),
+      candidateManifest: manifestOf(ws.dir, ["README.md", "src.txt"]),
+      diff: { added: [], modified: [], removed: [] },
+      taskId: "t-d2",
+      attempt: 1,
+      changesetId: "cs-d2-nobase",
+      stagingDir: stageRoot(),
+    }).catch((e) => e);
+    expect(e2).toBeInstanceOf(GitCandidateError);
+
+    // 纵深防线:候选 commit 的父恒等于 base(stage 复位到 base 后构造性成立;
+    // 旧实现(事后重探测)在本场景下会产出漂移的父 —— 由 F-5 用例锁定)
+    const ws2 = makeWorkspaceRepo();
+    ws2.apply({ "x.txt": "c\n" });
+    const staged = await build(ws2, ["README.md", "src.txt", "x.txt"], { added: ["x.txt"], modified: [], removed: [] }, "cs-d2-parent");
+    const parent = execFileSync("git", ["-C", staged.stageRepoDir, "rev-parse", `${staged.commitSha}~1`], { encoding: "utf8" }).trim();
+    expect(parent).toBe(ws2.baseCommitSha);
+  });
+
+  it("F-5 收敛:模型在 Run 期间自行 commit ⇒ 候选 commit 的父仍必须是 Run 前基线(base 语义不漂移)", async () => {
+    const ws = makeWorkspaceRepo();
+    const base = ws.baseCommitSha;
+    // 模型在 Run 期间自行 commit(工作区 HEAD 前移,含一份"模型中间提交")
+    ws.apply({ "model-commit.txt": "model made a commit\n" });
     execFileSync("git", ["-C", ws.dir, "add", "-A"], { encoding: "utf8" });
-    execFileSync("git", ["-C", ws.dir, "-c", "user.email=t@l", "-c", "user.name=t", "commit", "--quiet", "-m", "later"], { encoding: "utf8" });
-    ws.apply({ "src.txt": "candidate edit on top of HEAD\n" }); // 未提交候选改动
-    const e2 = await build(
-      ws,
-      ["README.md", "src.txt", "later.txt"],
-      { added: ["later.txt"], modified: ["src.txt"], removed: [] },
-      "cs-d2-parent",
-    ).catch((e) => e);
-    expect((e2 as GitCandidateError).reason).toBe("base_parent_mismatch");
+    execFileSync("git", ["-C", ws.dir, "-c", "user.email=m@l", "-c", "user.name=m", "commit", "--quiet", "-m", "model intermediate"], { encoding: "utf8" });
+    const modelHead = execFileSync("git", ["-C", ws.dir, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    expect(modelHead).not.toBe(base);
+    // 候选内容(变更集视角)只含交付文件 —— 模型中间提交的文件不在候选清单内
+    ws.apply({ "delivered.txt": "candidate\n" });
+    const staged = await build(ws, ["README.md", "src.txt", "delivered.txt"], { added: ["delivered.txt"], modified: [], removed: [] }, "cs-f5-base");
+    // 候选 commit 的父 = Run 前基线(不是模型中间提交)
+    const parent = execFileSync("git", ["-C", staged.stageRepoDir, "rev-parse", `${staged.commitSha}~1`], { encoding: "utf8" }).trim();
+    expect(parent).toBe(base);
+    expect(parent).not.toBe(modelHead);
+    expect(staged.baseCommitSha).toBe(base);
+    // 模型中间提交的文件不得出现在候选树里(候选 = 基线 + 变更集)
+    const tree = execFileSync("git", ["-C", staged.stageRepoDir, "ls-tree", "-r", "--name-only", "HEAD"], { encoding: "utf8" });
+    expect(tree).not.toContain("model-commit.txt");
+    expect(tree).toContain("delivered.txt");
   });
 
   it("符号链接不入候选树(清单语义对齐;链接剔除后树==清单)", async () => {
