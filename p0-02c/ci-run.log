@@ -1,0 +1,6 @@
+# P0-02C CI 证据(内嵌核验 SHA: a45bda9bc4961ccc4cc2ba116ffc78ac0022d442)
+# run 42819458010 @ a45bda9: SUCCESS(test + e2e 两 job 双绿)
+# test job: Test Files 39 passed | 6 skipped (45);Tests 176 passed | 20 skipped (196)——CI 环境模型/凭据/egress/RELAY_E2E 门全 skip,容器确定性门真跑
+# e2e  job: Test Files 1 passed (1);Tests 5 passed (5)——GitHub runner 真 Chromium,J1..J5 全绿
+# typecheck: npx tsc --noEmit(CI step,0 错误)
+# 注:本文件提交后 CI 将在新 SHA 上重跑;按 P0-02B 惯例,最终 SHA 的 CI 结果见 GitHub Actions
