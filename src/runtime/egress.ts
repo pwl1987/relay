@@ -40,12 +40,14 @@ export interface EgressStatus {
   verification?: { modelReachable: boolean; externalBlocked: boolean };
 }
 
+// stdio 显式 pipe:本 Node 的 execFileSync 会把子进程 stderr 透传父进程 stderr(实测),
+// 失败路径(如首建时容器/规则不存在)的 daemon 报错是预期被吞的,不应污染证据日志。
 function ipt(args: string[], timeoutMs = 15_000): string {
-  return execFileSync("sudo", ["-n", "iptables", ...args], { encoding: "utf8", timeout: timeoutMs });
+  return execFileSync("sudo", ["-n", "iptables", ...args], { encoding: "utf8", timeout: timeoutMs, stdio: ["pipe", "pipe", "pipe"] });
 }
 
 function docker(args: string[], timeoutMs = 30_000): string {
-  return execFileSync(DOCKER_BIN, args, { encoding: "utf8", timeout: timeoutMs });
+  return execFileSync(DOCKER_BIN, args, { encoding: "utf8", timeout: timeoutMs, stdio: ["pipe", "pipe", "pipe"] });
 }
 
 /** 宿主出口 IP(容器侧以该 IP 访问宿主服务;不走 127.0.0.1——那是容器自身)。 */
