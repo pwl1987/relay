@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { connectDb, closeDb } from "../core/db.ts";
 import { Auth } from "./auth.ts";
-import { createRelayServer } from "./app.ts";
+import { auditBindRejected, createRelayServer, BindRejectedError } from "./app.ts";
 import { createLiveWorkerDriver, createExternalWorkerDriver, type WorkerDriver } from "./worker.ts";
 
 export const PASSWORD_FILE = join(homedir(), ".relay", "credentials", "web-password");
@@ -65,15 +65,26 @@ export async function main(): Promise<void> {
     worker = createExternalWorkerDriver("由独立 relay-worker 进程推进");
   }
 
-  const handle = createRelayServer({
-    db,
-    auth,
-    worker,
-    workerMode: worker.mode,
-    host,
-    port,
-    staticDir: process.env.RELAY_WEB_STATIC_DIR ?? join(process.cwd(), "web"),
-  });
+  // G-1/R-1:绑定拒绝 ⇒ audit_events 留痕(尽力而为)+ stderr + 退出。
+  let handle: ReturnType<typeof createRelayServer>;
+  try {
+    handle = createRelayServer({
+      db,
+      auth,
+      worker,
+      workerMode: worker.mode,
+      host,
+      port,
+      staticDir: process.env.RELAY_WEB_STATIC_DIR ?? join(process.cwd(), "web"),
+    });
+  } catch (err) {
+    if (err instanceof BindRejectedError) {
+      await auditBindRejected(db, err.host, err.message);
+    }
+    console.error(`[relay-web] 启动失败:${(err as Error).message}`);
+    await closeDb({ pool, db }).catch(() => {});
+    process.exit(1);
+  }
 
   await new Promise<void>((resolvePromise) => {
     handle.server.listen(port, host, () => resolvePromise());

@@ -447,7 +447,7 @@ export interface GoalAnalysis {
   sourceLabel: string;
   understanding: {
     rawInput: string;
-    derivedTasks: Array<{ taskId: string; goalText: string; allowedScope: string[]; allowedCommands: string[]; gateRequired: boolean }>;
+    derivedTasks: Array<{ taskId: string; allowedScope: string[]; allowedCommands: string[]; gateRequired: boolean }>;
     acceptanceBasis: string;
     constraints: Record<string, unknown>;
   };
@@ -821,7 +821,6 @@ export function buildGoalAnalysis(
       rawInput: goal.rawInput,
       derivedTasks: tasks.map((t) => ({
         taskId: t.id,
-        goalText: t.id,
         allowedScope: t.allowedScope,
         allowedCommands: t.allowedCommands,
         gateRequired: t.gateRequired,

@@ -354,7 +354,10 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
     }
     if (path === "/api/worker/tick" && method === "POST") {
       const worker = deps.worker;
-      if (!worker) return fail(501, "worker_not_available", "本进程未挂载 worker 驱动(由独立 relay-worker 进程推进)");
+      // R-8:external 模式 = 本进程明确不提供该能力 ⇒ 501(而非抛错后的 500)
+      if (!worker || worker.mode === "external") {
+        return fail(501, "worker_not_available", "本进程未挂载 worker 驱动(由独立 relay-worker 进程推进)");
+      }
       const report = await worker.tick();
       await audit(deps, { actor: session.role, action: "WEB_WORKER_TICK", detail: { status: report.status } });
       return ok({ tick: report });

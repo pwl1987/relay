@@ -7,7 +7,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
-import type { RelayDb } from "../core/db.ts";
+import type { RelayDb, Exec } from "../core/db.ts";
 import { Auth, type Session } from "./auth.ts";
 import { handleApi, finalizeResponse, type ApiDeps } from "./api.ts";
 import type { WorkerDriver, WorkerMode } from "./worker.ts";
@@ -42,6 +42,44 @@ const MIME: Record<string, string> = {
 
 /** 业务页面(需会话);其余静态资源公开。 */
 const PAGE_ROUTES = new Set(["/", "/goal.html", "/decisions.html", "/changeset.html"]);
+
+/** G-1 绑定面拒绝(可辨识错误类型,入口层据此落审计)。 */
+export class BindRejectedError extends Error {
+  host: string;
+  constructor(host: string, message: string) {
+    super(message);
+    this.name = "BindRejectedError";
+    this.host = host;
+  }
+}
+
+/** G-1:非回环绑定必须显式放行(默认拒绝;不开放公网)。 */
+export function ensureLoopbackBind(host: string): void {
+  const isLoopback = host === "127.0.0.1" || host === "::1" || host === "localhost";
+  if (!isLoopback && process.env.RELAY_WEB_ALLOW_NON_LOOPBACK !== "1") {
+    throw new BindRejectedError(
+      host,
+      `refuse_non_loopback_bind:绑定 ${host} 需要显式 RELAY_WEB_ALLOW_NON_LOOPBACK=1(默认仅监听本地地址,Mac 通过 SSH 端口转发访问)`,
+    );
+  }
+}
+
+/** G-1:绑定拒绝落审计_events(尽力而为;库不可达时仍以 stderr+退出兜底)。 */
+export async function auditBindRejected(db: RelayDb, host: string, reason: string): Promise<void> {
+  try {
+    const { appendAudit } = await import("../core/audit.ts");
+    await db.transaction(async (tx) =>
+      appendAudit(tx as unknown as Exec, {
+        actor: "relay-web",
+        authority: "OWNER",
+        action: "WEB_BIND_REJECTED",
+        detail: { host, reason, note: "非回环绑定未获显式放行 ⇒ 拒绝启动" },
+      }),
+    );
+  } catch {
+    /* 审计尽力而为;启动拒绝的主防线是退出 */
+  }
+}
 
 function readBody(req: IncomingMessage, limitBytes = 64 * 1024): Promise<string> {
   return new Promise((resolvePromise, rejectPromise) => {
@@ -82,12 +120,7 @@ export function createRelayServer(options: RelayServerOptions): RelayServerHandl
   const workerMode: WorkerMode = options.workerMode ?? (options.worker ? options.worker.mode : "external");
 
   // G-1:非回环绑定必须显式放行(默认拒绝;不开放公网)。
-  const isLoopback = host === "127.0.0.1" || host === "::1" || host === "localhost";
-  if (!isLoopback && process.env.RELAY_WEB_ALLOW_NON_LOOPBACK !== "1") {
-    throw new Error(
-      `refuse_non_loopback_bind:绑定 ${host} 需要显式 RELAY_WEB_ALLOW_NON_LOOPBACK=1(默认仅监听本地地址,Mac 通过 SSH 端口转发访问)`,
-    );
-  }
+  ensureLoopbackBind(host);
 
   const deps: ApiDeps = {
     db: options.db,

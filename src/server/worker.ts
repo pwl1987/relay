@@ -111,7 +111,8 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
   };
 
   return {
-    mode: "live",
+    // D-7/R-3:桩注入 ⇒ 代码面强制标注 stub(不依赖调用方自觉),杜绝以 live 名义展示桩执行
+    mode: options.stubInjection ? ("stub" as const) : "live",
     lastTick: () => last,
     async tick(): Promise<GoalLoopTickReport> {
       const model = options.model ?? envModel();

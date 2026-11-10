@@ -302,6 +302,56 @@ describe("P0-02C:API Server(真 PG + 真 HTTP)", () => {
     expect(missing.status).toBe(404);
   });
 
+  it("R-3/R-8 处置:stubInjection ⇒ 驱动器强制 mode=stub;external 驱动 tick ⇒ 501", async () => {
+    const { createLiveWorkerDriver, createExternalWorkerDriver } = await import("../../src/server/worker.ts");
+    const stubbed = createLiveWorkerDriver({
+      db: t.db,
+      stubInjection: { argv: [process.execPath], coderEnv: {}, reviewerEnv: {} },
+    });
+    expect(stubbed.mode).toBe("stub");
+    const live = createLiveWorkerDriver({ db: t.db });
+    expect(live.mode).toBe("live");
+    // external 驱动经 HTTP ⇒ 501 worker_not_available(而非 500)
+    const externalAuth = new Auth({
+      password: PASSWORD,
+      sessionTtlMs: 600_000,
+      operators: ["owner"],
+      maxLoginFailures: 100,
+      loginWindowMs: 60_000,
+      lockoutMs: 60_000,
+    });
+    const handle = createRelayServer({
+      db: t.db,
+      auth: externalAuth,
+      worker: createExternalWorkerDriver("由独立 relay-worker 进程推进"),
+      host: "127.0.0.1",
+      port: 0,
+      staticDir: new URL("../../web", import.meta.url).pathname,
+    });
+    const extServer = handle.server;
+    await new Promise<void>((r) => extServer.listen(0, "127.0.0.1", () => r()));
+    try {
+      const extBase = `http://127.0.0.1:${(extServer.address() as AddressInfo).port}`;
+      const res = await fetch(`${extBase}/api/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: PASSWORD }),
+      });
+      const body = (await res.json()) as { csrfToken: string };
+      const cookie = res.headers.get("set-cookie") ?? "";
+      const tick = await fetch(`${extBase}/api/worker/tick`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie, "x-relay-csrf": body.csrfToken },
+        body: "{}",
+      });
+      expect(tick.status).toBe(501);
+      const tb = (await tick.json()) as { error: string };
+      expect(tb.error).toBe("worker_not_available");
+    } finally {
+      await new Promise<void>((r) => extServer.close(() => r()));
+    }
+  });
+
   // 限速测试放最后:它会按 clientKey(IP)锁定登录 60s,先跑会误伤后续 login()
   it("登录失败限速:连续错误口令后被锁定", async () => {
     for (let i = 0; i < 5; i++) {
