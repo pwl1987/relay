@@ -370,14 +370,18 @@ async function appendAuditSafe(
 }
 
 /**
- * 读回 Reviewer 的工具审计摘要(G-4:只读候选面 ⇒ 审计落在一次性 HOME)。
- * 返回 {lines, denied, reasons} —— 让 Worker/运维在看板上看到 Reviewer 读了什么、被拒了什么,
- * 而不依赖随 run 目录消亡的容器内文件。
+ * 读回 Reviewer 的工具审计摘要(G-4:只读候选面 ⇒ docker 模式审计落在一次性 HOME /pihome;
+ * host-fallback 模式仍落在工作区 .relay)。
+ * 返回 {lines, denied, reasons, missing} —— 让 Worker/运维在看板上看到 Reviewer 读了什么、被拒了什么;
+ * 文件缺失时显式标记 missing=true(不静默吞掉可观测性缺口)。
  */
-function readReviewerToolAudit(spec: SandboxSpec): { lines: number; denied: number; reasons: string[] } | null {
-  const path = join(spec.homeDir, "tool-audit.jsonl");
+function readReviewerToolAudit(spec: SandboxSpec): { lines: number; denied: number; reasons: string[]; missing?: boolean } | null {
+  const path =
+    spec.mode === "docker"
+      ? join(spec.homeDir, "tool-audit.jsonl") // RELAY_TOOL_AUDIT=/pihome/tool-audit.jsonl → 宿主 homeDir
+      : join(spec.workspaceDir, ".relay", "tool-audit.jsonl"); // host-fallback:工作区内审计
   try {
-    if (!existsSync(path)) return null;
+    if (!existsSync(path)) return { lines: 0, denied: 0, reasons: [], missing: true };
     const raw = readFileSync(path, "utf8");
     const lines = raw.split("\n").filter((l) => l.trim().length > 0);
     const denied: string[] = [];
@@ -391,6 +395,6 @@ function readReviewerToolAudit(spec: SandboxSpec): { lines: number; denied: numb
     }
     return { lines: lines.length, denied: denied.length, reasons: denied.slice(0, 10) };
   } catch {
-    return null;
+    return { lines: 0, denied: 0, reasons: [], missing: true };
   }
 }

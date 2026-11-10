@@ -461,6 +461,21 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(csRow?.deliveryState).toBe("DELIVERED");
   });
 
+  it("F-5 收敛反例:候选 base 与 runs.input_commit_sha 失配 ⇒ 提案拒绝 base_commit_mismatch(0 intent、不推送)", { timeout: 60_000 }, async () => {
+    const taskId = "t-dl-basemismatch";
+    const seeded = await seedDeliveryReady({ taskId });
+    // 把 coder Run 的输入 commit 改成其它值(记录面失真)⇒ 候选 base 与之不一致
+    await t.db.execute(sql`UPDATE runs SET input_commit_sha = ${"d".repeat(40)} WHERE task_id = ${taskId}`);
+    const proposed = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
+    expect(proposed.ok).toBe(false);
+    if (proposed.ok) return;
+    expect(proposed.reason).toBe("base_commit_mismatch");
+    const intents = await t.db.execute(sql`SELECT count(*)::int AS n FROM action_intents WHERE task_id = ${taskId}`);
+    expect(Number(intents.rows[0]!["n"])).toBe(0);
+    // 远端零变化(未推送)
+    expect(seeded.remote.head()).toBe(seeded.ws.baseCommitSha);
+  });
+
   it("全链(goal-loop 接线):stub Run(git 工作区)→ 变更集+候选 commit → Reviewer PASS → ACCEPTED → 交付 DELIVERED → goal COMPLETED", { timeout: 120_000 }, async () => {
     const { planGoal } = await import("../../src/core/goals.ts");
     const { goalLoopTick } = await import("../../src/core/goal-loop.ts");

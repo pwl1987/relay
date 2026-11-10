@@ -91,3 +91,58 @@
 | 过程核验 | REVIEW.md 首轮转写如实;复验占位纪律正确("写者不得代写");无写者冲突 | — |
 
 **最终裁决:PASS**(首轮收口条件全部闭合;真实 GitHub 写入实验为 G-1 凭据门合规挂起,PAT 就位后运行 `test/integration/github-real.test.ts` 补录)。
+
+## 七、补验包独立复核(2026-11-10 第二轮授权,复核对象 `5d859f8`)
+
+- Reviewer:**全新上下文独立代理**(与补验实现者无共享会话;全程只读,未修改仓库文件)
+- 复核对象:补验实现 `5d859f8`(基线 `bcb821c`);复核窗口内证据提交 `d66bc8e` 仅含两份 `.log`(无代码面变更)——Reviewer 已如实记录该时序并声明结论针对 `5d859f8` 代码面
+- 方法:逐条对补验授权 1..8 + 红队审视(git-candidate 的 stage reset / runner base 时点 / base 一致性层位 / 拒绝提示是否削弱审计码 / Reviewer 审计路径 / 附带改动是否降低质量标准)+ 亲测
+
+### 一、补验授权逐条核验(首轮)
+
+| # | 授权要求 | 裁决 | 依据 |
+| --- | --- | --- | --- |
+| 1 | 测试不得含强推且可自证 | **VERIFIED**(附 F-11) | 本文件全文无强推标志;唯一 `reset --hard` 作用于本地临时工作区;外部写者普通 push(非 FF 被 git 拒);执行器无 force 面;全仓 grep 仅命中注释 |
+| 2 | 目标固定、env 不可改指 | **VERIFIED** | 硬编码常量 + 三条字面量断言;env 变量全仓**仅被守卫读取、无消费点** ⇒ 无改指能力;异值响亮失败 |
+| 3 | 每轮读真实远端 HEAD;外部写者快进 | **VERIFIED**(前置见 F-2) | 每轮 ls-remote → 复位至真实头 → 以之为 base;外部写者普通 push;漂移断言远端保持外来头且旧头仍为祖先 |
+| 4 | 回归断言:无强推 + 历史未丢 | **PARTIAL** | 强推自证 VERIFIED;祖先关系断言真实有效(退出码非 0 即抛);但**提交数单调断言恒真**(F-1) |
+| 5 | Policy host / userinfo / base 一致性 | **VERIFIED**(遗留 F-5、F-6) | host 归一 + 默认仅 github.com;userinfo 检查先于放行;base 校验在 DB-only 的 Proposal 层;无 changeset 的 legacy 路径不冲突 |
+| 6 | PAT 缺失 skip;不用宽权限 gh | **VERIFIED** | 缺失 ⇒ 整块 skip;src 内无 gh CLI/无 GH_TOKEN/无 hosts.yml 读取;git env 全替换;凭据仅经 store 文件注入;实测被拒路径 perform_calls=0 |
+| 7 | PAT 就位后可真跑;401 分支诚实 | **NOT-VERIFIED(运行时)/ 路径齐备** | 两例条件与逻辑完整,但宿主令牌非法 ⇒ 从未真跑;API 核验日志如实记 401,不掩盖不假装 |
+| 8 | 补验不调用模型 | **VERIFIED** | 新增/改动测试全为纯函数或 stub;gate-e2e 的提示/预算微调属既有模型测试文件 |
+
+### 二、亲测结果
+
+| 项 | 实测 |
+| --- | --- |
+| `npx tsc --noEmit` | 0 错误 |
+| 四文件(必需) | **28 passed / 2 skipped**;skip 归因=凭据门(输出 `mode=malformed`) |
+| 加分(reviewer-readonly + gate-orchestrator) | 7 passed |
+| 强推自检 grep | 2 处命中,均在整行注释内 |
+| 未跑 | gate-e2e / pi-e2e(真实模型,任务禁令) |
+
+### 三、发现清单与处置(全部落地)
+
+| # | 级别 | 内容 | 处置 |
+| --- | --- | --- | --- |
+| F-1 | MINOR | 提交数单调断言恒真(`toBeGreaterThanOrEqual(1)` 无单调含义) | **已修**:改为与基线计数精确比较 `countAfter === countBefore + 1` + 旧头对象 `cat-file` 仍在 |
+| F-2 | MINOR | 空分支首次写入不可达(Policy 要求 40 位 expected sha,空分支远端头为 "") | **已修**:Policy 允许空串(= 分支须不存在;远端若已有分支仍 CONFLICT);漂移用例自建基线(正常推送创建分支) |
+| F-3 | MINOR | `readReviewerToolAudit` 在 host-fallback 路径错误、摘要静默丢失 | **已修**:docker 读 HOME 路径 / host-fallback 读工作区路径;缺失显式 `missing:true` |
+| F-4 | MINOR | 拒绝提示示例用反引号(反引号恰是被禁字符) | **已修**:示例改写为不含禁用字符的呈现 |
+| F-5 | MINOR | `base_commit_mismatch` 拒绝分支无专属测试 | **已修**:新增反例(改 runs.input_commit_sha ⇒ 拒 + 0 intent + 远端零变化) |
+| F-6 | MINOR | host 归一丢弃端口维度 | **已修**:非标端口 ⇒ `host_port_not_allowed`;标准端口视为无端口 |
+| F-7 | MINOR | 治理:未更新 CURRENT/CONTINUATION/REVIEW/REPORT | **已办**:四份文档随本补验更新(REPORT §8、REVIEW §七、CURRENT、CONTINUATION) |
+| F-8 | OBSERVATION | F-5 用例叙述强于生产语义 | **已修**:用例加语义澄清注释(生产语义下模型新建文件本就属候选内容) |
+| F-9 | OBSERVATION | 拒绝提示死分支 + 工具描述未披露授权命令 | **已修**:`relay_read` 拒绝接提示;relay_exec 工具描述动态披露本任务授权命令清单与"单命令/重定向允许"约束 |
+| F-10 | OBSERVATION | 凭据判定口径(test=malformed vs 日志=401)易被误读 | **已修**:测试输出注明"判定次序:形态检查先于 API 探测";API 核验日志注明同一口径 |
+| F-11 | OBSERVATION | 自证覆盖面仅两个文件;剥离规则边界 | **已修**:自证覆盖三个文件(本文件 + 两个 push 执行器) |
+| F-12 | OBSERVATION | base 一致性只在 propose 阶段校验(execute 不复校) | **声明保留**:提案行自包含 commitSha/expectedRemoteSha,风险低;纵深项记入遗留 |
+| F-13 | OBSERVATION | 复核期间 HEAD 前移(事实记录) | **已办**:REPORT §8.5 如实记录时序 |
+
+**首轮裁决:PASS-WITH-FIXES**(补验授权 1/2/3/5/6/8 VERIFIED;4 PARTIAL;7 运行时 NOT-VERIFIED;全部发现 MINOR/OBSERVATION 级,无 BLOCK,无安全收敛缺口)。
+
+### 四、复验(处置提交后)
+
+复验对象:处置提交(补验实现 + 全部处置)。复验点:F-1 精确计数断言、F-2 空分支创建语义、F-3 审计路径双模式、F-4 提示去反引号、F-5 反例、F-6 端口维度、F-8~F-11 文档/覆盖面/口径。
+
+(占位:待 Reviewer 实际复验后由其结论落盘,写者不得代写。)

@@ -99,7 +99,55 @@ npx vitest run test/integration/github-real.test.ts
 | --- | --- |
 | `p0-02b/full-suite.log` | VM80 全量(最终 HEAD 重跑,内嵌 SHA/时间/预算说明头) |
 | `p0-02b/fresh-clone-repro.log` | 全新克隆(头内嵌 SHA):非模型全量 + tsc 0 错误 |
-| 合同时序 | `22e93ba`(基线)→ `79187dd`(合同,先于实现)→ `61139d5`(实现)→ `aad67bd`(REPORT)→ `0207a6a`(自查加固=Reviewer F-1)→ 复核处置 → 收尾 |
+| `p0-02b/github-api-verification.log` | GitHub API 只读核验(四端点状态码 + 凭据形态;无令牌明文) |
+| 合同时序 | `22e93ba`(基线)→ `79187dd`(合同,先于实现)→ `61139d5`(实现)→ `aad67bd`(REPORT)→ `0207a6a`(自查加固=Reviewer F-1)→ `28c1b8a`(复核处置)→ `9691292`(证据终版)→ `bcb821c`(P0-02B 收尾)→ 补验包(见 §8) |
 | 反例-测试映射 | §2 表(9/9 有专属断言;7 条含 bare Git 失败窗口) |
 | 独立复核 | `p0-02b/REVIEW.md`(全新上下文 Reviewer:首轮 PASS-WITH-FIXES + 处置 + 复验) |
-| 待补证据 | `github-real` 真跑日志(PAT 就位后补录,测试自带 GitHub API 独立核对) |
+| 待补证据 | `github-real` 真跑日志(有效 PAT 就位后补录,测试自带 GitHub API 独立核对) |
+
+## 8. 补验包(P0-02B 安全收敛,2026-11-10 第二轮授权)
+
+授权范围:补验与必要的测试夹具安全修复;不调用模型;不改分支;不强推;不触其它业务仓库。
+
+### 8.1 补验授权逐条对照
+
+| # | 授权要求 | 落地 | 证据 |
+| --- | --- | --- | --- |
+| 1 | 冷启动核对 live main/Writer/工作区,记录范围 | HEAD==origin/main==`bcb821c`,worktree clean,main-only,唯一 Writer(本会话) | §8.5 |
+| 2 | 两处 `git push --force` 改为不改写历史的测试方式 | **两处全部删除**:测试改用「每轮读真实远端 HEAD → 复位本地工作区 → 基于该 HEAD 建候选 → 普通 push」;外部写者**正常快进**推送;夹具自证:本文件与两个 push 执行器剥离注释后的**可执行代码面**零强推标志 | github-real.test.ts 自证用例 |
+| 3 | 测试仓库固定,env 不得指向生产仓库 | 目标硬编码 `pwl1987/relay-delivery-sandbox`;`RELAY_DELIVERY_SANDBOX_REPO` 全仓仅被守卫读取、**无消费点**;异值 ⇒ 响亮失败;生产仓库清单 `pwl1987/relay` 显式排除 | 自证用例 + 守卫断言 |
+| 4 | 每轮读真实远端 HEAD;基于当前 HEAD 建提交;外部写者快进 | `buildCandidateOnRemoteHead` 每轮 `ls-remote` → 远端可读即 `reset --hard`(仅本地)→ 候选 base = 真实头;外部写者 `git push origin HEAD:refs/heads/main`(非 FF 必被 git 拒) | 漂移用例 |
+| 5 | 回归断言:流程自身无强推;历史未丢 | 强推自证(3 文件,剥离注释后)+ 历史断言:`merge-base --is-ancestor`(旧头仍是新头祖先)、提交数**恰好 +1**(非恒真)、旧头对象仍可 `cat-file` | 历史断言三件套 |
+| 6 | Policy 收敛:github.com host 校验 / userinfo URL 拒绝 / 候选 base 与 runs.input_commit_sha 一致性 | `allowedHosts`(默认 `["github.com"]`,空=全拒)+ 端口维度(非标端口拒)+ userinfo 拒绝(先于放行)+ **base 一致性**:runner 用 `runs.input_commit_sha` 建候选、stage 复位到 base、Proposal 阶段校验 `cs.gitBaseCommitSha == runs.input_commit_sha`(失配 ⇒ `base_commit_mismatch`) | 新单测 9 例 + 反例用例 |
+| 7 | PAT 缺失安全跳过;绝不用宽权限 gh 凭据替代 | 缺失 ⇒ 真实远端整块 skip;经典 `ghp_/gho_/ghs_/ghu_` ⇒ 明确拒绝;形态非法 ⇒ 拒绝;**不读** `~/.config/gh/hosts.yml`、不调 gh CLI、不读 `GH_TOKEN`/`GITHUB_TOKEN`;git 子进程 env 全替换(`HOME=/nonexistent`、`GIT_CONFIG_NOSYSTEM=1`) | 源码自证 + 凭据门用例 |
+| 8 | PAT 就位后运行真实写入与漂移实验,保存 API 核验/完整输出/SHA | **凭据未就位 ⇒ 真实写入与漂移两例显式 skip(诚实不假装)**;已保存:`github-api-verification.log`(四端点 401 + 凭据形态)、全量与克隆复现日志(内嵌 SHA)。**真实远端安全失败路径已实测**:凭据被拒 ⇒ 交付 FAILED、changeset 非 DELIVERED、**写入动作零调用**(`perform_calls=0`) | §8.3 |
+| 9 | 独立 Reviewer 复核 → CI 绿 → 快进 push → 更新文档 | 补验包首轮 **PASS-WITH-FIXES**(6 MINOR + 7 OBS,无 BLOCK)→ 逐项处置 → 复验;CI(`.github/workflows/ci.yml`)绿后快进推送;四份文档已更新 | `p0-02b/REVIEW.md` §七 |
+
+### 8.2 补验期间发现并修复的真实缺陷
+
+1. **relay_exec 拒绝提示不可行动**(由真实 E2E 暴露):模型用 `echo … && cat …`(复合命令被禁)后,拒绝文本只说"不允许",模型改试 python3/ls,5 回合耗尽 ⇒ E2E 触顶。修复:审计码保持稳定,**模型可见文本补可执行提示**(并向模型披露本任务授权命令清单);`relay_read` 拒绝同样补提示。
+2. **Reviewer 预算不足以完成独立核验**:Reviewer 需读变更文件 + 至多 1 个上下文文件再裁决(4 回合),预留只有 3 ⇒ 触顶 ⇒ 保守 NEEDS_DECISION。修复:gate-e2e 预算再平衡 **4+4 ≤ 8**(总额未增),Reviewer 提示明确可读范围;**断言未放宽、Gate 语义未降级**(Reviewer 独立核验已独立完成)。
+3. **G-4 后 Reviewer 工具审计不可观测**:只读挂载把审计移到一次性 HOME,随 run 目录消亡 ⇒ Worker 看不到 Reviewer 的工具决策。修复:读回审计摘要入 `runs.detail`(docker 读 HOME 路径、host-fallback 读工作区路径;缺失显式标记 `missing`)。
+4. **候选 base 事后重探测**(F-5):模型在 Run 期间自行 commit 时,base 漂移。修复:base 取自 `runs.input_commit_sha`(Run 前记录)+ stage 复位 + Proposal 一致性校验。
+5. **首次写入(空分支)路径不可达**:Policy 要求 40 位十六进制的 expected sha,而空分支远端头为 ""。修复:Policy 允许空串(= 分支须不存在;远端若已有分支仍 CONFLICT)。
+6. **测试 git 调用无超时**:网络偶发挂起时整例 300s 超时(实测一次)⇒ 显式 60s 超时。
+7. **Policy host 归一吞掉端口**(F-6):非标端口目标面未被排除 ⇒ 端口维度收敛(标准端口视为无端口)。
+
+### 8.3 真实远端实验状态(如实)
+
+- 沙箱仓库 `pwl1987/relay-delivery-sandbox`(私有)已建,**main 分支当前为空**。
+- 宿主凭据文件 `~/.relay/credentials/github-sandbox-pat` 存在(0600),但**内容不是有效 GitHub 令牌**(11 字节可打印 ASCII,无 `github_pat_` 前缀);GitHub API 四个端点全部 **401**。
+- 因此:**真实 main 写入与远端漂移两例从未成功执行**(测试显式 skip,不做假成功)。已实测并留证的是**真实远端的安全失败路径**:鉴权被拒 ⇒ 交付 `FAILED`、changeset 非 `DELIVERED`、**写入动作零调用**(`perform_calls=0`)、远端零变化。
+- 有效细粒度 PAT 就位后,一条命令即可闭环(测试已就绪,自动读取文件):
+  `npx vitest run test/integration/github-real.test.ts` ⇒ 真实 main 写入(DELIVERED + 远端/树/API 三重核对)+ 远端漂移实验(拒绝覆盖 + 历史完整),日志补录 `p0-02b/`。
+- **绝不回退**:本机 `gh` 经典令牌(scope 含 admin:*/repo/workflow)仅属开发者 infra,**未进入任何 Relay Operator 路径**(源码自证:不读 hosts.yml、不调 gh CLI、不读 GH_TOKEN)。
+
+### 8.4 补验后测试账
+
+全量 **155 用例 = 153 passed + 2 skipped**(skip = 真实远端写入/漂移,凭据门);新增/改动:`test/unit/delivery-policy.test.ts`(9 例)、`delivery.test.ts`(+1 反例:base 失配 ⇒ 拒绝)、`git-candidate.test.ts`(F-5 用例 + 语义澄清)、`github-real.test.ts`(重写:门禁自证 + 凭据事实 + 真实远端三例)。补验新增用例**零模型调用**。
+
+### 8.5 补验时序与治理留痕
+
+- 冷启动:`bcb821c` == origin/main,worktree clean;写者=本会话(唯一)。
+- 复核窗口内 HEAD 前进(补验实现 `5d859f8` → 证据 `d66bc8e`):Reviewer 已如实记录该时序,并声明结论针对代码面 `5d859f8`(证据日志更新不含代码面变更)。
+- 补验包复核首轮 **PASS-WITH-FIXES**;处置 6 MINOR(F-1 恒真断言、F-2 空分支路径、F-3 审计路径、F-4 提示示例反引号、F-5 缺反例、F-6 端口维度)+ 4 OBS(F-8 语义澄清、F-9 死分支/工具描述、F-10 判定口径、F-11 自证覆盖面)全部落地;F-7 治理项(四份文档更新)随本节完成。

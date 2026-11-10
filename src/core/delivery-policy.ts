@@ -39,18 +39,44 @@ export function normalizeRepoSlug(input: string): string | null {
 export function normalizeRepoHost(input: string): string | null {
   const s = input.trim().toLowerCase();
   const https = s.match(/^https?:\/\/([^/]+)\//);
-  if (https) return stripUserinfo(https[1]!).split(":")[0] ?? null;
+  if (https) return hostOfAuthority(https[1]!);
   const ssh = s.match(/^[^@/]+@([^:]+):/);
   if (ssh) return ssh[1]!.toLowerCase();
   const gitScheme = s.match(/^git:\/\/([^/]+)\//);
-  if (gitScheme) return stripUserinfo(gitScheme[1]!).split(":")[0] ?? null;
+  if (gitScheme) return hostOfAuthority(gitScheme[1]!);
   return null;
+}
+
+/**
+ * 目标 URL 的显式端口(非标准端口返回该端口;无端口返回 null)。
+ * 标准端口(https=443 / http=80)视为无端口;其余端口不得被 host 归一吞掉(F-6 收敛)。
+ */
+export function targetPort(input: string): string | null {
+  const s = input.trim().toLowerCase();
+  const m = s.match(/^[a-z][a-z0-9+.-]*:\/\/([^/]+)\//);
+  if (!m) return null;
+  const authority = m[1]!;
+  const colon = authority.lastIndexOf(":");
+  if (colon < 0) return null;
+  const port = authority.slice(colon + 1);
+  if (!/^\d+$/.test(port)) return null;
+  const scheme = s.slice(0, s.indexOf(":"));
+  if ((scheme === "https" && port === "443") || (scheme === "http" && port === "80")) return null;
+  return port;
 }
 
 /** 去掉 authority 中的 userinfo(user:pass@)——只留 host[:port]。 */
 function stripUserinfo(authority: string): string {
   const at = authority.lastIndexOf("@");
   return at >= 0 ? authority.slice(at + 1) : authority;
+}
+
+/** authority → host(去 userinfo 与端口)。 */
+function hostOfAuthority(authority: string): string | null {
+  const bare = stripUserinfo(authority);
+  const colon = bare.lastIndexOf(":");
+  const host = colon >= 0 ? bare.slice(0, colon) : bare;
+  return host.length > 0 ? host.toLowerCase() : null;
 }
 
 /** target 是否含 userinfo(https://user:token@host/...)——凭据入 URL 一律拒绝(argv 泄露面)。 */
@@ -114,6 +140,11 @@ export function checkDeliveryPolicy(
     if (!config.allowedHosts.map((h) => h.toLowerCase()).includes(host)) {
       return { allowed: false, reason: "host_not_allowed", repoSlug };
     }
+    // 端口维度(F-6 收敛):只允许标准端口;非标端口视为未授权目标面。
+    const port = targetPort(input.target);
+    if (port !== null) {
+      return { allowed: false, reason: "host_port_not_allowed", repoSlug };
+    }
   }
   if (!config.allowedBranches.includes(input.branch)) {
     return { allowed: false, reason: "branch_not_allowed", repoSlug };
@@ -121,7 +152,9 @@ export function checkDeliveryPolicy(
   if (!SHA_RE.test(input.commitSha)) {
     return { allowed: false, reason: "invalid_commit_sha", repoSlug };
   }
-  if (!SHA_RE.test(input.expectedRemoteSha)) {
+  // expected_remote_sha:40 位十六进制,或空串(目标分支尚不存在 ⇒ 本次为"创建分支"交付)。
+  // 空串语义严格:远端若已存在该分支,前置核对(actual != "")⇒ CONFLICT(不会覆盖)。
+  if (input.expectedRemoteSha !== "" && !SHA_RE.test(input.expectedRemoteSha)) {
     return { allowed: false, reason: "invalid_expected_remote_sha", repoSlug };
   }
   if (!input.gateVerdictId) {

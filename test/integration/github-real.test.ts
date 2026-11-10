@@ -43,6 +43,7 @@ const FORCE_LEASE_FLAG = ["--", "force-with-lease"].join("");
 const GH_HOSTS_FILE = ["hosts", "yml"].join(".");
 const THIS_FILE = new URL(import.meta.url).pathname;
 const EXECUTOR_FILE = new URL("../../src/core/executors/github-push.ts", import.meta.url).pathname;
+const LEGACY_EXECUTOR_FILE = new URL("../../src/core/executors/git-push.ts", import.meta.url).pathname;
 
 /** 剥离行注释与块注释 —— 自证只针对**可执行代码面**(注释里的禁令说明不算命中)。 */
 function stripComments(src: string): string {
@@ -119,18 +120,21 @@ function git(cwd: string, credentialFile: string | null, ...args: string[]): str
   return execFileSync("git", ["-C", cwd, ...cred, ...args], {
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
+    // 显式超时:网络/凭据异常时不得无限挂起(可诊断地失败,而非整例超时)
+    timeout: 60_000,
     env: { PATH: "/usr/local/bin:/usr/bin:/bin", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", HOME: "/nonexistent" },
   }).trim();
 }
 
 describe("P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入)", () => {
-  it("夹具自证:本文件与执行器源码的可执行代码面均无强推标志;env 重定向被拒;目标固定为沙箱仓库且非生产仓库", () => {
+  it("夹具自证:本文件与两个 push 执行器的可执行代码面均无强推标志;env 重定向被拒;目标固定为沙箱仓库且非生产仓库", () => {
     const self = stripComments(readFileSync(THIS_FILE, "utf8"));
     const executor = stripComments(readFileSync(EXECUTOR_FILE, "utf8"));
-    expect(self.includes(FORCE_FLAG)).toBe(false);
-    expect(self.includes(FORCE_LEASE_FLAG)).toBe(false);
-    expect(executor.includes(FORCE_FLAG)).toBe(false);
-    expect(executor.includes(FORCE_LEASE_FLAG)).toBe(false);
+    const legacyExecutor = stripComments(readFileSync(LEGACY_EXECUTOR_FILE, "utf8"));
+    for (const [name, src] of [["github-real.test.ts", self], ["github-push.ts", executor], ["git-push.ts", legacyExecutor]] as const) {
+      expect(src.includes(FORCE_FLAG), `${name} 不得含强推标志`).toBe(false);
+      expect(src.includes(FORCE_LEASE_FLAG), `${name} 不得含强推租约标志`).toBe(false);
+    }
     // 环境变量不得改指目标仓库(补验 Item 3)
     const envRedirect = process.env.RELAY_DELIVERY_SANDBOX_REPO;
     expect(envRedirect === undefined || envRedirect === SANDBOX_REPO).toBe(true);
@@ -144,7 +148,8 @@ describe("P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入
     // 绝不读本机 gh 配置(经典宽权限令牌不得进入 Operator 面)
     expect(stripComments(readFileSync(THIS_FILE, "utf8")).includes(GH_HOSTS_FILE)).toBe(false);
     console.log(
-      `CREDENTIAL_STATE mode=${credential.mode} present=${credential.present} apiStatus=${credential.apiStatus} detail=${credential.detail}`,
+      `CREDENTIAL_STATE mode=${credential.mode} present=${credential.present} apiStatus=${credential.apiStatus} detail=${credential.detail}` +
+        ` (判定次序:形态检查先于 API 探测 —— 形态非法即短路,不打 API;形态合法但 API 401 ⇒ 凭据被拒)`,
     );
     if (credential.mode === "absent") {
       expect(credentialUsable).toBe(false); // 缺失 ⇒ 真实远端用例显式 skip
@@ -299,7 +304,9 @@ describe.skipIf(!credential.present)(
             attempt: 1,
             target: SANDBOX_URL,
             branch: "main",
-            expectedRemoteSha: built.remoteHeadAtBuild || built.baseSha,
+            // 真实远端头;空串 = 分支尚不存在 ⇒ 创建分支交付;null(远端不可读,如鉴权失败)
+            // ⇒ 记为 "" ⇒ 前置核对时读取远端即失败 ⇒ intent FAILED(安全失败,零写入)。
+            expectedRemoteSha: built.remoteHeadAtBuild ?? "",
             policy: { ...DEFAULT_DELIVERY_POLICY, allowedRepos: [SANDBOX_REPO.toLowerCase()] },
             credentialPresent: true,
             verifyCommitBinding: makeCommitBindingVerifier(() => built.staged.stageRepoDir),
@@ -350,7 +357,7 @@ describe.skipIf(!credential.present)(
             attempt: 1,
             target: SANDBOX_URL,
             branch: "main",
-            expectedRemoteSha: headBefore || built.baseSha,
+            expectedRemoteSha: headBefore ?? "", // 远端真实头(空串 = 分支尚不存在 ⇒ 本次为创建分支交付)
             policy: { ...DEFAULT_DELIVERY_POLICY, allowedRepos: [SANDBOX_REPO.toLowerCase()] },
             credentialPresent: true,
             verifyCommitBinding: makeCommitBindingVerifier(() => built.staged.stageRepoDir),
@@ -383,15 +390,21 @@ describe.skipIf(!credential.present)(
         expect(Buffer.from(body.content ?? "", "base64").toString("utf8")).toContain("p0-02b real remote write");
         console.log(`GITHUB_API_VERIFY repo=${SANDBOX_REPO} ref=${built.staged.commitSha} api_status=${api.status} blob_sha=${body.sha}`);
 
-        // 历史未丢:旧头仍是新头的祖先(快进),提交数单调 +1
+        // 历史未丢:旧头仍是新头的祖先(快进),且提交数**恰好 +1**(非恒真比较)
         if (headBefore) {
           const hist = join(roots[0]!, "hist");
           execFileSync("git", ["init", "--quiet", hist], { encoding: "utf8" });
           git(hist, credentialFile, "remote", "add", "origin", SANDBOX_URL);
           git(hist, credentialFile, "fetch", "--quiet", "origin", "main");
           expect(git(hist, credentialFile, "merge-base", "--is-ancestor", headBefore, built.staged.commitSha)).toBe("");
-          const count = Number(git(hist, credentialFile, "rev-list", "--count", "FETCH_HEAD"));
-          expect(count).toBeGreaterThanOrEqual(1);
+          const countAfter = Number(git(hist, credentialFile, "rev-list", "--count", "FETCH_HEAD"));
+          const countBefore = Number(
+            git(hist, credentialFile, "rev-list", "--count", headBefore),
+          );
+          // 单调且精确:+1(快进写只追加一个提交;截断历史或复用旧提交都会被此断言抓住)
+          expect(countAfter).toBe(countBefore + 1);
+          // 旧头对象仍在远端历史中(未被裁剪)
+          expect(git(hist, credentialFile, "cat-file", "-t", headBefore)).toBe("commit");
         }
 
         const csRow = await latestChangeset(t.db as unknown as Exec, "t-gh-real");
@@ -406,11 +419,16 @@ describe.skipIf(!credential.present)(
       async () => {
         // 候选基于**当前真实远端 HEAD**构建(此时远端头 R)
         const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-drift", payload: "p0-02b drift experiment", fileName: "drift.txt" });
-        const headAtBuild = built.remoteHeadAtBuild || built.baseSha;
 
         // 外部写者:基于同一 HEAD 新增提交并**正常快进**推送(不重写历史)
         const other = workspaceIn("ws-drift-other");
         git(other.dir, credentialFile, "remote", "add", "origin", SANDBOX_URL);
+        let headAtBuild = built.remoteHeadAtBuild;
+        if (!headAtBuild) {
+          // 远端尚无 main:外部写者先用**正常推送**建立基线(创建分支;非强推、非历史改写)
+          git(other.dir, credentialFile, "push", "origin", `${built.baseSha}:refs/heads/main`);
+          headAtBuild = built.baseSha;
+        }
         git(other.dir, credentialFile, "fetch", "--quiet", "origin", "main");
         git(other.dir, credentialFile, "reset", "--quiet", "--hard", headAtBuild);
         other.apply({ "foreign.txt": "external writer was here\n" });

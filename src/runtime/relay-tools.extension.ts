@@ -143,7 +143,7 @@ export function checkCommandScope(
 export function execDenialHint(reason: string | undefined): string {
   if (!reason) return "";
   if (reason.startsWith("shell_metacharacters_forbidden")) {
-    return "只允许单条命令:禁止 ; & | 反引号 换行 $( ${ ;写文件请用重定向(> 允许),如 `echo sum=87 > result.txt`;不要追加 `&& cat ...` 之类的复合命令。";
+    return "只允许单条命令:禁止 ; & | 反引号 换行 $( ${ ;写文件请用重定向(> 允许),例如 echo sum=87 > result.txt ;不要追加 && cat ... 之类的复合命令。";
   }
   if (reason.startsWith("command_not_allowed")) {
     return "该命令未获任务授权:只能使用任务 allowed_commands 中已授权的命令(写文件通常授权 echo + 重定向);不要改用 python3/ls/cat 等替代命令。";
@@ -156,6 +156,24 @@ export function execDenialHint(reason: string | undefined): string {
   }
   if (reason.startsWith("outside_allowed_root")) {
     return "路径越出允许根:只能访问工作区内文件。";
+  }
+  return "";
+}
+
+/** relay_read 拒绝提示(读取路径越界/解析失败的可行动说明;F-9 收敛:消除死分支)。 */
+export function readDenialHint(reason: string | undefined): string {
+  if (!reason) return "";
+  if (reason.startsWith("outside_allowed_root")) {
+    return "路径越出允许根:只能读取工作区(/workspace)内的文件。";
+  }
+  if (reason.startsWith("resolve_failed:EACCES")) {
+    return "无法解析该路径(权限不足):请确认文件在工作区内且可读;不要反复重试同一路径。";
+  }
+  if (reason.startsWith("resolve_failed:ENOENT")) {
+    return "文件不存在:请使用变更清单中列出的确切文件名。";
+  }
+  if (reason === "not_regular_file") {
+    return "目标不是普通文件:请读取具体文件而非目录或链接。";
   }
   return "";
 }
@@ -223,9 +241,10 @@ export default function registerRelayTools(pi: ExtensionAPI) {
       const decision = checkReadScope(allowedRoot, params.path);
       audit({ ts: new Date().toISOString(), tool: "relay_read", params: { path: params.path }, denied: !decision.ok, reason: decision.reason });
       if (!decision.ok) {
+        const hint = readDenialHint(decision.reason);
         return {
-          content: [{ type: "text", text: `DENIED: ${decision.reason}` }],
-          details: { denied: true, reason: decision.reason },
+          content: [{ type: "text", text: `DENIED: ${decision.reason}${hint ? `\n提示:${hint}` : ""}` }],
+          details: { denied: true, reason: decision.reason, ...(hint ? { hint } : {}) },
         };
       }
       const text = readFileSync(decision.realPath!, "utf8");
@@ -240,7 +259,11 @@ export default function registerRelayTools(pi: ExtensionAPI) {
     name: "relay_exec",
     label: "Relay Scoped Exec",
     description:
-      "Run a shell command with cwd pinned to the Relay workspace, scrubbed environment and a hard timeout. Output is truncated.",
+      "Run a shell command with cwd pinned to the Relay workspace, scrubbed environment and a hard timeout. Output is truncated." +
+      // F-9 收敛:向模型披露本任务授权的命令清单(否则"未授权"拒绝不可行动)
+      (allowedCommands && allowedCommands.length > 0
+        ? ` Allowed commands for this task: ${allowedCommands.join(", ")} (single command only; shell metacharacters ; & | \` and command substitution are rejected; output redirection > is allowed).`
+        : " No command is authorized for this task: any relay_exec call will be DENIED."),
     parameters: Type.Object({ command: Type.String({ description: "Shell command to run" }) }),
     execute: async (_id, params): Promise<RelayToolResult> => {
       if (!allowedRoot) {

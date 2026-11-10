@@ -58,6 +58,27 @@ describe("P0-02B F-3:Policy host 钉扎(默认仅 github.com)", () => {
     expect(v.allowed).toBe(false);
     expect(v.reason).toBe("host_not_allowed");
   });
+
+  it("F-6 收敛:端口维度不被 host 归一吞掉(非标端口一律拒;标准端口视为无端口)", () => {
+    // 非标端口:host 仍是 github.com,但目标面未被授权 ⇒ 拒
+    const v = checkDeliveryPolicy(policy(), input({ target: "https://github.com:8443/pwl1987/relay-delivery-sandbox" }));
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toBe("host_port_not_allowed");
+    // 标准端口视为无端口 ⇒ 放行
+    const std = checkDeliveryPolicy(policy(), input({ target: "https://github.com:443/pwl1987/relay-delivery-sandbox" }));
+    expect(std.allowed).toBe(true);
+    const stdHttp = checkDeliveryPolicy(policy(), input({ target: "http://github.com:80/pwl1987/relay-delivery-sandbox" }));
+    expect(stdHttp.allowed).toBe(true);
+  });
+
+  it("空 expected_remote_sha(创建分支语义)被允许;非法形态仍拒", () => {
+    const create = checkDeliveryPolicy(policy(), input({ expectedRemoteSha: "" }));
+    expect(create.allowed).toBe(true);
+    expect(create.reason).toBe("in_scope");
+    const bad = checkDeliveryPolicy(policy(), input({ expectedRemoteSha: "xyz" }));
+    expect(bad.allowed).toBe(false);
+    expect(bad.reason).toBe("invalid_expected_remote_sha");
+  });
 });
 
 describe("P0-02B F-4:userinfo URL 拒绝(凭据不得入 URL/argv 面)", () => {

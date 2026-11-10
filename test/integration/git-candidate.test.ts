@@ -145,14 +145,16 @@ describe("P0-02B D-2:候选 Commit 构建(stage 克隆 + 树==清单往返核验
     // 候选内容(变更集视角)只含交付文件 —— 模型中间提交的文件不在候选清单内
     ws.apply({ "delivered.txt": "candidate\n" });
     const staged = await build(ws, ["README.md", "src.txt", "delivered.txt"], { added: ["delivered.txt"], modified: [], removed: [] }, "cs-f5-base");
-    // 候选 commit 的父 = Run 前基线(不是模型中间提交)
+    // 候选 commit 的父 = Run 前基线(不是模型中间提交)——本用例锁定的不变量
     const parent = execFileSync("git", ["-C", staged.stageRepoDir, "rev-parse", `${staged.commitSha}~1`], { encoding: "utf8" }).trim();
     expect(parent).toBe(base);
     expect(parent).not.toBe(modelHead);
     expect(staged.baseCommitSha).toBe(base);
-    // 模型中间提交的文件不得出现在候选树里(候选 = 基线 + 变更集)
+    // 语义澄清(勿误读):本用例**手工指定**了 candidateManifest/diff,故模型中间提交的文件不在候选清单内。
+    // 生产路径的候选清单是整个工作区快照(仅排除 .git/.relay)——模型新建的文件**会**作为候选内容进入候选树,
+    // 这正是"候选 = Run 前基线 + 本次全部改动"的语义;被本用例锁定的严格不变量是"候选父恒为 Run 前基线"。
     const tree = execFileSync("git", ["-C", staged.stageRepoDir, "ls-tree", "-r", "--name-only", "HEAD"], { encoding: "utf8" });
-    expect(tree).not.toContain("model-commit.txt");
+    expect(tree).not.toContain("model-commit.txt"); // 该文件不在本用例声明的候选清单内
     expect(tree).toContain("delivered.txt");
   });
 
