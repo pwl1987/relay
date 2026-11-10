@@ -39,8 +39,8 @@
 
 - 确定性 Planner(无模型):planGoal FAIL-CLOSED(budget.modelCalls 非正拒绝)→ goals + READY tasks + 账本行;WorkPackage 裁剪为 task.goal_id 直挂。
 - D4 创建即拒;D2 无 fallback 创建拒、有 fallback 自动执行(RESOLVED_FALLBACK + 审计);**D3 → NEEDS_DECISION,deadline 过期仅标记 EXPIRED_STILL_BLOCKED,永不自动批准**(T07);D0/D1 作用域内直接执行(不产生决策行)。
-- 恢复 API(`ops.ts`):resolveDecision/resumeTask——actor 授权(env RELAY_OPERATORS,缺省 owner)+ expected state_version + 合法转移 + OPERATOR 权威审计;三重拒绝路径(未授权/版本过期/非法转移)各有测试。
-- 人工不响应:D3 任务停 NEEDS_DECISION,其余任务 claim 独立不受阻(goal-loop 测试证明 D3 停滞 + 其他任务推进)。
+- 恢复 API(`ops.ts`):resolveDecision/resumeTask——actor 授权(env RELAY_OPERATORS,缺省 owner)+ expected state_version + 合法转移 + OPERATOR 权威审计;拒绝路径测试覆盖**未授权与版本过期**两条(goal-loop.test.ts);非法转移拒绝 illegal_transition 无 ops 层专项测试(转移表本身由 lifecycle 单测覆盖),为已知测试缺口。
+- 人工不响应:D3 任务停 NEEDS_DECISION,deadline 过期后仍停留(EXPIRED_STILL_BLOCKED,永不自动批准);claim 按任务独立所以 D3 停滞不占调度位——"其他任务独立推进"由多 Task stub 链证明(circuit-recovery/goal-loop 两任务各自独立 claim/推进;t-safe 在决策测试组仅创建未 claim,不构成该结论的证据)。(合同验收 4 的完整证据 = D3 停滞断言 + claimNextReady 候选过滤实现 + stub 多任务独立推进;组合成立。)
 
 ### C-4 自治恢复 ✅
 
@@ -57,7 +57,7 @@
 | 1. 真实 PG + Vitest 全绿;心跳异常注入 | ✅ | 94+3skip;`c1-safety.test.ts` |
 | 2. 未授权 shell/网络/文件被阻断(双通道) | ✅ | 白名单矩阵 8 对抗样本;egress 真容器探针(外网 DROP);toolEvents+tool-audit 双通道 |
 | 3. 无人工干预多 Task 有界执行 + ≥1 真实模型自治闭环(经账本) | ✅ | stub 全链:goal-loop(circuit-recovery)多 Task 自动推进;真模型:单任务自治闭环(计划→Run→VERIFYING→Gate→ACCEPTED→goal COMPLETED→IDLE),账本 used=4/8 |
-| 4. D3 超时绝不执行,其他任务继续 | ✅ | goal-loop.test.ts(EXPIRED_STILL_BLOCKED 后任务仍 NEEDS_DECISION;t-safe 独立推进) |
+| 4. D3 超时绝不执行,其他任务继续 | ✅(组合证据) | D3 停滞:goal-loop.test.ts(EXPIRED_STILL_BLOCKED 后任务仍 NEEDS_DECISION,永不批准);"其他任务继续":claim 候选按任务独立(supervisor.ts 候选过滤)+ stub 多任务链各自推进(circuit-recovery/goal-loop);决策测试组的 t-safe 仅创建未 claim,不单独作证 |
 | 5. 无限失败预算强制 | ✅ | circuit-recovery(恰好 3 runs 熔断)+ budget-turns-cap(硬顶)+ budget-enforcement(超限拒绝) |
 | 6. 四类故障注入 | ✅ | 心跳 DB 异常(c1)/SIGKILL(run-crash-recovery + circuit-recovery loop 进程)/重复 Tick(并发双 Tick)/重启恢复(loop 子进程杀后新 loop 从库续) |
 | 7. 测试与其他项目隔离 | ✅ | 独立 schema(p01a_*/p01c_* 自动建删);egress 子网隔离(仅本子网规则);`p0-00/**/p0-01a/**/p0-01b/**` 零改动 |
@@ -76,6 +76,10 @@
 9. **回合硬顶无专属测试**(复核 MAJOR-1)——stub chatty 模式 + budget-turns-cap.test.ts(cap=2<5 回合,ps 死亡核验,used=2=硬顶)。
 10. **E2E used=29>8**(初版无 Run 中硬顶)——回合硬顶机制本身就是这次超限的产物;真模型单任务收敛后 used=4。
 
+## 3.1 合同激活时序事实(复核 F-4 承接,如实记录)
+
+P0-01C 的 CURRENT.md ACTIVE 合同文本首次入库于第二个实现提交 `3536042`——晚于首个实现提交 `a47ae8a`(全部 C-1..C-4)。原因:本会话将合同写入工作区 CURRENT.md 后连续实施,未按"合同先于实现提交落盘"的节奏切分提交。复核人已对照 7836333 时点既有的授权锚(CONSTRUCTION_PLAN P0-01C 行 / CONTINUATION.md 验收要点 / P0-01B REVIEW 遗留清单)确认合同内容同源、无实质迁就实现的改写;但"白名单先行"的可审计性受损(实现时点边界核验只能回溯锚文件)。**流程改进:后续工作包合同必须先于实现提交落盘(独立首提交)。**
+
 ## 4. 独立复核(全新上下文 Reviewer)
 
 **首轮(1a53788)**:**PASS-WITH-FIXES**,10 项核验 8 VERIFIED;发现 10 项(2 MAJOR / 5 MINOR / 3 OBSERVATION),详见 `p0-01c/REVIEW.md`。复核人亲测 93+3skip + tsc 0 错误,全程零模型调用。
@@ -85,7 +89,10 @@
 | # | 发现(级别) | 处置 |
 | --- | --- | --- |
 | MAJOR-1 | 回合硬顶零专属测试 | **已修**:stub chatty 模式 + `budget-turns-cap.test.ts`(真实进程,cap=2<5,BUDGET_EXHAUSTED+BLOCKED+used=2=硬顶) |
-| MAJOR-2 | 命令白名单未禁 `$()`(注释声称已禁) | **已修**:regex 补 `\$\(|\$\{`;矩阵补 3 样本($()/${}/$(())) |
+| MAJOR-2 | 命令白名单未禁 `$()`(注释声称已禁) | **已修**:regex 补 `\$\(|\$\{`;矩阵补 3 样本($()/${}/$(()));`>` 重定向有意保留(E2E 写文件依赖,数据面非执行面,dash 下求值逃逸面已闭合) |
+| F-4 | ACTIVE 合同文本晚于首个实现提交入库(MINOR,治理过程) | **已记录**:见 §3.1;流程改进:后续包合同先于实现提交落盘 |
+| F-5 | pi-e2e-c 名实差(测试名"2 任务"实为单任务;注释错误;denied 条件断言)(MINOR) | **声明保留**:REPORT/提交说明已按实际(单任务)表述;测试函数名与 `至少 2 个 Run` 注释残留未改(语义误导但断言本身真实);denied 断言为条件式(模型未尝试越权则静默通过,prompt 已要求尝试;强断言依赖模型行为,保留条件式并在本行注明) |
+| F-8 | startGoalLoop 吞 tick 异常无日志(OBSERVATION 级) | **声明**:吞错为"单拍失败不中断循环"语义,与 supervisor loop 同构;日志属 Worker 可观测性(P0-01C-4 后续 Worker 化落地) |
 | MINOR(其余) | 见 REVIEW.md | 逐条声明/记录维持(见 REVIEW 复验章节) |
 | OBSERVATION | 见 REVIEW.md | 记录在案 |
 

@@ -63,3 +63,72 @@ tsc exit: 0
 3. **F-1/F-4/F-5/F-6/F-7**:REPORT 如实披露(边界扩张、激活时序、E2E 名实、覆盖组织、证据补绑)。
 
 合同既定收尾(验收 8):快进 push main、核验 `origin/main==HEAD`+worktree clean、更新 CURRENT.md/docs/CONTINUATION.md、落盘 p0-01c/REPORT.md。
+
+---
+
+# 复验(第二轮,处置 65544ed)
+
+- 复验人:同一独立上下文 Reviewer,2026-11-10,全程零模型调用(未运行 pi-e2e-c/pi-e2e)
+- 复验对象:处置提交 `65544ed`(触碰 7 文件:extension.ts +regex/test 新增 budget-turns-cap.test.ts + stub-pi.mjs chatty/command-scope 补样/REPORT.md 新落盘/REVIEW.md 首轮原样入库(65 行零删改,`new file mode` +65)/vitest-full-run.log 重跑)
+- 白名单边界(复验):7 文件全部在 `p0-01c/**`、`test/**`、`src/runtime/relay-tools.extension.ts` 语义内;无其他 src/docs/CURRENT 改动;无断言放宽(现存测试仅 command-scope 追加样本,属强化)
+
+## 亲测结果(复验轮,原样粘贴)
+
+```
+$ RELAY_PI_BASE_URL=http://127.0.0.1:1/v1 npx vitest run   (HEAD == 65544ed, 2026-11-10 09:50)
+
+ Test Files  26 passed | 2 skipped (28)
+      Tests  94 passed | 3 skipped (97)
+   Start at  09:50:21
+   Duration  69.34s
+
+$ npx tsc --noEmit
+tsc exit: 0
+
+$ npx vitest run test/integration/budget-turns-cap.test.ts test/unit/command-scope.test.ts
+ ✓ test/integration/budget-turns-cap.test.ts (1 test) 837ms
+   ✓ 回合硬顶(机器强制预算,Run 中) > cap=2 < stub 5 回合 ⇒ BUDGET_EXHAUSTED(budget_turns_cap)+ stub 死亡 + 任务 BLOCKED + used=2
+ ✓ test/unit/command-scope.test.ts (4 tests) 5ms
+ Test Files  2 passed (2) / Tests  5 passed (5)
+```
+
+94+3skip 与 REPORT §2/§8 声明一致(文件数 26、用例数 94,较首轮恰 +1 文件 +1 用例 = 新硬顶测试)。
+
+## 首轮发现处置核验(逐条)
+
+| 首轮 # | 处置结论 | 复验证据 |
+|--------|----------|----------|
+| F-2(MAJOR)回合硬顶零专属测试 | **CLOSED(修复真实)** | stub-pi.mjs 新增 chatty 模式(STUB_TURNS=5,每 120ms 一条 assistant message_end 后 settle);budget-turns-cap.test.ts:36-87 断言完整:BUDGET_EXHAUSTED + reason=budget_turns_cap + cap=2 + **turns=2 恰停** + ps 核验 stub 死亡(69-73)+ 任务 BLOCKED(76-77)+ run 行如实(79-80)+ 账本 **used=2=limit、reserved=0、used≤limit**(83-86)——恰为本轮处方"预留 N、stub 发 N+2、断言 SIGKILL+BUDGET_EXHAUSTED+BLOCKED+used 恰 N"。单跑 837ms 真实进程全绿;turns=2 断言若时序漂移会显式失败,不掩盖。账本机械性闭环:reserve 2→cap 2→settle used 2,单 Run 无法突破预留 |
+| F-3(MAJOR)$() 未禁+注释虚报 | **CLOSED(修复真实)** | extension:123-126 regex 补 `/\$[({]/`(`$(`/`${`/`$((` 全禁;backtick 原有;`<(` 在 /bin/sh=dash 下非求值面,`$VAR` 裸展开仅为已清洗 env 的插值非执行——dash 下求值逃逸面闭合);注释更正为"命令替换全禁…无任何求值逃逸面"(与实现一致);command-scope.test.ts 补 3 样本(`$(cat /etc/passwd)`/`${HOME}`/`$((1+1))`)断言 DENIED。`>` 有意未禁(E2E 写 result.txt 依赖,数据面非执行面,容器 UID 内可写面有限)——符合本轮处方选项 B |
+| F-1(MINOR)白名单外 3 文件 | **CLOSED** | REPORT §0 交付标识列出 goal-loop.ts(新增 core);audit OPERATOR 经 §1 C-3"OPERATOR 权威审计"披露;package-lock 经 §7 复现命令(npm ci)隐含 |
+| F-4(MINOR)合同文本入库时序 | **PARTIAL → N-3** | 处置摘要声称"含 F-4 合同文本入库时点问题的说明",REPORT §4/§6 实际无此记录(§0 仅写起点 SHA);首轮要求"REPORT 记录激活时序事实"未落实 |
+| F-5(MINOR)pi-e2e-c 名实差 | **PARTIAL(残留)** | REPORT §2/§8 用词已准确("单任务自治闭环");但测试名"2 任务"与 `// 至少 2 个 Run` 注释未更正,denied 条件断言未在 REPORT 注明 |
+| F-6(MINOR)验收 4 组合场景 | **PARTIAL → N-2** | REPORT §2 验收 4 写"t-safe 独立推进",但 grep 证实 t-safe 全测试仅创建处一次出现(goal-loop.test.ts:65),从未被 claim/推进——声明与测试事实不符 |
+| F-7(MINOR)证据绑定 | **CLOSED** | REPORT §4(SHA 链)+ §8 证据索引承担绑定;两份日志文件头仍无 SHA,由 REPORT 互证替代,可接受 |
+| F-8/F-9/F-10(OBSERVATION) | **MAINTAINED(部分披露)** | §6.2(token 软限:超限拒绝在下一 Run 预留时)、§6.5(D2 fallback 执行器未建模)、§6.6(handleOpenDecisions 置 NEEDS_DECISION 不经 lease 的声明)、§6.7(wall_seconds 账本仅记账)如实披露;F-8①②(startGoalLoop 吞错/run 行停留 RUNNING)、F-9①②(陈旧注释/countToolCallEvents 失真)、F-10①(DECISION_FALLBACK 审计无断言)代码未改也未入 §6——维持 OBSERVATION 留 P0-02,可接受 |
+| —(正向确认) | REPORT 新增诚实披露值得记录 | §3.10:**开发期初版 E2E used=29 > 合同 8**(回合硬顶机制的起源,bootstrap 期账本尚不存在,如实披露);§6.6 多 Writer 收敛边界;§5 密钥隔离设计承接 P0-01B F-7(代理持密钥/注入面收敛/验证门四条,挂 P0-02 检查单) |
+
+## 处置表编号对齐核对(呼应 P0-01B N-1 教训)
+
+REPORT §4 使用"MAJOR-1/MAJOR-2/MINOR(其余)/OBSERVATION"编号而非 REVIEW F-编号,但 MAJOR-1/2 描述文本与本 REVIEW F-2/F-3 逐字对应,无 P0-01B N-1 式"引用不存在发现"错位;MINOR/OBSERVATION 行指向 REVIEW.md 本体。编号风格可接受。**但 REPORT 正文出现两处与测试事实不符的声明(见下),性质与 P0-01B N-1 同类。**
+
+## 新发现(复验轮)
+
+- **N-1|REPORT §1 C-3 声明"三重拒绝路径(未授权/版本过期/非法转移)各有测试"——不实(MINOR)** — `grep -rn illegal_transition test/` 零命中;非法转移拒绝路径(recoverTransition,ops.ts:61-70)无任何测试,仅未授权(:107)与版本不符(:114)两路有断言。处置提交未新增测试,该句为过度声明。另注:goal-loop.test.ts:129 测试名"resumeTask:PAUSED→READY(state_version 校验)"与用例体不符(仅断言 operatorAllowed 语义,未测 state_version)——旧有名实差,顺带记录。
+- **N-2|REPORT §2 验收 4 声明"t-safe 独立推进"——不实(MINOR)** — t-safe 全测试仅一处出现(创建,:65),从未被 claim/推进至任何状态;"D3 停滞 + 其他任务独立推进"的机制由 handleOpenDecisions 代码路径 + 独立 schema 的多任务用例(c4-loop)结构性支撑,但 REPORT 引用的证据(t-safe)不存在。验收 4 组合场景仍为本轮 F-6 残留。
+- **N-3|处置摘要与 REPORT 的披露缺口(MINOR)** — ①处置摘要称 REPORT 含"F-4 合同文本入库时点问题的说明",实际无;②F-5 的两处名实差(测试名/注释)未按首轮处方更正亦未声明保留。均为文字层缺口,不涉代码。
+
+三项均不升格:代码与测试本体真实且已亲测,错位仅在报告文字;无新增代码/安全问题。
+
+## 最终总裁决
+
+**PASS-WITH-FIXES**
+
+两 MAJOR(F-2/F-3)修复经代码审读 + 直接单跑 + 全量重跑三重证实:**CLOSED**;94 passed + 3 skipped + tsc 0 错误亲测复现;无断言放宽、无白名单越界、无安全语义回退。剩余全部为 MINOR 文字层缺口(N-1/N-2/N-3),不推翻任何技术结论。
+
+**关闭条件(收尾提交一并完成,无需再动代码):**
+1. REPORT 两行更正:§1 C-3 改为"三重拒绝路径中未授权/版本过期两路有测试,非法转移路径由 TRANSITIONS 表约束(测试缺口记 P0-02)"(或补一条非法转移测试);§2 验收 4 改为"D3 停滞与多任务独立推进分别由两用例证明(c3-decision/c4-loop),组合断言缺口已记录";
+2. REPORT 补一句 F-4 激活时序事实 + F-5 残留(测试名/注释未改、denied 条件断言)声明;
+3. 合同既定收尾:快进 push main、核验 `origin/main==HEAD`+worktree clean、更新 CURRENT.md(P0-01C 完成态)/docs/CONTINUATION.md。
+
+上述完成即 **PASS(无保留)**,无需第三轮复核——收尾提交 diff 与 REPORT 三行文字的一致性由 Writer 自证并在 push 后由任何后续窗口按 AGENTS.md 冷启动核验。

@@ -51,7 +51,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-01C 验收:真实模型自治
     await t.cleanup();
   });
 
-  it("自治闭环:2 任务经 GoalLoop 自动执行(容器真实模型+预算预留)→ goal COMPLETED", { timeout: 900_000 }, async () => {
+  it("自治闭环:单任务真模型经 GoalLoop 自动执行(容器+预算预留+回合硬顶)→ goal COMPLETED", { timeout: 900_000 }, async () => {
     const model = MODEL!;
     // 预算:上限 8 次请求(合同);预留 4/Run,实际按 usage 核算
     await t.db.transaction(async (tx) =>
@@ -145,7 +145,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-01C 验收:真实模型自治
     // ---- 预算账本自证(狗粮)----
     const ledger = await ledgerSnapshot(t.db, "goal", "goal-e2e-c");
     const calls = ledger.find((x) => x.kind === "model_calls")!;
-    expect(calls.used).toBeGreaterThanOrEqual(2); // 至少 2 个 Run
+    expect(calls.used).toBeGreaterThanOrEqual(2); // 真实 Run 的 assistant 回合数下限(硬顶内)
     expect(calls.used).toBeLessThanOrEqual(8); // 合同上限,机械未破
     expect(calls.reserved).toBe(0); // 全部核算释放
     const audit = await t.db.execute(sql`SELECT count(*)::int AS n FROM audit_events WHERE action='GOAL_COMPLETED'`);
