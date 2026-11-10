@@ -8,7 +8,8 @@
 //   2. iptables:FORWARD 面 = DOCKER-USER 挂 RELAY-EGRESS 子链(源=本子网):ACCEPT→宿主代理端口,
 //      其余 DROP(出站白名单);INPUT 面 = 单条 ACCEPT 子网→宿主代理端口;
 //   3. **代理容器 relay-egress-fwd(--network host)**:HTTP 反向代理,监听宿主代理端口——
-//      a) **密钥隔离(P0-02A C-8)**:真实 key 只存在于代理进程环境(FWD_REAL_KEY);来自 Run 的
+//      a) **密钥隔离(P0-02A C-8;P0-02B G-3 升级)**:真实 key 只存在于宿主 0600 文件(只读挂载
+//         /run/relay-fwd/real-key,env/inspect 零可见);来自 Run 的
 //         请求 Authorization 被改写为真实 key,Run 容器内 models.json 仅占位 key;
 //      b) **请求计数(P0-02A C-9)**:http server 每收到一个请求计数 +1 并 1:1 转发上游——
 //         该计数即真实 Provider 请求数(独立于 Runner 侧回合计数),经本机计数端点读取;

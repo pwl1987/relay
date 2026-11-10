@@ -434,6 +434,31 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(audits.rows.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("写后内容核验抛错 ⇒ NEEDS_RECONCILE(不误标 DELIVERED);Reconcile 先查真实状态补 DELIVERED", { timeout: 60_000 }, async () => {
+    const taskId = "t-dl-verifythrow";
+    const seeded = await seedDeliveryReady({ taskId });
+    const p = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
+    expect(p.ok).toBe(true);
+    if (!p.ok) return;
+    const io = deliveryIO(seeded.staged, seeded.remote, seeded.candidateManifest);
+    // 注入核验实现抛错(模拟 push 成功后核验面瞬断)
+    const throwing: DeliveryIO = { ...io, verifyRemoteContent: async () => { throw new Error("remote_fetch_failed: 模拟网络瞬断"); } };
+    const done = await executeDelivery(t.db, throwing, p.proposal.id, { actor: "test-throw" });
+    expect(done.ok).toBe(false);
+    if (done.ok) return;
+    expect(done.state).toBe("NEEDS_RECONCILE");
+    // 远端副作用已发生(推送完成),但 changeset 绝不误标 DELIVERED
+    expect(seeded.remote.head()).toBe(seeded.staged.commitSha);
+    const csMid = await latestChangeset(t.db as unknown as Exec, taskId);
+    expect(csMid?.deliveryState).not.toBe("DELIVERED");
+    // 恢复:Reconcile 先查真实状态(intent 已 COMPLETED ⇒ already_completed 路径)⇒ 核对 ⇒ DELIVERED
+    const rec = await reconcileDelivery(t.db, io, done.intentId!, { actor: "test-throw-reconcile" });
+    expect(rec.state).toBe("DELIVERED");
+    expect(seeded.remote.commitCount()).toBe(2); // base + 候选(无重复推送)
+    const csRow = await latestChangeset(t.db as unknown as Exec, taskId);
+    expect(csRow?.deliveryState).toBe("DELIVERED");
+  });
+
   it("全链(goal-loop 接线):stub Run(git 工作区)→ 变更集+候选 commit → Reviewer PASS → ACCEPTED → 交付 DELIVERED → goal COMPLETED", { timeout: 120_000 }, async () => {
     const { planGoal } = await import("../../src/core/goals.ts");
     const { goalLoopTick } = await import("../../src/core/goal-loop.ts");

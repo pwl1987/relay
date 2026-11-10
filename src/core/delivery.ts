@@ -348,7 +348,18 @@ export async function executeDelivery(
       return { ok: false, state: "NEEDS_RECONCILE", reason: `consumed_check_failed:${(err as Error).message.slice(0, 200)}` };
     }
     if (head === proposal.commitSha) {
-      const content = await io.verifyRemoteContent(proposal.commitSha);
+      let content: Awaited<ReturnType<typeof io.verifyRemoteContent>>;
+      try {
+        content = await io.verifyRemoteContent(proposal.commitSha);
+      } catch (err) {
+        // 核验实现抛错(如远端瞬断)= 结果不明 ⇒ 不翻转记录,交 Reconcile 先查真实状态
+        await appendAudit(db as unknown as Exec, {
+          actor, authority: "WORKER", action: "DELIVERY_NEEDS_RECONCILE",
+          taskId: proposal.taskId, intentId: `recovered-${proposal.id}`,
+          detail: { proposalId: proposal.id, reason: `consumed_verify_failed:${(err as Error).message.slice(0, 200)}` },
+        });
+        return { ok: false, state: "NEEDS_RECONCILE", reason: "consumed_verify_failed" };
+      }
       if (!content.ok) {
         await markConflict(db, proposal, null, `postverify:${content.mismatches.join(",")}`, actor);
         return { ok: false, state: "CONFLICT", reason: "remote_content_mismatch" };
@@ -416,7 +427,20 @@ export async function executeDelivery(
       await markConflict(db, proposal, intentId, `postverify_head_moved:expected ${proposal.commitSha} actual ${head}`, actor);
       return { ok: false, state: "CONFLICT", reason: "postverify_head_moved", intentId };
     }
-    const content = await io.verifyRemoteContent(proposal.commitSha);
+    let content: Awaited<ReturnType<typeof io.verifyRemoteContent>>;
+    try {
+      content = await io.verifyRemoteContent(proposal.commitSha);
+    } catch (err) {
+      // 副作用已发生(push 完成)、内容核验实现抛错 ⇒ 结果不明 ⇒ NEEDS_RECONCILE
+      // (绝不误标 DELIVERED;intent 回执已 COMPLETED,恢复经 reconcileDelivery 的
+      //  already_completed 路径补核对,方向与 §3.6 意图一致)
+      await appendAudit(db as unknown as Exec, {
+        actor, authority: "WORKER", action: "DELIVERY_NEEDS_RECONCILE",
+        taskId: proposal.taskId, intentId,
+        detail: { proposalId: proposal.id, reason: `postverify_verify_failed:${(err as Error).message.slice(0, 200)}` },
+      });
+      return { ok: false, state: "NEEDS_RECONCILE", reason: "postverify_verify_failed", intentId };
+    }
     if (!content.ok) {
       await markConflict(db, proposal, intentId, `postverify:${content.mismatches.slice(0, 10).join(",")}`, actor);
       return { ok: false, state: "CONFLICT", reason: "remote_content_mismatch", intentId };

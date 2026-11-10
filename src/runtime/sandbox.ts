@@ -46,9 +46,9 @@ export interface ModelConfig {
 }
 
 /**
- * Run 容器内 models.json 的占位 key(P0-02A C-8 密钥隔离):真实 key 只存在于
- * 出口代理进程环境(relay-egress-fwd 的 FWD_REAL_KEY);容器内可见面(models.json/env/argv)
- * 只出现本占位值,代理改写 Authorization 后转发上游。
+ * Run 容器内 models.json 的占位 key(P0-02A C-8 密钥隔离;P0-02B G-3 后持钥面 = 宿主 0600
+ * 文件只读挂载进代理容器):容器内可见面(models.json/env/argv)只出现本占位值,
+ * 代理改写 Authorization 后转发上游。
  */
 export const PROXY_PLACEHOLDER_APIKEY = "sk-relay-proxy-placeholder";
 

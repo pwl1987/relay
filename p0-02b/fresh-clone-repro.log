@@ -1,14 +1,9 @@
-# P0-02B 全新克隆复现(临时 detached 克隆 /tmp/relay-clone-repro)
-# p0-02b fresh-clone repro @ SHA=61139d5fed2ba0d21e4c129ec0425624b4f36ca0
-# 时间: 2026-11-10T13:43:11+08:00  环境: VM80 (docker+本地 PG+magpie 假密钥路由)
-# 命令: RELAY_PI_BASE_URL=http://127.0.0.1:1/v1 npm test (模型门显式 skip;容器门真跑) + npx tsc --noEmit
- ✓ test/unit/pi-version.test.ts (3 tests) 547ms
-   ✓ Pi 版本锁定 > 运行时二探:实际执行 --version 与锁定版本一致  493ms
-
- Test Files  34 passed | 4 skipped (38)
+# p0-02b fresh-clone repro @ SHA=0207a6a58bae2ee5ab9369fff943bb1a17d3fc5e
+# 时间: 2026-11-10T14:08:52+08:00  环境: VM80 (docker+本地 PG+magpie 假密钥路由)
+# 命令: RELAY_PI_BASE_URL=http://127.0.0.1:1/v1 npm test (模型/凭据门显式 skip;容器门真跑) + npx tsc --noEmit
       Tests  132 passed | 11 skipped (143)
-   Start at  13:43:12
-   Duration  93.26s (transform 697ms, setup 0ms, collect 18.63s, tests 65.46s, environment 8ms, prepare 2.67s)
+   Start at  14:08:52
+   Duration  93.46s (transform 678ms, setup 0ms, collect 18.58s, tests 65.66s, environment 8ms, prepare 2.64s)
 
 === tsc ===
 tsc exit=0

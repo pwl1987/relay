@@ -60,6 +60,8 @@
 7. **往返核验结果未转换为阻断错误**(verifyTreeAgainstManifest 返回 {ok:false} 被忽略)——抛 GitCandidateError content_mismatch。
 8. **blob 内容按 utf8 散列会破坏二进制比对**——cat-file 改 buffer 编码后按原始字节散列(与清单同构)。
 9. 测试自身问题(记录备查):反例1 intent 计数未按 task 过滤(同 schema 跨测试污染);绑定重核"篡改 stage"用例误用 amend(commit 对象不可变,漂移只能发生在记录面)——改为记录值漂移断言,语义更准确。
+10. **CONSUMED proposal 记录面可被翻转**(写者自查 + Reviewer F-1 复核确认,`0207a6a`):已交付 proposal 重复 propose 会翻回 POLICY_APPROVED 且 expected 变化产生第二个 intent(git 同 SHA push 是 no-op,无重复副作用,但违反 D-9 记录面语义)——ON CONFLICT 加 `WHERE state <> 'CONSUMED'` 守卫 + 幂等读回 + PROPOSAL_ALREADY_CONSUMED 审计 + 专属断言。
+11. **两处 `io.verifyRemoteContent` 调用无 try/catch**(Reviewer F-2,收尾处置修复):核验实现抛错会穿透 executeDelivery(CONSUMED 恢复路径与写后核对路径)——补 try/catch ⇒ NEEDS_RECONCILE(结果不明先查真实状态,绝不误标 DELIVERED);专属测试:注入抛错核验 ⇒ NEEDS_RECONCILE、changeset 非 DELIVERED、Reconcile 补 DELIVERED 且无重复推送。
 
 ## 4. 模型预算如实账(合同第四节)
 
@@ -95,8 +97,9 @@ npx vitest run test/integration/github-real.test.ts
 
 | 证据 | 内容 |
 | --- | --- |
-| `p0-02b/full-suite.log` | VM80 全量:141 passed + 2 skipped(内嵌 SHA/时间/预算说明头) |
-| `p0-02b/fresh-clone-repro.log` | 全新克隆 @ `61139d5`(头内嵌 SHA):132 passed + 11 skipped + tsc 0 错误 |
-| 合同时序 | `22e93ba`(基线)→ `79187dd`(合同,先于实现)→ `61139d5`(实现)→ 复核处置 → 收尾 |
+| `p0-02b/full-suite.log` | VM80 全量(最终 HEAD 重跑,内嵌 SHA/时间/预算说明头) |
+| `p0-02b/fresh-clone-repro.log` | 全新克隆(头内嵌 SHA):非模型全量 + tsc 0 错误 |
+| 合同时序 | `22e93ba`(基线)→ `79187dd`(合同,先于实现)→ `61139d5`(实现)→ `aad67bd`(REPORT)→ `0207a6a`(自查加固=Reviewer F-1)→ 复核处置 → 收尾 |
 | 反例-测试映射 | §2 表(9/9 有专属断言;7 条含 bare Git 失败窗口) |
-| 待补证据 | `github-real` 真跑日志(PAT 就位后补录,测试自带 API 独立核对) |
+| 独立复核 | `p0-02b/REVIEW.md`(全新上下文 Reviewer:首轮 PASS-WITH-FIXES + 处置 + 复验) |
+| 待补证据 | `github-real` 真跑日志(PAT 就位后补录,测试自带 GitHub API 独立核对) |
