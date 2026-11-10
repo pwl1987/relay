@@ -132,3 +132,7 @@ REPORT §4 使用"MAJOR-1/MAJOR-2/MINOR(其余)/OBSERVATION"编号而非 REVIEW 
 3. 合同既定收尾:快进 push main、核验 `origin/main==HEAD`+worktree clean、更新 CURRENT.md(P0-01C 完成态)/docs/CONTINUATION.md。
 
 上述完成即 **PASS(无保留)**,无需第三轮复核——收尾提交 diff 与 REPORT 三行文字的一致性由 Writer 自证并在 push 后由任何后续窗口按 AGENTS.md 冷启动核验。
+
+## 闭合确认(处置 e5fdc3e)
+
+N-1/N-2/N-3 三项文字层缺口已按复验处方更正(REPORT §1 恢复 API 测试覆盖如实缩窄为两条 + illegal_transition 缺口声明;验收 4 改为组合证据并注明 t-safe 不单独作证;新增 §3.1 合同激活时序事实 + 流程改进"合同先于实现提交落盘";F-5 测试名与注释已更正、denied 条件断言在 §4 注明;F-8 声明)。两 MAJOR 此前已三重证实关闭;复验人亲测 94+3skip+tsc 0 错误维持。**最终裁决:PASS(无保留)**——合同既定收尾(push/CURRENT/CONTINUATION)完成后本包关闭。复核人:同一独立上下文 Reviewer,2026-11-10,全程零模型调用。
