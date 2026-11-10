@@ -25,7 +25,7 @@ import {
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
-import { detectHostIp, verifyEgressRules, type EgressStatus } from "./egress.ts";
+import { detectHostIp, rewriteBaseUrlForContainer, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import type { PiInstallation } from "./pi-version.ts";
 import { PiRpcSession, type PiSpawnOptions, type RpcRecord } from "./pi-rpc.ts";
 import { buildRunPrompt, contextDigest, parseHandoff, type Handoff, type HandoffParse } from "./context.ts";
@@ -177,15 +177,8 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
     if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
       throw new Error("egress_rules_missing:docker Run 需先 ensureEgress+verify,FAIL-CLOSED");
     }
-    // localhost → 宿主出口 IP;端口 → 转发端口(egress.ts:模型连接源回到宿主 loopback)
-    model = {
-      ...spec.model,
-      baseUrl: spec.model.baseUrl
-        .replace(/\/\/127\.0\.0\.1:(\d+)/, `//${eg.hostIp}:${eg.modelPort}`)
-        .replace(/\/\/localhost:(\d+)/, `//${eg.hostIp}:${eg.modelPort}`)
-        .replace(/\/\/127\.0\.0\.1\//, `//${eg.hostIp}:${eg.modelPort}/`)
-        .replace(/\/\/localhost\//, `//${eg.hostIp}:${eg.modelPort}/`),
-    };
+    // localhost → 宿主出口 IP;端口 → 代理端口(共享重写助手;Review Run 同款,reviewer.ts)
+    model = { ...spec.model, baseUrl: rewriteBaseUrlForContainer(spec.model.baseUrl, eg) };
   }
   const runId = newRunId();
   const sandboxSpec = prepareRunDirs(tmpdir(), spec.sandbox, model);

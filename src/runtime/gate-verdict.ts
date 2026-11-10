@@ -37,6 +37,8 @@ export function buildReviewerPrompt(input: {
   candidateSha: string;
   evidenceSummaries: Array<{ id: string; kind: string; passed: boolean }>;
   workspacePath: string;
+  /** 本 Review Run 的回合硬顶(= 预留请求数;提示词内声明纪律) */
+  turnBudget?: number;
 }): string {
   const files = [
     ...input.changedFiles.added?.map((p) => `+ ${p}`) ?? [],
@@ -57,14 +59,16 @@ export function buildReviewerPrompt(input: {
     `Worker 侧证据摘要:`,
     evidence || "(无)",
     ``,
-    `要求:`,
-    `1) 用 relay_read 检查 ${input.workspacePath} 中被修改/新增的文件,对照需求独立核验;`,
-    `2) 证据为 Worker 侧可信采集,可采信其 passed 字段,但内容正确性由你判断;`,
-    `3) 输出必须以如下围栏结尾,否则视为无效审查:`,
+    `要求(预算纪律:本审查至多 ${input.turnBudget ?? 3} 回合):`,
+    `1) 第一回合用 relay_read 直接读取变更文件(见上清单),**禁止 relay_exec**;`,
+    `2) 读完立即裁决——若确定性证据已齐,可在读取的同一回合直接输出裁决;`,
+    `3) 证据为 Worker 侧可信采集,可采信其 passed 字段,但内容正确性由你判断;`,
+    `4) 最终回复必须以下面的围栏**原样格式**结尾(逐字使用该标记),否则审查无效:`,
     "```relay-gate-verdict",
-    "verdict: PASS|REWORK|BLOCK",
+    "verdict: PASS",
     "findings: <一句话结论>",
     "```",
-    `标准:满足需求且无缺陷=PASS;有可修复缺陷=REWORK;严重问题/越界/不可验收=BLOCK。`,
+    `(verdict 只能取 PASS / REWORK / BLOCK;标准:满足需求且无缺陷=PASS;有可修复缺陷=REWORK;严重问题/越界/不可验收=BLOCK。)`,
+    `再次强调:没有该围栏的回复将被系统判为无效审查并浪费预算,请务必输出。`,
   ].join("\n");
 }

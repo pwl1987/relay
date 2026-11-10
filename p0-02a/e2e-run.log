@@ -1,0 +1,16 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+Error response from daemon: network relay-egress-net not found
+Error response from daemon: No such container: relay-egress-fwd
+stdout | test/integration/gate-e2e.test.ts > P0-02A 验收:真实模型 提交+独立 Reviewer 全闭环(预算账本) > 自治闭环:Coder Run → 候选变更集 → 独立 Reviewer Run → 绑定 Gate → ACCEPTED → goal COMPLETED;completions 计数 == 回合数
+[C-9 核验] completions=6 == turns=6(coder=3, reviewer=3);total requests=6;ledger used=6/8
+
+ ✓ test/integration/gate-e2e.test.ts (1 test) 66217ms
+   ✓ P0-02A 验收:真实模型 提交+独立 Reviewer 全闭环(预算账本) > 自治闭环:Coder Run → 候选变更集 → 独立 Reviewer Run → 绑定 Gate → ACCEPTED → goal COMPLETED;completions 计数 == 回合数  53269ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  11:47:49
+   Duration  67.51s (transform 271ms, setup 0ms, collect 1.04s, tests 66.22s, environment 0ms, prepare 76ms)
+

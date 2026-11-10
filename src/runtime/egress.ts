@@ -56,6 +56,15 @@ export function detectHostIp(): string {
   return m[1]!;
 }
 
+/** 容器内模型 baseUrl 重写:localhost/127.0.0.1 → 宿主出口 IP:代理端口(模型连接源回到宿主 loopback)。 */
+export function rewriteBaseUrlForContainer(baseUrl: string, eg: EgressStatus): string {
+  return baseUrl
+    .replace(/\/\/127\.0\.0\.1:(\d+)/, `//${eg.hostIp}:${eg.modelPort}`)
+    .replace(/\/\/localhost:(\d+)/, `//${eg.hostIp}:${eg.modelPort}`)
+    .replace(/\/\/127\.0\.0\.1\//, `//${eg.hostIp}:${eg.modelPort}/`)
+    .replace(/\/\/localhost\//, `//${eg.hostIp}:${eg.modelPort}/`);
+}
+
 export function parseModelPort(baseUrl: string): number {
   const m = baseUrl.match(/:(\d+)(?:\/|$)/);
   return m ? Number(m[1]) : baseUrl.startsWith("https") ? 443 : 80;

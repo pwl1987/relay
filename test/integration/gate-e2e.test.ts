@@ -119,7 +119,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提�
         egress: egress!,
         heartbeatSeconds: 5,
         wallSeconds: 240,
-        budget: { goalId, reserveCallsPerRun: 3 }, // reviewer 与 coder 同一 goal 账本
+        budget: { goalId, reserveCallsPerRun: 5 }, // reviewer 与 coder 同一 goal 账本(4+4 ≤ 8)
         heartbeatFn: input.heartbeat,
         // Reviewer 共享 Coder 候选工作区(独立 Run/上下文,同一候选面)
         ...(input.workspaceDir ? { workspaceDirOverride: input.workspaceDir } : {}),
@@ -148,6 +148,20 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提�
     expect(tick1.tick!.claimed!.taskId).toBe("t-gate-a");
     expect(tick1.run!.outcome).toBe("SUCCEEDED");
     expect(tick1.gate, "Gate 编排应发生").toBeDefined();
+    if (tick1.gate!.status !== "ACCEPTED") {
+      // 失败诊断(E2E 可观测性;账本/run 明细直接落输出)
+      const dbgLedger = await ledgerSnapshot(t.db, "goal", goalId);
+      const dbgRuns = await t.db.execute(sql`SELECT id, outcome, detail->>'role' AS role, detail->>'reason' AS reason, detail->'budget' AS budget FROM runs WHERE task_id='t-gate-a' ORDER BY started_at`);
+      console.log("[e2e-diag] ledger:", JSON.stringify(dbgLedger));
+      console.log("[e2e-diag] runs:", JSON.stringify(dbgRuns.rows));
+      const dbgEv = await t.db.execute(sql`SELECT kind, passed, raw_output FROM gate_evidence WHERE task_id='t-gate-a'`);
+      for (const r of dbgEv.rows) console.log(`[e2e-diag] evidence[${r["kind"]}] passed=${r["passed"]} raw=${String(r["raw_output"]).slice(0, 600)}`);
+      const dbgRev = await t.db.execute(sql`SELECT detail FROM runs WHERE task_id='t-gate-a' AND detail->>'role'='reviewer'`);
+      for (const r of dbgRev.rows) {
+        const d = r["detail"] as Record<string, unknown>;
+        console.log(`[e2e-diag] reviewer-detail turns=${d["turns"]} rawLen=${d["rawLen"]} rawHead=${JSON.stringify(d["rawHead"])} recordTypes=${JSON.stringify(d["recordTypes"])} stderrTail=${JSON.stringify(d["stderrTail"])}`);
+      }
+    }
     expect(tick1.gate!.status, `gate.reason=${tick1.gate!.reason}`).toBe("ACCEPTED");
 
     // 任务终态 + 裁决绑定事实
@@ -179,9 +193,11 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提�
     expect(ws).toBeDefined();
     expect(readFileSync(join(ws!, "result.txt"), "utf8")).toContain("87");
 
-    // tick 2:全部 ACCEPTED ⇒ goal COMPLETED + IDLE
+    // tick1 的聚合已在 Gate 消费后把 goal 置 COMPLETED(全任务 ACCEPTED);
+    // tick 2:无剩余工作 ⇒ IDLE(不烧模型)
+    const goalRow = await t.db.execute(sql`SELECT state FROM goals WHERE id=${goalId}`);
+    expect(String(goalRow.rows[0]!["state"])).toBe("COMPLETED");
     const tick2 = await goalLoopTick(t.db, { workerId: "e2e-worker", ttlSeconds: 120, runTask });
-    expect(tick2.goalStates).toContainEqual({ goalId, state: "COMPLETED" });
     expect(tick2.status).toBe("IDLE");
 
     // ---- 预算账本自证(狗粮;合同阶段 B ≤8)----

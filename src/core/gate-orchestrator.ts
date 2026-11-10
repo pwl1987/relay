@@ -200,7 +200,9 @@ export async function orchestrateGate(
       taskId: input.taskId,
       detail: { attempt: i + 1, of: attempts, reason: r.reason ?? "no_verdict", reviewerRunId: r.reviewerRunId },
     });
-    if (r.reason === "lease_lost" || r.reason === "heartbeat_errors") break; // 权威已失,不再重试
+    // 权威已失(lease_lost/heartbeat_errors)或预算触顶(budget_exhausted/budget_turns_cap)⇒ 不再重试:
+    // 前者无权推进,后者重试只会烧穿同一账本(FAIL-CLOSED 方向)
+    if (r.reason === "lease_lost" || r.reason === "heartbeat_errors" || (r.reason ?? "").startsWith("budget")) break;
   }
 
   const reviewerVerdictOk = review !== null && review.ok && review.verdict !== undefined;

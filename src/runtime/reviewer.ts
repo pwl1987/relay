@@ -8,7 +8,6 @@
 import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
 import type { RelayDb, Exec } from "../core/db.ts";
 import { appendAudit } from "../core/audit.ts";
 import { reserveBudget, settleBudget } from "../core/budget.ts";
@@ -21,7 +20,7 @@ import {
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
-import type { EgressStatus } from "./egress.ts";
+import { rewriteBaseUrlForContainer, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import type { PiInstallation } from "./pi-version.ts";
 import { PiRpcSession } from "./pi-rpc.ts";
 import { buildReviewerPrompt, parseGateVerdict } from "./gate-verdict.ts";
@@ -82,6 +81,16 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
   const runId = newRunId();
   const reserveCalls = spec.budget?.reserveCallsPerRun ?? 2;
   const reviewerLeaseHeartbeat = spec.heartbeatFn;
+  // docker 分支:模型 baseUrl 必须指向宿主出口代理(与 runner 同款重写;FAIL-CLOSED 校验同款)。
+  // 实测坑(772eb0c 后首跑):缺此重写 ⇒ 容器内连自身 loopback → pi auto_retry×3 → stopReason=error。
+  let model = spec.model;
+  if (spec.sandbox === "docker") {
+    const eg = spec.egress;
+    if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
+      return { ok: false, reason: "egress_rules_missing", rawOutput: "", reviewerRunId: runId };
+    }
+    model = { ...spec.model, baseUrl: rewriteBaseUrlForContainer(spec.model.baseUrl, eg) };
+  }
 
   // 0) 预算预留(FAIL-CLOSED;与 Coder 同 goal 账本)
   let ledgerId: string | null = null;
@@ -101,7 +110,7 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
           (tx as unknown as Exec).execute(sql`
             INSERT INTO runs (id, task_id, attempt, runtime, model_ref, budget, sandbox, outcome, detail)
             VALUES (${runId}, ${spec.taskId}, ${spec.attempt}, 'pi-rpc',
-              ${spec.model.provider + "/" + spec.model.model},
+              ${model.provider + "/" + model.model},
               ${JSON.stringify({ role: "reviewer", reason: reserve.reason })}::jsonb,
               ${spec.sandbox}, 'BUDGET_EXHAUSTED', '{"role":"reviewer"}'::jsonb)
           `),
@@ -117,7 +126,7 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
     (tx as unknown as Exec).execute(sql`
       INSERT INTO runs (id, task_id, attempt, runtime, model_ref, budget, sandbox, outcome)
       VALUES (${runId}, ${spec.taskId}, ${spec.attempt}, 'pi-rpc',
-        ${spec.model.provider + "/" + spec.model.model},
+        ${model.provider + "/" + model.model},
         ${JSON.stringify({ role: "reviewer", reserveCalls })}::jsonb,
         ${spec.sandbox}, 'RUNNING')
     `),
@@ -125,10 +134,11 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
 
   // 2) 沙箱(独立 HOME;models.json 仅占位 key —— 密钥隔离,P0-02A C-8)。
   //    workspaceDirOverride:Reviewer 直接检查 Coder 候选工作区(共享挂载;cleanup 只删本 RunDir)
-  const sandboxSpec = prepareRunDirs(tmpdir(), spec.sandbox, spec.model);
+  const sandboxSpec = prepareRunDirs(tmpdir(), spec.sandbox, model);
   if (spec.workspaceDirOverride) {
+    // 共享候选工作区:权限面已由 runner 建好(目录 o+rwX;容器 UID 写入的文件不重 chmod——
+    // 宿主非属主无权 chmod,Reviewer 只读候选,无需改权)
     sandboxSpec.workspaceDir = spec.workspaceDirOverride;
-    execFileSync("chmod", ["-R", "o+rwX", sandboxSpec.workspaceDir], { timeout: 30_000 });
   }
   const paths = sandboxPaths(sandboxSpec);
   const prompt = buildReviewerPrompt({
@@ -139,6 +149,7 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
     candidateSha: spec.changeset.candidateSha,
     evidenceSummaries: spec.evidenceSummaries,
     workspacePath: paths.workspace,
+    turnBudget: reserveCalls,
   });
   await db
     .transaction(async (tx) =>
@@ -176,44 +187,45 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
     : null;
 
   try {
-    session = launchPi({
+    const live: PiRpcSession = launchPi({
       spec: sandboxSpec,
       pi,
-      model: spec.model,
+      model,
       egress: spec.egress,
       allowedCommands: [], // Reviewer 只读:禁一切 exec
       execTimeoutMs: spec.execTimeoutMs,
       argvOverride: spec.argvOverride,
       envOverride: spec.envOverride,
     });
-    await session.request("get_state", undefined, 20_000);
+    session = live;
+    await live.request("get_state", undefined, 20_000);
     await session.prompt(prompt);
 
     const deadline = Date.now() + spec.wallSeconds * 1000;
     let settled = false;
     const countTurns = () =>
-      session!.allRecords().filter((r) => r.type === "message_end" && r.message?.role === "assistant").length;
+      live.allRecords().filter((r) => r.type === "message_end" && r.message?.role === "assistant").length;
     for (;;) {
-      if (session.allRecords().some((r) => r.type === "agent_settled")) {
+      if (live.allRecords().some((r) => r.type === "agent_settled")) {
         settled = true;
         break;
       }
       if (reason !== "runner_error") break; // 止损触发
       if (countTurns() >= reserveCalls) {
-        session.kill("SIGKILL");
-        await raceExit(session, 3000);
+        live.kill("SIGKILL");
+        await raceExit(live, 3000);
         outcome = "BUDGET_EXHAUSTED";
         reason = "budget_turns_cap";
         break;
       }
       if (Date.now() >= deadline) {
-        session.kill("SIGKILL");
-        await raceExit(session, 3000);
+        live.kill("SIGKILL");
+        await raceExit(live, 3000);
         outcome = "TIMEOUT";
         reason = "wall_budget_exceeded";
         break;
       }
-      if (session.exitStatus !== null) {
+      if (live.exitStatus !== null) {
         outcome = "FAILED";
         reason = "rpc_disconnect";
         break;
@@ -221,10 +233,26 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
       await sleep(100);
     }
 
-    const rawOutput = session.assistantText();
+    const turns = countTurns();
+    let rawOutput = live.assistantText();
     let parsed = parseGateVerdict("");
     if (settled) {
       parsed = parseGateVerdict(rawOutput);
+      if (!parsed.found) {
+        // 兜底:assistant 文本块为空时(实测:auto_retry 后 content 形态异常),扫描
+        // assistant message_end 的原始 JSON(还原转义换行)找裁决围栏 —— 仍是模型自述,非虚构。
+        const dump = live
+          .allRecords()
+          .filter((r) => r.type === "message_end" && (r.message as { role?: string } | undefined)?.role === "assistant")
+          .map((r) => JSON.stringify(r.message ?? {}).replace(/\\n/g, "\n"))
+          .join("\n");
+        parsed = parseGateVerdict(dump);
+        if (parsed.found) {
+          rawOutput = dump;
+        } else if (!rawOutput) {
+          rawOutput = dump.slice(0, 2000); // 如实保留原始面供审计(不虚构)
+        }
+      }
       if (parsed.found) {
         outcome = "SUCCEEDED";
         reason = parsed.verdict;
@@ -232,17 +260,31 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
         outcome = "FAILED";
         reason = `no_verdict:${parsed.error}`;
       }
-    } else if (reason === "runner_error" && session.exitStatus !== null) {
+    } else if (reason === "runner_error" && live.exitStatus !== null) {
       outcome = "FAILED";
       reason = "rpc_disconnect";
     }
 
-    const turns = countTurns();
+    // Worker 侧可观测:失败时记录记录面事实(回合数/原文长度/事件类型/stderr 尾),不虚构输出
+    const recordTypes = session.allRecords().reduce<Record<string, number>>((acc, r) => {
+      const k = String(r.type ?? "?");
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    }, {});
     await db
       .transaction(async (tx) =>
         (tx as unknown as Exec).execute(sql`
           UPDATE runs SET outcome = ${outcome},
-            detail = ${JSON.stringify({ role: "reviewer", turns, reason, verdict: parsed.found ? parsed.verdict : null })}::jsonb,
+            detail = ${JSON.stringify({
+              role: "reviewer",
+              turns,
+              reason,
+              verdict: parsed.found ? parsed.verdict : null,
+              rawLen: rawOutput.length,
+              rawHead: rawOutput.slice(0, 300),
+              recordTypes,
+              stderrTail: live.stderrText ? live.stderrText.slice(-400) : undefined,
+            })}::jsonb,
             ended_at = now()
           WHERE id = ${runId}
         `),
