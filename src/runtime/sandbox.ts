@@ -6,7 +6,8 @@
 // 模型路由事实(p0-00 §0):宿主 ufw 拒绝容器→宿主,故容器用 --network host;
 // 网络隔离由 p0-00 A4a(--network none)独立证明,FS/凭据边界由本层强制。
 import { spawnSync, execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, chmodSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, chmodSync, writeFileSync, existsSync } from "node:fs";
+import { markRunDir, safeRm, RUN_SENTINEL } from "./safe-rm.ts";
 import { join, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -101,6 +102,8 @@ export function prepareRunDirs(baseDir: string, mode: SandboxSpec["mode"], model
   const homeDir = join(runDir, "home");
   const workspaceDir = join(runDir, "ws");
   const extDir = join(runDir, "ext");
+  // 清理安全(D4):打哨兵证明目录归属,cleanupSandbox 走 safeRm 守卫
+  markRunDir(runDir, { kind: "sandbox", mode });
   mkdirSync(join(homeDir, ".pi", "agent"), { recursive: true });
   mkdirSync(join(workspaceDir, ".relay"), { recursive: true });
   mkdirSync(extDir, { recursive: true });
@@ -150,7 +153,7 @@ export function prepareRunDirs(baseDir: string, mode: SandboxSpec["mode"], model
 }
 
 export function cleanupSandbox(spec: SandboxSpec): void {
-  rmSync(spec.runDir, { recursive: true, force: true });
+  safeRm(spec.runDir, { roots: [spec.runDir], sentinel: RUN_SENTINEL });
 }
 
 /** 容器内 workspace/audit 固定路径;host-fallback 用宿主真实路径。 */

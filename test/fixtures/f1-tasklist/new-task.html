@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>新增任务</title></head>
+<body>
+  <h1>新增任务</h1>
+  <form id="f">
+    <input name="title">
+    <input name="owner">
+    <input name="due">
+    <button type="submit">保存</button>
+  </form>
+  <script>
+    document.getElementById("f").onsubmit = e => {
+      e.preventDefault();
+      const d = Object.fromEntries(new FormData(e.target));
+      const a = JSON.parse(localStorage.getItem("tasks") || "[]");
+      a.push(d);
+      localStorage.setItem("tasks", JSON.stringify(a));
+    };
+  </script>
+</body>
+</html>

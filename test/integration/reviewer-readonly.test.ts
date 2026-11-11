@@ -6,7 +6,8 @@
 //     读候选成功、写/删/替换失败(EROFS);对照组(无 :ro)写成功 —— 证明拒绝来自只读挂载本身。
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -56,13 +57,13 @@ describe.skipIf(!dockerOk || !hasImage)("P0-02B G-4:Reviewer 候选面 FS 级只
       expect(argsRw).toContain(`${spec.workspaceDir}:/workspace`); // 无 :ro
       expect(argsRw.join(" ")).toContain("RELAY_TOOL_AUDIT=/workspace/.relay/tool-audit.jsonl");
     } finally {
-      rmSync(spec.runDir, { recursive: true, force: true });
+      safeRm(spec.runDir, { roots: [spec.runDir], sentinel: RUN_SENTINEL });
     }
   });
 
   it("OS 层证据:Reviewer 同款约束下读候选成功;写/删/替换被内核拒绝(EROFS);对照组(rw)写成功", () => {
     // 候选面:模 Coder 产出(runner 同款权限面:chmod -R o+rwX;容器 UID 可写由 rw 对照组证明)
-    const ws = mkdtempSync(join(tmpdir(), "relay-ro-cand-"));
+    const ws = markTemp(mkdtempSync(join(tmpdir(), "relay-ro-cand-")));
     writeFileSync(join(ws, "candidate.txt"), "candidate content\n", "utf8");
     execFileSync("chmod", ["-R", "a+rwX", ws], { timeout: 10_000 });
     const base = [
@@ -107,7 +108,7 @@ describe.skipIf(!dockerOk || !hasImage)("P0-02B G-4:Reviewer 候选面 FS 级只
       // 对照组(同约束、无 :ro):写成功 ⇒ 上面的拒绝确由只读挂载产生
       expect(tryIt(false, `require("fs").writeFileSync("/workspace/attack.txt","x"); console.log("WRITE-OK")`)).toBe("WRITE-OK");
     } finally {
-      rmSync(ws, { recursive: true, force: true });
+      safeRm(ws, { roots: [ws], sentinel: RUN_SENTINEL });
     }
   });
 });

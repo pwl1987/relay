@@ -9,7 +9,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
@@ -57,7 +58,7 @@ describe.skipIf(!gateEnv || !dumpOk || !dockerOk)("P0-ACCEPT 缺口 F:备份 →
 
   beforeAll(async () => {
     t = await createTestDb("p0acc-backup");
-    tmpRoot = mkdtempSync(join(tmpdir(), "p0acc-backup-"));
+    tmpRoot = markTemp(mkdtempSync(join(tmpdir(), "p0acc-backup-")));
     backupFile = join(tmpRoot, "relay-backup.sql");
     remote = makeBareRemote(mkdtempSync(join(tmpRoot, "remote-")));
 
@@ -151,7 +152,7 @@ describe.skipIf(!gateEnv || !dumpOk || !dockerOk)("P0-ACCEPT 缺口 F:备份 →
   afterAll(async () => {
     try { execFileSync("docker", ["rm", "-f", container], { stdio: "ignore", timeout: 30_000 }); } catch {}
     await t.cleanup();
-    rmSync(tmpRoot, { recursive: true, force: true });
+    safeRm(tmpRoot, { roots: [tmpRoot], sentinel: RUN_SENTINEL });
   });
 
   it("隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变", async () => {

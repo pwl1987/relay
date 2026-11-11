@@ -1,0 +1,230 @@
+{
+  "status": "IDLE_PROVIDER_DOWN",
+  "workerMode": "stub(显式标注)"
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-58e6a0ad-72ed-4da6-b324-6056fba2c5fa:evidence_not_passed",
+    "changesetId": "cs-8d4c0fa9-c1c3-47e9-ab20-f67279f01c03",
+    "evidenceIds": [
+      "ev-58e6a0ad-72ed-4da6-b324-6056fba2c5fa",
+      "ev-09a0bdf6-a789-4439-94c0-47113439ef2b"
+    ],
+    "violations": []
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-9b3dde89-99ac-4a73-b30d-e7bdf3702aaf:evidence_not_passed",
+    "changesetId": "cs-0f2be9fd-2425-49e5-a846-f2b86fccc4d3",
+    "evidenceIds": [
+      "ev-9b3dde89-99ac-4a73-b30d-e7bdf3702aaf",
+      "ev-9e838ebb-9e1b-4ced-af6e-849c9a8ff09b"
+    ],
+    "violations": []
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-0b8c4555-36b0-4465-a4a6-36d91935e537",
+    "changesetId": "cs-91225660-de48-4dfa-8450-29af23c7c932",
+    "evidenceIds": [
+      "ev-3e1893ef-d201-48ab-81ae-3162a06de35c",
+      "ev-cf3f00ca-05c7-4a13-8b8a-b8bccd2533cd"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": false,
+      "reason": "propose_failed:delivery_not_captured:t-f1-stub"
+    },
+    "execute": {
+      "skipped": "propose_failed"
+    }
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-9a33b28b-6e86-4333-a553-8333613d0b01",
+    "changesetId": "cs-2e1ac67a-00ae-49f2-b25a-d56f77c6e298",
+    "evidenceIds": [
+      "ev-11318f32-f997-450c-afc7-57dfce08abd5",
+      "ev-f97fa57b-c62c-462a-a1d5-ecc712d46fca"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": false,
+      "reason": "propose_failed:delivery_not_captured:t-f1-stub"
+    },
+    "execute": {
+      "skipped": "propose_failed"
+    }
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-ad6024d2-9542-455e-af94-824725514228",
+    "changesetId": "cs-003eccc9-5d34-4468-86f1-3725a3c9bb30",
+    "evidenceIds": [
+      "ev-f46a6f3f-57aa-4144-bb44-242496f257ba",
+      "ev-7744984d-e857-4e48-90a5-a0ae09894ebe"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": false,
+      "reason": "propose_failed:delivery_not_captured:t-f1-stub"
+    },
+    "execute": {
+      "skipped": "propose_failed"
+    }
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-f941f74f-6137-4280-a6c1-b473f3301216",
+    "changesetId": "cs-5ba4756b-9e04-4dd8-a99e-e2554524ee97",
+    "evidenceIds": [
+      "ev-c6c231b9-45ef-4b1c-9fb6-8f8ce31300ac",
+      "ev-23c1d371-45c2-48c7-9ce1-9015a9b7cc5d"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": false,
+      "reason": "propose_failed:delivery_not_captured:t-f1-stub"
+    },
+    "execute": {
+      "skipped": "propose_failed"
+    }
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-fd5dbd0d-8f3a-46b2-9648-93469174809d",
+    "changesetId": "cs-267d8ee3-f8d1-45c1-a785-c992844abad5",
+    "evidenceIds": [
+      "ev-b223b2cf-b827-4e68-9974-4ac65f2ebac3",
+      "ev-8856e752-e5e9-4966-b711-e85fb8818216"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": false,
+      "reason": "propose_failed:delivery_not_captured:t-f1-stub"
+    },
+    "execute": {
+      "skipped": "propose_failed"
+    }
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-e7c6736c-8596-4f3d-935f-cad2d99df250",
+    "changesetId": "cs-9cfe1604-2d93-4f44-a167-51470c4b037c",
+    "evidenceIds": [
+      "ev-cd4aa73b-81d4-459d-ba2c-96620a0a952a",
+      "ev-40840932-b69c-459c-ba52-be2e1a07b9aa"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": true
+    },
+    "execute": {
+      "ok": true,
+      "state": "DELIVERED",
+      "remoteHead": "c32df8ad55aab93ddf6cf71174d7367feef1915d",
+      "intentId": "intent-d0bb3c0816e0872419fcb67f13daeb594d2d1c17f024141f4be980ab9f0165c8"
+    }
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-37946c37-88c9-4426-a3a0-e6b861444b29",
+    "changesetId": "cs-856a6c86-9a3d-4ba5-bc81-ff119e49fa8b",
+    "evidenceIds": [
+      "ev-1386ea3c-c687-44b3-a8a7-150fda514205",
+      "ev-452e11bb-166b-4451-927a-6536dbeaa18c"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": true
+    },
+    "execute": {
+      "ok": true,
+      "state": "DELIVERED",
+      "remoteHead": "7528cccd33e66227fda0f98aa694e682a6aedd47",
+      "intentId": "intent-67fdb28f136d22be9951e531a8e2a63f0dacad7b7b5c6241fb790b36846bf94e"
+    }
+  }
+}
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-35dedf5f-0181-42dd-b10f-ff0c94749ccc",
+    "changesetId": "cs-6fbd2418-19fc-4cfd-b57e-5d10711d3e24",
+    "evidenceIds": [
+      "ev-ed37e800-6137-41e1-a4b1-2bcf0f101cf4",
+      "ev-dda64ecf-804c-4d8c-a2d5-a235a046a3c5"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": true
+    },
+    "execute": {
+      "ok": true,
+      "state": "DELIVERED",
+      "remoteHead": "31e22f3137cbb4d466703a7567fed744a2a9f128",
+      "intentId": "intent-e47741c0fb0c3e244228f00ee152918dda77f0cab211b47bebdeb6a8c9a138f7"
+    }
+  }
+}

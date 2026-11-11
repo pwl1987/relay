@@ -1,0 +1,51 @@
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "reason": null
+  },
+  "gate": null,
+  "delivery": null
+}
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "TIMEOUT",
+    "reason": null
+  },
+  "gate": null,
+  "delivery": null
+}
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "SUCCEEDED",
+    "reason": null
+  },
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-6ce99b64-e3eb-48a9-995a-cce97eddcca7:evidence_not_passed"
+  },
+  "delivery": null
+}
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "SUCCEEDED",
+    "reason": null
+  },
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-d8e87017-3382-49b4-90ee-4bcd3777e99c:evidence_not_passed"
+  },
+  "delivery": null
+}
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "reason": null
+  },
+  "gate": null,
+  "delivery": null
+}

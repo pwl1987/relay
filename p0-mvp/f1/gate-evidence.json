@@ -1,0 +1,15 @@
+[
+  {
+    "id": "ev-d8e87017-3382-49b4-90ee-4bcd3777e99c",
+    "kind": "deterministic_test",
+    "passed": false,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":false,\"checks\":[{\"id\":\"C1-label\",\"ok\":false,\"note\":\"0/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":false,\"note\":\"空提交无可见错误提示(静默)\"},{\"id\":\"C3-success-feedback\",\"ok\":false,\"note\":\"提交后无成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}\n[exit=1]"
+  },
+  {
+    "id": "ev-1b2da943-8234-4419-9fa6-a809e619f2dd",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查过程说明:候选变更清单明确标注「无文件变更」,即没有任何代码或页面改动可供审查;同时 Worker 侧确定性测试证据 `id=ev-d8e87017-3382-49b4-90ee-4bcd3777e99c` 的 `passed=false` 可采信。证据已齐,无需额外读取任务上下文,直接裁决:\n\n- 需求「新增任务的页面不好用」要求对相关页面做可用性改进;\n- 但候选清单中没有任何文件变更,需求实质未被实现;\n- 确定性测试亦未通过(passed=false),进一步确认交付不满足要求;\n- 未发现越界或破坏性改动,属可修复的缺陷(补齐实现并通过测试即可),判 REWORK。\n\n```relay-gate-verdict\nverdict: REWORK\nfindings: 候选清单无任何文件变更,新增任务页面的 UX 改进未实现,且确定性测试 passed=false,需补齐实现并使测试通过。\n```"
+  }
+]
+[]

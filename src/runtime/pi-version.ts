@@ -3,7 +3,8 @@
 // 禁止依赖可能自行更新的全局 pi(P0-00 实测:实验期间 1.4.0 自更新为 1.5.0)。
 // 双重校验:包声明版本 + 实际执行 --version 输出,三方(锁定常量/包声明/二进制)一致才放行。
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { markRunDir, safeRm, RUN_SENTINEL } from "./safe-rm.ts";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -71,6 +72,7 @@ export function resolveVendoredPi(repoRoot: string = resolveRepoRoot()): PiInsta
  */
 export function verifyPiRuntime(pi: PiInstallation): { cliPath: string; version: string } {
   const scratchHome = mkdtempSync(join(tmpdir(), "relay-pi-verify-"));
+  markRunDir(scratchHome, { kind: "pi-version-scratch" });
   try {
     const out = execFileSync(process.execPath, [pi.cliPath, "--version"], {
       encoding: "utf8",
@@ -82,6 +84,6 @@ export function verifyPiRuntime(pi: PiInstallation): { cliPath: string; version:
     }
     return { cliPath: pi.cliPath, version: out };
   } finally {
-    rmSync(scratchHome, { recursive: true, force: true });
+    safeRm(scratchHome, { roots: [scratchHome], sentinel: RUN_SENTINEL });
   }
 }

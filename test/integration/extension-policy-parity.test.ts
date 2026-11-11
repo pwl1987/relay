@@ -3,6 +3,7 @@
 // 扩展侧额外做 realpath 解析 —— 符号链接逃逸在工具层即被阻断(P0-00 R1 残余风险的收口)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { checkPathScope } from "../../src/core/policy.ts";
@@ -11,7 +12,7 @@ import { checkReadScope, runScopedExec, scrubExecEnv } from "../../src/runtime/r
 describe("工具层 × Policy 层 V02 对齐矩阵", () => {
   let root: string;
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), "relay-parity-"));
+    root = markTemp(mkdtempSync(join(tmpdir(), "relay-parity-")));
     mkdirSync(join(root, "sub"), { recursive: true });
     writeFileSync(join(root, "in-root.txt"), "x");
     writeFileSync(join(root, "sub", "nested.txt"), "y");
@@ -20,7 +21,7 @@ describe("工具层 × Policy 层 V02 对齐矩阵", () => {
     symlinkSync("/tmp/relay-parity-outside.txt", join(root, "escape-link.txt"));
   });
   afterAll(() => {
-    rmSync(root, { recursive: true, force: true });
+    safeRm(root, { roots: [root], sentinel: RUN_SENTINEL });
     rmSync("/tmp/relay-parity-outside.txt", { force: true });
   });
 

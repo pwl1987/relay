@@ -10,7 +10,8 @@
 // 预算:goal limit=8(coder 预留 4 + reviewer 预留 4;gate-e2e 同款)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { writeFileSync, chmodSync, mkdtempSync, mkdirSync, appendFileSync, rmSync } from "node:fs";
+import { writeFileSync, chmodSync, mkdtempSync, mkdirSync, appendFileSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -72,7 +73,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-ACCEPT 缺口 A-4:Web/API 入
     t = await createTestDb("p0acc-live");
     const model = MODEL!;
     // 密钥隔离(G-3/gate-e2e 同款):key 只存宿主 0600 文件进代理;Run 容器只见占位
-    const keyDir = mkdtempSync(join(tmpdir(), "p0acc-key-"));
+    const keyDir = markTemp(mkdtempSync(join(tmpdir(), "p0acc-key-")));
     tmpRoots.push(keyDir);
     const keyFile = join(keyDir, "real-key");
     writeFileSync(keyFile, model.apiKey, { mode: 0o600 });
@@ -80,9 +81,9 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-ACCEPT 缺口 A-4:Web/API 入
     const s = await ensureEgress(model.baseUrl, { realKeyFile: keyFile });
     egress = await verifyEgressEffective(s);
     expect(egress.ok, `出口约束未生效:${egress.reason}(合同停止条件)`).toBe(true);
-    remote = makeBareRemote(mkdtempSync(join(tmpdir(), "p0acc-remote-")));
+    remote = makeBareRemote(markTemp(mkdtempSync(join(tmpdir(), "p0acc-remote-"))));
     tmpRoots.push(dirname(remote.dir)); // bare remote 的基目录(测试结束清理)
-    stageBase = mkdtempSync(join(tmpdir(), "p0acc-stage-"));
+    stageBase = markTemp(mkdtempSync(join(tmpdir(), "p0acc-stage-")));
     tmpRoots.push(stageBase);
 
     const pi = (await import("../../src/runtime/pi-version.ts")).resolveVendoredPi();
@@ -104,7 +105,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-ACCEPT 缺口 A-4:Web/API 入
       io: async (c) => ({
         executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
         verifyRemoteContent: async (commitSha: string) => {
-          const scratch = mkdtempSync(join(tmpdir(), "p0acc-verify-"));
+          const scratch = markTemp(mkdtempSync(join(tmpdir(), "p0acc-verify-")));
           const r = await verifyRemoteCommitContent({ target: remote.url, commitSha, manifest: c.manifest, scratchDir: scratch });
           return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
         },
@@ -161,7 +162,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-ACCEPT 缺口 A-4:Web/API 入
     await new Promise<void>((r) => server.close(() => r()));
     teardownEgress();
     await t.cleanup();
-    for (const r of tmpRoots) rmSync(r, { recursive: true, force: true });
+    for (const r of tmpRoots) safeRm(r, { roots: tmpRoots, sentinel: RUN_SENTINEL });
   });
 
   it("登录 → Web API 建 Goal → live tick(真模型,docker)→ 白名单允许+越权实证 → Gate → DELIVERED → 账本", async () => {

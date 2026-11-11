@@ -1,0 +1,1 @@
+{"stage":"baseline(改进前)","ok":false,"checks":[{"id":"C1-label","ok":false,"note":"0/3 个 input 有关联 label"},{"id":"C2-empty-feedback","ok":false,"note":"空提交无可见错误提示(静默)"},{"id":"C3-success-feedback","ok":false,"note":"提交后无成功反馈"},{"id":"C4-list-shows","ok":true,"note":"列表页显示新条目"}],"exit":1,"date":"2026-11-11"}

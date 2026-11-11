@@ -1,0 +1,54 @@
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f2-bug",
+      "ownerId": "f2-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "SUCCEEDED",
+    "taskId": "t-f2-bug",
+    "runId": "run-9add3b1f-9562-4842-886d-0f9858c410a6",
+    "workspaceDir": "/tmp/relay-run-IQnxLv/ws",
+    "disposition": "noop_succeeded"
+  },
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-6071d286-f4d0-42bf-8c9a-eaba036f968d:evidence_not_passed",
+    "changesetId": "cs-a948630b-3321-425c-998d-fe6262705f85",
+    "evidenceIds": [
+      "ev-6071d286-f4d0-42bf-8c9a-eaba036f968d",
+      "ev-93573fe7-8f6e-451f-8188-8b4f8acdfa02"
+    ],
+    "violations": []
+  },
+  "goalStates": []
+}
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f2-bug",
+      "ownerId": "f2-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "taskId": "t-f2-bug",
+    "runId": "run-9d9d64ce-a90a-40e0-b5e2-e137232d4a17",
+    "workspaceDir": "/tmp/relay-run-VR1i7o/ws",
+    "disposition": "task_blocked_by_budget"
+  },
+  "goalStates": []
+}

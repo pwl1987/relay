@@ -1,0 +1,26 @@
+{
+  "status": "PROGRESSED",
+  "workerMode": "stub(显式标注)",
+  "gate": {
+    "status": "ACCEPTED",
+    "gateId": "gate-7c8a7714-9bb3-4123-a83a-e41e28e9090d",
+    "changesetId": "cs-409678b2-24ad-4a42-95bf-8cb61f2eb834",
+    "evidenceIds": [
+      "ev-5e735eee-b788-45f1-bf44-a7da26dd7388",
+      "ev-54e1284f-1c28-4c5e-9157-c5255c61c611"
+    ],
+    "violations": [],
+    "reason": "stub 审查:候选实现机判四项通过"
+  },
+  "delivery": {
+    "propose": {
+      "ok": true
+    },
+    "execute": {
+      "ok": true,
+      "state": "DELIVERED",
+      "remoteHead": "a782da0c043fb49da0bab68272975cc1ddf33a10",
+      "intentId": "intent-a837e9dcd5bed4aa0cb52e189e9e5d6f111d9434c02c28d7ce818dd8837e6c80"
+    }
+  }
+}

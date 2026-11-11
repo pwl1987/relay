@@ -1,0 +1,16 @@
+[
+  {
+    "id": "run-9d9d64ce-a90a-40e0-b5e2-e137232d4a17",
+    "outcome": "BUDGET_EXHAUSTED",
+    "detail": {
+      "cap": 6,
+      "turns": 6,
+      "budget": {
+        "tokensIn": 743,
+        "tokensOut": 1142,
+        "actualCalls": 6
+      },
+      "reason": "budget_turns_cap"
+    }
+  }
+]

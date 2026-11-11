@@ -1,0 +1,21 @@
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "SUCCEEDED",
+    "reason": null
+  },
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-6071d286-f4d0-42bf-8c9a-eaba036f968d:evidence_not_passed"
+  },
+  "delivery": null
+}
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "reason": null
+  },
+  "gate": null,
+  "delivery": null
+}

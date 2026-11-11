@@ -10,7 +10,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
-import { mkdirSync, chmodSync, copyFileSync, rmSync, existsSync, statSync, readdirSync, lstatSync, unlinkSync } from "node:fs";
+import { mkdirSync, chmodSync, copyFileSync, rmSync, existsSync, statSync, readdirSync, lstatSync, unlinkSync, writeFileSync } from "node:fs";
+import { markRunDir, safeRm, RUN_SENTINEL } from "./safe-rm.ts";
 import { join, dirname, relative, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { WorkspaceManifest } from "../core/changesets.ts";
@@ -129,6 +130,7 @@ export async function createCandidateCommit(input: CreateCandidateCommitInput): 
   mkdirSync(input.stagingDir, { recursive: true });
   const stageRepoDir = join(input.stagingDir, `relay-stage-${input.changesetId}-${randomUUID().slice(0, 8)}`);
   // --no-local --no-hardlinks:独立对象副本(源 run 目录之后会被删除)
+  // 哨兵在 clone 成功后写入(git clone 要求目标为空目录;D4 safeRm 防护仍在:失败清理走 safeRm)
   await git(input.workspaceDir, "clone", "--no-local", "--no-hardlinks", "--quiet", input.workspaceDir, stageRepoDir);
   try {
     // 以 base 为起点(P0-02B 补验 F-5 收敛):stage 克隆的 HEAD 是工作区当前 HEAD,
@@ -158,6 +160,8 @@ export async function createCandidateCommit(input: CreateCandidateCommitInput): 
     }
     // 本地引用防 gc(commit 由 detached worktree 语义产生,不在任何分支上;refs/relay-candidates/* 非分支,不推送)
     await git(stageRepoDir, "update-ref", `refs/relay-candidates/${input.changesetId}`, commitSha);
+    // 哨兵在候选 commit 固化后写入(D4:safeRm 防护所需;不进树)
+    markRunDir(stageRepoDir, { kind: "stage-repo" });
     return {
       stageRepoDir,
       baseCommitSha: input.baseCommitSha,
@@ -167,8 +171,14 @@ export async function createCandidateCommit(input: CreateCandidateCommitInput): 
       filesChanged: input.diff.added.length + input.diff.modified.length + input.diff.removed.length,
     };
   } catch (err) {
-    // 构建失败即清理 stage(不留下半成品)
-    rmSync(stageRepoDir, { recursive: true, force: true });
+    // 构建失败即清理 stage(不留下半成品;哨兵在失败时补写 —— clone 后到 commit 前的窗口内
+    // 目录必须保持空外物,避免污染候选树)
+    try {
+      if (!existsSync(join(stageRepoDir, RUN_SENTINEL))) {
+        writeFileSync(join(stageRepoDir, RUN_SENTINEL), JSON.stringify({ kind: "stage-repo", failed: true }), "utf8");
+      }
+    } catch { /* 尽力而为 */ }
+    safeRm(stageRepoDir, { roots: [stageRepoDir], sentinel: RUN_SENTINEL });
     throw err;
   }
 }

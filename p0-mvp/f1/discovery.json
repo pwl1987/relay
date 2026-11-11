@@ -1,0 +1,424 @@
+{
+  "ok": true,
+  "source": "model",
+  "reason": null,
+  "report": {
+    "problemStatement": "用户反馈'新增任务的页面不好用'(逐字保留,属症状描述而非具体问题清单)。经核查 new-task.html 存在多处可用性缺陷,可解释该反馈:1) 三个输入框(title/owner/due)均无 <label>、无 placeholder,用户无法知道各字段含义(new-task.html:7-9);2) due 字段为普通 text input 而非 type=\"date\",无法用日期选择器;3) 无任何必填/格式校验,空 title 也会被提交;4) 提交后既无成功提示,也不清空表单、不跳转回列表页(index.html),用户不知道保存是否生效(new-task.html:12-19 的 onsubmit 仅写入 localStorage 后无任何反馈)。真正的目标应是'让新增任务操作可理解、可确认、可完成',而非仅按 brief.txt 预设的方案改文件。",
+    "assumptions": [
+      {
+        "text": "'不好用'主要源于表单可用性缺陷(无标签、无反馈、无引导),而非页面加载性能或视觉风格",
+        "confidence": "medium",
+        "verifiableBy": "与用户确认具体痛点;或让用户现场操作 new-task.html 观察卡点"
+      },
+      {
+        "text": "title 为必填字段,owner/due 为可选(brief.txt 要求保持现有字段,但未说明哪些必填)",
+        "confidence": "low",
+        "verifiableBy": "向用户/产品确认各字段是否必填"
+      },
+      {
+        "text": "保存成功后应引导回 index.html 列表页以查看结果(index.html 确实渲染 localStorage 的 tasks)",
+        "confidence": "medium",
+        "verifiableBy": "向用户确认期望的提交后行为:留在原页、清空表单还是跳转列表"
+      }
+    ],
+    "risks": [
+      "改进时若改动 localStorage 的 tasks 结构或字段名,会破坏 index.html 的读取渲染(index.html:11 依赖 t.title/t.due)",
+      "brief.txt 的'改进 new-task.html'是工作区给定的方案预设,若直接照做而未与用户确认真实痛点,可能只修复表面而漏掉真正卡点(混淆方案与目标)",
+      "若新增校验但不给友好提示,空 title 提交被静默拦截会造成新的'不好用'"
+    ],
+    "options": [
+      {
+        "name": "仅按 brief.txt 优化 new-task.html(加 label/placeholder、日期控件、校验、成功提示后跳转 index.html)",
+        "tradeoffs": "低风险、改动小、满足用户字面反馈;但基于未确认的痛点假设,可能未覆盖用户真实困扰(如字段顺序、移动端适配)"
+      },
+      {
+        "name": "先与用户澄清痛点(哪些环节'不好用'、提交后期望行为),再实施表单改造",
+        "tradeoffs": "多一轮沟通成本;但能对齐真实目标,避免返工"
+      },
+      {
+        "name": "重构为单页内嵌表单(在 index.html 内弹层新增任务,弃用独立页面)",
+        "tradeoffs": "减少页面跳转、体验更流畅;但改动面大、与 brief.txt'保持现有结构'的要求冲突,风险最高"
+      }
+    ],
+    "recommendation": {
+      "action": "按方案 1 改造 new-task.html:为 title/owner/due 添加可见 <label>(标题/负责人/截止日期)与 placeholder,due 改为 type=\"date\";提交前校验 title 非空并内联提示错误;提交成功后清空表单、显示'已保存'确认并跳转回 index.html;全程保持字段名与 localStorage 'tasks' 数组结构不变,确保 index.html 渲染不受影响。理由:证据直接指向表单可用性缺陷(无标签、无校验反馈、无提交确认/引导,见 new-task.html 全文),该方案改动最小且与 brief.txt 约束一致;同时建议向用户回访确认痛点假设,而非直接采信 brief.txt 的预设方案。",
+      "rationale": "README.md 与 brief.txt 已确认现状(无标签、无校验反馈、无确认、不引导回列表),与用户'不好用'的反馈吻合,修复成本低、可验证性强;对'改页面'这一用户方案无需反驳,但需提醒其方案未指明具体缺陷,验收以本清单为准。"
+    },
+    "acceptanceCriteria": [
+      "new-task.html 每个输入框均有可见 <label> 与 placeholder",
+      "due 输入框为 type=\"date\" 或提供等价日期选择方式",
+      "空 title 提交时被拦截并显示内联错误提示;合法提交后表单清空并出现成功提示",
+      "成功提示后 1~2 秒内跳转至 index.html,新任务在列表中可见(标题与截止日期正确)",
+      "localStorage 'tasks' 的数组结构与字段名(title/owner/due)保持不变,index.html 无需改动即可正常渲染"
+    ],
+    "openQuestions": [
+      "用户说'不好用'具体指哪些环节(找不到字段含义?不知道是否保存成功?还是其他)?",
+      "哪些字段为必填?owner 与 due 是否可留空?",
+      "保存成功后的期望行为:跳转列表页、留在原页清空表单,还是其他?",
+      "brief.txt 要求'保持现有字段与 localStorage 结构'是否为硬性约束,是否允许新增字段或校验状态本地存储?"
+    ],
+    "sources": [
+      "README.md",
+      "brief.txt",
+      "new-task.html",
+      "index.html"
+    ]
+  }
+}
+{
+  "ok": true,
+  "source": "model",
+  "reason": null,
+  "report": {
+    "problemStatement": "用户抱怨“新增任务的页面不好用”。经查 new-task.html:表单三个输入框(title/owner/due)均无 <label> 标签,due 为普通文本框而非日期控件;无任何校验(空标题也能提交);提交后既无成功提示也不跳转回列表页(index.html),用户无法感知是否保存成功,极易重复点击造成重复任务。brief.txt 明确约束:改进时必须保持现有字段(title/owner/due)与 localStorage 结构(tasks 数组、字段名)不变。用户只描述了症状未提出具体方案,真正的目标是让新增任务流程可用、可感知、不出错。",
+    "assumptions": [
+      {
+        "text": "“不好用”主要由以下可验证的缺陷导致:无标签、无校验、提交无反馈/不跳转(README 已列为已知状态)",
+        "confidence": "high",
+        "verifiableBy": "读取 new-task.html 源码:input 无对应 label、无 required/校验逻辑、onsubmit 后无提示或 location 跳转"
+      },
+      {
+        "text": "核心用户流程是:在 new-task.html 填表保存后回到 index.html 查看列表",
+        "confidence": "medium",
+        "verifiableBy": "index.html 从 localStorage tasks 渲染列表且无新增入口;README 描述两页分工;仍需与用户确认期望的提交后行为"
+      },
+      {
+        "text": "title 为必填,owner/due 可选",
+        "confidence": "low",
+        "verifiableBy": "index.html 渲染只用 title 与 due,但字段必选规则属业务决策,需向需求方确认"
+      }
+    ],
+    "risks": [
+      "改进若改动字段名或 localStorage 结构会破坏 index.html 的列表渲染",
+      "只加校验不加反馈会延续“点击保存后无感知”的体验问题",
+      "空标题任务已可提交,历史数据中可能存在无效记录,校验只防新增不清理存量",
+      "未与用户确认“不好用”的具体指代,可能遗漏其他痛点(如移动端、必填项理解)"
+    ],
+    "options": [
+      {
+        "name": "方案A:表单可用性修复(推荐)",
+        "tradeoffs": "在 new-task.html 内补 label、title 设 required、due 改 type=date、提交成功后提示并跳转 index.html;完全兼容现有字段与存储结构;改动小、收益直接,但未改变单页表单形态"
+      },
+      {
+        "name": "方案B:重设计为弹窗/内嵌表单,合并到列表页",
+        "tradeoffs": "交互更连贯,但改动 index.html 与页面架构,超出 brief.txt 的“改进 new-task.html”范围,风险与工作量更大"
+      },
+      {
+        "name": "方案C:仅加输入校验",
+        "tradeoffs": "改动最小,但不解决提交后无反馈的核心体验缺陷,“不好用”感知改善有限"
+      }
+    ],
+    "recommendation": {
+      "action": "按方案A修复 new-task.html:1) 为 title/owner/due 添加 <label> 且 label 与 input 用 for/id 关联;2) title 加 required 并在提交时校验非空,不通过时给出可见错误提示且不写入 localStorage;3) due 改为 type=\"date\";4) 提交成功后显示确认(如“已保存”)并跳转到 index.html;5) 严格保持字段名 title/owner/due 与 localStorage key \"tasks\" 的数组结构不变,不执行任何命令、只改该文件。同时向用户回访确认“不好用”是否还有其他所指。",
+      "rationale": "README 与源码共同证实了四项可核查的可用性缺陷,与用户抱怨吻合;方案A在 brief.txt 约束(保持字段与存储结构)内以最小改动覆盖全部缺陷;无反馈/不跳转是重复提交和数据困惑的根因,必须与校验一并处理;方案B超出授权范围,方案C治标不治本。"
+    },
+    "acceptanceCriteria": [
+      "new-task.html 中每个输入框都有可点击聚焦对应输入框的 <label>",
+      "title 为空时点击保存:显示错误提示,localStorage 的 tasks 不变",
+      "填写合法数据提交后:页面出现保存成功反馈并自动跳转到 index.html,新任务出现在列表且 title/owner/due 正确显示",
+      "localStorage 中 tasks 仍为对象数组,元素键仍为 title/owner/due,index.html 渲染不受影响",
+      "due 输入框为日期类型(type=date)",
+      "除 new-task.html 外不修改其他文件,不引入外部依赖"
+    ],
+    "openQuestions": [
+      "用户说“不好用”具体指哪些环节:看不懂字段、填错无提示、保存后无反应,还是其他?",
+      "提交成功后的期望行为是跳回列表页,还是留在表单页并清空以便连续录入?",
+      "title 是否必填?owner/due 是否可空或有格式要求(如截止日期不得早于今天)?",
+      "主要使用设备是桌面还是移动端,是否需要相应的输入优化?",
+      "localStorage 中已存在的空标题等无效历史数据是否需要清理?"
+    ],
+    "sources": [
+      "README.md",
+      "brief.txt",
+      "new-task.html",
+      "index.html"
+    ]
+  }
+}
+{
+  "ok": true,
+  "source": "model",
+  "reason": null,
+  "report": {
+    "problemStatement": "用户反馈\"新增任务的页面不好用\"(逐字)。目标不是某个具体改法,而是:让新增任务(new-task.html)的流程清晰可靠——用户知道每个字段填什么、填错能被提醒、保存后能确认结果并回到列表。核查证据:new-task.html 的三个输入框均无 <label>,无法辨认 title/owner/due 含义;无任何校验,title 可为空直接写入 localStorage;due 是纯文本输入无格式约束;onsubmit 写入 localStorage 后既无成功提示、也不 reset 表单、更无返回 index.html 的入口,用户无法感知保存是否成功,易重复点击造成重复数据。用户未提出具体方案,因此无需反驳用户方案;需防范的是\"推倒重做/换组件库/合并进列表页\"这类过度设计,因 brief.txt 明确要求保持现有字段与 localStorage 结构。",
+    "assumptions": [
+      {
+        "text": "\"不好用\"指向 new-task.html 页面本身(README 已知状态与 brief.txt 均印证)",
+        "confidence": "high",
+        "verifiableBy": "README.md 的\"已知状态\"段与 brief.txt 第1行直接点名 new-task.html"
+      },
+      {
+        "text": "痛点主要是:无标签、无校验反馈、提交后无确认且不回列表页",
+        "confidence": "medium",
+        "verifiableBy": "new-task.html 源码:input 无 label;onsubmit 仅写 localStorage 后无后续动作;可与用户确认优先级"
+      },
+      {
+        "text": "title 应为必填、due 应为日期格式",
+        "confidence": "medium",
+        "verifiableBy": "index.html 以 title 渲染条目、以 due 拼\"(截止:…)\";需与用户确认必填规则"
+      },
+      {
+        "text": "必须保持字段 title/owner/due 与 localStorage 键 tasks 的数组结构不变",
+        "confidence": "high",
+        "verifiableBy": "brief.txt 明文\"保持现有字段与 localStorage 结构\""
+      }
+    ],
+    "risks": [
+      "改字段名或 localStorage 结构会破坏 index.html 的渲染逻辑",
+      "无校验时空 title 会写入垃圾数据并显示在列表页",
+      "due 自由文本导致格式不一,列表页\"(截止:…)\"显示混乱",
+      "提交后无反馈可能诱发重复提交,产生重复任务",
+      "若顺带改 index.html,回归范围扩大(违反最小改动原则)"
+    ],
+    "options": [
+      {
+        "name": "方案A:原地修复 new-task.html——补 label、title 必填校验与错误提示、due 用 type=date、保存成功后提示并跳回 index.html",
+        "tradeoffs": "改动仅限一个文件,零存储结构变更,风险最低;不解决未来更复杂表单的扩展性(当前场景不需要)"
+      },
+      {
+        "name": "方案B:把新增表单合并进 index.html 单页化",
+        "tradeoffs": "流程更短,但需同时改两个页面、改动面大、与 brief 的最小约束相悖,回归风险高"
+      },
+      {
+        "name": "方案C:引入表单组件库/框架重写",
+        "tradeoffs": "对静态 localStorage 演示属过度设计,增加依赖与维护成本,收益不成比例"
+      }
+    ],
+    "recommendation": {
+      "action": "采用方案A:仅修改 new-task.html——为每个输入补 <label>;title 加必填校验(为空时显示错误且不写入 localStorage);due 改用 <input type=\"date\">;保存成功后给出可见确认并跳转/引导回 index.html,由 index.html 渲染出新任务作为最终确认。",
+      "rationale": "直接对应可核查的四类缺陷(无标签/无校验/无格式约束/无反馈无回流),完全满足 brief 的\"保持字段与存储结构\"约束,改动集中、易验收,避免方案B/C的过度设计。"
+    },
+    "acceptanceCriteria": [
+      "title/owner/due 每个输入框都有可点击关联的 <label> 文本",
+      "title 为空时点击保存:表单不提交,页面显示明确错误信息,localStorage 的 tasks 不变",
+      "due 输入框为 type=date(或等价格式校验),非法格式无法提交",
+      "填写合法并保存后:用户看到成功提示,并回到/可一键回到 index.html,新任务(含截止日期)出现在列表中且只出现一次",
+      "localStorage 键 tasks 仍为 {title, owner, due} 对象数组,index.html 无需任何改动即可正常渲染"
+    ],
+    "openQuestions": [
+      "\"不好用\"在用户实际使用中具体指哪一点(字段不认识?不知道存没存上?回不去列表?),需与用户确认优先级",
+      "owner 是否必填?当前 index.html 并不展示 owner,该字段是否仍需要",
+      "保存后希望自动跳转回列表,还是停留在表单页仅显示成功提示",
+      "是否还有未列入清单的编辑/删除等页面或流程(影响本次改动是否需要预留入口)"
+    ],
+    "sources": [
+      "README.md",
+      "brief.txt",
+      "index.html",
+      "new-task.html"
+    ]
+  }
+}
+{
+  "ok": true,
+  "source": "model",
+  "reason": null,
+  "report": {
+    "problemStatement": "用户反馈『新增任务的页面不好用』(原始需求)。代码核查(new-task.html)显示该页存在多处可用性缺陷:三个输入框均无 <label>;title/owner/due 无 required 与格式约束,无任何校验或错误反馈;提交成功后既不清空表单、也不提示成功、也不跳回 index.html,用户无法感知操作结果;due 为纯文本输入而非日期控件。README.md 的『已知状态』与上述代码证据一致。",
+    "assumptions": [
+      {
+        "text": "『不好用』主要指:缺少标签、缺少校验反馈、提交后无确认/无回导(与 README 已知状态吻合)",
+        "confidence": "high",
+        "verifiableBy": "比对 README.md『已知状态』与 new-task.html 源码中的 form 与 onsubmit 逻辑"
+      },
+      {
+        "text": "数据结构必须保持对象键 title/owner/due 与存储键 'tasks' 不变,否则 index.html 渲染(t.title、t.due)会失效",
+        "confidence": "high",
+        "verifiableBy": "index.html 中 localStorage.getItem('tasks') 与 t.title/t.due 的读取代码"
+      },
+      {
+        "text": "due 期望是日期,适合改用 type='date' 控件",
+        "confidence": "medium",
+        "verifiableBy": "index.html 以『(截止:…)』格式展示 due,暗示其为日期;但具体格式/是否必填未经用户确认"
+      },
+      {
+        "text": "brief.txt 的『保持现有字段与 localStorage 结构』是项目约束而非用户原话,视为实现约束",
+        "confidence": "medium",
+        "verifiableBy": "brief.txt 原文;最终需用户确认该约束是否允许新增 required/placeholder 等非数据性属性"
+      }
+    ],
+    "risks": [
+      "『不好用』表述模糊,若仅凭猜测直接改 UI,可能改错重点(如用户实际痛点是字段缺失或跳转缺失)",
+      "due 是自由文本,现状可存入任意字符串;若改成 date 控件需兼容历史脏数据,index.html 直接拼接展示不会报错但可能显示异常",
+      "仅 localStorage 存储导致任务不跨设备/不跨浏览器,若用户期望的是『数据丢了/换设备看不到』,本次表单改进无法解决其根因",
+      "新增校验若无反馈设计,可能从『无校验』变成『静默失败』,问题复现"
+    ],
+    "options": [
+      {
+        "name": "方案A:最小改造 new-task.html(推荐)——加 label、title 必填校验、due 改 date 控件、提交后清空表单并显式提示成功,可选跳转回 index.html;不改字段名与 localStorage 结构",
+        "tradeoffs": "改动面小、与 index.html 兼容、可直接判定验收;但不触及 localStorage 不跨设备的根本局限"
+      },
+      {
+        "name": "方案B:重构为单页内嵌表单(在 index.html 内新增,不用独立页面)",
+        "tradeoffs": "减少页面跳转,但偏离 brief.txt『改进 new-task.html』的指示,且改动面大、风险更高"
+      },
+      {
+        "name": "方案C:先做用户访谈澄清痛点再动手",
+        "tradeoffs": "降低改错风险,但 README 已明确列出可核查的缺陷清单,纯等待会拖延可确定的改进"
+      }
+    ],
+    "recommendation": {
+      "action": "按方案A改造 new-task.html:为每个输入添加关联 <label>;title 设必填并在为空时显示行内错误且不写入 localStorage;due 改为 <input type='date'>;提交成功后清空表单、显示成功提示并提供『返回任务清单』链接(或 1–2 秒后自动跳转 index.html)。严格保持字段名 title/owner/due 与存储键 'tasks' 及对象结构不变,以兼容 index.html。",
+      "rationale": "README/brief 已将该页缺陷列为『已知状态』,代码证据充分,无需再等澄清即可安全修复最可核查的问题;保持数据结构不变可避免破坏列表页渲染。需向用户指出:『页面不好用』并未指明唯一痛点,本方案覆盖的是当前可核查的全部四个缺陷;若用户实际痛点是跨设备同步,则属于 localStorage 架构层面的另一个需求,应单独立项"
+    },
+    "acceptanceCriteria": [
+      "每个 input(name=title/owner/due)均有通过 for/id 关联的 <label>,可用 DOM 查询判定",
+      "title 为空时点击『保存』:显示可见错误文案,且 localStorage.getItem('tasks') 长度不变(不写入)",
+      "填写合法数据提交后:'tasks' 数组恰好新增 1 个对象,且其键集仍为 {title, owner, due}(与 index.html 兼容)",
+      "due 输入框 type='date',仅能产生日期值",
+      "提交成功后表单被清空且出现明确成功提示(文本或跳转),用户能感知操作结果",
+      "改动后 index.html 无需任何修改即可正常渲染新增任务"
+    ],
+    "openQuestions": [
+      "用户『不好用』的首要痛点具体是哪一项:无标签、无校验、无提交反馈,还是不跳回列表?",
+      "owner 字段是否必填、有无格式要求(如工号/邮箱)?",
+      "due 是否必填、历史数据中的非日期字符串如何兼容?",
+      "brief.txt 的『保持现有字段』约束是否允许新增 required/placeholder 等非数据性属性?",
+      "任务数据是否需要跨设备/多用户可见(即是否要摆脱 localStorage)?若需要,应另立需求"
+    ],
+    "sources": [
+      "README.md",
+      "brief.txt",
+      "new-task.html",
+      "index.html"
+    ]
+  }
+}
+{
+  "ok": true,
+  "source": "model",
+  "reason": null,
+  "report": {
+    "problemStatement": "用户抱怨新增任务页面(new-task.html)不好用。代码核查证实可用性缺陷:输入框无标签(<input name=title/owner/due> 均无 <label> 与提示)、无任何校验(空标题也照常写入 localStorage.tasks)、提交成功后无确认提示且不跳转回 index.html,用户无从得知操作结果,易重复提交。真正目标:让新增任务操作可理解、可反馈、可回位;brief.txt 已限定约束——保持现有字段与 localStorage 结构。",
+    "assumptions": [
+      {
+        "text": "页面保留了既有功能,但缺少可用性反馈闭环:提交无确认、无跳转,是'不好用'的主因",
+        "confidence": "high",
+        "verifiableBy": "读取 new-task.html:onsubmit 仅写入 localStorage 后无任何 UI 反馈或跳转;brief.txt 明确列出同一批缺陷"
+      },
+      {
+        "text": "用户希望保留现有三个字段与 localStorage 'tasks' 数组结构,只做体验改进而非重构",
+        "confidence": "high",
+        "verifiableBy": "brief.txt 原文:'保持现有字段与 localStorage 结构'"
+      },
+      {
+        "text": "'不好用'主要指该表单页本身的交互体验,而非入口缺失或列表页问题",
+        "confidence": "medium",
+        "verifiableBy": "用户需求逐字指向'新增任务的页面';index.html 列表渲染正常,无相关投诉证据;需向用户确认是否包含其他痛点"
+      }
+    ],
+    "risks": [
+      "空标题/非法日期也会写入 localStorage,产生脏数据,且 index.html 会原样展示损坏的 due 文本",
+      "提交后无反馈且停留原页,用户可能反复点击保存导致重复任务(代码层无去重逻辑)",
+      "无标签的裸输入框降低可理解性与无障碍性"
+    ],
+    "options": [
+      {
+        "name": "最小可用性修复 new-task.html:加中文标签/占位符、标题必填校验与内联错误提示、保存成功提示并自动跳转回 index.html",
+        "tradeoffs": "改动局限在单页脚本与表单标记,字段与存储结构不变,风险最低,直接对应已核查的缺陷;但不新增新功能(如日期控件类型升级需另行确认)"
+      },
+      {
+        "name": "重构为组件化/框架方案或把新增改为 index.html 上的弹窗快速录入",
+        "tradeoffs": "体验上限更高,但改动面大、引入依赖,超出 brief.txt 的最小改动约束,收益与静态单页场景不匹配"
+      }
+    ],
+    "recommendation": {
+      "action": "采用最小可用性修复:为 title/owner/due 添加可见中文标签与占位提示;title 设为必填,空提交时内联显示错误且不写入 localStorage;due 用 type=date 或前端校验日期格式;保存成功后显示确认提示(如'已保存')并在约 1.5 秒内跳转 index.html,新任务随即出现在列表中。",
+      "rationale": "README 与 brief.txt 明确指认的四类缺陷(无标签、无校验反馈、无确认、不引导回列表)均可由该方案逐条消除;约束'保持现有字段与 localStorage 结构'被完整满足;改动集中在一个文件,验收条件可逐条判定。"
+    },
+    "acceptanceCriteria": [
+      "new-task.html 中三个输入框均有可见中文标签或明确占位提示",
+      "标题为空时点击保存:页面显示内联错误,且 localStorage.tasks 内容不发生变化(可用浏览器开发者工具核对)",
+      "due 为非法日期时显示校验错误且不写入",
+      "合法提交后:页面出现成功提示,≤2 秒内自动跳转到 index.html,且新任务出现在列表中(标题与截止日期显示正确)",
+      "连续两次提交同一内容会产生两条独立记录(与现状一致的既有语义)且页面均正确跳转,不因反馈逻辑出错阻塞提交",
+      "localStorage 中 tasks 仍为对象数组,对象键仍为 title/owner/due,无新增/删改"
+    ],
+    "openQuestions": [
+      "'不好用'是否还包括其他未核查痛点(如移动端表现、字段过多、想撤销已保存的任务等)",
+      "due 字段是否可升级为 date 类型控件(涉及用户输入习惯变更)",
+      "owner 是否应为自由文本还是可选人员下拉",
+      "保存后跳转列表是否是期望行为,还是希望留在当前页连续录入"
+    ],
+    "sources": [
+      "README.md",
+      "brief.txt",
+      "new-task.html",
+      "index.html"
+    ]
+  }
+}
+{
+  "ok": true,
+  "source": "model",
+  "reason": null,
+  "report": {
+    "problemStatement": "用户反馈(逐字):\"新增任务的页面不好用。\"。经核查,该反馈指向 new-task.html 的表单可用性缺陷:输入框无 <label>(用户不知道每个框该填什么)、无任何校验与错误反馈(空 title 也能提交并写入 localStorage)、提交成功后页面无确认也无跳转/返回列表的入口(用户无法判断是否保存成功,易重复提交)。真正的目标是\"让新增任务流程可用\",而非用户未提出的任何具体改版方案;brief.txt 已给出约束:保持现有字段(title/owner/due)与 localStorage 结构(tasks 数组,元素含 title/owner/due)。",
+    "assumptions": [
+      {
+        "text": "\"不好用\"具体指 README.md 已知状态中列出的四类缺陷:无标签、无校验反馈、提交后无确认、不引导回列表页",
+        "confidence": "high",
+        "verifiableBy": "对照 README.md \"已知状态\" 与 new-task.html 源码逐条核实(表单无 label、onsubmit 无任何反馈/跳转)"
+      },
+      {
+        "text": "改进应保持字段 title/owner/due 与 localStorage 键 tasks 的数据结构不变",
+        "confidence": "high",
+        "verifiableBy": "brief.txt 原文\"保持现有字段与 localStorage 结构\";new-task.html 写入逻辑与 index.html 读取逻辑(读取 t.title/t.due)互相印证"
+      },
+      {
+        "text": "用户希望提交后能到达/看到任务列表以确认保存成功",
+        "confidence": "medium",
+        "verifiableBy": "向用户确认;index.html 已存在列表页且无返回链接,是常见可用性预期"
+      },
+      {
+        "text": "due 字段应使用日期输入(当前为自由文本,index.html 直接字符串展示)",
+        "confidence": "low",
+        "verifiableBy": "向用户确认 due 的期望格式;现有数据均为自由字符串,改动需兼容"
+      }
+    ],
+    "risks": [
+      "需求\"不好用\"过于模糊,若不对照可核查缺陷清单,可能修错方向",
+      "无成功反馈+无跳转,用户会重复点击保存,产生重复任务数据",
+      "空 title/任意 due 可入库,index.html 会渲染空标题项,污染 localStorage",
+      "new-task.html 无任何导航回 index.html 的链接,任务流在新页面上断裂",
+      "改动若触及字段名或 localStorage 结构,会破坏 index.html 的读取渲染(brief 明确要求保持)"
+    ],
+    "options": [
+      {
+        "name": "方案A:在 new-task.html 做针对性可用性修复(推荐)",
+        "tradeoffs": "改动小、完全符合 brief 约束:为三个输入加 <label>,title 必填校验+行内错误提示,due 可考虑 type=date(保持存储键不变);提交成功后显示确认并跳转/提供返回 index.html 的链接;页面加返回列表入口。代价:不改变页面整体布局与视觉风格"
+      },
+      {
+        "name": "方案B:重设计整个新增任务页面",
+        "tradeoffs": "可顺带改善视觉与交互,但超出一句模糊反馈支撑的范围,且风险触及\"保持字段与 localStorage 结构\"的约束;在需求未澄清前不建议"
+      },
+      {
+        "name": "方案C:仅向用户追问具体哪里不好用,暂不改码",
+        "tradeoffs": "避免误判,但 README.md 已列出可核查的具体缺陷,纯等待会拖延本可直接验证的修复;可作为方案A交付后收集反馈的补充"
+      }
+    ],
+    "recommendation": {
+      "action": "实施方案A:按 README.md 已知状态逐项修复 new-task.html——(1) 每个输入配 <label>;(2) title 设为必填,提交时校验,空值给行内错误且不写入 localStorage;(3) 保存成功后展示确认并跳转(或显著链接)到 index.html;(4) 页面提供返回任务列表的入口。全程保持字段 title/owner/due 名称与 localStorage 键 tasks、元素结构 {title,owner,due} 不变。",
+      "rationale": "用户只说\"不好用\",未提方案;但代码证据(new-task.html 无 label、无校验、onsubmit 静默结束、无返回链接)与 README 已知状态一一对应,属可核查缺陷而非主观猜测。针对性修复直接消除\"不知道填什么/不知道存没存上/回不去列表\"三类可用性断点,且满足 brief 的兼容性约束;在修复后用验收条件回访用户,再决定是否需要方案B级重设计。"
+    },
+    "acceptanceCriteria": [
+      "new-task.html 中 title/owner/due 三个输入各自有可见且正确关联(for/id)的 <label>",
+      "title 为空时点击保存:显示行内错误提示,且 localStorage 的 tasks 内容不变(可用 DevTools 或读取前快照验证)",
+      "填写完整后保存:出现成功确认,并通过跳转或显著链接可到达 index.html,新任务出现在列表中",
+      "保存后的 tasks 数组元素仍为 {title,owner,due} 三键,index.html 渲染正常(标题+截止展示)",
+      "现有字段未被删除或改名,localStorage 键名仍为 tasks"
+    ],
+    "openQuestions": [
+      "用户\"不好用\"是否还包括视觉/布局层面的问题(如输入框过窄、移动端适配),还是仅指上述流程缺陷?",
+      "提交成功后应自动跳转到 index.html,还是留在本页仅显示确认+手动返回链接?",
+      "due 字段期望的输入与展示格式是什么(自由文本还是日期选择器)?现有历史数据为自由字符串,如何兼容?",
+      "owner 是否应为受控选项(下拉/预设人员)而非自由文本?多用户共写 localStorage 是否是预期场景?"
+    ],
+    "sources": [
+      "README.md",
+      "brief.txt",
+      "index.html",
+      "new-task.html"
+    ]
+  }
+}

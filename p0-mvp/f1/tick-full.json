@@ -1,0 +1,135 @@
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f1-ux",
+      "ownerId": "f1-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "taskId": "t-f1-ux",
+    "runId": "run-587a9041-45ab-4c36-a72d-b39a55267772",
+    "workspaceDir": "/tmp/relay-run-4Fx34y/ws",
+    "disposition": "task_blocked_by_budget"
+  },
+  "goalStates": []
+}
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f1-ux",
+      "ownerId": "f1-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "TIMEOUT",
+    "taskId": "t-f1-ux",
+    "runId": "run-b1c3a7e4-70a8-4946-852e-1ee1c113120c",
+    "workspaceDir": "/tmp/relay-run-m9EUIM/ws",
+    "disposition": "left_for_supervisor:FAILED"
+  },
+  "goalStates": [
+    {
+      "goalId": "goal-f1-ux",
+      "state": "FAILED"
+    }
+  ]
+}
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f1-ux",
+      "ownerId": "f1-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "SUCCEEDED",
+    "taskId": "t-f1-ux",
+    "runId": "run-abe16b7d-725f-409b-969c-c49e8ae95019",
+    "workspaceDir": "/tmp/relay-run-cbmUOp/ws",
+    "disposition": "noop_succeeded"
+  },
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-6ce99b64-e3eb-48a9-995a-cce97eddcca7:evidence_not_passed",
+    "changesetId": "cs-e70c21eb-f12d-4276-a79a-9955c36ca3c5",
+    "evidenceIds": [
+      "ev-6ce99b64-e3eb-48a9-995a-cce97eddcca7",
+      "ev-2999f74a-3302-478b-9c7f-8d446de39be3"
+    ],
+    "violations": []
+  },
+  "goalStates": []
+}
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f1-ux",
+      "ownerId": "f1-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "SUCCEEDED",
+    "taskId": "t-f1-ux",
+    "runId": "run-69939202-c986-4d44-bc5f-2c3f566d9283",
+    "workspaceDir": "/tmp/relay-run-aXqhsG/ws",
+    "disposition": "noop_succeeded"
+  },
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-d8e87017-3382-49b4-90ee-4bcd3777e99c:evidence_not_passed",
+    "changesetId": "cs-4ee67b8a-5fc6-4070-be29-564f72c64969",
+    "evidenceIds": [
+      "ev-d8e87017-3382-49b4-90ee-4bcd3777e99c",
+      "ev-1b2da943-8234-4419-9fa6-a809e619f2dd"
+    ],
+    "violations": []
+  },
+  "goalStates": []
+}
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f1-ux",
+      "ownerId": "f1-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "taskId": "t-f1-ux",
+    "runId": "run-dcd8cfdd-e646-4293-bcb1-9c12fc179cf5",
+    "workspaceDir": "/tmp/relay-run-jUWJ9u/ws",
+    "disposition": "task_blocked_by_budget"
+  },
+  "goalStates": []
+}

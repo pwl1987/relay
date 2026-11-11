@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>任务清单</title></head>
+<body>
+  <h1>任务清单</h1>
+  <ul id="task-list"></ul>
+  <script>
+    const list = document.getElementById("task-list");
+    (JSON.parse(localStorage.getItem("tasks") || "[]")).forEach(t => {
+      const li = document.createElement("li");
+      li.textContent = t.title + (t.due ? "(截止:" + t.due + ")" : "");
+      list.appendChild(li);
+    });
+  </script>
+</body>
+</html>

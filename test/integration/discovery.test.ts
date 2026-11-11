@@ -4,7 +4,8 @@
 //       CLI goal analyze(operator 门/env 门)/门控真模型测试(RELAY_DISCOVERY_E2E=1,声明预算)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
@@ -45,7 +46,7 @@ describe("P0-REWORK-1:Discovery(stub 解析/持久化/降级)", { timeout: 180_0
   });
   afterAll(async () => {
     process.env.RELAY_DB_SCHEMA = savedSchema;
-    for (const p of projectRoots) rmSync(p, { recursive: true, force: true });
+    for (const p of projectRoots) safeRm(p, { roots: projectRoots, sentinel: RUN_SENTINEL });
     await t.cleanup();
   });
 
@@ -79,7 +80,7 @@ describe("P0-REWORK-1:Discovery(stub 解析/持久化/降级)", { timeout: 180_0
         tasks: [{ id: "t-disc-1", goalText: "调查", priority: 2, allowedScope: ["/workspace"], allowedCommands: [] }],
       }),
     );
-    const proj = makeProject(mkdtempSync(join(tmpdir(), "rework1-proj-")));
+    const proj = makeProject(markTemp(mkdtempSync(join(tmpdir(), "rework1-proj-"))));
     projectRoots.push(proj);
     const pi = resolveVendoredPi();
     const r = await runGoalDiscovery(t.db, pi, {
@@ -120,7 +121,7 @@ describe("P0-REWORK-1:Discovery(stub 解析/持久化/降级)", { timeout: 180_0
         tasks: [{ id: "t-disc-2", goalText: "x", priority: 2 }],
       }),
     );
-    const proj = makeProject(mkdtempSync(join(tmpdir(), "rework1-proj2-")));
+    const proj = makeProject(markTemp(mkdtempSync(join(tmpdir(), "rework1-proj2-"))));
     projectRoots.push(proj);
     const pi = resolveVendoredPi();
     const r = await runGoalDiscovery(t.db, pi, {
@@ -152,7 +153,7 @@ describe("P0-REWORK-1:Discovery(stub 解析/持久化/降级)", { timeout: 180_0
     // goal 无预算(直接 SQL 建行,绕过 planGoal 的 FAIL-CLOSED —— 模拟坏数据)
     await t.db.execute(sql`INSERT INTO goals (id, raw_input, state) VALUES ('goal-disc-nobudget', '无预算', 'ACTIVE')`);
     await t.db.execute(sql`INSERT INTO tasks (id, goal_id, state, priority, max_attempts, allowed_scope, allowed_commands) VALUES ('t-nobudget', 'goal-disc-nobudget', 'READY', 0, 3, '[]'::jsonb, '[]'::jsonb)`);
-    const proj = makeProject(mkdtempSync(join(tmpdir(), "rework1-proj3-")));
+    const proj = makeProject(markTemp(mkdtempSync(join(tmpdir(), "rework1-proj3-"))));
     projectRoots.push(proj);
     const pi = resolveVendoredPi();
     const r = await runGoalDiscovery(t.db, pi, {
@@ -181,7 +182,7 @@ describe("P0-REWORK-1:Discovery(stub 解析/持久化/降级)", { timeout: 180_0
         tasks: [{ id: "t-disc-evil", goalText: "x", priority: 2 }],
       }),
     );
-    const proj = makeProject(mkdtempSync(join(tmpdir(), "rework1-evil-")), true);
+    const proj = makeProject(markTemp(mkdtempSync(join(tmpdir(), "rework1-evil-"))), true);
     projectRoots.push(proj);
     const pi = resolveVendoredPi();
     const r = await runGoalDiscovery(t.db, pi, {
@@ -217,7 +218,7 @@ describe("P0-REWORK-1:Discovery(stub 解析/持久化/降级)", { timeout: 180_0
         tasks: [{ id: "t-disc-3", goalText: "x", priority: 2 }],
       }),
     );
-    const proj = makeProject(mkdtempSync(join(tmpdir(), "rework1-proj4-")));
+    const proj = makeProject(markTemp(mkdtempSync(join(tmpdir(), "rework1-proj4-"))));
     projectRoots.push(proj);
     const first = await runCli(["goal", "analyze", goalId, "--project-dir", proj, "--stub", "--actor", "owner"]);
     expect(first.code).toBe(EXIT.OK);
@@ -255,7 +256,7 @@ describe.skipIf(process.env.RELAY_DISCOVERY_E2E !== "1")("REWORK-1 真模型验�
   });
   afterAll(async () => {
     process.env.RELAY_DB_SCHEMA = savedSchema;
-    for (const p of projectRoots) rmSync(p, { recursive: true, force: true });
+    for (const p of projectRoots) safeRm(p, { roots: projectRoots, sentinel: RUN_SENTINEL });
     await t.cleanup();
   });
 
@@ -287,7 +288,7 @@ describe.skipIf(process.env.RELAY_DISCOVERY_E2E !== "1")("REWORK-1 真模型验�
   async function analyze(goalId: string, rawInput: string, kind: "fuzzy" | "bad-design" | "incomplete"): Promise<{ ok: boolean; source: string; report?: Record<string, unknown>; reason?: string; proj?: string }> {
     const model = envModel();
     if (!model) throw new Error("RELAY_PI_* 未配置(真模型门要求)");
-    const proj = makeRealProject(mkdtempSync(join(tmpdir(), "rework1-real-")), kind);
+    const proj = makeRealProject(markTemp(mkdtempSync(join(tmpdir(), "rework1-real-"))), kind);
     projectRoots.push(proj);
     await t.db.transaction(async (tx) =>
       planGoal(tx as unknown as Exec, {

@@ -13,7 +13,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createTestDb, seedTask, type TestDb } from "../setup/testdb.ts";
@@ -108,7 +109,7 @@ const credentialUsable = credential.mode === "wellformed" && credential.accepted
 const roots: string[] = [];
 const stores: Array<{ cleanup(): void }> = [];
 afterAll(() => {
-  for (const r of roots) rmSync(r, { recursive: true, force: true });
+  for (const r of roots) safeRm(r, { roots, sentinel: RUN_SENTINEL });
   for (const s of stores) s.cleanup();
 });
 
@@ -171,7 +172,7 @@ describe.skipIf(!credential.present)(
     let credentialFile: string;
 
     beforeAll(async () => {
-      roots.push(mkdtempSync(join("/tmp", "relay-gh-real-")));
+      roots.push(markTemp(mkdtempSync(join("/tmp", "relay-gh-real-"))));
       t = await createTestDb("p02b-github-real");
       const store = makeCredentialStore(TOKEN_FILE);
       stores.push(store);

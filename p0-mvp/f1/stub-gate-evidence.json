@@ -1,0 +1,126 @@
+[
+  {
+    "id": "ev-9b3dde89-99ac-4a73-b30d-e7bdf3702aaf",
+    "kind": "deterministic_test",
+    "passed": false,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":false,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":false,\"note\":\"提交后无成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}\n[exit=1]"
+  },
+  {
+    "id": "ev-9e838ebb-9e1b-4ced-af6e-849c9a8ff09b",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-3e1893ef-d201-48ab-81ae-3162a06de35c",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-cf3f00ca-05c7-4a13-8b8a-b8bccd2533cd",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-11318f32-f997-450c-afc7-57dfce08abd5",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-f97fa57b-c62c-462a-a1d5-ecc712d46fca",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-f46a6f3f-57aa-4144-bb44-242496f257ba",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-7744984d-e857-4e48-90a5-a0ae09894ebe",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-c6c231b9-45ef-4b1c-9fb6-8f8ce31300ac",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-23c1d371-45c2-48c7-9ce1-9015a9b7cc5d",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-b223b2cf-b827-4e68-9974-4ac65f2ebac3",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-8856e752-e5e9-4966-b711-e85fb8818216",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-cd4aa73b-81d4-459d-ba2c-96620a0a952a",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-40840932-b69c-459c-ba52-be2e1a07b9aa",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-1386ea3c-c687-44b3-a8a7-150fda514205",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-452e11bb-166b-4451-927a-6536dbeaa18c",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
+[
+  {
+    "id": "ev-ed37e800-6137-41e1-a4b1-2bcf0f101cf4",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-dda64ecf-804c-4d8c-a2d5-a235a046a3c5",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]

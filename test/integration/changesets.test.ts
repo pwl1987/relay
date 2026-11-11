@@ -3,7 +3,8 @@
 // 变更集绑定 task/run/attempt;失败 Run 无候选。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { writeFileSync, mkdirSync, symlinkSync, rmSync } from "node:fs";
+import { writeFileSync, mkdirSync, symlinkSync } from "node:fs";
+import { markRunDir, markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
@@ -40,6 +41,7 @@ describe("Candidate ChangeSet(清单/对比/绑定)", () => {
 
   it("snapshotManifest:递归清单 + .relay 排除 + 符号链接跳过", () => {
     const root = join(tmpdir(), `relay-manifest-${process.pid}`);
+    markRunDir(root, { kind: "manifest-test" });
     mkdirSync(join(root, "sub"), { recursive: true });
     mkdirSync(join(root, ".relay"), { recursive: true });
     writeFileSync(join(root, "a.txt"), "A");
@@ -51,7 +53,7 @@ describe("Candidate ChangeSet(清单/对比/绑定)", () => {
     expect(man.get("sub/b.txt")).toBe(createHash("sha256").update("B").digest("hex"));
     expect(man.has(".relay/tool-audit.jsonl")).toBe(false); // Worker 审计目录不算候选内容
     expect(man.has("link.txt")).toBe(false); // 不追随链接(防逃逸)
-    rmSync(root, { recursive: true, force: true });
+    safeRm(root, { roots: [root], sentinel: RUN_SENTINEL });
   });
 
   it("diff/manifestSha:增改删分类 + sha 与顺序无关且内容敏感", () => {

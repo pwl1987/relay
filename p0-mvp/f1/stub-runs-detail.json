@@ -1,0 +1,404 @@
+[
+  {
+    "id": "run-8cb63670-0bb1-42bb-a155-99c4f18dbf09",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "budget": {
+        "tokensIn": 20000,
+        "tokensOut": 4000,
+        "actualCalls": 1
+      },
+      "handoff": {
+        "status": "done",
+        "summary": "stub 完成"
+      },
+      "changeset": {
+        "id": "cs-003eccc9-5d34-4468-86f1-3725a3c9bb30",
+        "diff": {
+          "added": [],
+          "removed": [],
+          "modified": [
+            "new-task.html"
+          ]
+        },
+        "baseSha": "f11c558a3ba9fd4f9744cce86079200611fc3ad71dc4019129a35aedf484dd6a",
+        "violations": [],
+        "candidateSha": "833e6303e63ba96dbdfa104e08abf15b6799531957ce8a26bc91f137e8927076",
+        "requirementSha": "08c5c62a61fd67483c89620e83b19ffe9c873dd54e3048f7ceddfa71a2237d5a"
+      },
+      "toolDenied": 0,
+      "toolEvents": [],
+      "toolAuditLines": 0,
+      "toolCallEvents": 0
+    }
+  },
+  {
+    "id": "run-e06d7b93-b781-4a58-b315-0437e094e0a8",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "role": "reviewer",
+      "turns": 1,
+      "rawLen": 72,
+      "reason": "PASS",
+      "rawHead": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```",
+      "verdict": "PASS",
+      "toolAudit": {
+        "lines": 0,
+        "denied": 0,
+        "missing": true,
+        "reasons": []
+      },
+      "recordTypes": {
+        "response": 2,
+        "turn_end": 1,
+        "agent_end": 1,
+        "turn_start": 1,
+        "agent_start": 1,
+        "message_end": 1,
+        "agent_settled": 1,
+        "message_start": 1
+      }
+    }
+  }
+]
+[
+  {
+    "id": "run-e95f27c9-c49d-4bf7-88ce-1e5aba8706ba",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "budget": {
+        "tokensIn": 20000,
+        "tokensOut": 4000,
+        "actualCalls": 1
+      },
+      "handoff": {
+        "status": "done",
+        "summary": "stub 完成"
+      },
+      "changeset": {
+        "id": "cs-5ba4756b-9e04-4dd8-a99e-e2554524ee97",
+        "diff": {
+          "added": [],
+          "removed": [],
+          "modified": [
+            "new-task.html"
+          ]
+        },
+        "baseSha": "f11c558a3ba9fd4f9744cce86079200611fc3ad71dc4019129a35aedf484dd6a",
+        "violations": [],
+        "candidateSha": "833e6303e63ba96dbdfa104e08abf15b6799531957ce8a26bc91f137e8927076",
+        "requirementSha": "08c5c62a61fd67483c89620e83b19ffe9c873dd54e3048f7ceddfa71a2237d5a"
+      },
+      "toolDenied": 0,
+      "toolEvents": [],
+      "toolAuditLines": 0,
+      "toolCallEvents": 0,
+      "candidateCommitError": "git_failed: git clone failed: fatal: destination path '/tmp/d-f1s-stage-eF6TtC/relay-stage-cs-5ba4756b-9e04-4dd8-a99e-e2554524ee97-543e62c4' already exists and is not an empty directory."
+    }
+  },
+  {
+    "id": "run-15d76744-7381-4d8f-bcd7-5913027db8d6",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "role": "reviewer",
+      "turns": 1,
+      "rawLen": 72,
+      "reason": "PASS",
+      "rawHead": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```",
+      "verdict": "PASS",
+      "toolAudit": {
+        "lines": 0,
+        "denied": 0,
+        "missing": true,
+        "reasons": []
+      },
+      "recordTypes": {
+        "response": 2,
+        "turn_end": 1,
+        "agent_end": 1,
+        "turn_start": 1,
+        "agent_start": 1,
+        "message_end": 1,
+        "agent_settled": 1,
+        "message_start": 1
+      }
+    }
+  }
+]
+[
+  {
+    "id": "run-3942dd5a-84ab-4e77-bee1-149c5b8093c1",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "budget": {
+        "tokensIn": 20000,
+        "tokensOut": 4000,
+        "actualCalls": 1
+      },
+      "handoff": {
+        "status": "done",
+        "summary": "stub 完成"
+      },
+      "changeset": {
+        "id": "cs-267d8ee3-f8d1-45c1-a785-c992844abad5",
+        "diff": {
+          "added": [],
+          "removed": [],
+          "modified": [
+            "new-task.html"
+          ]
+        },
+        "baseSha": "f11c558a3ba9fd4f9744cce86079200611fc3ad71dc4019129a35aedf484dd6a",
+        "violations": [],
+        "candidateSha": "833e6303e63ba96dbdfa104e08abf15b6799531957ce8a26bc91f137e8927076",
+        "requirementSha": "08c5c62a61fd67483c89620e83b19ffe9c873dd54e3048f7ceddfa71a2237d5a"
+      },
+      "toolDenied": 0,
+      "toolEvents": [],
+      "toolAuditLines": 0,
+      "toolCallEvents": 0,
+      "candidateCommitError": "content_mismatch: candidate tree != manifest: extra_in_tree:.relay-run-sentinel"
+    }
+  },
+  {
+    "id": "run-d501c06a-687a-41dd-ab99-109d6277bafc",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "role": "reviewer",
+      "turns": 1,
+      "rawLen": 72,
+      "reason": "PASS",
+      "rawHead": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```",
+      "verdict": "PASS",
+      "toolAudit": {
+        "lines": 0,
+        "denied": 0,
+        "missing": true,
+        "reasons": []
+      },
+      "recordTypes": {
+        "response": 2,
+        "turn_end": 1,
+        "agent_end": 1,
+        "turn_start": 1,
+        "agent_start": 1,
+        "message_end": 1,
+        "agent_settled": 1,
+        "message_start": 1
+      }
+    }
+  }
+]
+[
+  {
+    "id": "run-9bcc03f1-14b0-43bd-80f0-ca53492cb6d4",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "budget": {
+        "tokensIn": 20000,
+        "tokensOut": 4000,
+        "actualCalls": 1
+      },
+      "handoff": {
+        "status": "done",
+        "summary": "stub 完成"
+      },
+      "changeset": {
+        "id": "cs-9cfe1604-2d93-4f44-a167-51470c4b037c",
+        "diff": {
+          "added": [],
+          "removed": [],
+          "modified": [
+            "new-task.html"
+          ]
+        },
+        "baseSha": "f11c558a3ba9fd4f9744cce86079200611fc3ad71dc4019129a35aedf484dd6a",
+        "violations": [],
+        "candidateSha": "833e6303e63ba96dbdfa104e08abf15b6799531957ce8a26bc91f137e8927076",
+        "requirementSha": "08c5c62a61fd67483c89620e83b19ffe9c873dd54e3048f7ceddfa71a2237d5a"
+      },
+      "toolDenied": 0,
+      "toolEvents": [],
+      "toolAuditLines": 0,
+      "toolCallEvents": 0,
+      "candidateCommit": {
+        "treeSha": "7beab8a7dd0b737a049a4e3ee50a89be34d351c6",
+        "commitSha": "c32df8ad55aab93ddf6cf71174d7367feef1915d",
+        "filesChanged": 1,
+        "stageRepoDir": "/tmp/d-f1s-stage-VAvcLj/relay-stage-cs-9cfe1604-2d93-4f44-a167-51470c4b037c-cd5a80a7",
+        "treeVerified": true,
+        "baseCommitSha": "58f6407cdeb2ab8135ee341657d55d6a22aeccdb"
+      }
+    }
+  },
+  {
+    "id": "run-8358cadd-2fc3-425e-bd90-c0fe20e31cb5",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "role": "reviewer",
+      "turns": 1,
+      "rawLen": 72,
+      "reason": "PASS",
+      "rawHead": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```",
+      "verdict": "PASS",
+      "toolAudit": {
+        "lines": 0,
+        "denied": 0,
+        "missing": true,
+        "reasons": []
+      },
+      "recordTypes": {
+        "response": 2,
+        "turn_end": 1,
+        "agent_end": 1,
+        "turn_start": 1,
+        "agent_start": 1,
+        "message_end": 1,
+        "agent_settled": 1,
+        "message_start": 1
+      }
+    }
+  }
+]
+[
+  {
+    "id": "run-69994a3e-bf63-43a4-b8d3-a55541f7dddb",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "budget": {
+        "tokensIn": 20000,
+        "tokensOut": 4000,
+        "actualCalls": 1
+      },
+      "handoff": {
+        "status": "done",
+        "summary": "stub 完成"
+      },
+      "changeset": {
+        "id": "cs-856a6c86-9a3d-4ba5-bc81-ff119e49fa8b",
+        "diff": {
+          "added": [],
+          "removed": [],
+          "modified": [
+            "new-task.html"
+          ]
+        },
+        "baseSha": "f11c558a3ba9fd4f9744cce86079200611fc3ad71dc4019129a35aedf484dd6a",
+        "violations": [],
+        "candidateSha": "833e6303e63ba96dbdfa104e08abf15b6799531957ce8a26bc91f137e8927076",
+        "requirementSha": "08c5c62a61fd67483c89620e83b19ffe9c873dd54e3048f7ceddfa71a2237d5a"
+      },
+      "toolDenied": 0,
+      "toolEvents": [],
+      "toolAuditLines": 0,
+      "toolCallEvents": 0,
+      "candidateCommit": {
+        "treeSha": "7beab8a7dd0b737a049a4e3ee50a89be34d351c6",
+        "commitSha": "7528cccd33e66227fda0f98aa694e682a6aedd47",
+        "filesChanged": 1,
+        "stageRepoDir": "/tmp/d-f1s-stage-vtIUTQ/relay-stage-cs-856a6c86-9a3d-4ba5-bc81-ff119e49fa8b-241435e3",
+        "treeVerified": true,
+        "baseCommitSha": "f119d96321e962bc6a654dd410aac92461aa89f0"
+      }
+    }
+  },
+  {
+    "id": "run-305bb8ad-8ee5-4fd3-9a18-dbd1c0f5d992",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "role": "reviewer",
+      "turns": 1,
+      "rawLen": 72,
+      "reason": "PASS",
+      "rawHead": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```",
+      "verdict": "PASS",
+      "toolAudit": {
+        "lines": 0,
+        "denied": 0,
+        "missing": true,
+        "reasons": []
+      },
+      "recordTypes": {
+        "response": 2,
+        "turn_end": 1,
+        "agent_end": 1,
+        "turn_start": 1,
+        "agent_start": 1,
+        "message_end": 1,
+        "agent_settled": 1,
+        "message_start": 1
+      }
+    }
+  }
+]
+[
+  {
+    "id": "run-57507364-3b65-4b44-b8e0-0f79609266d8",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "budget": {
+        "tokensIn": 20000,
+        "tokensOut": 4000,
+        "actualCalls": 1
+      },
+      "handoff": {
+        "status": "done",
+        "summary": "stub 完成"
+      },
+      "changeset": {
+        "id": "cs-6fbd2418-19fc-4cfd-b57e-5d10711d3e24",
+        "diff": {
+          "added": [],
+          "removed": [],
+          "modified": [
+            "new-task.html"
+          ]
+        },
+        "baseSha": "f11c558a3ba9fd4f9744cce86079200611fc3ad71dc4019129a35aedf484dd6a",
+        "violations": [],
+        "candidateSha": "833e6303e63ba96dbdfa104e08abf15b6799531957ce8a26bc91f137e8927076",
+        "requirementSha": "08c5c62a61fd67483c89620e83b19ffe9c873dd54e3048f7ceddfa71a2237d5a"
+      },
+      "toolDenied": 0,
+      "toolEvents": [],
+      "toolAuditLines": 0,
+      "toolCallEvents": 0,
+      "candidateCommit": {
+        "treeSha": "7beab8a7dd0b737a049a4e3ee50a89be34d351c6",
+        "commitSha": "31e22f3137cbb4d466703a7567fed744a2a9f128",
+        "filesChanged": 1,
+        "stageRepoDir": "/tmp/d-f1s-stage-Bpofk4/relay-stage-cs-6fbd2418-19fc-4cfd-b57e-5d10711d3e24-ee9f5500",
+        "treeVerified": true,
+        "baseCommitSha": "78688675ab1c45c55fe067ec582fe8db39ab065d"
+      }
+    }
+  },
+  {
+    "id": "run-cc2978af-b41f-4b1f-8057-b8011ca6662b",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "role": "reviewer",
+      "turns": 1,
+      "rawLen": 72,
+      "reason": "PASS",
+      "rawHead": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```",
+      "verdict": "PASS",
+      "toolAudit": {
+        "lines": 0,
+        "denied": 0,
+        "missing": true,
+        "reasons": []
+      },
+      "recordTypes": {
+        "response": 2,
+        "turn_end": 1,
+        "agent_end": 1,
+        "turn_start": 1,
+        "agent_start": 1,
+        "message_end": 1,
+        "agent_settled": 1,
+        "message_start": 1
+      }
+    }
+  }
+]
