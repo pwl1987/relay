@@ -48,7 +48,7 @@
 | 数据/Artifact 恢复 | **VERIFIED** | E3(见 V19) |
 | 清理安全 | **VERIFIED** | D4(见 §3) |
 | 预算纪律 | **VERIFIED** | 全程先声明后执行;账本精确;零超预算;零成本(magpie 本地) |
-| 长稳 24h | **PARTIAL(中断已续采;期满待终验)** | `p0-mvp/soak-24h/`(真实计时起点 1794389572 未重置;12.53h 处会话解体中断,缝 365s 落账;06:10 续采 detached;中期快照 verify-interim-20261112T0613+0800.json:RSS 峰 312936<400000/3015 拍全 IDLE_PROVIDER_DOWN 零领取;**期满终验因中断缝 ⇒ PARTIAL,不得称 PASS**;口径=空闲稳定性) |
+| 长稳 24h | **PARTIAL(中断已续采;期满待终验)** | `p0-mvp/soak-24h/`(真实计时起点 1794389572 未重置;12.53h 处会话解体中断,缝 365s 落账;06:10 续采 detached;中期快照 verify-interim-20261112T0613+0800.json:RSS 峰 312936<400000/3017 拍全 IDLE_PROVIDER_DOWN 零领取;**期满终验因中断缝 ⇒ PARTIAL,不得称 PASS**;口径=空闲稳定性) |
 | 真实 GitHub 交付 | **VERIFIED(R-1 闭环)** | `p0-mvp/r1-closure.md`(三重核对+漂移拒绝+历史保全) |
 
 ## §5 终判

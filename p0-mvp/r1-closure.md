@@ -36,6 +36,6 @@
 
 - **中断事实**:两采集进程于 2026-11-12 06:05+0800(观察 **12.53h** 时点)被会话解体 SIGTERM 波及——证据:`worker.log` 末行 `SIGTERM received;graceful stop…`+`stopped`(22:05:08Z);内核日志零 OOM;目录无 soak-final.json ⇒ 采样器与 worker 同波及(非 worker 先死自写 final);末样本 45100s alive=yes。计时起点**未被重置**。
 - **续采**(06:10+0800):按原始口径复刻启动(env `RELAY_DB_SCHEMA=soak24h`+`RELAY_WORKER_ID=soak-worker`+无 `RELAY_PI_*`;裸 node;`RELAY_WORKER_INTERVAL_MS=15000`;日志/CSV **只追加**;新表头由验证器①剔除);`setsid` 完全脱离会话进程组(防再被会话解体波及);worker PID 810994 / sampler PID 811916(pid 文件已更新,格式不变)。
-- **中断缝如实落账**:45100→45465s(**365s**,06:04:32→06:10:37);中期核验快照 `p0-mvp/soak-24h/verify-interim-20261112T0613+0800.json`:观察未满(45526/86400s)+缝 1 条+pg 采样失败 2 行(= 首实例 docker exec 未通的历史痕迹,REVIEW-stage-e §3② 已核)+RSS 峰值 312936<400000 ✓+3015 拍 tick 全 `IDLE_PROVIDER_DOWN` 零领取 ✓。
+- **中断缝如实落账**:45100→45465s(**365s**,06:04:32→06:10:37);中期核验快照 `p0-mvp/soak-24h/verify-interim-20261112T0613+0800.json`:观察未满(45526/86400s)+缝 1 条+pg 采样失败 2 行(= 首实例 docker exec 未通的历史痕迹,REVIEW-stage-e §3② 已核)+RSS 峰值 312936<400000 ✓+3017 拍 tick 全 `IDLE_PROVIDER_DOWN` 零领取 ✓(数值以同笔权威快照 verify-interim JSON 为准;REVIEW 附审 Minor-m1 处置:散文 3015 为另一次运行时读数,已对齐)。
 - **期满与口径**:期满点 **2026-11-12 17:32:52+0800**(start-epoch 1794389572+86400);到期运行 `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验;**存在中断缝 ⇒ 按"缺失样本或中断时保持 PARTIAL"执行,不得改 PASS**;口径仍为"24h 空闲稳定性"。
 - 判定影响:R-2 待授权 + R-3 有中断缝 ⇒ **MVP 终判 REWORK 维持**(矩阵 §5 已同步)。

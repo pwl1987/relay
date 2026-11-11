@@ -83,3 +83,40 @@
 - **R-1 闭环成立**:真实写入(执行方闭包跑 + Reviewer 亲测探针双证)、漂移拒绝、历史只增不减、无强推、夹具安全面、窄权 token、单一沙箱仓边界——全部经零采信独立复核通过。
 - **终判确认**:REWORK 维持;解除项仅剩 **R-2(模型路由)** 与 **R-3(24h 观察)**。
 - 复核 HEAD:`fb2693ca70edb9c5c6e3e76dbd7dde0940b4a13e`(CI 43072536591 success)。
+
+## 附审:R-2/R-3 收口轮(2026-11-12;独立 Reviewer)
+
+- Reviewer:独立 Reviewer(零采信;全部证据亲自执行/亲测,不引用执行方自述)。
+- 复核时点:2026-11-12 06:22 CST;本地 HEAD=`8393ee3`(`8393ee309f4e68a1393fbcf49c02b583d86eec91`)。
+- 本附审为本次复核**唯一写动作**;未 commit、未 push、未改动其他任何文件、未触碰 soak 两进程、未跑任何真模型调用、未跑全量 vitest。
+- CI(gh 只读核对):`04acf94` → run `43109964724`(e2e+test 均 success);`8393ee3` → run `43110241076`(e2e success,**test in_progress**——复核时点尚未完成,如实记录)。
+- 提交链亲验:`d75ee9d → 04acf94`(06:13:24+0800,仅 CURRENT.md,合同先行)→ `8393ee3`(06:15:15+0800,5 文件证据轮;`8393ee3^`==`04acf94` 亲证);`git diff d75ee9d..8393ee3` 逐文件审:**零代码变更、无凭据材料、无越权改动**(全部为文档+一份核验快照 JSON);远端 main 经 `GIT_SSH_COMMAND="ssh -p 443 -o ProxyCommand=none" git ls-remote` 亲验 == `8393ee3`,两笔均已推送 live。
+
+### A~F 逐项复核结果
+
+| 项 | 执行方主张 | 复核结果 | 关键亲测证据 |
+| --- | --- | --- | --- |
+| A | 授权参数缺失⇒只出待授权清单,零真模型运行,PARTIAL | **确认** | 清单四项(替代模型/预算/超时/凭据来源)逐一齐备且缺省建议均标注"须用户确认";§2 为"**授权后**即刻可执行"、§3"授权到位后按 §2 执行"——无未授权即跑安排;预算账本全 schema 扫描零 11-12 变动;DB 全 schema runs/discoveries 零 11-12 新增行;`/tmp` 11-12 05:00 后零试验残留 |
+| B | 06:05+0800 会话解体 SIGTERM 波及两采集进程 | **确认** | `worker.log` 行 3010-3011 `SIGTERM received;graceful stop…`+`stopped`(最后 tick 22:05:08.614Z);SIGTERM 全 log 仅 1 次;dmesg/`journalctl -k`/kern.log 三源零 OOM;无 `soak-final.json`;末样本 45100s alive=yes;`alive=no` 计数=0 ⇒ 采样器同波及推论成立 |
+| C | 06:10 按原始口径续采,setsid 脱离会话,起点不重置,缝 365s 落账 | **确认** | PID 810994(node worker-entry.ts)/811916(sample.sh)存活,etime 09:53/09:19(≈06:10 启动);`/proc/810994/environ` 亲读:`RELAY_DB_SCHEMA=soak24h`+`RELAY_WORKER_ID=soak-worker`+`RELAY_WORKER_INTERVAL_MS=15000`,RELAY_PI_* 计数=0;两进程 PGID=SID=自身且 PPID=`systemd --user`(完全脱离会话);`start-epoch` 内容 1794389572、mtime=2026-11-11 17:32:52.942+0800(未被改写);pid 文件与实际进程一致;旧 banner pid=3624561(行 1)仍在+新 banner pid=810994(行 3012),日志只追加;CSV 缝两侧行 45100→45465=365s 如实 |
+| D | 中期快照:未满+缝 1 条+pg 2 行历史痕迹+RSS 峰<400000+tick 全 IDLE 零领取 | **确认** | 我亲自重跑 `node deploy/soak-verify.mjs …` 输出与快照 JSON **硬异常结构完全一致**(gaps 恰 1 条 365s+pgAnomalies 2+RSS 峰 312936<400000+hardErrors 恰 2 项+claimedTasks 零+errorTicks 零),差异仅时间推进字段(elapsed 46007>45526/samples 761>753/tick 3049>3017);pg 2 行=CSV 头两行 `pg_conns=-` 亲证,与 REVIEW-stage-e §3②"首实例 docker exec 未通"记载吻合;RSS 峰 312936 独立 awk 复算=312936(恰来自首两拍,亦亲证) |
+| E | 期满点 2026-11-12 17:32:52+0800;缝在⇒终验 PARTIAL;REWORK 维持 | **确认** | `date` 换算亲验:1794389572=2026-11-11 17:32:52 CST,+86400=2026-11-12 17:32:52 CST ✓;grep 全部相关文档:所有 PASS/业务负载/ACCEPTED 命中处均为禁令语境("不得改 PASS"/"不得称业务负载稳定性"/"不得 ACCEPTED"),无一处正向宣称 |
+| F | 矩阵/CONTINUATION 同步+教训入库;未跑全量 vitest,定向 9 例合成 | **确认** | `git diff d75ee9d..8393ee3` 亲读:矩阵 G7/长稳24h/§5 行与事实逐字同步;CONTINUATION 新增"长跑任务必须脱离会话进程组"教训;未跑全量 vitest 的旁证=预算账本零变动+A-4 零消耗迹象;`npx vitest run test/unit/soak-verify.test.ts` 我亲跑 **9/9 绿** |
+
+### 证伪尝试记录(R-2/R-3,均未成功证伪)
+
+- **R-2 三路证伪全落空**:①预算账本——`budget_ledger` 全 schema(22 个)逐个 count/max(updated_at)/max(used),最新更新 2026-11-11 10:41 UTC(p01a_review_f_cli_r28bt5),零 11-12 变动;②DB 足迹——全部 22 个 schema 的 runs/discoveries 行数与最新 started_at,零 11-12 新增(soak24h.runs 唯一 1 行=11-11 09:36 UTC soak worker 自身长跑行,ended_at 空,非模型调用);③/tmp——`find -newermt "2026-11-12 05:00"` 仅 ssh/zcode/orca 基础设施条目。清单引用的 `r2-failure-analysis.md` §3(对照实验设计,标注"待授权后执行;本包零执行")存在,引用有效。
+- **R-3 钉死中断与续采两面**:中断面——SIGTERM 时间戳/零 OOM 三源/无 final 文件/alive 全 yes 四点互证,排除"worker 崩溃自写 final"与 OOM 两种替代解释;续采面——env 逐项亲读/进程组亲查/起点 mtime 亲查/pid 三方一致(进程↔pid 文件↔banner)/schema 存在亲查,无一处与声明不符;核验器重跑+9 例回归亲跑构成独立数值验证。
+
+### 发现问题(无 Major)
+
+- **Minor-m1**:文档数字与同笔提交证据文件存在 ±2 偏差——`r1-closure.md` 附记与 `final-coverage-matrix.md` 写"**3015** 拍全 IDLE_PROVIDER_DOWN",而同笔提交的权威快照 `verify-interim-20261112T0613+0800.json` 为 **3017**。差 2 tick=30s,系执行方生成文档文本与生成 JSON 两次核验器运行之间的时间差;不影响判定方向(两侧口径均为零领取、全 IDLE_PROVIDER_DOWN),数值应以 JSON 为准。建议下轮文档引用直接取自快照 JSON。
+- **观察 O-1(历史,非本轮)**:提交 `1b55400`/`968cad0` 曾将 samples.csv/worker.log 中间态(+23/+44 与 +93/+176 行)入库——发生在 f6c6dd7 的 Major-M2 修复(skip-worktree 登记)之前,属已收口的既往问题;本轮两提交对两文件零触碰(`git ls-files -v` 亲验两文件均为 S 标记)。
+- **观察 O-2(pid 文件处置评估)**:工作区仅剩 `sampler.pid`/`worker.pid` 两 modified(3627722→811916、WORKER_PID=3624561→WORKER_PID=810994),diff 与进程实况一致,无 untracked、无其他脏文件。执行方声明"随终提交入库"——**处置得当**:pid 文件是"期满时点进程身份"证据链一环,与 samples.csv/worker.log 终版同批入库可固定证据;但须确保入库时点与终验绑定且注明对应时点,避免与后续进程状态再漂移产生失真。
+
+### 裁决
+
+**确认执行方裁决成立**:①R-2 待授权清单是本轮授权参数缺失下的正确且唯一动作,零真模型运行经三路独立证伪未成立,不伪造结果;②R-3 中断取证完整、续采保真逐项吻合、缝 365s 如实落账;③存在中断缝 ⇒ 期满终验(2026-11-12 17:32:52+0800)按"缺失样本或中断时保持 PARTIAL"执行——**R-3 终验口径 PARTIAL 确认**;④R-2 PARTIAL + R-3 PARTIAL ⇒ **MVP 终判 REWORK 维持,不提前 ACCEPTED——确认**;⑤"24h=空闲稳定性"口径处处一致——确认。
+
+- 复核时点 HEAD:`8393ee309f4e68a1393fbcf49c02b583d86eec91`;CI:04acf94→43109964724 success / 8393ee3→43110241076 e2e success+test in_progress。
+- 期终权威事实(供终验窗口直接引用):start-epoch=1794389572(未重置,mtime 原始);缝=45100→45465s(365s)唯一一条;两进程 810994/811916 detached 存活(PGID=SID=自身,PPID=systemd --user);RSS 峰 312936<400000;tick 全 IDLE_PROVIDER_DOWN 零领取;唯一 Minor=文档 3015 vs 快照 3017(±2 tick)。
