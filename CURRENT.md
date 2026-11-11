@@ -1,7 +1,23 @@
 # Relay 当前执行契约
 
-- 状态:**总授权执行包 · 阶段 D(真实业务样例与安全验收)ACTIVE**。阶段 C 已收账:BLOCKED(仓库不在 PAT 授权范围;`p0-mvp/stage-c-github-permission.md`)。
+- 状态:**总授权执行包 · 阶段 E(运行编排/长稳/备份)ACTIVE**。阶段 D 已闭环(`7f6f6c7`;CI `42994172744` 双绿)。
 - 写者:**本窗口唯一 Writer**(main-only;禁强推)。
+
+## 本包范围(阶段 E)
+
+1. **E1 relay-worker 独立入口**:`src/worker-entry.ts`(裸 node 直跑)+ systemd unit 样例(`deploy/relay-worker.service`)+ 部署说明。组合既有 `startSupervisorLoop`(租约回收/Reconcile/REWORK 释放)+ `startGoalLoop`(claim→Run→Gate→交付;live driver 同 server 口径;FAIL-CLOSED);graceful SIGTERM/SIGKILL;每拍健康日志。**Web 不承担第二套调度权威**(server worker 默认 external 不变)。验收:启停/kill-9 重启 → 租约回收重领、零重复副作用、日志/health 可见、单 Writer 语义不变(V04 语义在新入口复验)。
+2. **E2 长稳(24h 真实计时)**:复核冻结阈值(RSS<400MB/IDLE 稳定)后,**立即启动 24h 空闲模式长稳采集**(relay-worker 真实进程 + 每分钟采样 RSS/CPU/tick 状态/PG 连接,落 `p0-mvp/soak-24h/`),观察期未满前**不写 PASS**;完成其他独立验证;最终 MVP 终判如实标注"24h 观察进行中/已完成"。工作模式负载(真任务循环)另列(受 magpie 能力面约束,以 300s 基线为准如实)。
+3. **E3 备份 Artifact 级**:备份脚本 `deploy/backup.sh`(pg_dump + **Artifact 打包**:已交付候选工作区产物/stage 证据/凭据存在性指针)+ 恢复演练脚本 `deploy/restore-verify.sh`:隔离实例恢复 DB + Artifact 解包逐文件 SHA 核对 + 恢复时间/数据丢失窗口/外部 Git 状态记录。不允许只比 13 表行数。
+4. **收尾**:REPORT-stage-e.md + 独立 Reviewer + CI 绿 + 快进推送;24h 采集进程持久化(观察继续)。
+5. **安全边界**:不生产部署(unit 样例+演练环境);不 RSI;不扩权;长稳不写未完成 PASS。
+
+## 阶段 D 终账(CLOSED;证据 `p0-mvp/`)
+
+- D4:safeRm 中央守卫(纯逻辑;sentinel 必填)7/7 回归;运行时 3+测试 ~17 处接入;Reviewer 亲验 21 调用点。
+- F1:机判基线负对照实锤(3/4 失败);真模型 Discovery 高质量 ✓;真模型 coder PARTIAL(方差:零编辑/烧回合,机判拒+REWORK 实锤);**stub 显式标注机制演示全链 DELIVERED+独立复核 ✓**。
+- F2:基线 A1/A2 失败实锤;真模型 PARTIAL;stub 机制演示一次过 ✓(独立 HTTP 复核 4/4)。
+- F3:矩阵 8 项映射既有实锤 + **T01 真模型注入语料化 1/1**(目录 SHA 零变化/审计如实/语料当数据;Reviewer 另测 evil 变体非过拟合)。
+- 复核:PASS-WITH-FIXES;Major×2 已修(sentinel 必填/清理接入补全);CI 双绿。**真模型业务交付能力=受 magpie 能力面约束,如实 PARTIAL(部署包依赖更强模型路由)**。
 - 提交链(总包):`… → f618d51(B 收尾)→ 710d596(C 收账)→ 本合同`。
 
 ## 本包范围(阶段 D:F1/F2/F3 + 清理安全加固)
