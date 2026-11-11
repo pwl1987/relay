@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接(以最新 live main 为准)
 
-状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09~11 完成 P0-00..P0-02C 与 P0-ACCEPT;2026-11-11 完成总授权执行包六阶段(阶段 A REWORK-2 CLI / B REWORK-1 Discovery / C GitHub 权限核查(BLOCKED)/ D F1-F3+清理安全 / E 编排+长稳采集+备份 / F 终审)。**MVP 终判:REWORK 维持(独立 Reviewer 一致)——终态见 `p0-mvp/REPORT-final.md`。24h 长稳采集进行中,勿动 soak 进程。**
+状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09~11 完成 P0-00..P0-02C 与 P0-ACCEPT;2026-11-11 完成总授权执行包六阶段(阶段 A REWORK-2 CLI / B REWORK-1 Discovery / C GitHub 权限核查(BLOCKED)/ D F1-F3+清理安全 / E 编排+长稳采集+备份 / F 终审)。**MVP 终判:REWORK 维持(独立 Reviewer 一致)。总包六阶段 + 收口包均收官(终报 `p0-mvp/REPORT-close-pack.md`);24h 长稳采集进行中(勿动 `p0-mvp/soak-24h/` 两进程;samples.csv/worker.log 已 skip-worktree 防中间态再入;到期用 `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 出核验)。明示:每次全量 vitest 触发 1 次真模型 A-4 实验(magpie,limit=8)。**
 
 ## 唯一事实源及阅读
 
