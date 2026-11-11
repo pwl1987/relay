@@ -45,7 +45,8 @@ function sudoIptablesAvailable(): boolean {
 const MODEL: ProviderConfig | null = await probeProvider();
 const dockerOk = dockerAvailable();
 const iptOk = sudoIptablesAvailable();
-const OUT_DIR = join(process.cwd(), "p0-accept");
+// 第四包②:日志写独立未跟踪目录(不再向已跟踪 p0-accept/live-worker-e2e.log 追加;历史证据原样保留)
+const OUT_DIR = join(process.cwd(), "test-evidence/live-worker-e2e");
 const evLog: string[] = [];
 function ev(f: string): void {
   evLog.push(`${new Date().toISOString()} ${f}`);

@@ -25,7 +25,8 @@ import { REPO_ROOT, markRunDir, markTemp, safeRm, RUN_SENTINEL } from "../../src
 
 const FIXTURE = join(REPO_ROOT, "test/fixtures/f1-tasklist");
 const CHECK = join(REPO_ROOT, "test/fixtures/f1-tasklist/check.mjs");
-const EVIDENCE_DIR = join(REPO_ROOT, "p0-mvp/f1");
+// 第四包②:证据写独立未跟踪目录(不再向已跟踪 p0-mvp/f1 追加;历史证据原样保留于原目录)
+const EVIDENCE_DIR = join(REPO_ROOT, "test-evidence/f1");
 const CHECK_TIMEOUT_MS = 180_000;
 
 const gated = process.env.RELAY_F1_E2E === "1";

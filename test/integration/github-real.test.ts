@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -43,6 +44,8 @@ const FORCE_LEASE_FLAG = ["--", "force-with-lease"].join("");
 // gh 配置文件名按片段构造(同样避免自命中)
 const GH_HOSTS_FILE = ["hosts", "yml"].join(".");
 const THIS_FILE = new URL(import.meta.url).pathname;
+/** 每轮唯一载荷(第四包①:夹具幂等修复——重跑产生真实变更,正常快进+历史只增;R-1 收口"夹具非幂等登记"的落地方案) */
+const RUN_TAG = randomUUID().slice(0, 8);
 const EXECUTOR_FILE = new URL("../../src/core/executors/github-push.ts", import.meta.url).pathname;
 const LEGACY_EXECUTOR_FILE = new URL("../../src/core/executors/git-push.ts", import.meta.url).pathname;
 
@@ -349,7 +352,7 @@ describe.skipIf(!credential.present)(
       `一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 ${credential.mode},API ${credential.apiStatus})`,
       { timeout: 300_000 },
       async () => {
-        const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-real", payload: "p0-02b real remote write", fileName: "delivered.txt" });
+        const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-real", payload: `p0-02b real remote write ${RUN_TAG}`, fileName: "delivered.txt" });
         const headBefore = built.remoteHeadAtBuild;
 
         const proposed = await t.db.transaction(async (tx) =>
@@ -388,7 +391,7 @@ describe.skipIf(!credential.present)(
         expect(api.ok, `GitHub API 状态 ${api.status}`).toBe(true);
         const body = (await api.json()) as { content?: string; encoding?: string; sha?: string };
         expect(body.encoding).toBe("base64");
-        expect(Buffer.from(body.content ?? "", "base64").toString("utf8")).toContain("p0-02b real remote write");
+        expect(Buffer.from(body.content ?? "", "base64").toString("utf8")).toContain(`p0-02b real remote write ${RUN_TAG}`);
         console.log(`GITHUB_API_VERIFY repo=${SANDBOX_REPO} ref=${built.staged.commitSha} api_status=${api.status} blob_sha=${body.sha}`);
 
         // 历史未丢:旧头仍是新头的祖先(快进),且提交数**恰好 +1**(非恒真比较)
@@ -419,7 +422,7 @@ describe.skipIf(!credential.present)(
       { timeout: 300_000 },
       async () => {
         // 候选基于**当前真实远端 HEAD**构建(此时远端头 R)
-        const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-drift", payload: "p0-02b drift experiment", fileName: "drift.txt" });
+        const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-drift", payload: `p0-02b drift experiment ${RUN_TAG}`, fileName: "drift.txt" });
 
         // 外部写者:自己的仓库、自己的提交(对象自洽;不借用其它仓库的对象)
         const other = workspaceIn("ws-drift-other");
@@ -430,7 +433,7 @@ describe.skipIf(!credential.present)(
           git(other.dir, credentialFile, "fetch", "--quiet", "origin", "main");
           git(other.dir, credentialFile, "reset", "--quiet", "--hard", headAtBuild);
         }
-        other.apply({ "foreign.txt": "external writer was here\n" });
+        other.apply({ "foreign.txt": `external writer was here ${RUN_TAG}\n` }); // 唯一载荷:重跑不为空 diff(R-1 首轮已推入同内容文件,硬编码会使命令空提交失败)
         git(other.dir, credentialFile, "add", "-A");
         git(other.dir, credentialFile, "-c", "user.email=ext@l", "-c", "user.name=ext", "commit", "--quiet", "-m", "foreign");
         // 远端为空时,外部写者用**自身提交**创建分支(普通推送;对象自洽 ⇒ 无 bad object)

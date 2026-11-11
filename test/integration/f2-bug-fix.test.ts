@@ -26,7 +26,8 @@ import { safeRm } from "../../src/runtime/safe-rm.ts";
 
 const FIXTURE = join(REPO_ROOT, "test/fixtures/f2-api");
 const CHECK = join(REPO_ROOT, "test/fixtures/f2-api/api-check.mjs");
-const EVIDENCE_DIR = join(REPO_ROOT, "p0-mvp/f2");
+// 第四包②:证据写独立未跟踪目录(不再向已跟踪 p0-mvp/f2 追加;历史证据原样保留于原目录)
+const EVIDENCE_DIR = join(REPO_ROOT, "test-evidence/f2");
 const CHECK_TIMEOUT_MS = 120_000;
 
 const gated = process.env.RELAY_F2_E2E === "1";
