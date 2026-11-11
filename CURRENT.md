@@ -1,30 +1,36 @@
 # Relay 当前执行契约
 
-- 状态:**P0-02C COMPLETE-WITH-PENDING / IDLE(下一包 NOT_ACTIVE,待用户授权)**。完成:2026-11-10。终态以远端 `main` 为准(收尾提交后 fast-forward 推送)。
-- 写者:**无 ACTIVE Writer**(P0-02C 写者已释放)。
-- 本包交付:**最小 API Server + Web 控制台与真实用户旅程验证**——以现有 PostgreSQL/Goal Loop/Decision/Gate/Delivery 为唯一业务事实源,零新运行时依赖(node:http)、零构建前端:
-  - **安全门禁**:G-1 默认仅监听 `127.0.0.1`(非回环须显式放行,拒绝落 `audit_events` WEB_BIND_REJECTED);G-2 口令 scrypt+timingSafeEqual/会话服务端存储/HttpOnly+SameSite=Strict/失败限速锁定;G-3 全部写方法强制 CSRF 头 + 同源校验;G-4 actor 必过 core `operatorAllowed` + `expectedStateVersion` 失配 409;G-5 全响应双层脱敏(形态+字段名,错误不回显堆栈);G-6 **D3 永不超时自动批准**(源码自证单测 + UI 无自动入口,推迟仅改截止时间);G-7 前端零业务状态,断线显示"连接中断"不冒充实时;G-8 凭据/预算零扩大。
-  - **四页面**:Dashboard(健康/预算/阻塞/异常/审计/能力登记表)、Goal(一句创建 + 规则推导理解与可验证建议,**模型分析显式未实现**)、Decision Inbox(D0–D4 展示与授权)、ChangeSet/Evidence(三 SHA 分列 + Gate + 交付状态 + 证据时效)。
-  - **core 增量仅一处**:`decisions.ts: deferDecision`(乐观并发 + 审计;不改状态)。
-  - **E2E**:Playwright 真 Chromium 五旅程(J1 模糊创建→理解建议;J2 D3 卡住不影响他人;J3 崩溃原因/恢复;J4 候选→Gate→DELIVERED(本地 bare 远端);J5 刷新/断线/重连恒等于 PostgreSQL),证据落 `p0-02c/`(journey/http/browser-errors/db-state + 8 截图,内嵌产出 HEAD)。
-- 独立复核:全新上下文 Reviewer 两轮——首轮 **PASS-WITH-FIXES**(R-1/R-3 必修 + 6 OBS)→ 处置(4c8118e)→ 复验 **PASS**(见 `p0-02c/REVIEW.md`;R-2 XFF 限速键、R-5 Origin:null 为登记遗留,R-4 命名偏差注明,R-9 环境型并发争用并档)。
-- 测试:**196 用例 = 189 passed + 7 skipped**(45 文件;7 skip = github-real 2 凭据门 + e2e 5 RELAY_E2E 门);E2E 5/5(真 Chromium);`tsc` 0。**"全量绿"权威口径 = CI 隔离运行**(R-9:宿主并发窗口下 gate-e2e 可能壁钟超时,隔离绿)。
-- CI:`test` job(P0-02B 既有)+ 新增 `e2e` job(Playwright Chromium + PG16 service,`RELAY_E2E=1`);双绿后快进推送。
-- 模型预算:本包**真实模型调用 0 次**(合同约定);全部模型路径由确定性桩承担并经真实 core 预算账本(FAIL-CLOSED 语义被 e2e 佐证);gate-e2e/pi-e2e 既有测试固有消耗属回归面,如实沿用既有披露口径。
+- 状态:**P0-ACCEPT ACTIVE**(2026-11-11 激活;VM80 唯一 Writer)。基点:`f4c1248`(P0-02C 终态,上包已推送核验)。
+- 冷启动事实:工作区 clean、HEAD == f4c1248;**VM80 出口代理故障**(git ls-remote 超时 / curl api.github.com 000,http_proxy 8118 + ALL_PROXY 1080 不可用)——离线冷启动已登记;magpie 模型路由(127.0.0.1:3425⇒200)与 PG 容器(relay-p000-pg:55433)正常。**任何推送前必须先恢复网络并核对远端 HEAD == 本地 HEAD 无漂移**;缺口 B(GitHub 真实远端)若网络持续故障则如实标 BLOCKED,不影响其他缺口独立验收。
+- 本包性质:**验收与差距裁决包**。以验证、审计、裁决为主,不以验收名义重构业务内核;除验收必需的最小安全收口(逐项登记)外零源码改动。
 
-## 遗留检查单(结转 + 本包新增)
+## 一、第二阶段:六项 MVP 缺口核查(验收口径)
 
-1. **真实远端写入 + 漂移实验(NOT_VERIFIED,随 PAT 补录,无需新授权)**:宿主凭据文件仍非有效 GitHub 令牌 ⇒ github-real 两例诚实 skip;有效细粒度 PAT(仅 `pwl1987/relay-delivery-sandbox` Contents RW)置 `~/.relay/credentials/github-sandbox-pat`(0600)后运行 `npx vitest run test/integration/github-real.test.ts` 闭环并补录 p0-02b/ 证据。
-2. **R-2(P0-02C 登记)**:登录限速键盲信 `X-Forwarded-For`——默认回环面无影响;待非回环放行需求出现时与可信代理配置一起加固(auth.ts clientIp/app.ts)。
-3. **R-5(P0-02C 登记)**:`Origin: null` 放行(CSRF 头 + SameSite=Strict + Sec-Fetch-Site 三层兜底;维持登记)。
-4. base 一致性纵深(`executeDelivery` 不复校 commit 绑定;P0-02B F-12)。
-5. 候选 base 仅存 reflog 时的阻断边界(P0-02B)。
-6. 经典 `ghp_*` 令牌仅限开发者 infra,严禁进入任何 Relay Operator 路径(P0-02B 源码自证延续)。
-7. 候选 stage 仓库无自动回收(P0-02B;量级小,ops 清理)。
-8. **R-9(P0-02C 登记)**:全量 vitest 须在无并发活动窗口运行;宿主并发下 gate-e2e 可能壁钟超时(隔离绿)——与 P0-02B §8.5"首次克隆瞬时未捕获异常"同档管理,CI 隔离运行为权威口径。
-9. worker 生产模式(`RELAY_WEB_WORKER=live`)与 external relay-worker 进程的编排属部署包,本包未实施(控制台已支持 external 口径:tick 501)。
+| 缺口 | 验收口径 |
+| --- | --- |
+| **A. Live Worker 安全与权限** | ① host-fallback 沙箱必须要求 OS 级隔离保证:**不得静默降级**——不能提供 Docker/等价 OS 隔离 ⇒ FAIL-CLOSED(拒绝执行,不得以提示词规则顶替);② `allowedScope`/`allowedCommands` 从 task/RunSpec 到执行器的**完整传递链**自证(漏传 ⇒ 全拒,与 P0-02B 执行语义一致);③ **允许与越权双向实证**:白名单内动作真实成功、白名单外动作真实被拒(非仅单测断言,须有真实进程/容器证据);④ **真实模型 Run 联合验证**:至少 1 次真实模型 Run 走通 Web/API→core→worker→Run→Gate→交付语义全链,预算经 budget_ledger 真实计数——**Stub 不能代替**(Stub 只能佐证机械面,不能佐证模型行为面)。未通过 ⇒ 列发布阻断,不修业务内核(安全收口除外) |
+| **B. GitHub 真实远端** | ① 只针对沙箱仓库 `pwl1987/relay-delivery-sandbox`;② PAT 预检:凭据文件存在性/形态区分(有效 github_pat_ 前缀/无效/缺失),**零密钥内容输出**;网络故障须与 401/403/404 区分(超时/DNS 不得报"凭据无效");③ 跑既有 `test/integration/github-real.test.ts`(真实写入 + 漂移拒绝实验);④ 禁退回宽权限 gh token、禁强推、禁触碰其他仓库;⑤ 凭据/网络问题 ⇒ 该项 BLOCKED/NOT_VERIFIED,**不得影响其他独立验收继续** |
+| **C. Discovery 与模糊需求** | 对照 PRD US-01/US-02:一句模糊目标 → 可验证建议。**三分类强制**:确定性规则推导/真实模型分析/未实现——逐项标注,不得用规则化分析冒充模型自主发现;模型分析未实现 ⇒ 如实 NOT_IMPLEMENTED 并判缺口(BLOCKED/REWORK 形成独立补建任务) |
+| **D. CLI/API/Web 对等** | ① 核实是否存在正式 CLI 入口(package.json bin / scripts / src/cli*);② 三入口(CLI/API/Web)是否同调唯一 Core 权威(零第二状态机);③ 未实现入口**不计入 MVP 能力**,如实登记(不得宣称对等) |
+| **E. 连续自治与故障恢复** | ① 真实 `relay-server`/`relay-worker` 进程启停/周期 Tick/重启后断线恢复(非仅单测内嵌驱动);② 故障注入:SIGKILL worker、PG 断连、Provider 离线、超预算、循环失败——逐项真实注入并核对状态机终态与审计;③ D3 长期未决 ⇒ 其他安全 Task 继续(P0-02C J2 已证,复核证据链);④ 未授权动作/不确定副作用 ⇒ 停止走 Reconcile(NEEDS_RECONCILE 语义,不重推);⑤ **长稳**:先冻结环境指标阈值(CPU/RAM/PG 连接/账本漂移),再起长稳观测;**24h/72h 未跑满不得宣称通过**——本包只交付"阈值冻结 + 起跑基线 + 截至包收尾的真实观测段",不足 24h 如实标注 |
+| **F. 备份与恢复** | ① 实际执行备份:PostgreSQL(pg_dump)/Evidence/Artifact/配置,产物落受控路径;② **隔离实例恢复**(新起 PG 实例/独立 schema,不是简单重启);③ 恢复后核对全实体:Goal/Task/Run/Gate 证据/Decision/Intent/Audit + 外部 Git 状态核对;④ 不允许用简单重启代替恢复演练 |
 
-## 下一唯一建议:P0-ACCEPT(独立复核设计/实现一致性 + 长稳报告,NOT_ACTIVE)
+## 二、第三阶段:PRD 全覆盖审计矩阵
 
-按 `docs/CONSTRUCTION_PLAN.md` P0-ACCEPT 行起草激活合同(需新的明确授权):P0 端到端可复现验证矩阵、故障注入核对、独立复核设计/实现一致性。入口 `docs/CONTINUATION.md`。
-- 边界:不生产部署、不 RSI、不扩大 GitHub 权限或模型预算;接受之前不开展 RSI 自改。
+- 覆盖:US-01~US-10(及 US-11~13 如有)、V01~V15/V19/V20、G0~G7、F1/F2/F3、安全权限/预算/状态恢复/独立 Reviewer/GitHub 交付/真实浏览器交互。
+- **六态唯一**:VERIFIED / PARTIAL / NOT_IMPLEMENTED / NOT_VERIFIED / BLOCKED / NOT_APPLICABLE——每项注明证据(文件 + 产出 HEAD SHA);**不得用测试数量代替覆盖率;不得用 Mock/Stub 冒充真实能力**。
+- NFR 逐项过(性能/安全/可靠性如实;未测即 NOT_VERIFIED)。
+
+## 三、第四阶段:独立复核与缺口裁决
+
+- 独立 Reviewer(全新上下文)**不依赖实现者自述**:亲测复跑、证据 SHA 核对、结论独立落盘 `p0-accept/REVIEW.md`。
+- **安全或 P0 必需未满足 ⇒ MVP 判 BLOCKED/REWORK**;其余项允许继续独立验收。
+- 按影响依赖输出**有界 REWORK 工作包**(目标/范围/验收标准/顺序),不得并入一个无限扩大包。
+
+## 四、第五阶段:交付物
+
+`p0-accept/` 下:REPORT.md(总报告)、REVIEW.md(独立复核)、PRD 覆盖证据矩阵、安全故障注入报告、GitHub 交付验收记录、长稳资源预算报告、备份恢复验收报告、缺口与下一工作包清单。全部证据绑 exact SHA;所有阻断关闭才可裁 MVP **ACCEPTED**,否则如实保留未通过结论 + 明确下一唯一工作包。收尾:独立复核通过、CI 成功、main 快进推送、更新 CURRENT.md 与 docs/CONTINUATION.md。
+
+## 五、不可逾越边界(全程)
+
+1. **零生产部署**、零公网暴露;2. **零 RSI 自我修改**(验收包不得修改 Relay 用于自改自身的能力面);3. **零 GitHub 权限扩大**(不新增凭据面、不用宽权限 gh token、不碰 relay-delivery-sandbox 之外的仓库);4. **零模型预算扩大**(真实模型调用仅限缺口 A/C/E 联验必需的最小次数,分阶段经 budget_ledger 预留,先声明后消费);5. 只用 main、禁强推、禁其他分支;6. 不触碰其他业务仓库/宿主其他项目;7. 推送前置 = 网络恢复 + 远端无漂移核对。
