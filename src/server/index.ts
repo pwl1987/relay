@@ -54,11 +54,13 @@ export async function main(): Promise<void> {
   });
 
   // worker:默认 external(本进程只读 + 授权操作);配置了模型与 stage 目录才挂真实驱动。
+  // P0-ACCEPT 缺口 A:live 驱动默认要求 Docker OS 隔离(sandbox=docker;host-fallback 非安全边界,
+  // worker 侧 FAIL-CLOSED 不领取任务,此处默认值与之一致)。
   let worker: WorkerDriver;
   if (process.env.RELAY_WEB_WORKER === "live") {
     worker = createLiveWorkerDriver({
       db,
-      sandbox: process.env.RELAY_WEB_SANDBOX === "docker" ? "docker" : "host-fallback",
+      sandbox: process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker",
       stageBaseDir: process.env.RELAY_WEB_STAGE_DIR ?? join(homedir(), ".relay", "stage"),
     });
   } else {

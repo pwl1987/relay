@@ -53,6 +53,13 @@ function handle(req) {
       return;
     }
     setTimeout(() => {
+      if (process.env.STUB_ENV_CAPTURE && process.env.STUB_ENV_CAPTURE_FILE) {
+        // P0-ACCEPT 缺口 A:白名单传递链实证——把指定 env 原样落盘,供测试断言 task.allowed_commands
+        // 经 worker → executeRun → 沙箱 env 完整到达子进程。
+        const cap = {};
+        for (const n of process.env.STUB_ENV_CAPTURE.split(",")) cap[n] = process.env[n] ?? null;
+        try { writeFileSync(process.env.STUB_ENV_CAPTURE_FILE, JSON.stringify(cap, null, 2)); } catch {}
+      }
       if (process.env.STUB_WRITE_FILE) {
         const [p, ...rest] = process.env.STUB_WRITE_FILE.split(":");
         try { writeFileSync(p, rest.join(":")); } catch {}

@@ -13,7 +13,7 @@ import { executeRun } from "../runtime/runner.ts";
 import { runReviewerSession } from "../runtime/reviewer.ts";
 import { resolveVendoredPi, type PiInstallation } from "../runtime/pi-version.ts";
 import { snapshotManifest } from "../runtime/workspace-manifest.ts";
-import { cleanupSandbox, type ModelConfig, type SandboxSpec } from "../runtime/sandbox.ts";
+import { cleanupSandbox, dockerAvailable, type ModelConfig, type SandboxSpec } from "../runtime/sandbox.ts";
 import type { EgressStatus } from "../runtime/egress.ts";
 import type { CheckSpec } from "../core/evidence.ts";
 
@@ -95,6 +95,10 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
 
   const pi = options.pi ?? resolveVendoredPi();
   const workerId = options.workerId ?? "relay-worker-1";
+  // P0-ACCEPT 缺口 A:live(真实模型)执行默认要求 Docker OS 隔离(ADR-0003);
+  // host-fallback 非安全边界,仅 stub 测试注入口可用——live 下必须显式证明隔离,否则 FAIL-CLOSED。
+  const sandbox: "docker" | "host-fallback" =
+    options.sandbox ?? (options.stubInjection ? "host-fallback" : "docker");
 
   const goalTextFor = async (taskId: string): Promise<string> => {
     if (options.goalTextFor) return options.goalTextFor(taskId);
@@ -120,7 +124,16 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
         last = { at: new Date().toISOString(), status: "provider_not_configured", summary: { note: "未配置 RELAY_PI_* ⇒ 本拍不领取任务" } };
         return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
       }
-      if (options.sandbox === "docker" && !options.egress?.ok) {
+      // P0-ACCEPT 缺口 A:隔离 FAIL-CLOSED——非 docker 隔离的 live 执行不领取任务(不得静默降级 host-fallback)。
+      if (sandbox !== "docker" && !options.stubInjection) {
+        last = { at: new Date().toISOString(), status: "sandbox_not_isolated", summary: { note: "live 执行要求 Docker OS 隔离(ADR-0003 双层边界);host-fallback 非安全边界 ⇒ FAIL-CLOSED 不领取" } };
+        return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
+      }
+      if (sandbox === "docker" && !dockerAvailable()) {
+        last = { at: new Date().toISOString(), status: "docker_unavailable", summary: { note: "docker 不可用 ⇒ 拒绝执行(不得静默降级)" } };
+        return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
+      }
+      if (sandbox === "docker" && !options.egress?.ok) {
         last = { at: new Date().toISOString(), status: "egress_not_ready", summary: { note: "docker 模式需先 ensureEgress(FAIL-CLOSED)" } };
         return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
       }
@@ -132,16 +145,19 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
         runTask: async (claim) => {
           const goalId = await goalIdFor(claim.taskId);
           const goalText = await goalTextFor(claim.taskId);
+          // P0-ACCEPT 缺口 A:task 白名单完整传递(DB → spec → 沙箱 env;读取逻辑可单测)。
+          const whitelist = await resolveTaskWhitelist(options.db, claim.taskId);
           const injection = options.stubInjection;
           const result = await executeRun(options.db, pi, {
             taskId: claim.taskId,
             goal: goalText,
-            allowedScope: ["/workspace"],
+            allowedScope: whitelist.allowedScope,
+            allowedCommands: whitelist.allowedCommands,
             attempt: claim.attempt,
             ownerId: claim.ownerId,
             fencingToken: claim.fencingToken,
             model,
-            sandbox: options.sandbox ?? "host-fallback",
+            sandbox,
             ...(options.egress ? { egress: options.egress } : {}),
             wallSeconds: options.wallSeconds ?? 120,
             heartbeatSeconds: options.heartbeatSeconds ?? 10,
@@ -182,7 +198,7 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
               changeset: input.changeset,
               evidenceSummaries: input.evidenceSummaries,
               model,
-              sandbox: options.sandbox ?? "host-fallback",
+              sandbox,
               ...(options.egress ? { egress: options.egress } : {}),
               heartbeatSeconds: options.heartbeatSeconds ?? 10,
               wallSeconds: options.wallSeconds ?? 120,
@@ -238,5 +254,24 @@ export function createExternalWorkerDriver(note: string): WorkerDriver {
     tick: async () => {
       throw new Error(`external_worker_mode:${note}`);
     },
+  };
+}
+
+/**
+ * P0-ACCEPT 缺口 A:task 白名单完整传递的第一段(DB 读取,可单测)。
+ * allowed_commands 缺省 = 禁 exec(runner 语义);allowed_scope 空时回退工作区根(与派生计划默认一致)。
+ */
+export async function resolveTaskWhitelist(
+  db: RelayDb,
+  taskId: string,
+): Promise<{ allowedScope: string[]; allowedCommands: string[] }> {
+  const cfg = await db.execute(sql`
+    SELECT allowed_scope, allowed_commands FROM tasks WHERE id = ${taskId}
+  `);
+  const scope = (cfg.rows[0]?.["allowed_scope"] as string[] | null) ?? [];
+  const commands = (cfg.rows[0]?.["allowed_commands"] as string[] | null) ?? [];
+  return {
+    allowedScope: scope.length > 0 ? scope : ["/workspace"],
+    allowedCommands: commands,
   };
 }
