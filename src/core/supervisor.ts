@@ -193,6 +193,12 @@ export interface TickOptions {
   actor?: string;
   workerId?: string;
   ttlSeconds?: number;
+  /**
+   * 是否领取 READY 任务(缺省 true 兼容既有语义)。
+   * E1 worker-entry 组合:Supervisor 无执行器,置 false(领取交给 goal 环路的 live driver;
+   * 否则两环路争抢 ⇒ 任务被领走后无人执行,白等租约过期)。
+   */
+  claim?: boolean;
   /** 提供 executor 时,本拍会对 NEEDS_RECONCILE 任务执行 Reconcile */
   executor?: IntentExecutor;
 }
@@ -214,14 +220,16 @@ export async function supervisorTick(db: RelayDb, options: TickOptions = {}): Pr
     ? await reconcilePendingTasks(db, options.executor, actor)
     : [];
   const reworkReleased = await db.transaction(async (tx) => releaseRework(tx as unknown as Exec, actor));
-  const claim = await db.transaction(async (tx) =>
-    claimNextReady(tx as unknown as Exec, options.workerId ?? "worker-1", options.ttlSeconds ?? 30),
-  );
+  const claim = options.claim === false
+    ? null
+    : await db.transaction(async (tx) =>
+        claimNextReady(tx as unknown as Exec, options.workerId ?? "worker-1", options.ttlSeconds ?? 30),
+      );
   return {
     reclaimed,
     reconciled,
     reworkReleased,
-    claimed: claim.ok
+    claimed: claim && claim.ok
       ? {
           taskId: claim.taskId,
           ownerId: claim.ownerId,

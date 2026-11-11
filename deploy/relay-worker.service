@@ -1,0 +1,30 @@
+# Relay worker systemd 单元样例(阶段 E1;仅样例,不在本包部署)。
+# 安装:cp deploy/relay-worker.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now relay-worker
+# 前置:RELAY_DB_URL 指向已迁移数据库;RELAY_PI_* 配置模型路由(未配置 ⇒ worker FAIL-CLOSED 空转不领取)。
+[Unit]
+Description=Relay autonomous delivery worker (supervisor + goal loop)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/dev/relay
+Environment=RELAY_DB_URL=postgresql://postgres:relayp000local@127.0.0.1:55433/relayp000
+Environment=RELAY_WORKER_INTERVAL_MS=15000
+Environment=RELAY_WORKER_ID=relay-worker-1
+# 模型路由(按环境填写;未配置 ⇒ FAIL-CLOSED 不领取)
+# Environment=RELAY_PI_PROVIDER=magpie
+# Environment=RELAY_PI_MODEL=group/gm
+# Environment=RELAY_PI_API_KEY=magpie
+# Environment=RELAY_PI_BASE_URL=http://127.0.0.1:3425/v1
+ExecStart=/usr/bin/node /home/ubuntu/dev/relay/src/worker-entry.ts
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=append:/var/log/relay-worker.log
+StandardError=append:/var/log/relay-worker.err.log
+
+[Install]
+WantedBy=multi-user.target
