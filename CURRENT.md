@@ -15,7 +15,7 @@
 
 ## 测试与复核
 
-- 全量(无并发窗口):**202 用例 = 193 passed + 6 skipped + 3 failed**;3 failed 隔离复跑定性:egress-proxy 1 例 = magpie 推理服务暂时挂起(自愈后隔离 **6/6 绿**,环境型 R-9 同源);github-real 2 例 = PAT 写权限 403(BLOCKED 面,CI 无凭据自动 skip 不影响 CI 绿)。新增 6 例(worker-safety 4 + live-worker-e2e 门控 1 + backup-restore 门控 1);tsc 0;E2E 5/5。
+- 全量(无并发窗口):**202 用例 = 193 passed + 6 skipped + 3 failed(48 文件)**;3 failed 隔离复跑定性:egress-proxy 1 例 = magpie 推理**间歇**挂起(写者时点隔离 6/6 绿、复核时点复现超时——环境型 R-9 同源,CI 无 magpie 不受影响);github-real 2 例 = PAT 写权限 403(BLOCKED 面,CI 无凭据自动 skip 不影响 CI 绿)。新增 6 例(worker-safety 4 + live-worker-e2e 门控 1 + backup-restore 门控 1);tsc 0;E2E 5/5。
 - 模型预算:真实模型约 14 次(magpie 本地假密钥路由,零真实成本;全部经 budget_ledger,limit 8 内;零扩大)。
 - 独立复核:见 `p0-accept/REVIEW.md`(Reviewer 全新上下文亲测)。
 

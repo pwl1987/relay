@@ -58,10 +58,10 @@
 | G3 Independent Review | **VERIFIED** | 各包 REVIEW.md 独立 Reviewer 两轮制;本包 REVIEW 待落(§6 流程) |
 | G4 Test | **VERIFIED** | Vitest 全量(本包终账见 REPORT §测试账)+ 独立 schema 真实 PG |
 | G5 Reality | **VERIFIED** | J1..J5 真浏览器 + A-4 真实模型/docker/交付联验 + E 进程演练(非静态截图/非 Mock) |
-| G6 Release | **NOT_VERIFIED** | 真实 GitHub 发布面(同 US-08);本地 bare 交付的授权/预期 SHA/回滚面 VERIFIED(P0-02B);**真实远端写入随网络恢复补验** |
+| G6 Release | **BLOCKED(PAT 写权限 403)** | 真实 GitHub 发布面(同 US-08):PAT 有效/API 认证 200,git push 403 缺沙箱仓 Contents RW;本地 bare 交付的授权/预期 SHA/回滚面 VERIFIED(P0-02B);补权后重跑 github-real 闭环 |
 | G7 Runtime | **PARTIAL** | 心跳/健康/故障恢复记录 ✓(E 演练 + A-4);**长稳 24h/72h 未跑满**(如实:本包交付冻结阈值+300s 起跑基线,RSS 333MB<400MB、tick 60/60 IDLE)→ 长稳报告 |
 | F1 模糊 UX | **PARTIAL** | J1 覆盖「识别问题+可核查建议+有界候选+真 Playwright+证据 SHA」;**模型调研面缺(US-02)**;「用户能看到证据与 SHA」✓(changeset 页) |
-| F2 明确 Bug | **VERIFIED(等价面)** | 回归测试保留+Reviewer 独立检查+HTTP/DB 集成+Gate 绑定 exact commit+快进:gate-e2e(真模型 sum=87 含回归断言)+A-4 联验同构;沙箱仓 main fast-forward 面待 V19/US-08 网络恢复 |
+| F2 明确 Bug | **VERIFIED(等价面)** | 回归测试保留+Reviewer 独立检查+HTTP/DB 集成+Gate 绑定 exact commit+快进:gate-e2e(真模型 sum=87 含回归断言)+A-4 联验同构;沙箱仓 main fast-forward 面待 US-08 补权(403 解除) |
 | F3 故障注入越权 | **VERIFIED** | 重复失败熔断(V11)+越权拒(V02)+旧 SHA 拒(V10)+Reconcile(V05)+其他任务继续(V07);**不自报 ACCEPTED** 由 Gate 绑定/独立 Reviewer 保证 |
 
 ## §4 横切专项
@@ -72,11 +72,11 @@
 | 预算 | **VERIFIED** | 账本先预留后核算;FAIL-CLOSED;回合硬顶;A-4 真实计数 6/8 |
 | 状态恢复 | **VERIFIED** | V04/V05/E5 + fencing/Reconcile |
 | 独立 Reviewer | **VERIFIED** | 两轮制各包;A-4 真 Reviewer 裁决;本包 REVIEW 流程在 §6 |
-| GitHub 交付 | **BLOCKED(网络)** | 见 US-08 |
+| GitHub 交付 | **BLOCKED(PAT 写权限 403)** | 见 US-08(API 读面 VERIFIED;安全失败语义两度实证) |
 | 真实浏览器交互 | **VERIFIED** | V12/V13(J1..J5 + E 演练 HTTP 面) |
 
 ## §5 结论
 
-- **MVP 判定:REWORK**(非 ACCEPTED;非全量 BLOCKED)——依据第四阶段标准:安全/P0 必需面中 US-02(P0 最小 Discovery)NOT_IMPLEMENTED、US-04 CLI 面 NOT_IMPLEMENTED、US-08 真实 GitHub 写入 NOT_VERIFIED(网络)构成三个有界缺口;其余 US/V/G/F 大面积 VERIFIED 且真实证据充分。
+- **MVP 判定:REWORK**(非 ACCEPTED;非全量 BLOCKED)——依据第四阶段标准:安全/P0 必需面中 US-02(P0 最小 Discovery)NOT_IMPLEMENTED、US-04 CLI 面 NOT_IMPLEMENTED、US-08 真实 GitHub 写入 BLOCKED(PAT 写权限 403;API 读面 VERIFIED)构成三个有界缺口;其余 US/V/G/F 大面积 VERIFIED 且真实证据充分。
 - 有界 REWORK 工作包与顺序见 `gaps-and-next-workpackages.md`。
 - 全部证据绑 HEAD `02c094f`(提交链 `4bd4168..02c094f`);基线历史证据绑各包 REPORT 所记 HEAD。

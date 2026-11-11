@@ -10,7 +10,7 @@
 | 维度 | 结论 |
 | --- | --- |
 | 六缺口 A~F | A **VERIFIED**(收口+真模型联验)/ B **BLOCKED(PAT 写权限 403;API 读面 VERIFIED)** / C **缺口成立(→REWORK-1)** / D **缺口成立(→REWORK-2;CLI 缺)** / E **VERIFIED(演练 7 项 PASS)** / F **VERIFIED(V19 达成)** |
-| PRD 矩阵 | US:6 VERIFIED + 2 PARTIAL + 2 NOT_IMPLEMENTED/缺口 + 3 N/A;V:15 VERIFIED + 2 PARTIAL + 3 N/A;G:6 VERIFIED + 2 PARTIAL/NOT_VERIFIED;F1 PARTIAL / F2 F3 VERIFIED —— 逐项证据见 `prd-coverage-matrix.md` |
+| PRD 矩阵 | US:6 VERIFIED + 2 PARTIAL + 2 NOT_IMPLEMENTED/缺口 + 3 N/A;V:15 VERIFIED + 2 PARTIAL + 3 N/A;G:**5 VERIFIED + 2 PARTIAL/NOT_VERIFIED**(复核更正);F1 PARTIAL / F2 F3 VERIFIED —— 逐项证据见 `prd-coverage-matrix.md` |
 | MVP 判定 | **REWORK**(非 ACCEPTED):US-02 P0 最小 Discovery 未实现、US-04 CLI 未实现、US-08 真实 GitHub 写入未验证(网络)——三项均 PRD Must/P0;有界 REWORK 包与顺序见 `gaps-and-next-workpackages.md` |
 | 安全收口(本包 3 处,均为验收中实锤的最小修复) | ① live worker 静默降级 host-fallback ⇒ 隔离 FAIL-CLOSED(c407cb0);② PG 断连进程崩溃 ⇒ pool error 收口(02c094f);③ 交付装配失败冒泡 ⇒ D3 落记兜底(c9c53bd);另:auth.ts 参数属性致生产入口无法启动 ⇒ 修复(042b4c5) |
 
@@ -57,14 +57,14 @@ E1 生产入口就绪+认证门;E2 Web API 建 Goal;E3 SIGTERM 重启+实体保�
 | 2 | task.allowed_commands 从未传递到执行器(DB 白名单无效) | 传递链核查 + 测试 | resolveTaskWhitelist 完整传递 | c407cb0 |
 | 3 | **auth.ts TS 参数属性 ⇒ 生产入口裸 node 启动即崩**(relay-server 此前从未真实启动过) | E 演练首跑(ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX) | 显式字段赋值 | 042b4c5 |
 | 4 | PG 断连 ⇒ server 进程崩(Pool error 无监听) | E6 首跑(docker stop ⇒ health 000) | pool.on(error) 可见降级 | 02c094f |
-| 5 | 交付装配失败异常冒泡出 tick(违反交付层失败语义) | A-4 首跑(delivery_not_captured) | propose try/catch + D3 落记 | c9c53bd |
+| 5 | 交付装配失败异常冒泡出 tick(违反交付层失败语义) | 代码核查(c9c53bd 收口);**首次实锤触发为处置测试注入**(REVIEW R-1:`test/integration/delivery-propose-fallback.test.ts`;c9c53bd 提交信息声称"由 A-4 首跑触发"经复核证伪——A-4 首跑走 TIMEOUT/DELIVERED 路径,以 REVIEW 更正为准) | propose try/catch + D3 落记 + 专属测试 | c9c53bd + 处置提交 |
 
 ## §8 测试账(写者侧;全量绿权威口径 = CI 隔离运行)
 
 - 新增测试:worker-safety 4 例 + live-worker-e2e 1 例(门控)+ backup-restore 1 例(门控)= **6 例**;
 - 回归亲测(本包内):web-api 12/12、web-app 4/4、goal-loop 6/6、delivery+gate 22/22、E2E 5/5(真 Chromium)、tsc 0;
-- **全量终账(无并发窗口,202 用例 = 193 passed + 6 skipped + 3 failed;46 文件,`full-suite.log`)**:
-  - 3 failed 全部隔离复跑定性:**egress-proxy 1 例 = magpie 推理服务暂时挂起**(4 个 defunct worker 僵尸;自愈后隔离复跑 **6/6 绿**——环境型,R-9 同源);**github-real 2 例 = PAT 缺沙箱仓写权限(403 实证,BLOCKED 面)**——凭据权限态的如实呈现,非代码回归(CI 无凭据 ⇒ 该 2 例 skip,不影响 CI 绿);
+- **全量终账(无并发窗口,202 用例 = 193 passed + 6 skipped + 3 failed;**48 文件**(复核更正;`full-suite.log` 与磁盘一致))**:
+  - 3 failed 全部隔离复跑定性:**egress-proxy 1 例 = magpie 推理服务间歇挂起**(4 个 defunct worker 僵尸;写者时点自愈后隔离复跑 6/6 绿,**复核时点 3 次隔离复跑均复现同例 magpie 上游超时——间歇态,R-9 同源登记;CI 无 magpie 不受影响**);**github-real 2 例 = PAT 缺沙箱仓写权限(403 实证,BLOCKED 面)**——凭据权限态的如实呈现,非代码回归(CI 无凭据 ⇒ 该 2 例 skip,不影响 CI 绿);
   - 6 skipped = github-real 门禁前置 3 + e2e RELAY_E2E 门 3(既有口径);
 - 模型预算:真实模型请求约 14 次(magpie 本地假密钥路由,零真实成本;全部经 budget_ledger;goal limit 8 内结算,未扩大)。
 
