@@ -120,3 +120,60 @@
 
 - 复核时点 HEAD:`8393ee309f4e68a1393fbcf49c02b583d86eec91`;CI:04acf94→43109964724 success / 8393ee3→43110241076 e2e success+test in_progress。
 - 期终权威事实(供终验窗口直接引用):start-epoch=1794389572(未重置,mtime 原始);缝=45100→45465s(365s)唯一一条;两进程 810994/811916 detached 存活(PGID=SID=自身,PPID=systemd --user);RSS 峰 312936<400000;tick 全 IDLE_PROVIDER_DOWN 零领取;唯一 Minor=文档 3015 vs 快照 3017(±2 tick)。
+
+## 附审:第四包 测试与治理小缺口(2026-11-12 独立 Reviewer)
+
+- 复核身份:全新上下文独立 Reviewer,零采信、亲测为准;只读+仅本文件末尾追加;禁 push;仅运行零模型消耗面(`tsc --noEmit`/`capabilities` 单测),**未跑** github-real/live-worker-e2e/f1/f2/全量 vitest。
+- 复核基线:HEAD `f8e0263`(第四包实施提交),合同 `b30a492`(CURRENT.md 第四包行);复核时点 **2026-11-12 07:13:12+0800**(`TZ=Asia/Shanghai date '+%F %T%z'` 亲取)。
+
+### 亲测命令与关键输出摘录
+
+1. `git show b30a492 --stat` → 仅 CURRENT.md(1 file changed,合同先行,边界在案)。
+2. `git show f8e0263 --stat` → **恰 7 文件**:`.gitignore(+2)`、`src/server/capabilities.ts(1 mod)`、`p0-mvp/pack4-test-governance.md(+45)`、`test/integration/{f1-ux-journey,f2-bug-fix,live-worker-e2e}.test.ts(各 2 add/1 del)`、`test/integration/github-real.test.ts(7 add/4 del)`;61 insertions/8 deletions 与 hunk 逐一吻合;**无 p0-mvp/soak-24h/、无凭据材料、无 src/core|runtime 运行时语义文件**。
+3. capabilities.ts 逐行审:唯一变更=第 15 行注释残尾删除,代码面 `| "VERIFIED"` 原样;python 注释剥离对比 `b30a492` vs `f8e0263`:剥离行注释后**逐字节相等(True)**——零行为变更钉死(块注释变体的差异经溯源仅为该行注释文本本身,非真实差异)。
+4. `git status --porcelain` → 仅 `?? p0-mvp/soak-24h/final-runner.log`(未跟踪,第一包 §9 收尾处置面,非本包)。
+5. github-real.test.ts 亲读:`RUN_TAG=randomUUID().slice(0,8)`(行 48);使用 4 处=行 355(delivered 载荷)/394(delivered 断言 `toContain` **唯一载荷全文**)/425(drift 载荷)/436(foreign.txt 载荷);行 42-43 FORCE_FLAG/FORCE_LEASE_FLAG 片段拼接构造 + 行 139-140 对本文件与两执行器 stripComments 后 includes 自证断言**原样完好**;行 153 gh hosts 自查、行 146-148 目标固定断言完好;新增行零 force 字样。
+6. 证据重定向:f1:29/f2:30/lw-e2e:49 均指 `test-evidence/`;`.gitignore:4=test-evidence/`;`git diff HEAD --stat -- p0-accept p0-mvp/f1 p0-mvp/f2` **空**;`git check-ignore -v test-evidence/x` 命中 `.gitignore:4`(exit 0);mtime 亲查:p0-accept 最新 11-11 11:09、p0-mvp/f1 11-11 16:26、p0-mvp/f2 11-11 16:28 —— **11-12 零写入**;test-evidence/ 仅 live-worker-e2e/live-worker-e2e.log(06:59→07:00)。
+7. 沙箱仓只读 API(`curl --noproxy '*'`,token 经 `$(cat ~/.relay/credentials/github-sandbox-pat)` 内联,**未读/未打印/未复制该文件内容**):首 8 提交=`6c035203(foreign,2026-11-11T23:02:47Z=07:02:47+0800)←4bf5986a←35f1ab8d←57ea8c63(3×relay t-gh-real)←e52934fa←0dbf08a9←175eb071←a49f4317(root)`,每提交 parents 恰 1;`compare/e52934fa...6c035203`→`ahead_by:4/behind_by:0`。
+8. `/home/ubuntu/.config/magpie/routing/2026-11-12.jsonl`(46 行):命名窗 **06:59:57~07:00:08+08 恰 3 条** `group/gm→zcode status:200`(06:59:57.879/07:00:03.749/07:00:08.899);同一运行总窗 06:59:46~07:00:08 共 **5 条 200**(另 06:59:46.900/06:59:52.677,conv magpie-71307;07:00:03/08 属 conv magpie-0ebd3);**07:00:08 后零条目**(本 Reviewer 会话不在日志中);01:48~01:57 pi 调用簇早于第四包合同(06:56:58)且当日三历史证据目录零写入 ⇒ 非 F1/F2 门控运行,归属不在本包范围。
+9. `docker exec relay-p000-pg psql -U postgres -d relayp000`:`diag_cli_e5b7c761.budget_ledger`=1、`p01a_rev1_pogqulj4`=8、`p01a_review_f_cli_r28bt5`=1 —— **1/8/1 确认**;R-1 schema 8 行 updated_at 全 ≤2026-11-11 14:27:59+0800(第四包零触碰);其余 21 个 schema 全 0 行(与"测试 schema 随 afterAll 清理、常设账本零变动"一致)。
+10. `git ls-files -v` 全库:346 个跟踪文件,非 H **恰 2 个**=`S p0-mvp/soak-24h/samples.csv`、`S p0-mvp/soak-24h/worker.log`,其余全 H。
+11. 口径:capabilities.ts:110-115 `delivery.github.real=VERIFIED` ↔ 矩阵 US-08"VERIFIED(R-1 闭环;2026-11-12)"+G6"VERIFIED(R-1 闭环)";:75-80 `decision.d3.auto_approve=NOT_IMPLEMENTED` ↔ src/core/decisions.ts:4-5,92-98(D3 永不超时自动批准,仅 EXPIRED_STILL_BLOCKED)+ 基线矩阵 US-06/V07"D3 永不自动批准 VERIFIED"+ CURRENT 第五包"D3 无自动批准" —— 一致;`worker.model` 按 workerMode 动态(:140)✓。
+12. `npx tsc --noEmit` → exit 0 零输出;`npx vitest run test/unit/capabilities.test.ts` → **5/5 passed**(313ms)。
+
+### A~H 逐项结论表
+
+| 项 | 结论 | 关键证据(对应上列摘录条目) |
+| --- | --- | --- |
+| A diff 面审 | **确认** | 恰 7 文件(#2);capabilities 仅注释、剥注释逐字节相等(#3);无 soak 证据面/无运行时语义/无凭据材料(#2/#4)。注:审计口径"三个 test 文件"实为 **4 个**(f1/f2/live-worker-e2e + github-real,后者属 B 项授权面),与提交信息/报告自述一致,无越权 |
+| B github-real 唯一载荷 | **确认** | RUN_TAG 定义+3 载荷+1 断言(含唯一载荷全文)(#5);强推自证机制原样完好、零强推标志引入(#5) |
+| C 证据目录重定向 | **确认** | 三测试→test-evidence/、.gitignore:4 生效、三历史目录 diff 空+11-12 零写入、check-ignore 命中(#6) |
+| D 沙箱远端事实 | **确认** | 近 4 提交=3×t-gh-real+1×foreign,6c035203 当前头;0dbf08a9/e52934fa 仍在链;behind_by=0/ahead_by=4 历史只增零改写(#7) |
+| E A-4 披露 | **确认(附 Minor-p4-1)** | 命名窗恰 3×zcode:200(#8);账本 1/8/1 未动(#9);零 F1/F2(#6/#8);但同轮总消耗为 5 次上游 200(见 Minor-p4-1) |
+| F skip-worktree | **确认** | 全库仅 2 个 S 标(两 soak 观测文件),其余 344 全 H(#10) |
+| G 口径一致性 | **确认** | VERIFIED/NOT_IMPLEMENTED 与矩阵、代码教义、CURRENT 一致(#11) |
+| H 可运行项 | **确认** | tsc 0 错、capabilities 单测 5/5;禁跑清单全部未跑(#12) |
+
+### 证伪尝试记录(4 条,均未成功证伪)
+
+1. **越权改动搜索**:对 f8e0263 全部 hunk(共 10 个)逐一审读并按路径反查 soak/凭据/运行时面——零命中;对 capabilities.ts 施加注释剥离字节对比寻找隐藏语义变更——剥离后逐字节相等。证伪失败。
+2. **远端历史改写证明**:若存在强推/改写,`e52934fa` 不可能是当前头祖先——compare API 实测 `behind_by=0/ahead_by=4`,全链单亲线性,三祖先(175eb071/0dbf08a9/e52934fa)仍在首 8 列表内。改写假说不成立。
+3. **F1/F2 隐匿运行证明**:门控 F1/F2 产出必落盘(f8e0263 前落 p0-mvp/f1|f2,其后落 test-evidence/f1|f2)——两处 11-12 均零新文件,且第四包窗口内无第二模型调用簇;01:48~01:57 调用簇因当日历史证据目录零写入被排除为 F1/F2。证伪失败。
+4. **账本暗耗证明**:扫描全部 22+ schema 的 budget_ledger——常设三 schema 1/8/1 不变(最新行 11-11),其余全 0、无新 schema。证伪失败。
+
+### 发现问题
+
+**Major:无。**
+
+- **Minor-p4-1(A-4 披露口径精度;登记,不构成修必)**:pack4 报告披露"06:59:57~07:00:08 三次 zcode:200 上游调用"——命名窗内恰 3 次,字面属实;但同一 live-worker-e2e 运行总窗(06:59:46~07:00:08)实际 **5 次上游 200 调用**(06:59:46.900/06:59:52.677 两条落在命名窗之前)。按 A-4 条款"每次运行应向用户明示"的义务,消耗披露宜以**单次运行上游调用总数(5)**为口径,否则"used≈6+本次=7"算术低估实际消耗。预算账本本身零变动(limit=8 未触、零新行)——**无突破,仅披露精度**;建议第五包终账按运行级口径重述本轮消耗。
+- **观察 O-3(登记)**:第四包审计口径"三个 test 文件"与实际 diff 的 4 个 test 文件之差即 github-real——在合同第①项授权面内,提交信息与报告均如实自述,非越权;备查。
+- **观察 O-4(登记)**:`RELAY_F1_E2E/F2_E2E 未置位`属环境变量,无法事后直接取证;本轮以行为证据链(证据目录缺位+历史目录零写入+模型调用簇唯一性)间接钉死,结论成立但取证为间接;建议后续在测试输出中打印门控状态留强证据。
+
+### 裁决
+
+**PASS-WITH-FINDINGS**。
+
+- 第四包六项(①~⑥)与提交 f8e0263 的 diff 面、沙箱远端事实、预算账本、skip-worktree、口径一致性全部零采信亲测确认;**零 Major**。
+- 唯一 Minor=Minor-p4-1(披露口径:单轮实际 5 次上游调用 vs 命名窗 3 次;账本未动、无预算突破)。
+- 报告"独立 Reviewer 复核见 REVIEW-r1-closure.md 追加节"的自指承诺由本节兑现。
+- 复核时点 HEAD:`f8e0263dddce9eda1094a44258d097d67a020289`(工作区仅未跟踪 `p0-mvp/soak-24h/final-runner.log`,属第一包收尾面);复核时点 2026-11-12 07:13:12+0800。

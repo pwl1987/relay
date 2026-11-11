@@ -37,7 +37,7 @@
 
 - `npx tsc --noEmit`:0 错误。
 - `npx vitest run test/unit/capabilities.test.ts`(5/5 绿)+ f1/f2(无门控 skip 2+2)+ live-worker-e2e + github-real(终态 4+1skip)。
-- **披露(如实)**:live-worker-e2e 三重门控在本机全开(magpie+docker+iptables)⇒ 定向回归触发了 **A-4 既定授权实验真实运行 1 次**(33.5s,DELIVERED;非 F1/F2 对照实验)。消耗实证:magpie 路由日志 06:59:57~07:00:08 三次 `zcode:200` 上游调用;测试 schema 随 afterAll 清理故常设账本零变动(历史累计 used≈6+本次=7,limit=8,`r2-failure-analysis.md` §4 义务条款)。
+- **披露(如实)**:live-worker-e2e 三重门控在本机全开(magpie+docker+iptables)⇒ 定向回归触发了 **A-4 既定授权实验真实运行 1 次**(33.5s,DELIVERED;非 F1/F2 对照实验)。消耗实证:magpie 路由日志本次运行总窗(06:59:46~07:00:08)**5 次 `zcode:200` 上游调用**(Minor-p4-1 口径对齐:此前按命名窗 06:59:57~07:00:08 计 3 次系窗口取窄;按"每运行=上游调用数"口径为准);测试 schema 随 afterAll 清理故常设账本零变动(历史累计 used≈6+本次=7 次运行,limit=8 未触及,`r2-failure-analysis.md` §4 义务条款)。
 - **零 F1/F2 对照消耗**:`RELAY_F1_E2E/F2_E2E` 未置位,两测试 skip;替代模型授权仍未到位,零对照实验运行。
 
 ## 结论
