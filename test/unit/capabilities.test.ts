@@ -27,11 +27,11 @@ describe("P0-02C:能力登记表", () => {
     expect(entry?.note).toContain("永不存在");
   });
 
-  it("GitHub 真实写入标记为 BLOCKED(仓库不在 PAT 授权范围;不得声称已通过)", () => {
+  it("GitHub 真实写入 VERIFIED(用户补权后闭环;2026-11-12)", () => {
     const entry = registry().entries.find((e) => e.id === "delivery.github.real");
-    expect(entry?.status).toBe("BLOCKED");
-    expect(entry?.note).toContain("BLOCKED");
-    expect(entry?.note).toContain("仓库授权范围");
+    expect(entry?.status).toBe("VERIFIED");
+    expect(entry?.note).toContain("漂移拒绝");
+    expect(entry?.note).toContain("净化环境");
   });
 
   it("桩执行面如实标注为 STUB", () => {

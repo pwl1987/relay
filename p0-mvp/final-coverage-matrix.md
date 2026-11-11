@@ -11,7 +11,7 @@
 | US-01 模糊目标(P0) | PARTIAL | **VERIFIED** | 模型面补齐:真模型 Discovery(模糊 UX 需求 → 问题陈述/带置信度假设/一个推荐/可判定验收,报告准确识别全部四项页面缺陷)——`p0-mvp/f1/discovery.json` + `test/integration/discovery.test.ts`(真模型门控 3 例绿;sources 指向真实文件)+ 持久化可回放(discoveries 表+SHA);原话保留/采纳装配(US-03 面)同链 |
 | US-02 质疑与调研(P0 最小) | NOT_IMPLEMENTED | **VERIFIED(P0 最小)/公网 P1 NOT_IMPLEMENTED** | 本地项目只读调查一次+记录可回放 ✓(阶段 B);不合理方案可核查反驳 ✓(真模型:eval/同步阻塞/安全面,`discovery.test.ts` 真模型例 2);不可用调研能力显式说明 ✓(能力表+视图徽章);**公网 Search/Crawler 仍 NOT_IMPLEMENTED(P1,如实)** |
 | US-04 控制(P0) | PARTIAL | **VERIFIED** | CLI 全量补齐:`src/cli.ts`+bin(七组命令;13 例测试)+ `relay pause` 置入入口(READY 状态门)+ 确定性退出码 + doctor;**V03 全程真实 CLI 演练**(零浏览器零 ChatGPT,`p0-rework2/v03-cli-journey.log`);三入口同 Core(REVIEW 亲验零第二状态机) |
-| US-08 GitHub 集成(P0) | BLOCKED(403) | **BLOCKED(根因修正:仓库不在 PAT 授权范围)** | 阶段 C 逐项核查:token 本体有效(=/user 200)但 **72 个可见仓库中无 relay-delivery-sandbox**(匿名 404 互证)——`p0-mvp/stage-c-github-permission.md`;用户侧单点:Repository access 勾选沙箱仓+Contents RW;机制面(本地 bare 全链)VERIFIED 不变 |
+| US-08 GitHub 集成(P0) | BLOCKED(403) | **VERIFIED(R-1 闭环;2026-11-12)** | 用户补权后 `github-real.test.ts` 全套通过:真实 main 写入 DELIVERED+远端/树/内容三重核对+漂移拒绝(外部写者快进被拒/历史只增不减/非 force)+独立 API 复核(`p0-mvp/r1-closure.md`;日志 `github-real-closure.log`;代理净化环境教训如实登记) |
 | US-09 持续运行与预算(P0) | VERIFIED | **VERIFIED(长稳观察项单独列)** | 预算纪律全程(阶段 B/D 每轮事前声明,账本 reserve/settle 精确核算——REVIEW 亲验 5 轮 6/6);长稳 24h 观察进行中(见 §5) |
 | US-03/05/06/07/10 | VERIFIED | **VERIFIED(复验+增量)** | US-03:+F1 采纳装配(discovery 验收条件 → 有界任务文本);US-05:+E1 真实进程 SIGKILL/重启复验(3/3);US-07:+F1 机判 Gate 拒绝零编辑候选+Reviewer 正确 REWORK 实锤;US-10:+Goal 页 Discovery 区块来源徽章(E2E J1 口径更新) |
 
@@ -31,7 +31,7 @@
 | 项 | 基线 | **终裁决** | 增量证据 |
 | --- | --- | --- | --- |
 | G0 Requirement | PARTIAL | **VERIFIED** | 模型 Discovery 提供可判定验收(真模型) |
-| G6 Release | BLOCKED | **BLOCKED(PAT 仓库范围;同 US-08)** | 本地 bare 发布面 VERIFIED 不变 |
+| G6 Release | BLOCKED | **VERIFIED(R-1 闭环)** | 真实 GitHub 发布面全链:授权→候选→Gate→Intent→Executor→Observation→DELIVERED(独立 API 复核;漂移拒绝+历史保全) |
 | G7 Runtime | PARTIAL | **PARTIAL(24h 观察进行中)** | E1 worker 入口/编排 VERIFIED;24h 空闲采集进行中(真实计时,未满不判);工作模式长稳受模型能力面约束(如实) |
 | F1 模糊 UX | PARTIAL | **PARTIAL(机制 VERIFIED/真模型交付 PARTIAL)** | 机制全链(stub 显式标注):机判 4/4→DELIVERED→独立复核 ✓;真模型:Discovery 高质量 ✓、coder 方差(零编辑/烧回合/不完整修复)未过机判——诚实 PARTIAL,全部失败落账 |
 | F2 明确 Bug | VERIFIED(等价面) | **PARTIAL(机制 VERIFIED/真模型交付 PARTIAL)** | 同 F1 模式:stub 机制链一次过(独立 HTTP 复核 4/4);真模型 coder 一轮 SUCCEEDED 修复不完整/一轮 BUDGET_EXHAUSTED |
@@ -49,13 +49,13 @@
 | 清理安全 | **VERIFIED** | D4(见 §3) |
 | 预算纪律 | **VERIFIED** | 全程先声明后执行;账本精确;零超预算;零成本(magpie 本地) |
 | 长稳 24h | **PARTIAL(观察进行中)** | `p0-mvp/soak-24h/`(真实计时;启动时点 RSS 稳态 ~109MB≪400MB;采样器自动判定;未满不写 PASS) |
-| 真实 GitHub 交付 | **BLOCKED** | 阶段 C(用户侧单点) |
+| 真实 GitHub 交付 | **VERIFIED(R-1 闭环)** | `p0-mvp/r1-closure.md`(三重核对+漂移拒绝+历史保全) |
 
 ## §5 终判
 
 **MVP 判定:REWORK 维持**(不得 ACCEPTED)。理由(按"全部 P0 必需门通过才 ACCEPTED"标准):
 
-1. **US-08/G6 真实 GitHub 写入 BLOCKED**——用户侧单点(PAT 仓库范围),解除路径明确且已最小化(勾选仓库+Contents RW)。
+1. ~~US-08/G6 真实 GitHub 写入 BLOCKED~~ **已解除(R-1 闭环,2026-11-12;VERIFIED)**。
 2. **F1/F2 真模型业务交付 PARTIAL**——机制面全部 VERIFIED(机判 Gate/交付/独立复核/恢复),但本地 magpie 模型能力不足以稳定产出通过业务级机判的修改;需更强模型路由(部署包),不属于"降低验收"可豁免项。
 3. **24h 长稳观察未满**——真实计时进行中,未满不判 PASS(合同明令)。
 

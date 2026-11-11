@@ -11,7 +11,8 @@ export type CapabilityStatus =
   | "NOT_IMPLEMENTED"
   | "STUB"
   | "NOT_VERIFIED"
-  | "BLOCKED"; // 外部阻断(如用户凭据单点);如实状态,不得与 NOT_VERIFIED 混用
+  | "BLOCKED" // 外部阻断(如用户凭据单点);如实状态,不得与 NOT_VERIFIED 混用
+  | "VERIFIED"; // 运行时证据齐全(各包 REVIEW 亲测) 外部阻断(如用户凭据单点);如实状态,不得与 NOT_VERIFIED 混用
 
 export interface CapabilityEntry {
   id: string;
@@ -108,9 +109,9 @@ export function buildCapabilityRegistry(
     {
       id: "delivery.github.real",
       title: "GitHub 真实写入",
-      status: "BLOCKED",
-      note: "BLOCKED:细粒度 PAT 有效但 relay-delivery-sandbox 不在其仓库授权范围(2026-11-11 逐项核查;72 可见仓库无此仓)⇒ 真实写入/漂移实验诚实 skip。用户侧解除:Repository access 勾选沙箱仓+Contents RW;机制面(本地 bare 全链)已 VERIFIED。",
-      evidence: "p0-mvp/stage-c-github-permission.md;p0-02b/github-api-verification.log",
+      status: "VERIFIED",
+      note: "用户补权后闭环(2026-11-12):真实 main 写入 DELIVERED+远端/树/内容三重核对+漂移拒绝(外部写者快进被拒/历史只增不减)。注意:测试须在代理变量净化环境运行(宿主代理上游断会使 git 子进程 120s 超时)。",
+      evidence: "p0-mvp/r1-closure.md;p0-mvp/github-real-closure.log",
     },
     {
       id: "worker.tick",

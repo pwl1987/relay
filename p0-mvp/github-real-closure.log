@@ -1,0 +1,35 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/github-real.test.ts > P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 凭据门事实如实记录(缺失⇒后续真实用例 skip;经典⇒拒;API 只读探测不回退 gh 令牌)
+CREDENTIAL_STATE mode=wellformed present=true apiStatus=200 detail=GitHub /user 探测状态 200 (判定次序:形态检查先于 API 探测 —— 形态非法即短路,不打 API;形态合法但 API 401 ⇒ 凭据被拒)
+
+stdout | test/integration/github-real.test.ts > 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 wellformed,API 200)
+GITHUB_API_VERIFY repo=pwl1987/relay-delivery-sandbox ref=175eb07103f5f8798b805a3f8d787a9ac6db6b3e api_status=200 blob_sha=9d3ca0c7457194a6f30a2645c3354fbc64b74a72
+
+To https://github.com/pwl1987/relay-delivery-sandbox
+   175eb07..0dbf08a  HEAD -> main
+ ✓ test/integration/github-real.test.ts (5 tests | 1 skipped) 120158ms
+   ✓ 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 wellformed,API 200)  105370ms
+   ✓ 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 远端漂移实验:外部写者快进推进 main ⇒ Relay 拒绝覆盖;远端保持外来头且历史完整(凭据 wellformed,API 200)  14513ms
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: [vitest-worker]: Timeout calling "onTaskUpdate"
+ ❯ Object.onTimeoutError node_modules/vitest/dist/chunks/rpc.-pEldfrD.js:53:10
+ ❯ Timeout._onTimeout node_modules/vitest/dist/chunks/index.B521nVV-.js:59:62
+ ❯ listOnTimeout node:internal/timers:685:17
+ ❯ processTimers node:internal/timers:618:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed | 1 skipped (5)
+     Errors  1 error
+   Start at  01:43:38
+   Duration  122.06s (transform 250ms, setup 0ms, collect 1.65s, tests 120.16s, environment 0ms, prepare 83ms)
+
