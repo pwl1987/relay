@@ -7,8 +7,8 @@
 
 | 项 | 状态 | 解除条件 |
 | --- | --- | --- |
-| 真实 GitHub 写入 + 漂移实验(US-08/G6) | **BLOCKED(出口网络故障)** | VM80 出口恢复(`curl https://api.github.com` 非 000)→ 跑 `github-real.test.ts` 补录(无需新授权;凭据形态已 PASS:93B github_pat_ 0600) |
-| main 快进推送(本包 4bd4168..02c094f) | 待网络 | 恢复后核对远端 HEAD==f4c1248 无漂移 → 快进 |
+| 真实 GitHub 写入 + 漂移实验(US-08/G6) | **BLOCKED(PAT 权限 403)** | 用户为 fine-grained PAT 补 `pwl1987/relay-delivery-sandbox` Contents RW(API 认证已 200;git push 403 实证)→ 重跑 `github-real.test.ts`(无需新授权) |
+| 本机代理栈(env 8118/1080)上游断 | 环境项(不影响直连) | 直连出口正常(`env -u http_proxy git ls-remote` 成功);代理修复属宿主运维,不在本包 |
 
 ## §2 有界 REWORK 工作包(建议顺序)
 

@@ -35,3 +35,8 @@
 2026-11-11T02:20:29.235Z # server http://127.0.0.1:36343 workerMode=live sandbox=docker
 2026-11-11T02:20:29.381Z 登录 200;cookie=relay_session=1e4a9e780a…;csrf=5881a225…
 2026-11-11T02:20:29.395Z POST /api/goals 201;goalId=goal-0ca524eb-6ec5-4596-ad7a-7c70ad64035a;tasks=["task-2d4d47c9-9fda-4459-82dd-e50c5dfbc08f"]
+2026-11-11T02:24:29.221Z tick status=PROGRESSED run=SUCCEEDED/ gate=ACCEPTED/result.txt 内容 sum=87 与 brief.txt 中三数(12+30+45)之和一致,清单无越界文件,需求满足。 delivery={"propose":{"ok":true},"execute":{"ok":true,"state":"DELIVERED","remoteHead":"3bebbfb53cda89930e212ac7d287a074fc57fa67","intentId":"intent-f4d81b02d26dbb89ae24b77e11400e0ff389d57d7a825e65688f1b9f732d600d"}}
+2026-11-11T02:24:29.225Z relay_exec tool_result(0 条):[]
+2026-11-11T02:24:29.225Z toolEvents 空(pi 1.5.0 真实事件流无 tool_call 记录);允许/越权实证 = 本次交付内容核验 + 既有 pi-e2e 越权断言(test/integration/pi-e2e.test.ts)
+2026-11-11T02:24:29.234Z DELIVERED;commit=3bebbfb53cda;remote head 一致
+2026-11-11T02:24:29.235Z ledger model_calls used=6 limit=8 reserved=0

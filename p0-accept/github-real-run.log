@@ -1,0 +1,67 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/github-real.test.ts > P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 凭据门事实如实记录(缺失⇒后续真实用例 skip;经典⇒拒;API 只读探测不回退 gh 令牌)
+CREDENTIAL_STATE mode=wellformed present=true apiStatus=200 detail=GitHub /user 探测状态 200 (判定次序:形态检查先于 API 探测 —— 形态非法即短路,不打 API;形态合法但 API 401 ⇒ 凭据被拒)
+
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+ ❯ test/integration/github-real.test.ts (5 tests | 2 failed | 1 skipped) 5003ms
+   ✓ P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 夹具自证:本文件与两个 push 执行器的可执行代码面均无强推标志;env 重定向被拒;目标固定为沙箱仓库且非生产仓库 4ms
+   ✓ P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 凭据门事实如实记录(缺失⇒后续真实用例 skip;经典⇒拒;API 只读探测不回退 gh 令牌) 2ms
+   ↓ 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 凭据被拒(GitHub 200)⇒ 真实远端安全失败:交付 FAILED、changeset 非 DELIVERED、写入动作零调用(perform 未触发)
+   × 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 wellformed,API 200) 2261ms
+     → execute failed: {"ok":false,"state":"FAILED","reason":"executor_error:git ls-remote failed: remote: Write access to repository not granted.\nfatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403","intentId":"intent-3d33aa854e16080e48d238e68c2a005915439d56b638fbe717bc0aea1b4af72f"}: expected false to be true // Object.is equality
+   × 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 远端漂移实验:外部写者快进推进 main ⇒ Relay 拒绝覆盖;远端保持外来头且历史完整(凭据 wellformed,API 200) 2482ms
+     → Command failed: git -C /tmp/relay-gh-real-4BgDBm/ws-drift-other/relay-ws-63p7k1 -c credential.helper= -c credential.helper=store --file=/tmp/relay-ghcred-75781265-i7qc2O/credential-store push origin HEAD:refs/heads/main
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/github-real.test.ts > 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 wellformed,API 200)
+AssertionError: execute failed: {"ok":false,"state":"FAILED","reason":"executor_error:git ls-remote failed: remote: Write access to repository not granted.\nfatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403","intentId":"intent-3d33aa854e16080e48d238e68c2a005915439d56b638fbe717bc0aea1b4af72f"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/integration/github-real.test.ts:372:83
+    370|         const io = ioFor(built.staged, snapshotManifest(built.ws.dir));
+    371|         const done = await executeDelivery(t.db, io, proposed.proposal…
+    372|         expect(done.ok, done.ok ? "" : `execute failed: ${JSON.stringi…
+       |                                                                                   ^
+    373|         if (!done.ok) return;
+    374|         expect(done.state).toBe("DELIVERED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/integration/github-real.test.ts > 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 远端漂移实验:外部写者快进推进 main ⇒ Relay 拒绝覆盖;远端保持外来头且历史完整(凭据 wellformed,API 200)
+Error: Command failed: git -C /tmp/relay-gh-real-4BgDBm/ws-drift-other/relay-ws-63p7k1 -c credential.helper= -c credential.helper=store --file=/tmp/relay-ghcred-75781265-i7qc2O/credential-store push origin HEAD:refs/heads/main
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+
+ ❯ git test/integration/github-real.test.ts:120:10
+    118|     ? ["-c", "credential.helper=", "-c", `credential.helper=store --fi…
+    119|     : [];
+    120|   return execFileSync("git", ["-C", cwd, ...cred, ...args], {
+       |          ^
+    121|     encoding: "utf8",
+    122|     maxBuffer: 32 * 1024 * 1024,
+ ❯ test/integration/github-real.test.ts:436:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed | 1 skipped (5)
+   Start at  10:36:47
+   Duration  6.91s (transform 234ms, setup 0ms, collect 1.62s, tests 5.00s, environment 0ms, prepare 77ms)
+

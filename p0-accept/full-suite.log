@@ -1,3 +1,247 @@
 
  RUN  v3.2.7 /home/ubuntu/dev/relay
 
+ ✓ test/integration/live-worker-e2e.test.ts (1 test) 252789ms
+   ✓ P0-ACCEPT 缺口 A-4:Web/API 入口 + live worker 真实模型联合验证 > 登录 → Web API 建 Goal → live tick(真模型,docker)→ 白名单允许+越权实证 → Gate → DELIVERED → 账本  240000ms
+stdout | test/integration/gate-e2e.test.ts > P0-02A 验收:真实模型 提交+独立 Reviewer 全闭环(预算账本) > 自治闭环:Coder Run → 候选变更集 → 独立 Reviewer Run → 绑定 Gate → ACCEPTED → goal COMPLETED;completions 计数 == 回合数
+[C-9 核验] completions=6 == turns=6(coder=3, reviewer=3);total requests=6;ledger used=6/8
+
+ ✓ test/integration/gate-e2e.test.ts (1 test) 107063ms
+   ✓ P0-02A 验收:真实模型 提交+独立 Reviewer 全闭环(预算账本) > 自治闭环:Coder Run → 候选变更集 → 独立 Reviewer Run → 绑定 Gate → ACCEPTED → goal COMPLETED;completions 计数 == 回合数  93944ms
+ ✓ test/integration/pi-e2e.test.ts (2 tests) 77499ms
+   ✓ 真实 Pi RPC E2E(容器+当前可用 Provider) > 端到端:真实模型读文件/越权被拒/写结果/handoff/推进与 Gate  26695ms
+   ✓ 真实 Pi RPC E2E(容器+当前可用 Provider) > 真实断连恢复:docker kill → rpc_disconnect → 回收重领 → context_rebuild  37822ms
+ ❯ test/integration/egress-proxy.test.ts (6 tests | 1 failed) 67610ms
+   ✓ 出口代理 v2(密钥隔离 + 请求计数,容器实测) > Run 容器可见面零真实 key:models.json 占位 / argv 无 --api-key / 代理改写 Authorization 12ms
+   × 出口代理 v2(密钥隔离 + 请求计数,容器实测) > 代理改写生效:占位 key 经代理被换成真实 key(magpie 接受);计数精确 +1/请求 31615ms
+     → expected 2 to be 1 // Object.is equality
+   ✓ 出口代理 v2(密钥隔离 + 请求计数,容器实测) > 计数端点仅宿主可达:容器子网访问被白名单 DROP;外网仍然阻断  22054ms
+   ✓ 出口代理 v2(密钥隔离 + 请求计数,容器实测) > FAIL-CLOSED:转发器不在 ⇒ verifyEgressRules 拒绝(Run 拒启)  920ms
+   ✓ 出口代理 v2(密钥隔离 + 请求计数,容器实测) > G-3:docker inspect 零真实 key(env 面 FWD_REAL_KEY 废除;仅 0600 文件只读挂载) 23ms
+   ✓ 出口代理 v2(密钥隔离 + 请求计数,容器实测) > 数据库隔离哨兵(本文件 schema 独立) 24ms
+ ✓ test/integration/egress-enforcement.test.ts (4 tests) 16239ms
+   ✓ 网络出口约束(容器+iptables 实测) > ensureEgress 幂等建立;两次执行结果一致;verifyEgressRules 通过  1669ms
+   ✓ 网络出口约束(容器+iptables 实测) > 真实探针:模型端点可达 + 外网被阻断(两个都成立才算约束生效)  12354ms
+   ✓ 网络出口约束(容器+iptables 实测) > FAIL-CLOSED:无 egress 状态时 docker executeRun 拒启(不得静默降级 host 网络)  865ms
+   ✓ 网络出口约束(容器+iptables 实测) > teardownEgress 清理后规则消失(只动本包标记的规则)  1253ms
+ ✓ test/integration/v04-crash-recovery.test.ts (2 tests) 10809ms
+   ✓ V04 SIGKILL 崩溃恢复 > 崩溃 → 窗口内权威 → 过期回收 → fencing+1 重领 → 幽灵被拒 → 审计完整  10535ms
+ ↓ test/e2e/web-journey.test.ts (5 tests | 5 skipped)
+stdout | test/integration/backup-restore.test.ts
+[缺口 F 门控] pg_dump=false container_pg_dump=true docker=true 走容器导出=true
+
+stdout | test/integration/backup-restore.test.ts > P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对
+[缺口 F] pg_dump 完成:23818 /tmp/p0acc-backup-WKgMKf/relay-backup.sql
+
+stdout | test/integration/backup-restore.test.ts > P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对 > 隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变
+[缺口 F] 隔离实例就绪:127.0.0.1:32770(relay_restore)
+[缺口 F] psql 恢复完成(ON_ERROR_STOP=1 零错误)
+
+stdout | test/integration/backup-restore.test.ts > P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对 > 隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变
+[缺口 F] 外部 Git HEAD 不变:5c60959a7fbf;13 表行数+摘要全部一致
+
+ ✓ test/integration/backup-restore.test.ts (1 test) 5710ms
+   ✓ P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对 > 隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变  4859ms
+ ✓ test/integration/run-crash-recovery.test.ts (1 test) 5019ms
+   ✓ Run 崩溃恢复:SIGKILL → Tick 回收 → context_rebuild(V04 延伸) > 全链路:A 被杀→回收→B 重领(fencing+1)→重建上下文→VERIFYING;旧 token 推进被拒  4813ms
+fatal: ambiguous argument 'refs/heads/main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ ✓ test/integration/delivery.test.ts (12 tests) 4877ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > D-8 正链:Proposal→Intent→推送→远端核对 ⇒ DELIVERED;远端头==payload;审计齐备;三 SHA 区分  409ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例2a Token 缺失 ⇒ credential_missing(0 intent);反例2b 远端 401 ⇒ intent FAILED,changeset 非 DELIVERED,远端未被触碰  482ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例3 未经 Gate PASS 的候选不得推送:无已消费 PASS ⇒ no_gate_authorization;任务非 ACCEPTED ⇒ task_not_accepted  409ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例4 远端 HEAD 漂移必须拒绝:外部推进 main 后执行 ⇒ CONFLICT,无覆盖,D3 决策行  358ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例5 push 成功但回执丢失:Reconcile 先查真实状态 ⇒ SIDE_EFFECT_CONFIRMED ⇒ DELIVERED,绝不重复推送  333ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例8 重复触发交付请求:同 changeset 单 proposal;已 CONSUMED ⇒ no-op,单提交单 intent  448ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 写后内容核验抛错 ⇒ NEEDS_RECONCILE(不误标 DELIVERED);Reconcile 先查真实状态补 DELIVERED  329ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 全链(goal-loop 接线):stub Run(git 工作区)→ 变更集+候选 commit → Reviewer PASS → ACCEPTED → 交付 DELIVERED → goal COMPLETED  935ms
+ ✓ test/integration/run-lifecycle.test.ts (7 tests) 3615ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 成功路径:settle+handoff→run=SUCCEEDED→任务 VERIFYING→Gate 后 ACCEPTED  383ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 超时:wall 预算到点→run=TIMEOUT→任务 FAILED(attempt 已消耗)  2085ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 取消:cancelSignal→run=CANCELLED→任务 CANCELLED(终态锁定)  482ms
+ ✓ test/integration/gate-orchestrator.test.ts (5 tests) 3470ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > 全链 PASS:coder(stub)→ 证据(真实检查)→ Reviewer(stub PASS)→ ACCEPTED;Reviewer 与 Coder 为不同 Run  689ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > REWORK 流:Reviewer REWORK ⇒ VERIFYING→REWORK→READY(带退避);旧 PASS 不残留  578ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > BLOCK 流:Reviewer BLOCK ⇒ NEEDS_DECISION + D3 决策行;绝不自动 ACCEPTED  571ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > 反例:Coder 自宣 PASS 围栏(fake-self-approve)不构成验收;Review 无围栏有界失败 ⇒ NEEDS_DECISION  845ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > Reviewer BLOCK 压过 Coder 自宣:fake-self-approve + Reviewer BLOCK ⇒ NEEDS_DECISION  580ms
+stdout | test/integration/github-real.test.ts > P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 凭据门事实如实记录(缺失⇒后续真实用例 skip;经典⇒拒;API 只读探测不回退 gh 令牌)
+CREDENTIAL_STATE mode=wellformed present=true apiStatus=200 detail=GitHub /user 探测状态 200 (判定次序:形态检查先于 API 探测 —— 形态非法即短路,不打 API;形态合法但 API 401 ⇒ 凭据被拒)
+
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+ ❯ test/integration/github-real.test.ts (5 tests | 2 failed | 1 skipped) 4609ms
+   ✓ P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 夹具自证:本文件与两个 push 执行器的可执行代码面均无强推标志;env 重定向被拒;目标固定为沙箱仓库且非生产仓库 4ms
+   ✓ P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 凭据门事实如实记录(缺失⇒后续真实用例 skip;经典⇒拒;API 只读探测不回退 gh 令牌) 1ms
+   ↓ 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 凭据被拒(GitHub 200)⇒ 真实远端安全失败:交付 FAILED、changeset 非 DELIVERED、写入动作零调用(perform 未触发)
+   × 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 wellformed,API 200) 2188ms
+     → execute failed: {"ok":false,"state":"FAILED","reason":"executor_error:git ls-remote failed: remote: Write access to repository not granted.\nfatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403","intentId":"intent-15ee9efc29123dae9ccc25ad8e2dae62e53d530d04742f1d482361540713940a"}: expected false to be true // Object.is equality
+   × 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 远端漂移实验:外部写者快进推进 main ⇒ Relay 拒绝覆盖;远端保持外来头且历史完整(凭据 wellformed,API 200) 2217ms
+     → Command failed: git -C /tmp/relay-gh-real-OgnBU2/ws-drift-other/relay-ws-5VVTtr -c credential.helper= -c credential.helper=store --file=/tmp/relay-ghcred-9f5390fb-s4vwsn/credential-store push origin HEAD:refs/heads/main
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+
+ ✓ test/integration/v05-reexecute-safe.test.ts (2 tests) 2392ms
+   ✓ V05 执行前崩溃安全重试(C2) > 执行前被杀 → ABSENT 判定 → 安全重推恰好一次  2011ms
+ ✓ test/integration/web-api.test.ts (12 tests) 2032ms
+   ✓ P0-02C:API Server(真 PG + 真 HTTP) > 登录失败限速:连续错误口令后被锁定  499ms
+ ✓ test/integration/loop-circuit.test.ts (4 tests) 2014ms
+   ✓ 循环安全器(连续异常 ⇒ 可观测 + 熔断;成功清零;重启恢复) > startSafeLoop:连续 throw 达阈值 ⇒ 逐次回调 + 熔断停止调度(不静默无限循环)  553ms
+   ✓ 循环安全器(连续异常 ⇒ 可观测 + 熔断;成功清零;重启恢复) > 成功清零:交替 throw/成功 ⇒ 连续计数被清零,永不熔断  401ms
+   ✓ 循环安全器(连续异常 ⇒ 可观测 + 熔断;成功清零;重启恢复) > startGoalLoop 接真实 PG:连续 DB 异常 ⇒ TICK_ERROR 审计尽力落库 + 熔断;新循环实例恢复推进  603ms
+ ✓ test/integration/circuit-recovery.test.ts (4 tests) 1946ms
+   ✓ 并发/重复 Tick 与进程重启恢复 > loop 子进程 SIGKILL → 新 loop 从 PG 恢复:状态事实仍在库,任务走到 VERIFYING(旧租约回收)  1274ms
+node:fs:2482
+    return binding.writeFileUtf8(
+                   ^
+
+Error: EROFS: read-only file system, open '/workspace/attack.txt'
+    at Object.writeFileSync (node:fs:2482:20)
+    at [eval]:1:15
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3)
+    at node:internal/main/eval_string:71:3 {
+  errno: -30,
+  code: 'EROFS',
+  syscall: 'open',
+  path: '/workspace/attack.txt'
+}
+
+Node.js v24.21.0
+node:fs:2000
+  binding.unlink(getValidatedPath(path));
+          ^
+
+Error: EROFS: read-only file system, unlink '/workspace/candidate.txt'
+    at Object.unlinkSync (node:fs:2000:11)
+    at [eval]:1:15
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3)
+    at node:internal/main/eval_string:71:3 {
+  errno: -30,
+  code: 'EROFS',
+  syscall: 'unlink',
+  path: '/workspace/candidate.txt'
+}
+
+Node.js v24.21.0
+ ✓ test/integration/reviewer-readonly.test.ts (2 tests) 1864ms
+   ✓ P0-02B G-4:Reviewer 候选面 FS 级只读挂载(容器实测) > OS 层证据:Reviewer 同款约束下读候选成功;写/删/替换被内核拒绝(EROFS);对照组(rw)写成功  1853ms
+ ✓ test/integration/lease-expiry-fencing.test.ts (1 test) 1642ms
+   ✓ B2 租约过期与 fencing > 过期回收:fencing 单调 +1;旧 Token 与冒充一律被拒  1431ms
+ ✓ test/integration/heartbeat.test.ts (4 tests) 1554ms
+   ✓ 心跳续租 > 过期后续租被拒;新 Worker 回收领取  1318ms
+ ✓ test/integration/v05-lost-receipt.test.ts (1 test) 1330ms
+   ✓ V05 丢回执恢复(C1) > push 已发生、回执未写时被杀 → reconcile 确认 → 不重推 → 幂等  1017ms
+ ✓ test/integration/c1-safety.test.ts (2 tests) 1364ms
+   ✓ C-1 心跳 DB 异常止损(合同 1) > 第一次异常容忍,第二次连续异常 ⇒ INTERRUPTED + stub 死亡 + 任务停 RUNNING 待回收  640ms
+   ✓ C-1 工具事件 Worker 侧可信持久化(合同 3) > workspace 审计文件缺失时,runs.detail.toolEvents 仍有完整调用记录(含 DENIED)  307ms
+ ✓ test/integration/git-candidate.test.ts (7 tests) 1132ms
+ ✓ test/integration/worker-safety.test.ts (4 tests) 861ms
+   ✓ P0-ACCEPT 缺口 A:live worker 隔离 FAIL-CLOSED 与白名单传递 > stub 注入路径不受隔离门限制(测试专用语义);白名单 task 经 stub Run 落库(sandbox 如实标注)  557ms
+ ✓ test/integration/budget-turns-cap.test.ts (1 test) 909ms
+   ✓ 回合硬顶(机器强制预算,Run 中) > cap=2 < stub 5 回合 ⇒ BUDGET_EXHAUSTED(budget_turns_cap)+ stub 死亡 + 任务 BLOCKED + used=2  712ms
+ ✓ test/integration/sandbox-enforcement.test.ts (1 test) 851ms
+   ✓ OS 沙箱强制(容器层) > 容器内边界:uid/能力/文件系统/环境四方面全部收紧  849ms
+ ✓ test/integration/goal-loop.test.ts (6 tests) 831ms
+ ✓ test/integration/budget-enforcement.test.ts (5 tests) 828ms
+   ✓ runner × 预算集成(任务级机器强制) > 正常路径:usage 实测入账(STUB_USAGE);预留先于执行(used 在 run 结算后更新)  316ms
+ ✓ test/integration/run-lease-loss.test.ts (1 test) 747ms
+   ✓ 失效 Run 止损:租约丢失 → RPC 子进程立即终止 > reclaim 后:心跳被拒(state_not_leased_chain)→ stub 被杀 → run=INTERRUPTED → 任务不被 A 推进  551ms
+ ✓ test/integration/extension-policy-parity.test.ts (12 tests) 517ms
+   ✓ relay_exec 与环境清洗 > 超时被硬性终止  502ms
+ ✓ test/integration/gate-binding.test.ts (5 tests) 421ms
+ ✓ test/integration/intent-drift-reject.test.ts (1 test) 408ms
+ ✓ test/unit/pi-version.test.ts (3 tests) 372ms
+   ✓ Pi 版本锁定 > 运行时二探:实际执行 --version 与锁定版本一致  322ms
+ ✓ test/integration/verify-lease.test.ts (2 tests) 338ms
+ ✓ test/integration/v08-gate.test.ts (4 tests) 339ms
+ ✓ test/integration/supervisor-tick.test.ts (3 tests) 300ms
+ ✓ test/integration/lease-basics.test.ts (2 tests) 281ms
+ ✓ test/integration/heartbeat-leased-chain.test.ts (2 tests) 255ms
+ ✓ test/integration/changesets.test.ts (4 tests) 231ms
+ ✓ test/unit/web-app.test.ts (4 tests) 231ms
+ ✓ test/unit/lifecycle.test.ts (7 tests) 11ms
+ ✓ test/unit/delivery-policy.test.ts (9 tests) 9ms
+ ✓ test/unit/capabilities.test.ts (5 tests) 8ms
+ ✓ test/unit/context.test.ts (6 tests) 9ms
+ ✓ test/unit/redact.test.ts (7 tests) 7ms
+ ✓ test/unit/policy-scope.test.ts (8 tests) 6ms
+ ✓ test/unit/denial-hints.test.ts (5 tests) 5ms
+ ✓ test/unit/command-scope.test.ts (4 tests) 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/egress-proxy.test.ts > 出口代理 v2(密钥隔离 + 请求计数,容器实测) > 代理改写生效:占位 key 经代理被换成真实 key(magpie 接受);计数精确 +1/请求
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ test/integration/egress-proxy.test.ts:115:29
+    113|     // 重试会带额外计数;断言"每次请求恰好 +1"的精确性(非 <=)
+    114|     const extra = (out.match(/STATUS:/g) ?? []).length - 1;
+    115|     expect(after!.requests).toBe(before!.requests + 1 + Math.max(extra…
+       |                             ^
+    116|   });
+    117| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/integration/github-real.test.ts > 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 wellformed,API 200)
+AssertionError: execute failed: {"ok":false,"state":"FAILED","reason":"executor_error:git ls-remote failed: remote: Write access to repository not granted.\nfatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403","intentId":"intent-15ee9efc29123dae9ccc25ad8e2dae62e53d530d04742f1d482361540713940a"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/integration/github-real.test.ts:372:83
+    370|         const io = ioFor(built.staged, snapshotManifest(built.ws.dir));
+    371|         const done = await executeDelivery(t.db, io, proposed.proposal…
+    372|         expect(done.ok, done.ok ? "" : `execute failed: ${JSON.stringi…
+       |                                                                                   ^
+    373|         if (!done.ok) return;
+    374|         expect(done.state).toBe("DELIVERED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/integration/github-real.test.ts > 真实远端写入与漂移实验(凭据 wellformed;GitHub 认证 200) > 远端漂移实验:外部写者快进推进 main ⇒ Relay 拒绝覆盖;远端保持外来头且历史完整(凭据 wellformed,API 200)
+Error: Command failed: git -C /tmp/relay-gh-real-OgnBU2/ws-drift-other/relay-ws-5VVTtr -c credential.helper= -c credential.helper=store --file=/tmp/relay-ghcred-9f5390fb-s4vwsn/credential-store push origin HEAD:refs/heads/main
+remote: Write access to repository not granted.
+fatal: unable to access 'https://github.com/pwl1987/relay-delivery-sandbox/': The requested URL returned error: 403
+
+ ❯ git test/integration/github-real.test.ts:120:10
+    118|     ? ["-c", "credential.helper=", "-c", `credential.helper=store --fi…
+    119|     : [];
+    120|   return execFileSync("git", ["-C", cwd, ...cred, ...args], {
+       |          ^
+    121|     encoding: "utf8",
+    122|     maxBuffer: 32 * 1024 * 1024,
+ ❯ test/integration/github-real.test.ts:436:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 45 passed | 1 skipped (48)
+      Tests  3 failed | 193 passed | 6 skipped (202)
+   Start at  10:20:15
+   Duration  622.39s (transform 979ms, setup 0ms, collect 25.20s, tests 585.36s, environment 10ms, prepare 3.39s)
+
