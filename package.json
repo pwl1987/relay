@@ -4,6 +4,9 @@
   "type": "module",
   "version": "0.1.0-p0",
   "description": "Relay 自治软件交付引擎(P0-01A:持久状态与可靠执行内核)",
+  "bin": {
+    "relay": "./bin/relay.mjs"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

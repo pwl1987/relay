@@ -136,3 +136,23 @@ export async function resumeTask(
     action: opts.action ?? "TASK_RESUMED",
   });
 }
+
+/**
+ * READY → PAUSED(P0-REWORK-2:暂停置入入口;此前 PAUSED 无任何置入途径)。
+ * 语义边界(总执行包 A2):暂停 = 阻止 claimNextReady 再领取(领取只查 state='READY');
+ * 已在租约链(LEASED/RUNNING/SUBMITTED/VERIFYING)上的执行**不打断**——外部副作用由既有
+ * 租约/Intent/Reconcile 管理,故本入口只允许从 READY 置入,避免与 fencing 竞争。
+ * 同口径:actor 授权 + expected state_version + 合法转移 + 审计(复用 recoverTransition)。
+ */
+export async function pauseTask(
+  exec: Exec,
+  taskId: string,
+  opts: { actor: string; expectedStateVersion: number; reason?: string },
+): Promise<RecoveryResult> {
+  return recoverTransition(exec, taskId, "PAUSED", {
+    actor: opts.actor,
+    expectedStateVersion: opts.expectedStateVersion,
+    action: "TASK_PAUSED",
+    detail: opts.reason ? { reason: opts.reason } : {},
+  });
+}

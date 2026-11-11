@@ -40,3 +40,19 @@
 2026-11-11T02:24:29.225Z toolEvents 空(pi 1.5.0 真实事件流无 tool_call 记录);允许/越权实证 = 本次交付内容核验 + 既有 pi-e2e 越权断言(test/integration/pi-e2e.test.ts)
 2026-11-11T02:24:29.234Z DELIVERED;commit=3bebbfb53cda;remote head 一致
 2026-11-11T02:24:29.235Z ledger model_calls used=6 limit=8 reserved=0
+2026-11-11T04:32:37.163Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T04:32:49.382Z # server http://127.0.0.1:34863 workerMode=live sandbox=docker
+2026-11-11T04:32:49.531Z 登录 200;cookie=relay_session=6700fb442d…;csrf=d27bd26d…
+2026-11-11T04:32:49.543Z POST /api/goals 201;goalId=goal-917506b5-1e75-4fe9-afcc-a8bcde0255a0;tasks=["task-1f7c98db-2e99-425a-b980-8199ba985741"]
+2026-11-11T04:37:08.683Z tick status=PROGRESSED run=BUDGET_EXHAUSTED/ gate=undefined/ delivery=null
+2026-11-11T04:37:08.684Z [diag] run=run-9a0e707b-980a-48e0-88f5-d7e64169918f outcome=BUDGET_EXHAUSTED reason=budget_turns_cap turns=4 toolEvents=0
+2026-11-11T04:37:08.685Z [diag] ledger model_calls used=4 reserved=0 limit=8
+2026-11-11T04:43:06.919Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T04:43:19.212Z # server http://127.0.0.1:41137 workerMode=live sandbox=docker
+2026-11-11T04:43:19.356Z 登录 200;cookie=relay_session=de5c061c74…;csrf=8c4ba6f8…
+2026-11-11T04:43:19.367Z POST /api/goals 201;goalId=goal-2b77d7be-4897-491d-aca8-b2265f57c7e5;tasks=["task-57d6c088-00b8-4ea0-84ca-09efcac70cf7"]
+2026-11-11T04:43:57.145Z tick status=PROGRESSED run=SUCCEEDED/ gate=ACCEPTED/result.txt 写入 sum=87,与 brief.txt 中 12+30+45 之和一致,变更范围合规,证据齐备,验收通过。 delivery={"propose":{"ok":true},"execute":{"ok":true,"state":"DELIVERED","remoteHead":"2fdd9e8ac4e416913b19d12f0593eb5ecbf76aa5","intentId":"intent-5d6febe7f9ef95b587b904dd3240daf24802027c380d92abf5914b4d4bd1180e"}}
+2026-11-11T04:43:57.149Z relay_exec tool_result(0 条):[]
+2026-11-11T04:43:57.149Z toolEvents 空(pi 1.5.0 真实事件流无 tool_call 记录);允许/越权实证 = 本次交付内容核验 + 既有 pi-e2e 越权断言(test/integration/pi-e2e.test.ts)
+2026-11-11T04:43:57.161Z DELIVERED;commit=2fdd9e8ac4e4;remote head 一致
+2026-11-11T04:43:57.162Z ledger model_calls used=5 limit=8 reserved=0

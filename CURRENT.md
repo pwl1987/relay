@@ -4,16 +4,18 @@
 - 写者:**本窗口唯一 Writer**(main-only;禁强推/禁其他分支)。
 - 冷启动基线(2026-11-11 复核):本地 HEAD == origin/main == `3069aa101df8b1ecbe505fa846a761870acbaa5e`;工作区 clean;CI run `42952099140` success;PG 容器健康;Node v24.21.0。
 
-## 本包范围(阶段 A:REWORK-2,US-04/V03 闭合)
+## 本包范围(阶段 A:REWORK-2,US-04/V03 闭合)——已实现,待复核/CI
 
-1. **Core 最小增量**:`src/core/ops.ts` 新增 `pauseTask`(任务级暂停置入入口;lifecycle 转移表已支持 READY→PAUSED):actor 授权 + expectedStateVersion + 合法转移 + 审计,与 `resumeTask` 同口径。**Pause 语义**:PAUSED 任务不被 `claimNextReady` 领取(阻断领取);执行中外部副作用由既有租约/Intent/Reconcile 管理(不新增打断机制);D3 不因 Pause/Resume 被绕过。
-2. **CLI**:`src/cli.ts`(裸 node strip-types 直跑;零新依赖、零 CLI 框架)+ package.json `"bin": {"relay": "./bin/relay.mjs"}` 薄壳。命令集:`goal create/list/show`、`decision list/resolve/defer`、`task resume`、`pause`、`worker tick`、`status`、`doctor`。三入口同调 Core:goal create=planGoal(同 API deriveDefaultPlan 口径)、读=model views 同源、写=operatorAllowed+expectedStateVersion 同 API、tick=复用 `createLiveWorkerDriver`(FAIL-CLOSED 同 server live;外部 relay-worker 编排属阶段 E)。**禁止直接 SQL 改状态**。
-3. **API 对等**:POST `/api/tasks/:id/pause`(同一 Core `pauseTask`;同 CSRF/operator/409 口径)+ 能力登记表加 CLI 行。
-4. **doctor(只读)**:DB 连接+迁移版本、provider 配置可见性、Pi 版本、docker、egress、GitHub 凭据存在性(仅存在性/权限位,不打印内容)、当前阻断原因;不探测模型路由(0 模型调用)。
-5. **退出码(确定性)**:0 成功;1 内部错误;2 用法错误;3 业务拒绝(actor/version/transition);4 未找到;5 环境不可用(DB/docker 等)。
-6. **测试 ≥8 例**(`test/integration/cli.test.ts` 等):goal create→list→show 一致性;decision resolve 批准/拒绝;defer 只改截止;resume+version 失配拒绝;pause 置入 + **PAUSED 不被 claimNextReady 领取(实证)** + resume 恢复;未授权 actor 拒绝;doctor 输出(凭据零明文);退出码映射;控制面命令零模型请求断言。
-7. **V03 演练**:`p0-rework2/` 落盘——无浏览器/无 ChatGPT 环境 CLI 全程(goal create→tick→decision→pause→resume→show);worker tick 用 stub 注入**如实标注 stub**(机制演示;真实模型面已由缺口 A 联验 live-worker-e2e 覆盖,本包不重复烧模型预算);CLI/API 对相同实体一致性抽查。
-8. **收尾**:`p0-rework2/REPORT.md` + 独立 Reviewer 复核(`REVIEW.md`)→ CI 绿 → 快进推送 main → CURRENT.md/CONTINUATION.md 更新 → 释放写者,进入阶段 B。
+1. **Core 最小增量**:`src/core/ops.ts` 新增 `pauseTask`(READY→PAUSED 置入;actor+expectedStateVersion+合法转移+审计同 resumeTask 口径;租约链不打断)✅
+2. **CLI**:`src/cli.ts` + `bin/relay.mjs` + package.json bin;命令集 goal create/list/show、decision list/resolve/defer、task resume、pause、worker tick(--stub/--seed)、status、doctor ✅(三入口同调 Core;零新依赖)
+3. **API 对等**:`POST /api/tasks/:id/pause`(同一 pauseTask)+ 能力登记表 `cli.entry`/`task.pause` 两行 ✅
+4. **doctor**:只读(13 表迁移面+守卫/provider 可见性/Pi/docker/凭据存在性零明文/阻断面);逐项容错 ✅
+5. **退出码**:0/1/2/3/4/5 确定性 ✅
+6. **测试 ≥8 例**:`test/integration/cli.test.ts` **10 例全绿**(含 PAUSED 阻断 claimNextReady 实证、API 对等 401/200/409、bin 真实进程 exit 0/5、stub tick 单拍 ACCEPTED、控制面零模型 Run)✅
+7. **V03 演练**:`p0-rework2/v03-journey.sh` + `v03-cli-journey.log` 真实进程全程(doctor→create→pause→重复 pause exit3→resume→stub tick ACCEPTED→show/decision/status)✅
+8. **报告**:`p0-rework2/REPORT.md` ✅;待独立 Reviewer + CI 绿 + 快进推送。
+
+全量回归(本机无并发窗口):213 例 = 202 passed + 7 skipped + 4 failed(50 文件);4 failed 定性:egress-proxy 1(magpie 间歇挂起,R-9 同源)+ github-real 2(PAT 403 凭据面)+ live-worker-e2e 1(真实模型联验,magpie 环境型;隔离复跑定性中)——三者均与本包改动无关(CI 自动 skip);tsc 0。
 
 ## 验收标准(不可降低)
 

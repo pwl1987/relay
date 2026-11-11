@@ -13,12 +13,13 @@
 //   POST   /api/decisions/:id/resolve  批准/拒绝(core.ops.resolveDecision)
 //   POST   /api/decisions/:id/defer    推迟(仅改截止时间;状态不变)
 //   POST   /api/tasks/:id/resume       恢复任务(core.ops.resumeTask)
+//   POST   /api/tasks/:id/pause        暂停任务(core.ops.pauseTask;P0-REWORK-2 置入入口)
 //   GET    /api/changesets/:id     ChangeSet/Evidence 详情
 //   POST   /api/worker/tick        推进一拍 Goal Loop(core.goalLoopTick)
 import { sql } from "drizzle-orm";
 import type { RelayDb, Exec } from "../core/db.ts";
 import { planGoal } from "../core/goals.ts";
-import { operatorAllowed, resolveDecision, resumeTask } from "../core/ops.ts";
+import { operatorAllowed, resolveDecision, resumeTask, pauseTask } from "../core/ops.ts";
 import { deferDecision } from "../core/decisions.ts";
 import { appendAudit } from "../core/audit.ts";
 import { dashboardView, goalListView, goalDetailView, decisionListView, changesetDetailView, changesetListView } from "./views.ts";
@@ -339,6 +340,25 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         const status =
           reason === "state_version_mismatch" ? 409 : reason === "actor_not_authorized" ? 403 : reason.includes("not_found") ? 404 : 400;
         return fail(status, reason);
+      }
+      return ok({ taskId, fromState: result.fromState, toState: result.toState });
+    }
+    // P0-REWORK-2:暂停置入入口(REWORK-2 前 PAUSED 无任何置入途径)。同一 Core pauseTask;
+    // 语义:仅 READY→PAUSED(阻断领取;租约链不打断);D3 不因 Pause/Resume 被绕过。
+    const pauseMatch = /^\/api\/tasks\/([^/]+)\/pause$/.exec(path);
+    if (pauseMatch && method === "POST") {
+      const taskId = decodeURIComponent(pauseMatch[1]!);
+      const expectedStateVersion = int(req.body?.["expectedStateVersion"]);
+      if (expectedStateVersion === null) return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
+      const reason = typeof req.body?.["reason"] === "string" ? str(req.body?.["reason"]) : undefined;
+      const result = await deps.db.transaction(async (tx) =>
+        pauseTask(tx as unknown as Exec, taskId, { actor: session.role, expectedStateVersion, ...(reason ? { reason } : {}) }),
+      );
+      if (!result.ok) {
+        const r = result.reason ?? "pause_failed";
+        const status =
+          r === "state_version_mismatch" ? 409 : r === "actor_not_authorized" ? 403 : r.includes("not_found") ? 404 : 400;
+        return fail(status, r);
       }
       return ok({ taskId, fromState: result.fromState, toState: result.toState });
     }

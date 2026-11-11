@@ -115,6 +115,20 @@ export function buildCapabilityRegistry(
       evidence: "src/server/api.ts:POST /api/worker/tick",
     },
     {
+      id: "cli.entry",
+      title: "最小 CLI(relay 命令)",
+      status: "IMPLEMENTED",
+      note: "src/cli.ts + bin(relay goal/decision/task/pause/worker tick/status/doctor);与 API 同调 Core(零第二状态机;读同 views,写同 ops 口径)。",
+      evidence: "src/cli.ts;src/server/api.ts:POST /api/tasks/:id/pause",
+    },
+    {
+      id: "task.pause",
+      title: "任务暂停(PAUSED 置入)",
+      status: "IMPLEMENTED",
+      note: "core.ops.pauseTask:仅 READY→PAUSED(阻断 claimNextReady 领取;租约链不打断,副作用归租约/Intent/Reconcile);CLI relay pause 与 API 同一 Core。",
+      evidence: "src/core/ops.ts:pauseTask",
+    },
+    {
       id: "worker.model",
       title: "Worker 的真实模型执行",
       status: workerMode === "live" ? "IMPLEMENTED" : workerMode === "stub" ? "STUB" : "NOT_IMPLEMENTED",

@@ -1,0 +1,604 @@
+=== V03 演练开始:2026-11-11T12:30:15+08:00 schema=v03_journey_1794371414_2994477 ===
+
+$ node bin/relay.mjs doctor
+{
+  "ok": true,
+  "doctor": {
+    "db": {
+      "ok": true,
+      "schema": "current_schema()",
+      "tablesPresent": 13,
+      "missing": [],
+      "auditAppendOnlyGuard": true
+    },
+    "workface": {
+      "ok": true,
+      "taskStates": {},
+      "openDecisions": {},
+      "note": "PAUSED/BLOCKED/NEEDS_DECISION 不被领取;D3 永不自动批准"
+    },
+    "provider": {
+      "configured": false,
+      "vars": [
+        {
+          "name": "RELAY_PI_PROVIDER",
+          "set": false
+        },
+        {
+          "name": "RELAY_PI_MODEL",
+          "set": false
+        },
+        {
+          "name": "RELAY_PI_API_KEY",
+          "set": false
+        },
+        {
+          "name": "RELAY_PI_BASE_URL",
+          "set": false
+        }
+      ],
+      "probed": false
+    },
+    "pi": {
+      "ok": true,
+      "version": "1.5.0"
+    },
+    "docker": {
+      "available": true
+    },
+    "githubCredential": {
+      "exists": true,
+      "path": "/home/ubuntu/.relay/credentials/github-sandbox-pat",
+      "mode": "600",
+      "sizeBytes": 93,
+      "contentShown": false
+    },
+    "egress": {
+      "probed": false,
+      "note": "只读诊断不探测网络;以 worker tick 的 FAIL-CLOSED 事实为准(--probe 可选探测)"
+    }
+  },
+  "generatedAt": "2026-11-11T04:30:16.548Z"
+}
+
+$ node bin/relay.mjs goal create --text 整理示例项目的数字清单(暂停语义演练) --actor owner
+{
+  "ok": true,
+  "goalId": "goal-f77fc841-cfd0-45b4-b80e-cff4a426ff36",
+  "taskIds": [
+    "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7"
+  ],
+  "budget": {
+    "modelCalls": 8
+  }
+}
+{
+  "ok": true,
+  "goalId": "goal-0d21a07e-2c3b-4498-938e-f71b70947ba2",
+  "taskIds": [
+    "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7"
+  ],
+  "budget": {
+    "modelCalls": 8
+  }
+}
+[journey] Goal B task=task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7(用于单拍执行)
+
+$ node bin/relay.mjs pause task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7 --expected-state-version 0 --actor owner
+{
+  "ok": true,
+  "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+  "fromState": "READY",
+  "toState": "PAUSED"
+}
+[journey] 重复同一版本 pause(应被拒,exit 3):
+{
+  "ok": false,
+  "error": "state_version_mismatch"
+}
+[journey] 上一步退出码=3(预期 3)
+
+$ node bin/relay.mjs task resume task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7 --expected-state-version 1 --actor owner
+{
+  "ok": true,
+  "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+  "fromState": "PAUSED",
+  "toState": "READY"
+}
+
+$ node bin/relay.mjs worker tick --stub --seed /tmp/v03-seed-eh6F --worker-id v03-journey-worker
+{
+  "ok": true,
+  "workerMode": "stub",
+  "tick": {
+    "status": "PROGRESSED",
+    "tick": {
+      "reclaimed": [],
+      "reconciled": [],
+      "reworkReleased": [],
+      "claimed": {
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "ownerId": "v03-journey-worker",
+        "fencingToken": 1,
+        "attempt": 1
+      }
+    },
+    "run": {
+      "outcome": "SUCCEEDED",
+      "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+      "runId": "run-68ad708a-212a-4301-9a71-0be1f2d530f9",
+      "workspaceDir": "/tmp/relay-run-oksAHL/ws",
+      "disposition": "noop_succeeded"
+    },
+    "gate": {
+      "status": "ACCEPTED",
+      "gateId": "gate-cc6f25cd-638d-44b2-9ff4-ffba4deca83e",
+      "changesetId": "cs-bb2342bf-d951-4e2d-8e54-14a9a9d69067",
+      "evidenceIds": [
+        "ev-c492fcfa-44ff-409c-a6fa-fea4690cc069"
+      ],
+      "violations": [],
+      "reason": "cli-stub PASS"
+    },
+    "goalStates": [
+      {
+        "goalId": "goal-f77fc841-cfd0-45b4-b80e-cff4a426ff36",
+        "state": "COMPLETED"
+      }
+    ]
+  }
+}
+
+$ node bin/relay.mjs goal show goal-0d21a07e-2c3b-4498-938e-f71b70947ba2
+{
+  "ok": true,
+  "goal": {
+    "goal": {
+      "id": "goal-0d21a07e-2c3b-4498-938e-f71b70947ba2",
+      "rawInput": "为示例项目计算 12 30 45 之和并写入 result.txt",
+      "state": "ACTIVE",
+      "budget": {
+        "modelCalls": 8
+      },
+      "createdAt": "2026-11-11 04:30:18.356155+00",
+      "updatedAt": "2026-11-11 04:30:18.356155+00"
+    },
+    "tasks": [
+      {
+        "id": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "goalId": "goal-0d21a07e-2c3b-4498-938e-f71b70947ba2",
+        "state": "READY",
+        "stateVersion": 2,
+        "attempt": 0,
+        "maxAttempts": 3,
+        "priority": 0,
+        "gateRequired": true,
+        "allowedScope": [
+          "/workspace"
+        ],
+        "allowedCommands": [
+          "echo"
+        ],
+        "blockedReason": null,
+        "retryNotBefore": null,
+        "createdAt": "2026-11-11 04:30:18.356155+00",
+        "updatedAt": "2026-11-11 04:30:21.127056+00",
+        "openDecision": null,
+        "availableActions": []
+      }
+    ],
+    "runs": [],
+    "changesets": [],
+    "evidence": [],
+    "gates": [],
+    "decisions": [],
+    "audit": [
+      {
+        "seq": 7,
+        "ts": "2026-11-11 04:30:21.127056+00",
+        "actor": "owner",
+        "authority": "OPERATOR",
+        "action": "TASK_RESUMED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": "PAUSED",
+        "afterState": "READY",
+        "detail": {}
+      },
+      {
+        "seq": 6,
+        "ts": "2026-11-11 04:30:20.228783+00",
+        "actor": "owner",
+        "authority": "OPERATOR",
+        "action": "TASK_PAUSED_REJECTED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": null,
+        "afterState": null,
+        "detail": {
+          "actual": 1,
+          "reason": "state_version_mismatch",
+          "expected": 0
+        }
+      },
+      {
+        "seq": 5,
+        "ts": "2026-11-11 04:30:19.317112+00",
+        "actor": "owner",
+        "authority": "OPERATOR",
+        "action": "TASK_PAUSED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": "READY",
+        "afterState": "PAUSED",
+        "detail": {}
+      },
+      {
+        "seq": 3,
+        "ts": "2026-11-11 04:30:18.356155+00",
+        "actor": "owner",
+        "authority": "SUPERVISOR",
+        "action": "TASK_PLANNED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": null,
+        "afterState": "READY",
+        "detail": {
+          "goalId": "goal-0d21a07e-2c3b-4498-938e-f71b70947ba2",
+          "goalText": "为示例项目计算 12 30 45 之和并写入 result.txt"
+        }
+      }
+    ],
+    "budget": [
+      {
+        "kind": "model_calls",
+        "limit": 8,
+        "reserved": 0,
+        "used": 0
+      }
+    ],
+    "analysis": {
+      "source": "deterministic",
+      "sourceLabel": "确定性规则推导(非模型分析)",
+      "understanding": {
+        "rawInput": "为示例项目计算 12 30 45 之和并写入 result.txt",
+        "derivedTasks": [
+          {
+            "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+            "allowedScope": [
+              "/workspace"
+            ],
+            "allowedCommands": [
+              "echo"
+            ],
+            "gateRequired": true
+          }
+        ],
+        "acceptanceBasis": "验收依据 = 绑定当前候选的 Gate PASS(独立 Reviewer 裁决 + 确定性测试证据);任务 ACCEPTED 不等于 Goal 已被用户验收。",
+        "constraints": {
+          "budget": {
+            "modelCalls": 8
+          }
+        }
+      },
+      "modelAnalysis": {
+        "status": "NOT_IMPLEMENTED",
+        "note": "模型驱动的需求发现/澄清与推荐行动在本包未实现:本页『系统理解』与『可验证建议』全部由数据库事实规则推导,不含任何模型生成结论。"
+      },
+      "suggestions": [
+        {
+          "id": "ready:task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+          "subject": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+          "text": "可被 Worker 领取执行;执行后需经 Gate(独立 Review + 真实测试)才能算通过。",
+          "basis": "tasks.state=READY;gate_required=true",
+          "verifiableBy": "audit 出现 RUN_* 且随后出现 GATE_* 裁决行"
+        },
+        {
+          "id": "budget:model_calls",
+          "subject": "budget",
+          "text": "模型调用预算剩余 8 次(上限 8,已用 0,预留 0)。",
+          "basis": "budget_ledger kind=model_calls limit=8 used=0 reserved=0",
+          "verifiableBy": "budget_ledger 行随每次 Run 结算变化"
+        }
+      ]
+    }
+  }
+}
+
+$ node bin/relay.mjs decision list
+{
+  "ok": true,
+  "decisions": []
+}
+
+$ node bin/relay.mjs status
+{
+  "ok": true,
+  "dashboard": {
+    "generatedAt": "2026-11-11T04:30:25.507Z",
+    "goals": [
+      {
+        "id": "goal-0d21a07e-2c3b-4498-938e-f71b70947ba2",
+        "rawInput": "为示例项目计算 12 30 45 之和并写入 result.txt",
+        "state": "ACTIVE",
+        "createdAt": "2026-11-11 04:30:18.356155+00",
+        "updatedAt": "2026-11-11 04:30:18.356155+00",
+        "taskCounts": {
+          "READY": 1
+        },
+        "taskTotal": 1
+      },
+      {
+        "id": "goal-f77fc841-cfd0-45b4-b80e-cff4a426ff36",
+        "rawInput": "整理示例项目的数字清单(暂停语义演练)",
+        "state": "COMPLETED",
+        "createdAt": "2026-11-11 04:30:17.437571+00",
+        "updatedAt": "2026-11-11 04:30:22.715067+00",
+        "taskCounts": {
+          "ACCEPTED": 1
+        },
+        "taskTotal": 1
+      }
+    ],
+    "taskCounts": {
+      "READY": 1,
+      "ACCEPTED": 1
+    },
+    "taskTotal": 2,
+    "blocked": [],
+    "openDecisionCount": 0,
+    "expiredStillBlockedCount": 0,
+    "runs": {
+      "total": 2,
+      "byOutcome": {
+        "SUCCEEDED": 2
+      },
+      "recent": [
+        {
+          "id": "run-e2c42fcf-9085-4136-947d-ef7f010be24f",
+          "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+          "outcome": "SUCCEEDED",
+          "sandbox": "host-fallback",
+          "startedAt": "2026-11-11 04:30:22.434089+00",
+          "endedAt": "2026-11-11 04:30:22.69103+00",
+          "reason": "PASS"
+        },
+        {
+          "id": "run-68ad708a-212a-4301-9a71-0be1f2d530f9",
+          "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+          "outcome": "SUCCEEDED",
+          "sandbox": "host-fallback",
+          "startedAt": "2026-11-11 04:30:22.150824+00",
+          "endedAt": "2026-11-11 04:30:22.419189+00",
+          "reason": null
+        }
+      ]
+    },
+    "budget": [
+      {
+        "scopeType": "goal",
+        "scopeId": "goal-0d21a07e-2c3b-4498-938e-f71b70947ba2",
+        "kind": "model_calls",
+        "limit": 8,
+        "reserved": 0,
+        "used": 0
+      },
+      {
+        "scopeType": "goal",
+        "scopeId": "goal-f77fc841-cfd0-45b4-b80e-cff4a426ff36",
+        "kind": "model_calls",
+        "limit": 8,
+        "reserved": 0,
+        "used": 2
+      }
+    ],
+    "budgetTotals": {
+      "kind": "model_calls",
+      "limit": 16,
+      "reserved": 0,
+      "used": 2
+    },
+    "audit": [
+      {
+        "seq": 20,
+        "ts": "2026-11-11 04:30:22.715067+00",
+        "actor": "goal-loop",
+        "authority": "SUPERVISOR",
+        "action": "GOAL_COMPLETED",
+        "taskId": null,
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 19,
+        "ts": "2026-11-11 04:30:22.706526+00",
+        "actor": "v03-journey-worker",
+        "authority": "GATE",
+        "action": "GATE_CONSUMED",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": "VERIFYING",
+        "afterState": "ACCEPTED"
+      },
+      {
+        "seq": 18,
+        "ts": "2026-11-11 04:30:22.706526+00",
+        "actor": "gate-orchestrator",
+        "authority": "WORKER",
+        "action": "ADVANCE",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": "VERIFYING",
+        "afterState": "ACCEPTED"
+      },
+      {
+        "seq": 17,
+        "ts": "2026-11-11 04:30:22.701016+00",
+        "actor": "gate-orchestrator",
+        "authority": "GATE",
+        "action": "GATE_PASS",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 16,
+        "ts": "2026-11-11 04:30:22.699908+00",
+        "actor": "gate-orchestrator",
+        "authority": "WORKER",
+        "action": "EVIDENCE_REVIEWER_OUTPUT",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 15,
+        "ts": "2026-11-11 04:30:22.695377+00",
+        "actor": "reviewer-run",
+        "authority": "GATE",
+        "action": "REVIEWER_RUN_SUCCEEDED",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 14,
+        "ts": "2026-11-11 04:30:22.425243+00",
+        "actor": "gate-orchestrator",
+        "authority": "GATE",
+        "action": "VERIFY_LEASE_ACQUIRED",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 13,
+        "ts": "2026-11-11 04:30:22.422067+00",
+        "actor": "v03-journey-worker",
+        "authority": "WORKER",
+        "action": "RUN_SUCCEEDED",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 12,
+        "ts": "2026-11-11 04:30:22.413823+00",
+        "actor": "v03-journey-worker",
+        "authority": "WORKER",
+        "action": "ADVANCE",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": "SUBMITTED",
+        "afterState": "VERIFYING"
+      },
+      {
+        "seq": 11,
+        "ts": "2026-11-11 04:30:22.410663+00",
+        "actor": "v03-journey-worker",
+        "authority": "WORKER",
+        "action": "ADVANCE",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": "RUNNING",
+        "afterState": "SUBMITTED"
+      },
+      {
+        "seq": 10,
+        "ts": "2026-11-11 04:30:22.406604+00",
+        "actor": "v03-journey-worker",
+        "authority": "WORKER",
+        "action": "CHANGESET_RECORDED",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 9,
+        "ts": "2026-11-11 04:30:22.139332+00",
+        "actor": "v03-journey-worker",
+        "authority": "WORKER",
+        "action": "ADVANCE",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": "LEASED",
+        "afterState": "RUNNING"
+      },
+      {
+        "seq": 8,
+        "ts": "2026-11-11 04:30:22.069547+00",
+        "actor": "v03-journey-worker",
+        "authority": "WORKER",
+        "action": "CLAIM",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": "READY",
+        "afterState": "LEASED"
+      },
+      {
+        "seq": 7,
+        "ts": "2026-11-11 04:30:21.127056+00",
+        "actor": "owner",
+        "authority": "OPERATOR",
+        "action": "TASK_RESUMED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": "PAUSED",
+        "afterState": "READY"
+      },
+      {
+        "seq": 6,
+        "ts": "2026-11-11 04:30:20.228783+00",
+        "actor": "owner",
+        "authority": "OPERATOR",
+        "action": "TASK_PAUSED_REJECTED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 5,
+        "ts": "2026-11-11 04:30:19.317112+00",
+        "actor": "owner",
+        "authority": "OPERATOR",
+        "action": "TASK_PAUSED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": "READY",
+        "afterState": "PAUSED"
+      },
+      {
+        "seq": 4,
+        "ts": "2026-11-11 04:30:18.356155+00",
+        "actor": "owner",
+        "authority": "SUPERVISOR",
+        "action": "GOAL_PLANNED",
+        "taskId": null,
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 3,
+        "ts": "2026-11-11 04:30:18.356155+00",
+        "actor": "owner",
+        "authority": "SUPERVISOR",
+        "action": "TASK_PLANNED",
+        "taskId": "task-3466d136-26a4-41b4-a12f-d6fb4fbb92c7",
+        "beforeState": null,
+        "afterState": "READY"
+      },
+      {
+        "seq": 2,
+        "ts": "2026-11-11 04:30:17.437571+00",
+        "actor": "owner",
+        "authority": "SUPERVISOR",
+        "action": "GOAL_PLANNED",
+        "taskId": null,
+        "beforeState": null,
+        "afterState": null
+      },
+      {
+        "seq": 1,
+        "ts": "2026-11-11 04:30:17.437571+00",
+        "actor": "owner",
+        "authority": "SUPERVISOR",
+        "action": "TASK_PLANNED",
+        "taskId": "task-dbff5104-1273-49ec-9bfa-26a1b4cbd0d7",
+        "beforeState": null,
+        "afterState": "READY"
+      }
+    ],
+    "anomalies": [],
+    "lastProgressAt": "2026-11-11 04:30:22.715067+00"
+  }
+}
+
+=== V03 演练结束:2026-11-11T12:30:25+08:00(全部控制操作经 CLI 完成;零浏览器/零 ChatGPT/零真实模型调用)===
