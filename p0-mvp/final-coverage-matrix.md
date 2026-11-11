@@ -1,6 +1,6 @@
 # 总执行包·阶段 F:MVP 最终覆盖矩阵(重生成)
 
-- 审计对象:live main `a8adcab`(总包提交链:`382edf7 A 合同 → … → 7f6f6c7 D 收尾 → 05c1473 E 合同 → f149b06 E 实现 → a8adcab E 处置`)
+- 审计对象:live main `a8adcab`(总包提交链:`382edf7 A 合同 → … → 7f6f6c7 D 收尾 → 05c1473 E 合同 → f149b06 E 实现 → a8adcab E 处置`);**审计对象演进:`a8adcab → 2ae241a(收口包)→ d75ee9d(R-1 闭环)→ 本轮(04acf94 合同先行)**——演进只增证据不改基线裁决
 - 基线:`p0-accept/prd-coverage-matrix.md`(审计对象 02c094f)——本矩阵只列**变化项**与新增项;基线中 VERIFIED 且未被后续触碰的面继续有效(阶段 A~E 复核均未见回归)
 - 六态定义同基线;纪律:不以测试数量代替覆盖率;不以 Mock/Stub 冒充真实;Stub 只佐证机械面并显式标注
 
@@ -32,7 +32,7 @@
 | --- | --- | --- | --- |
 | G0 Requirement | PARTIAL | **VERIFIED** | 模型 Discovery 提供可判定验收(真模型) |
 | G6 Release | BLOCKED | **VERIFIED(R-1 闭环)** | 真实 GitHub 发布面全链:授权→候选→Gate→Intent→Executor→Observation→DELIVERED(独立 API 复核;漂移拒绝+历史保全) |
-| G7 Runtime | PARTIAL | **PARTIAL(24h 观察进行中)** | E1 worker 入口/编排 VERIFIED;24h 空闲采集进行中(真实计时,未满不判);工作模式长稳受模型能力面约束(如实) |
+| G7 Runtime | PARTIAL | **PARTIAL(24h 观察:中断已续采,期满待终验)** | E1 worker 入口/编排 VERIFIED;24h 空闲采集 06:05+0800@12.53h 被会话解体 SIGTERM 波及(graceful stop 铁证/无 OOM)⇒ 同日 06:10 按原始口径 detached 续采(起点不重置;缝 365s 如实落账);期满 17:32:52+0800 终验,**中断缝 ⇒ PARTIAL 口径**;工作模式长稳受模型能力面约束(如实) |
 | F1 模糊 UX | PARTIAL | **PARTIAL(机制 VERIFIED/真模型交付 PARTIAL)** | 机制全链(stub 显式标注):机判 4/4→DELIVERED→独立复核 ✓;真模型:Discovery 高质量 ✓、coder 方差(零编辑/烧回合/不完整修复)未过机判——诚实 PARTIAL,全部失败落账 |
 | F2 明确 Bug | VERIFIED(等价面) | **PARTIAL(机制 VERIFIED/真模型交付 PARTIAL)** | 同 F1 模式:stub 机制链一次过(独立 HTTP 复核 4/4);真模型 coder 一轮 SUCCEEDED 修复不完整/一轮 BUDGET_EXHAUSTED |
 | F3 故障注入越权 | VERIFIED | **VERIFIED(+T01 语料化)** | `p0-mvp/f3-matrix.md` 八项映射 + 真模型注入语料化 |
@@ -48,7 +48,7 @@
 | 数据/Artifact 恢复 | **VERIFIED** | E3(见 V19) |
 | 清理安全 | **VERIFIED** | D4(见 §3) |
 | 预算纪律 | **VERIFIED** | 全程先声明后执行;账本精确;零超预算;零成本(magpie 本地) |
-| 长稳 24h | **PARTIAL(观察进行中)** | `p0-mvp/soak-24h/`(真实计时;启动时点 RSS 稳态 ~109MB≪400MB;采样器自动判定;未满不写 PASS) |
+| 长稳 24h | **PARTIAL(中断已续采;期满待终验)** | `p0-mvp/soak-24h/`(真实计时起点 1794389572 未重置;12.53h 处会话解体中断,缝 365s 落账;06:10 续采 detached;中期快照 verify-interim-20261112T0613+0800.json:RSS 峰 312936<400000/3015 拍全 IDLE_PROVIDER_DOWN 零领取;**期满终验因中断缝 ⇒ PARTIAL,不得称 PASS**;口径=空闲稳定性) |
 | 真实 GitHub 交付 | **VERIFIED(R-1 闭环)** | `p0-mvp/r1-closure.md`(三重核对+漂移拒绝+历史保全) |
 
 ## §5 终判
@@ -56,11 +56,11 @@
 **MVP 判定:REWORK 维持**(不得 ACCEPTED)。理由(按"全部 P0 必需门通过才 ACCEPTED"标准):
 
 1. ~~US-08/G6 真实 GitHub 写入 BLOCKED~~ **已解除(R-1 闭环,2026-11-12;VERIFIED)**。
-2. **F1/F2 真模型业务交付 PARTIAL**——机制面全部 VERIFIED(机判 Gate/交付/独立复核/恢复),但本地 magpie 模型能力不足以稳定产出通过业务级机判的修改;需更强模型路由(部署包),不属于"降低验收"可豁免项。
-3. **24h 长稳观察未满**——真实计时进行中,未满不判 PASS(合同明令)。
+2. **F1/F2 真模型业务交付 PARTIAL**——机制面全部 VERIFIED(机判 Gate/交付/独立复核/恢复),但本地 magpie 模型能力不足以稳定产出通过业务级机判的修改;需更强模型路由(部署包),不属于"降低验收"可豁免项。**本轮(2026-11-12)授权参数缺失 ⇒ 零真模型运行,精确待授权清单已发出(`r2-pending-authorization.md`),不伪造结果。**
+3. **24h 长稳观察中断+未满**——12.53h 时点(06:05+0800)两采集进程被会话解体 SIGTERM 波及(缝 365s 如实落账),06:10 按原始口径 detached 续采(起点不重置);期满 17:32:52+0800 终验,**存在中断缝 ⇒ 终验口径 PARTIAL,不得 PASS**(收口指令:缺失样本或中断时保持 PARTIAL);口径仍为"24h 空闲稳定性"。
 
 REWORK 剩余清单(全部有界、路径明确):
-- R-1(用户):PAT 补沙箱仓 Repository access+Contents RW → `npx vitest run test/integration/github-real.test.ts` 闭环(无需新授权)。
-- R-2(模型路由):业务交付需非 magpie 模型(用户授权模型后,F1/F2 真模型链路已就绪,重跑门控测试即闭环)。
-- R-3(时间):24h 观察期满 → soak-final.json 判定 → REVIEW 确认。
+- ~~R-1(用户)~~ **已解除**(2026-11-12 PAT 补权;`r1-closure.md`+`REVIEW-r1-closure.md`)。
+- R-2(模型路由):业务交付需非 magpie 模型——**待授权清单已发出**(替代模型/预算/超时/凭据四项;授权到位即按 `r2-failure-analysis.md` §3 跑对照实验,F1/F2 链路已就绪)。
+- R-3(时间+中断):**中断已处置(续采不重置起点)**;期满(17:32:52+0800)→ `node deploy/soak-verify.mjs …` 终验 → REVIEW 确认;**缝在 ⇒ PARTIAL**。
 - 全部证据绑 HEAD `a8adcab`;基线证据绑各包 REPORT 所记 HEAD。

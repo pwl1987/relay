@@ -1,0 +1,45 @@
+{
+  "completed": false,
+  "verdict": "观察未满(45526/86400s)且存在硬异常或软异常",
+  "targetSeconds": 86400,
+  "samples": 753,
+  "windowSeconds": {
+    "first": 32,
+    "last": 45526
+  },
+  "headerDuplicates": 2,
+  "gaps": [
+    {
+      "from": 45100,
+      "to": 45465,
+      "gapSeconds": 365
+    }
+  ],
+  "deadRows": [],
+  "pgAnomalies": 2,
+  "rss": {
+    "peakKb": 312936,
+    "limitKb": 400000,
+    "ok": true
+  },
+  "cpu": {
+    "maxPct": 4.1
+  },
+  "unexpectedTick": [],
+  "hardErrors": [
+    "sampling_gaps:1",
+    "pg_sampling_failed_rows:2"
+  ],
+  "warnings": [
+    "observation_incomplete:45526/86400s"
+  ],
+  "note": "本验证器输出为核验结论;soak-final.json 仅初步报告;24h=空闲稳定性口径",
+  "workerLog": {
+    "claimedTasks": [],
+    "unexpectedClaimed": false,
+    "tickStatusCounts": {
+      "IDLE_PROVIDER_DOWN": 3017
+    },
+    "errorTicks": []
+  }
+}
