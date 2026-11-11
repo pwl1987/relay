@@ -14,7 +14,7 @@
 
 ## 总包收官后的三个 REWORK 解除项(全部有界)
 
-1. **R-1(用户侧单点)**:PAT 勾选 `pwl1987/relay-delivery-sandbox`+Contents RW → `npx vitest run test/integration/github-real.test.ts`(无需新授权;禁宽权限 gh token)。
+1. ~~R-1~~ **已解除**(2026-11-12 用户补权;`p0-mvp/r1-closure.md`+`REVIEW-r1-closure.md`:US-08/G6 VERIFIED)。
 2. **R-2(用户授权模型)**:业务修改需非 magpie 模型(Discovery 已 VERIFIED;F1/F2 门控链路就绪,重跑即闭环)。
 3. **R-3(时间)**:24h 观察期满 → `p0-mvp/soak-24h/soak-final.json` 自动判定 → REVIEW 确认(采样器自动写;勿动进程)。
 全部解除 → 重生成终版矩阵+独立 Reviewer → 方可 ACCEPTED(不得以 CI 绿代替)。

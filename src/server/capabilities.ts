@@ -12,7 +12,7 @@ export type CapabilityStatus =
   | "STUB"
   | "NOT_VERIFIED"
   | "BLOCKED" // 外部阻断(如用户凭据单点);如实状态,不得与 NOT_VERIFIED 混用
-  | "VERIFIED"; // 运行时证据齐全(各包 REVIEW 亲测) 外部阻断(如用户凭据单点);如实状态,不得与 NOT_VERIFIED 混用
+  | "VERIFIED" // 运行时证据齐全(各包 REVIEW 亲测) 外部阻断(如用户凭据单点);如实状态,不得与 NOT_VERIFIED 混用
 
 export interface CapabilityEntry {
   id: string;
