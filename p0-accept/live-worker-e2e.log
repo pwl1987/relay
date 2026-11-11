@@ -110,3 +110,12 @@
 2026-11-11T08:35:05.835Z toolEvents 空(pi 1.5.0 真实事件流无 tool_call 记录);允许/越权实证 = 本次交付内容核验 + 既有 pi-e2e 越权断言(test/integration/pi-e2e.test.ts)
 2026-11-11T08:35:05.844Z DELIVERED;commit=f2c329b5d125;remote head 一致
 2026-11-11T08:35:05.845Z ledger model_calls used=5 limit=8 reserved=0
+2026-11-11T10:49:17.771Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T10:49:30.241Z # server http://127.0.0.1:33271 workerMode=live sandbox=docker
+2026-11-11T10:49:30.393Z 登录 200;cookie=relay_session=7a98aa0c8e…;csrf=515afa60…
+2026-11-11T10:49:30.406Z POST /api/goals 201;goalId=goal-52000a28-02a4-4f6e-b55b-7262a96ba064;tasks=["task-946df2c7-f9b6-46c6-ba0d-4f0137bca4c6"]
+2026-11-11T10:50:16.142Z tick status=PROGRESSED run=SUCCEEDED/ gate=ACCEPTED/result.txt 写入 sum=87,与 brief.txt 三数(12+30+45)之和一致,变更范围合规。 delivery={"propose":{"ok":true},"execute":{"ok":true,"state":"DELIVERED","remoteHead":"9a93d389bdd4b2ea5373fd5a32bce046d64fe82d","intentId":"intent-b3277879139add19d426c0f3f4527f15a31d91fd91265c48c710019db8ccf3d4"}}
+2026-11-11T10:50:16.146Z relay_exec tool_result(0 条):[]
+2026-11-11T10:50:16.147Z toolEvents 空(pi 1.5.0 真实事件流无 tool_call 记录);允许/越权实证 = 本次交付内容核验 + 既有 pi-e2e 越权断言(test/integration/pi-e2e.test.ts)
+2026-11-11T10:50:16.155Z DELIVERED;commit=9a93d389bdd4;remote head 一致
+2026-11-11T10:50:16.157Z ledger model_calls used=5 limit=8 reserved=0

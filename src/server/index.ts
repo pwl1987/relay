@@ -43,7 +43,8 @@ export async function main(): Promise<void> {
   const host = process.env.RELAY_WEB_HOST ?? "127.0.0.1";
   const port = Number(process.env.RELAY_WEB_PORT ?? "8787");
 
-  const { pool, db } = connectDb(process.env.RELAY_DB_URL);
+  // 与 worker-entry 同配置面:多 schema 部署下 RELAY_DB_SCHEMA 三入口对等(REVIEW-final Major-F2)
+  const { pool, db } = connectDb(process.env.RELAY_DB_URL, process.env.RELAY_DB_SCHEMA || undefined);
   const auth = new Auth({
     password,
     sessionTtlMs: Number(process.env.RELAY_WEB_SESSION_TTL_MS ?? String(8 * 3600_000)),

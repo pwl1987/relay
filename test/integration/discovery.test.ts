@@ -234,13 +234,18 @@ describe("P0-REWORK-1:Discovery(stub 解析/持久化/降级)", { timeout: 180_0
     const intruder = await runCli(["goal", "analyze", goalId, "--project-dir", proj, "--actor", "intruder"]);
     expect(intruder.code).toBe(EXIT.DENIED);
     // CLI env 门:无 RELAY_PI_* 时显式 provider_not_configured(exit 5,不发起)
-    delete process.env.RELAY_PI_PROVIDER;
-    delete process.env.RELAY_PI_MODEL;
-    delete process.env.RELAY_PI_API_KEY;
-    delete process.env.RELAY_PI_BASE_URL;
-    const noProv = await runCli(["goal", "analyze", goalId, "--project-dir", proj, "--actor", "owner"]);
-    expect(noProv.code).toBe(EXIT.ENV);
-    expect(parseOut(noProv.out)).toMatchObject({ error: "provider_not_configured" });
+    // (REVIEW-final Major-F1:不在进程内改 env——真模型门控组共享本进程环境;
+    //  env 门经**子进程**验证,零污染)
+    const { spawnSync } = await import("node:child_process");
+    const stripped = { ...process.env } as Record<string, string | undefined>;
+    for (const k of ["RELAY_PI_PROVIDER", "RELAY_PI_MODEL", "RELAY_PI_API_KEY", "RELAY_PI_BASE_URL"]) delete stripped[k];
+    const sub = spawnSync(process.execPath, [new URL("../../bin/relay.mjs", import.meta.url).pathname, "goal", "analyze", goalId, "--project-dir", proj, "--actor", "owner"], {
+      encoding: "utf8",
+      timeout: 60_000,
+      env: stripped as NodeJS.ProcessEnv,
+    });
+    expect(sub.status).toBe(EXIT.ENV);
+    expect(JSON.parse(sub.stdout)).toMatchObject({ error: "provider_not_configured" });
   });
 });
 
