@@ -1,36 +1,22 @@
 # Relay 当前执行契约
 
-- 状态:**总授权执行包(六阶段)收官 · IDLE(下一包 NOT_ACTIVE,待用户授权或用户侧动作)**。完成:2026-11-11。
-- 终态:远端 main == HEAD == `e39ed68`(CI `43010653575` 双绿);**24h 长稳采集持续进行中**(`p0-mvp/soak-24h/`;未满不写 PASS)。
-- **MVP 终判:REWORK 维持**(独立 Reviewer 意见一致;`p0-mvp/REPORT-final.md` §十一)——非 ACCEPTED 依据:①真实 GitHub 写入 BLOCKED(用户凭据单点);②F1/F2 真模型业务交付 PARTIAL(需更强模型路由);③24h 观察未满。机制面(安全/恢复/机判/预算/清理/编排/恢复)全部 VERIFIED 且经四轮独立复核亲测。
-- 写者:**已释放**。
+- 状态:**总包收口包(CLOSE-PACK)ACTIVE**——目标:治理收口+R-1/R-2 只读诊断+R-3 验证器(不改变 REWORK 终判;三项解除项按证据推进)。
+- 写者:**本窗口唯一 Writer**(main-only;禁强推)。
+- 冷启动基线:HEAD == origin/main == `abd7d8e`(跟踪引用漂移已修);工作区仅 soak 观测产物脏(`p0-mvp/soak-24h/samples.csv`+`worker.log`,**不 reset 不提交中间态**);soak 两进程存活(4.6h/24h;RSS ~118MB)。
+- 基线事实:R-1 PAT **仍未授权**(仓库端点 404+72 可见仓库无沙箱仓——保持 BLOCKED);R-2 只读诊断完成(见下);R-3 到期前不判。
 
-## 本轮(总包六阶段)完成账
+## 本包范围
 
-| 阶段 | 交付 | 复核 |
-| --- | --- | --- |
-| A(REWORK-2) | CLI 七组命令+pauseTask+API pause+doctor+退出码;V03 VERIFIED | PASS-WITH-FIXES 修必 |
-| B(REWORK-1) | Discovery(discoveries 表/只读会话/三入口/来源徽章);US-01/02 P0 VERIFIED | PASS-WITH-FIXES 修必 |
-| C(GitHub) | 逐项核查 ⇒ BLOCKED(仓库不在 PAT 范围;根因较基线修正) | 事实核查 |
-| D(F1/F2/F3+D4) | 业务级 Fixture+机判双证+T01 真模型语料化+safeRm 中央守卫 | PASS-WITH-FIXES 修必 |
-| E(编排/长稳/备份) | relay-worker 独立入口(唯一调度权威)+systemd 样例+24h 采集启动+Artifact 级备份恢复演练 | **PASS** |
-| F(终审) | 终版矩阵重生成+八件事亲测+REWORK 维持+2 Major 修复 | REVIEW-final(终判一致) |
+1. **R-1(保持 BLOCKED)**:PAT 复查记录入 `p0-mvp/stage-c-github-permission.md`(复查时间/结果);用户补权前零 Git 远端实验。
+2. **R-2(只读诊断落证)**:`p0-mvp/r2-failure-analysis.md`——F1/F2 失败归因六分类(证据:runs-detail/gate-evidence/tick-full)+ magpie 路由组核对(`group/gm`=GMD routing group,reasoning+tool_call;上游不透明,归因边界如实)。**替代模型未经用户授权前零重跑**。
+3. **R-3(独立验证器+回归)**:`deploy/soak-verify.mjs`——按收口指令 §4 实现独立核验(剔除重复表头/连续时间窗/存活采样/缺口检测/PG 异常/RSS-CPU 阈值/tick 状态/异常退出/重复副作用);`soak-final.json` 仅初步报告;**24h 标记"空闲稳定性",不得称"业务负载稳定性"**;回归测试 `test/unit/soak-verify.test.ts`(合成 CSV:正常/重复表头/缺口/进程死亡/RSS 超阈值)。
+4. **治理收口**:CURRENT.md HEAD 口径修正(自指 e39ed68 → 动态口径);capabilities `delivery.github.real` 陈旧措辞更新(PAT 有效/仓库不在范围);试验残留清理(/tmp/e3-backup、review 残留——**不动 soak 目录**)。
+5. **收尾**:独立 Reviewer → CI 绿 → 快进推送;终判维持 REWORK(除非用户动作解除 R 项)。
 
-- 测试终账:全量 **240 = 223 passed + 15 skipped + 2 failed**(53 文件;2 fail=github-real 403 凭据面,CI 自动 skip);tsc 0;E2E 5/5;CI 双绿链(`42965135078`→`43010653575` 全 success)。
-- 过程实锤修复 20+ 处真实缺陷(含 server schema 不对等/env 污染/两环路争抢/safeRm 三冲突;全部有回归,见各阶段 REPORT)。
-- 模型预算:全程 magpie 本地零真实成本;每轮事前声明+账本精确核算;零超预算。
+## 安全边界
 
-## 解除 REWORK 的最小动作(全部有界)
+不动 soak 两进程与观测产物;不扩大模型预算/GitHub 权限/生产部署授权;替代模型重跑必须用户先授权;经典宽权限 Token 禁用。
 
-1. **R-1(用户侧)**:GitHub → Fine-grained PAT → Repository access 勾选 `pwl1987/relay-delivery-sandbox` + Contents: Read and write → `npx vitest run test/integration/github-real.test.ts` 闭环(无需新授权;禁宽权限 gh token)。
-2. **R-2(用户授权模型)**:为业务修改授权非 magpie 模型路由(链路已就绪:F1/F2 门控测试即真模型闭环验收)。
-3. **R-3(时间)**:24h 期满 → `p0-mvp/soak-24h/soak-final.json` 自动判定 → REVIEW 确认;72h 视需。
-4. 完成后重生成终版矩阵 + 独立 Reviewer 复核 → 方可改判 ACCEPTED(不得以 CI 绿代替)。
+## 基线终账(不变)
 
-## 遗留(登记,不阻断 REWORK 判定)
-
-公网 Search/Crawler(P1,NOT_IMPLEMENTED)/R-2 XFF/R-5 Origin:null/哨兵伪造面纵深(可写面内;当前无可利用路径)/decision not_found 映射/systemd 实装+部署参数(RPO/RTO/Retention=部署包)/工作模式长稳(依赖 R-2)/本机代理栈上游断(宿主运维;git 走 ssh.github.com:443)/soak 采样器单发(worker 重启需人工重挂)。
-
-## 唯一事实源
-
-`p0-mvp/REPORT-final.md`(总报告)+ `p0-mvp/final-coverage-matrix.md`(矩阵)+ 各阶段 `REPORT/REVIEW`。新窗口从 live main 冷启动;24h 观察期间不重启 soak 两个进程(worker PID 见 `soak-24h/worker.pid`、sampler PID 见 `sampler.pid`)。
+MVP=REWORK 维持(`p0-mvp/REPORT-final.md`);全量 240=223+15skip+2fail(2=github-real 凭据面);tsc 0;CI 链全绿。
