@@ -32,3 +32,10 @@ P0-ACCEPT 缺口 B 曾记录"API 认证 200 + git push 403"。本次逐项核查
 ## 对总计划的影响
 
 - 阶段 C 判 BLOCKED(外部凭据单点),不阻塞:阶段 D(F1/F2/F3)→ 阶段 E(编排/长稳)照常推进;GitHub 交付留作最终 MVP 验收必过门(阶段 F)。
+
+## 复查记录(收口包;2026-11-11 ~18:00 +08)
+
+- 复查方式:同法(仓库端点+可见仓库列表;零 token 打印)。
+- 结果:**仍未授权**——仓库端点 404(细粒度语义=不在 token 范围);72 个可见仓库无 relay-delivery-sandbox。
+- 用户侧最小操作不变(Repository access 勾选沙箱仓 + Contents: Read and write);补权后 `npx vitest run test/integration/github-real.test.ts` 闭环。
+- 状态:维持 **BLOCKED**。

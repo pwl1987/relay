@@ -6,7 +6,12 @@
 //   STUB           —— 由确定性桩承担(测试/演示);**不是**真实模型能力
 //   NOT_VERIFIED   —— 实现存在但真实验收未完成(如 GitHub 真实写入:有效 PAT 缺失)
 
-export type CapabilityStatus = "IMPLEMENTED" | "NOT_IMPLEMENTED" | "STUB" | "NOT_VERIFIED";
+export type CapabilityStatus =
+  | "IMPLEMENTED"
+  | "NOT_IMPLEMENTED"
+  | "STUB"
+  | "NOT_VERIFIED"
+  | "BLOCKED"; // 外部阻断(如用户凭据单点);如实状态,不得与 NOT_VERIFIED 混用
 
 export interface CapabilityEntry {
   id: string;
@@ -103,9 +108,9 @@ export function buildCapabilityRegistry(
     {
       id: "delivery.github.real",
       title: "GitHub 真实写入",
-      status: "NOT_VERIFIED",
-      note: "状态 NOT_VERIFIED:有效细粒度 PAT 缺失 ⇒ 真实写入/漂移实验诚实 skip;本包验收不覆盖,不得声称已通过。",
-      evidence: "p0-02b/github-api-verification.log",
+      status: "BLOCKED",
+      note: "BLOCKED:细粒度 PAT 有效但 relay-delivery-sandbox 不在其仓库授权范围(2026-11-11 逐项核查;72 可见仓库无此仓)⇒ 真实写入/漂移实验诚实 skip。用户侧解除:Repository access 勾选沙箱仓+Contents RW;机制面(本地 bare 全链)已 VERIFIED。",
+      evidence: "p0-mvp/stage-c-github-permission.md;p0-02b/github-api-verification.log",
     },
     {
       id: "worker.tick",
