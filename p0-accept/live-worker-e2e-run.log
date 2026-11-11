@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/integration/live-worker-e2e.test.ts (1 test) 152999ms
+   ✓ P0-ACCEPT 缺口 A-4:Web/API 入口 + live worker 真实模型联合验证 > 登录 → Web API 建 Goal → live tick(真模型,docker)→ 白名单允许+越权实证 → Gate → DELIVERED → 账本  140292ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  09:59:26
+   Duration  154.41s (transform 447ms, setup 0ms, collect 1.15s, tests 153.00s, environment 0ms, prepare 77ms)
+

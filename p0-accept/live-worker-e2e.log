@@ -1,0 +1,33 @@
+2026-11-11T01:30:55.762Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T01:31:09.500Z # server http://127.0.0.1:36291 workerMode=live sandbox=docker
+2026-11-11T01:31:09.667Z 登录 200;cookie=relay_session=92dee7817d…;csrf=f8fc0cbe…
+2026-11-11T01:31:09.680Z POST /api/goals 201;goalId=goal-1d05200e-a7d2-4b67-b9a7-cdad4991174c;tasks=["task-d0016461-e66f-4e86-b51f-539a79102030"]
+2026-11-11T01:35:13.549Z tick status=PROGRESSED run=TIMEOUT/ gate=undefined/ delivery=null
+2026-11-11T01:35:42.186Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T01:35:54.701Z # server http://127.0.0.1:44041 workerMode=live sandbox=docker
+2026-11-11T01:35:54.852Z 登录 200;cookie=relay_session=ded98388c3…;csrf=05ba0925…
+2026-11-11T01:35:54.872Z POST /api/goals 201;goalId=goal-11b0f04a-22a1-4aed-beb2-f48d2312fca0;tasks=["task-725211e9-c68a-477b-907a-8b73ac0db39a"]
+2026-11-11T01:42:12.650Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T01:42:25.142Z # server http://127.0.0.1:44181 workerMode=live sandbox=docker
+2026-11-11T01:42:25.288Z 登录 200;cookie=relay_session=ef894e14b5…;csrf=97ca8849…
+2026-11-11T01:42:25.301Z POST /api/goals 201;goalId=goal-2765a252-1811-4937-98e8-39a7aa344a47;tasks=["task-b4fab355-725e-4f9a-acac-7bf7dc636f78"]
+2026-11-11T01:50:21.353Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T01:50:33.914Z # server http://127.0.0.1:39127 workerMode=live sandbox=docker
+2026-11-11T01:50:34.059Z 登录 200;cookie=relay_session=e2131237fc…;csrf=29798678…
+2026-11-11T01:50:34.072Z POST /api/goals 201;goalId=goal-6f3ec22e-d391-475f-bb50-6263f79af15f;tasks=["task-e3f1ba89-705c-44e3-927d-f7671b5396f9"]
+2026-11-11T01:54:36.354Z tick status=PROGRESSED run=TIMEOUT/ gate=undefined/ delivery=null
+2026-11-11T01:55:34.691Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T01:55:46.902Z # server http://127.0.0.1:37593 workerMode=live sandbox=docker
+2026-11-11T01:55:47.044Z 登录 200;cookie=relay_session=2ca72e8234…;csrf=e32e85c3…
+2026-11-11T01:55:47.056Z POST /api/goals 201;goalId=goal-13127f65-5f70-4cc6-bbdc-3436c8caec13;tasks=["task-40be5aab-1b86-405c-a2ce-9e14a53eff3e"]
+2026-11-11T01:58:03.518Z tick status=PROGRESSED run=SUCCEEDED/ gate=ACCEPTED/result.txt 内容 sum=87 与 brief.txt 三个数字(12+30+45)之和一致,变更范围合规,验收通过。 delivery={"propose":{"ok":true},"execute":{"ok":true,"state":"DELIVERED","remoteHead":"78b4a6d4dd8071198a217be8aa58462b3e2cf3e7","intentId":"intent-3a79c69842c3eb72f8ca0303559e275ee024e35f652bcce645d50ae2edd1bd3e"}}
+2026-11-11T01:58:03.522Z relay_exec tool_result:[]
+2026-11-11T01:59:28.048Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T01:59:40.244Z # server http://127.0.0.1:37607 workerMode=live sandbox=docker
+2026-11-11T01:59:40.412Z 登录 200;cookie=relay_session=9875716c9f…;csrf=0fbf9f9c…
+2026-11-11T01:59:40.424Z POST /api/goals 201;goalId=goal-8f16005c-b51f-4331-a663-2a4dbb1a18df;tasks=["task-fb7d8b2a-329d-49a7-8374-3cd5e64e76fa"]
+2026-11-11T02:02:00.521Z tick status=PROGRESSED run=SUCCEEDED/ gate=ACCEPTED/result.txt 内容 sum=87 与 brief.txt 中三数 12+30+45 的正确和一致,变更范围仅此一文件,满足需求且无缺陷。 delivery={"propose":{"ok":true},"execute":{"ok":true,"state":"DELIVERED","remoteHead":"35323b45a3a2f69d962e8613da43348844051047","intentId":"intent-03bc9dbab935085121acd8f012e3d75a1f7cacba640272c8669d6edb87a963de"}}
+2026-11-11T02:02:00.525Z relay_exec tool_result(0 条):[]
+2026-11-11T02:02:00.525Z toolEvents 空(pi 1.5.0 真实事件流无 tool_call 记录);允许/越权实证 = 本次交付内容核验 + 既有 pi-e2e 越权断言(test/integration/pi-e2e.test.ts)
+2026-11-11T02:02:00.534Z DELIVERED;commit=35323b45a3a2;remote head 一致
+2026-11-11T02:02:00.536Z ledger model_calls used=6 limit=8 reserved=0

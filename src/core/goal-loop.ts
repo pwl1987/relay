@@ -10,6 +10,7 @@
 // 状态事实全在 PostgreSQL;进程重启后 loop 从库恢复(无内存权威)。
 // runTask 由调用方注入(组合 runner;core 不依赖 runtime,保持分层)。
 import { sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import type { RelayDb, Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
 import { advanceTask, type AdvanceResult } from "./lease.ts";
@@ -322,17 +323,47 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
       );
       // a.6) 交付(P0-02B):Gate ACCEPTED ⇒ Proposal→Policy→Intent→Executor→DELIVERED。
       // 交付层任何失败不回滚质量结论(ACCEPTED 终态);CONFLICT/FAILED 落 D3 决策行(人工处置)。
+      // P0-ACCEPT 缺口 A 收口:propose 装配阶段(候选未捕获/IO 异常)同样不冒泡——
+      // 落 D3 + 审计(与 markConflict/markFailed 同语义),tick 其余结果照常返回。
       if (options.delivery && gateReport?.status === "ACCEPTED") {
-        const proposeInput = await options.delivery.propose({ taskId: claim.taskId, attempt: claim.attempt });
-        const proposed = await db.transaction(async (tx) =>
-          proposeDelivery(tx as unknown as Exec, proposeInput),
-        );
-        deliveryReport = {
-          propose: proposed.ok ? { ok: true } : { ok: false, reason: proposed.reason },
-          execute: proposed.ok
-            ? await executeDelivery(db, await options.delivery.io(claim.taskId), proposed.proposal.id, { actor })
-            : { skipped: `propose_rejected:${proposed.reason}` },
-        };
+        const deliveryActor = actor;
+        try {
+          const proposeInput = await options.delivery.propose({ taskId: claim.taskId, attempt: claim.attempt });
+          const proposed = await db.transaction(async (tx) =>
+            proposeDelivery(tx as unknown as Exec, proposeInput),
+          );
+          deliveryReport = {
+            propose: proposed.ok ? { ok: true } : { ok: false, reason: proposed.reason },
+            execute: proposed.ok
+              ? await executeDelivery(db, await options.delivery.io(claim.taskId), proposed.proposal.id, { actor })
+              : { skipped: `propose_rejected:${proposed.reason}` },
+          };
+        } catch (err) {
+          const reason = `propose_failed:${(err as Error).message}`;
+          deliveryReport = { propose: { ok: false, reason }, execute: { skipped: "propose_failed" } };
+          await db
+            .transaction(async (tx) => {
+              const e = tx as unknown as Exec;
+              const goalRow = await e.execute(sql`SELECT goal_id FROM tasks WHERE id = ${claim.taskId}`);
+              const gid = goalRow.rows[0]?.["goal_id"];
+              const goalId = gid === null || gid === undefined ? null : String(gid);
+              await e.execute(sql`
+                INSERT INTO decisions (id, task_id, goal_id, level, question, state)
+                VALUES (${`dec-dl-${randomUUID()}`}, ${claim.taskId}, ${goalId}, 'D3',
+                  ${`delivery_propose_failed(交付装配失败;人工处置,永不自动批准):${reason}`}, 'OPEN')
+              `);
+              await appendAudit(e, {
+                actor: deliveryActor,
+                authority: "WORKER",
+                action: "DELIVERY_PROPOSE_FAILED",
+                taskId: claim.taskId,
+                detail: { reason, note: "交付装配失败不回滚 Gate 结论(ACCEPTED 终态);D3 人工处置" },
+              });
+            })
+            .catch(() => {
+              /* 落记尽力而为;tick 报告已如实携带 propose 失败 */
+            });
+        }
       }
     }
   }
