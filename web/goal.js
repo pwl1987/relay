@@ -47,7 +47,8 @@
         discoveryParts.push(h("p", { class: "small", text: "仍需人决:" + r.openQuestions.join(";") }));
       }
       if (Array.isArray(r.sources) && r.sources.length) {
-        discoveryParts.push(h("p", { class: "small dim", text: "来源文件:" + r.sources.join(", ") }));
+        const latest = discovery.latest;
+      discoveryParts.push(h("p", { class: "small dim", text: "来源文件:" + r.sources.join(", ") + " · 回放:run " + String(latest.runId).slice(0, 18) + " · SHA " + String(latest.contentSha256 ?? "").slice(0, 12) }));
       }
     } else {
       const note = discovery && discovery.latest && discovery.latest.reason

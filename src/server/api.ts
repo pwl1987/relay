@@ -23,6 +23,7 @@ import { planGoal } from "../core/goals.ts";
 import { operatorAllowed, resolveDecision, resumeTask, pauseTask } from "../core/ops.ts";
 import { runGoalDiscovery } from "../core/discovery.ts";
 import { resolveVendoredPi } from "../runtime/pi-version.ts";
+import { ensureEgress } from "../runtime/egress.ts";
 import { deferDecision } from "../core/decisions.ts";
 import { appendAudit } from "../core/audit.ts";
 import { dashboardView, goalListView, goalDetailView, decisionListView, changesetDetailView, changesetListView } from "./views.ts";
@@ -290,10 +291,16 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       if (!provider || !m || !key || !baseUrl) {
         return fail(501, "provider_not_configured", "未配置 RELAY_PI_* ⇒ 不发起模型分析(FAIL-CLOSED);规则面继续可用并标注来源");
       }
+      // REVIEW Major-1 修复:docker 路径先建出口栈(与 worker 同款);失败如实 503,不静默
+      const eg = await ensureEgress(baseUrl);
+      if (!eg.ok) {
+        return fail(503, "egress_rules_missing", `docker 隔离需要出口栈(ensureEgress):${eg.reason ?? "unknown"}`);
+      }
       const result = await runGoalDiscovery(deps.db, resolveVendoredPi(), {
         goalId,
         model: { provider, model: m, apiKey: key, baseUrl },
         sandbox: "docker",
+        egress: eg,
         projectDir,
         reserveCallsPerRun: budgetCalls,
         actor: session.role,

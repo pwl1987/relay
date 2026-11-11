@@ -25,6 +25,7 @@ import { goalListView, goalDetailView, decisionListView, dashboardView } from ".
 import { createLiveWorkerDriver, type WorkerDriver } from "./server/worker.ts";
 import { resolveVendoredPi } from "./runtime/pi-version.ts";
 import { dockerAvailable } from "./runtime/sandbox.ts";
+import { ensureEgress } from "./runtime/egress.ts";
 import { runGoalDiscovery } from "./core/discovery.ts";
 
 export const EXIT = {
@@ -406,6 +407,7 @@ async function cmdGoalAnalyze(f: Flags): Promise<CliResult> {
     // 模型面:env RELAY_PI_*(真实路由)或 --stub(测试/演练注入口,如实标注 stub)
     let model: { provider: string; model: string; apiKey: string; baseUrl: string };
     let sandbox: "docker" | "host-fallback";
+    let egress: import("./runtime/egress.ts").EgressStatus | undefined;
     let argvOverride: string[] | undefined;
     let envOverride: Record<string, string> | undefined;
     if (f.flags.has("stub")) {
@@ -430,11 +432,18 @@ async function cmdGoalAnalyze(f: Flags): Promise<CliResult> {
       }
       model = { provider, model: m, apiKey: key, baseUrl };
       sandbox = "docker";
+      // REVIEW Major-1 修复:docker 路径必须先建出口栈(与 worker 同款);失败如实退出,不静默
+      const eg = await ensureEgress(baseUrl);
+      if (!eg.ok) {
+        return { code: EXIT.ENV, payload: { ok: false, error: "egress_rules_missing", reason: eg.reason, note: "docker 隔离需要出口栈(ensureEgress);失败原因如上。可用 --stub 演练或检查宿主 docker/iptables 权限" } };
+      }
+      egress = eg;
     }
     const result = await runGoalDiscovery(db, pi, {
       goalId,
       model,
       sandbox,
+      ...(egress ? { egress } : {}),
       projectDir: req.get("project-dir")!,
       reserveCallsPerRun: reserveCalls,
       actor,

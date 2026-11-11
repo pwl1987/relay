@@ -4,7 +4,7 @@
 //       CLI goal analyze(operator 门/env 门)/门控真模型测试(RELAY_DISCOVERY_E2E=1,声明预算)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
@@ -284,7 +284,7 @@ describe.skipIf(process.env.RELAY_DISCOVERY_E2E !== "1")("REWORK-1 真模型验�
     return dir;
   }
 
-  async function analyze(goalId: string, rawInput: string, kind: "fuzzy" | "bad-design" | "incomplete"): Promise<{ ok: boolean; source: string; report?: Record<string, unknown>; reason?: string }> {
+  async function analyze(goalId: string, rawInput: string, kind: "fuzzy" | "bad-design" | "incomplete"): Promise<{ ok: boolean; source: string; report?: Record<string, unknown>; reason?: string; proj?: string }> {
     const model = envModel();
     if (!model) throw new Error("RELAY_PI_* 未配置(真模型门要求)");
     const proj = makeRealProject(mkdtempSync(join(tmpdir(), "rework1-real-")), kind);
@@ -306,7 +306,16 @@ describe.skipIf(process.env.RELAY_DISCOVERY_E2E !== "1")("REWORK-1 真模型验�
       wallSeconds: 300,
       actor: "owner",
     });
-    return { ok: r.ok, source: r.source, report: r.report as unknown as Record<string, unknown> | undefined, reason: r.reason };
+    return { ok: r.ok, source: r.source, report: r.report as unknown as Record<string, unknown> | undefined, reason: r.reason, proj };
+  }
+
+  /** "模型真读了项目"的机器可判定断言:sources 必须指向项目内真实存在的文件(REVIEW Major-2)。 */
+  function assertSourcesReal(report: Record<string, unknown>, projDir: string): void {
+    const sources = (report["sources"] as unknown[] | undefined)?.map(String) ?? [];
+    expect(sources.length).toBeGreaterThan(0);
+    for (const s of sources) {
+      expect(existsSync(join(projDir, s)), `sources 应指向项目内真实文件:${s}`).toBe(true);
+    }
   }
 
   it("US-01/US-02:模糊 UX 需求 → 调查 + 假设 + 一个推荐 + 可判定验收(真模型)", async () => {
@@ -318,6 +327,7 @@ describe.skipIf(process.env.RELAY_DISCOVERY_E2E !== "1")("REWORK-1 真模型验�
     expect((rep.assumptions as unknown[]).length).toBeGreaterThan(0);
     expect(String((rep.recommendation as Record<string, unknown>).action).length).toBeGreaterThan(3);
     expect((rep.acceptanceCriteria as unknown[]).length).toBeGreaterThan(0);
+    assertSourcesReal(rep, r.proj!);
     // 持久化可回放
     const row = await t.db.execute(sql`SELECT content_sha256 FROM discoveries WHERE goal_id='goal-real-fuzzy' AND outcome='SUCCEEDED'`);
     expect(String(row.rows[0]!["content_sha256"])).toMatch(/^[0-9a-f]{64}$/);
@@ -331,6 +341,7 @@ describe.skipIf(process.env.RELAY_DISCOVERY_E2E !== "1")("REWORK-1 真模型验�
     // 反驳面:报告应指出方案问题(关键词级断言;内容以模型输出为准,持久化可回放)
     expect(blob).toMatch(/eval|同步|阻塞|安全|XSS/i);
     expect((rep.risks as unknown[]).length).toBeGreaterThan(0);
+    assertSourcesReal(rep, r.proj!);
   });
 
   it("US-01:不完整需求 → 形成可判定验收 + 未决问题显式(真模型)", async () => {
@@ -339,7 +350,7 @@ describe.skipIf(process.env.RELAY_DISCOVERY_E2E !== "1")("REWORK-1 真模型验�
     const rep = r.report!;
     expect((rep.acceptanceCriteria as unknown[]).length).toBeGreaterThan(0);
     expect(Array.isArray(rep.openQuestions)).toBe(true);
-    // 无记录时不冒充:openQuestions 允许为空,但 sources 必须存在(可核查)
-    expect((rep.sources as unknown[]).length).toBeGreaterThan(0);
+    // sources 必须可核查(指向项目内真实文件;不可用调研能力不得编造)
+    assertSourcesReal(rep, r.proj!);
   });
 });
