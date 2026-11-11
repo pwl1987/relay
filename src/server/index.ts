@@ -43,7 +43,7 @@ export async function main(): Promise<void> {
   const host = process.env.RELAY_WEB_HOST ?? "127.0.0.1";
   const port = Number(process.env.RELAY_WEB_PORT ?? "8787");
 
-  // 与 worker-entry 同配置面:多 schema 部署下 RELAY_DB_SCHEMA 三入口对等(REVIEW-final Major-F2)
+  // 多 schema 部署下 RELAY_DB_SCHEMA 三入口配置面对等(REVIEW-final Major-F2;独立调度进程同此口径)
   const { pool, db } = connectDb(process.env.RELAY_DB_URL, process.env.RELAY_DB_SCHEMA || undefined);
   const auth = new Auth({
     password,
