@@ -1,6 +1,7 @@
 # P0-ACCEPT:备份与恢复验收报告(缺口 F)
 
-- 验证 HEAD:`511c2b6`(测试 `test/integration/backup-restore.test.ts`;运行日志 `p0-accept/backup-restore-run.log`)
+- 验证 HEAD:`511c2b6`(测试 `test/integration/backup-restore.test.ts`;运行日志 `p0-accept/backup-restore-run.log`;VM80 门控复验绿见 CI 处置提交 c6cbeed)
+- 门控:**RELAY_BACKUP_E2E=1 显式门**(与 RELAY_E2E 同哲学:测试依赖宿主 docker 细节与一次性容器,目标环境=VM80;CI service 环境非目标环境——首跑 CI 真跑时一次性容器"pg_isready ready 但 socket 未就绪"失败,处置=显式门+就绪双重确认;常规全量自动 skip 不假装)
 - 裁决:**VERIFIED(MVP 发布 Gate V19 达成)**——真实备份产物 + 隔离实例恢复 + 全实体核对 + 外部状态核对
 
 ## §1 备份(实际执行)
