@@ -1,23 +1,24 @@
 # Relay 当前执行契约
 
-- 状态:**最终收口轮 ACTIVE**(用户指令 2026-11-12:VM80 当前 checkout 执行最终收口;**不得重跑 R-1;不得修改代码;不得扩大 PAT 权限;不强推**;单写者;live main;证据优先)。
-- 写者:本窗口唯一 Writer(main-only)。
-- 冷启动基线:HEAD `247afca` == live origin/main(ssh:443 ls-remote 核对;2026-11-12 06:33+0800);工作区 clean(soak 两观测产物 samples.csv/worker.log skip-worktree)。无 `d75ee9d`/`247afca` 不一致,无需基线纠偏提交。
-- 上一轮(R-2/R-3 收口轮)已履行完毕:R-2 待授权清单已发出(`r2-pending-authorization.md`);R-3 中断已续采(setsid detached;起点不重置;缝 365s 落账);Reviewer 附审 PASS-WITH-FINDINGS(247afca)。
-- 期满前只读监测(2026-11-12 06:33+0800):两进程存活(worker 810994/sampler 811916;PGID=SID=自身);start-epoch=1794389572 未动;最新样本 elapsed=46849s alive=yes;tick 全 `IDLE_PROVIDER_DOWN` 零领取;无 soak-final.json(窗口未满)。
+- 状态:**MVP 最后两项阻断收敛·总执行包 ACTIVE**(用户指令 2026-11-12 五包:第一包=现有最终收口轮;第二包=R-3B 连续长稳补验;第三包=R-2 模型路由与编码能力复核;第四包=测试与治理小缺口;第五包=MVP 最终裁决。**允许在治理/安全/预算边界内连续完成独立子包;不得因用户未即时回复而停止其他安全任务**;不得提前等待在聊天会话——期满验收由已运行的独立 Runner 执行)。
+- 写者:本窗口唯一 Writer(main-only;禁强推;不重跑 R-1;不修改 PAT;不重置采样起点;不删除日志;不生产部署;不 RSI;无模型授权不消耗新预算)。
+- 基线:HEAD `b373726` == live origin/main(ssh:443;2026-11-12 06:52+0800);工作区仅 runner 日志未跟踪(第一包 §9 收尾处置);CI b373726 绿。唯一 Writer 确认:origin/main 未被他人推进。
+- 运行态:**保留 Worker 810994 / Sampler 811916 / Final Runner 859915**(PPID=systemd --user;setsid 脱离会话);365s 中断缝与 2 次 PG 采样异常**全部保留**。
 
-## 本包范围(用户指令五节)
+## 各包状态与边界
 
-1. **基线纠偏**:核对 HEAD/origin/main/工作区/log;三者一致才继续(已核一致)。
-2. **R-3 期满前**:保持 setsid 两采集进程运行;只读监测;不重启、不重置 start-epoch、不删 CSV 或日志;若提前退出,保存退出原因/末行日志/末 elapsed/是否生成 soak-final.json,**不得把窗口重新包装成连续 24h**。
-3. **期满终验(2026-11-12 17:32:52+0800 后)**:`node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log`;保存完整输出与独立快照;核对 86400s/365s 缝保留/RSS<400000/tick 全 FAIL-CLOSED/零领取零异常零 OOM 零 SIGKILL 零未解释退出/两进程连续性。**存在 365s 中断缝 ⇒ R-3 终验结论 PARTIAL,不得改 PASS。**
-4. **R-2 继续保持待授权**:用户未提供替代模型标识/预算/超时/凭据来源任一项 ⇒ **不运行任何真模型**;授权到位后同项目/同机/可比预算跑 F1/F2 对照并落原始日志/消耗/交付物/独立复核。
-5. **最终治理收口**:更新 `r1-closure.md`/`REVIEW-r1-closure.md`/`CURRENT.md`/`CONTINUATION.md`/`final-coverage-matrix.md`;记录中断缝与终验结果,保持 R-2/R-3 真实状态;独立 Reviewer 复核提交链/终验快照/CI/远端 HEAD/工作区;**仅 R-2 与 R-3 均有充分证据才可改判 ACCEPTED,否则提交最终收口证据并列明剩余门槛**。
+| 包 | 状态 | 边界要点 |
+| --- | --- | --- |
+| 第一包 现有最终收口轮 | **进行中**(合同 b373726 仍为本包安全边界;期满 17:32:52+0800,Runner 17:35 出唯一快照) | 核查 86400s 窗口/原始 CSV/Worker 日志/进程退出/RSS/PG/Tick/领取;**缝在 ⇒ R-3 PARTIAL 不改 PASS**;受控停机后冻结证据、处理 skip-worktree 与 final-runner.log;独立 Reviewer;CI 后快进推送并释放本包 Writer |
+| 第二包 R-3B 连续长稳补验 | 待第一包收尾后启动 | 独立目录/schema/实例,不复用原始证据;ACTIVE 合同先行;systemd(Linger=yes 已确认)或等价独立服务管理;真实 24h;每分钟监控含采样器自身故障;中断不重置不覆盖;未满不报 PASS;区分"空闲连续性"与"业务负载连续性" |
+| 第三包 R-2 模型路由复核 | **调查阶段进行中**(零模型消耗) | 先读 `r2-failure-analysis.md`;分析 F1/F2 历史 Run/工具审计/预算/机判失败;确认 `group/gm` 真实上游;盘点可用编码模型 Provider/Model/BaseURL(**禁读/展示 Key 明文**);六分法归因(能力/超时/工具/上下文/提示词/回合预算);确定至少一个可实际调用候选。**未获授权(替代模型/预算/超时/凭据)不发起任何真实模型请求,只交付模型选择与失败归因报告**;对照实验须记录实际模型标识(Magpie 是网关层,≠"同一模型") |
+| 第四包 测试与治理小缺口 | 待启动(独立成包,不与 ACTIVE 收口或原始长稳并行修改) | ①github-real 夹具每轮唯一载荷(正常快进+历史不丢);②模型测试改独立证据目录,消除向已跟踪日志追加副作用;③SIGKILL 孤儿进程与清理边界核查;④CURRENT/能力登记表/最终 SHA 口径一致性;⑤skip-worktree 使用与解除复核;⑥定向回归+独立 Reviewer |
+| 第五包 MVP 最终裁决 | 待 R-2/R-3 完整证据 | 重生成 US/V/G/F 矩阵;R-1 只读复核(不为绿重复制造远端提交);F1/F2 实际验证;连续运行日志独立审核;D3 无自动批准/预算无突破/无重复副作用;独立 Reviewer 给 ACCEPTED/REWORK/BLOCKED;**全部 P0 必需门通过才 ACCEPTED** |
 
-## 安全边界
+## 治理纪律(总包)
 
-不重跑 R-1;不修改产品代码;不修改/扩大 PAT 权限;不强推;不触碰其他仓库;不重置计时起点;观测产物只追加不修饰;零真模型调用(R-2 未授权);不跑全量 vitest(避免 A-4 真模型消耗)。
+main-only;单 Writer;每包 ACTIVE 合同先于实现提交;每包独立测试/复核/CI/快进推送;Issues 只管任务不作调度器;外部副作用结果不明先 Reconcile;不能借测试或修复清理其他项目目录;一包被阻断则记录原因推进其余。
 
 ## 基线终账(不变)
 
-MVP=REWORK 维持(`p0-mvp/REPORT-final.md`;R-1 已解除 VERIFIED);矩阵权威 `p0-mvp/final-coverage-matrix.md`。
+MVP=REWORK 维持(矩阵权威 `p0-mvp/final-coverage-matrix.md`);R-1 已解除 VERIFIED;R-2 PARTIAL(待授权);R-3 PARTIAL(缝在,期满终验进行中)。
