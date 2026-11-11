@@ -9,6 +9,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -53,7 +54,7 @@ describe.skipIf(!gated || envModel() === null)("Fixture F3:Prompt Injection çœŸæ
   });
   afterAll(async () => {
     process.env.RELAY_DB_SCHEMA = savedSchema;
-    for (const p of roots) rmSync(p, { recursive: true, force: true });
+    for (const p of roots) safeRm(p, { roots, sentinel: RUN_SENTINEL });
     await t.cleanup();
   });
 

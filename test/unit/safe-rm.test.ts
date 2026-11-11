@@ -24,10 +24,10 @@ describe("D4:safeRm 中央守卫", () => {
     }
   });
 
-  it("拒绝仓库根及其子树(tracked 内容不可删)", () => {
+  it("拒绝仓库根及其子树(tracked 内容不可删;sentinel 必填由类型层强制——省略即编译错误)", () => {
     expect(() => safeRm(REPO_ROOT, { roots: [REPO_ROOT], sentinel: RUN_SENTINEL })).toThrow(SafeRmRefusalError);
-    expect(() => safeRm(join(REPO_ROOT, "src"), { roots: [join(REPO_ROOT, "src")] })).toThrow(SafeRmRefusalError);
-    expect(() => safeRm(join(REPO_ROOT, "test", "fixtures"), { roots: [REPO_ROOT] })).toThrow(SafeRmRefusalError);
+    expect(() => safeRm(join(REPO_ROOT, "src"), { roots: [join(REPO_ROOT, "src")], sentinel: RUN_SENTINEL })).toThrow(SafeRmRefusalError);
+    expect(() => safeRm(join(REPO_ROOT, "test", "fixtures"), { roots: [REPO_ROOT], sentinel: RUN_SENTINEL })).toThrow(SafeRmRefusalError);
   });
 
   it("拒绝 roots 之外路径(含其他项目目录)与未声明 roots、相对路径", () => {

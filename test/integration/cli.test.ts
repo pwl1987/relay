@@ -7,7 +7,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -237,7 +238,7 @@ describe("P0-REWORK-2:最小 CLI(US-04/V03)", { timeout: 120_000 }, () => {
     const taskId = (created["taskIds"] as string[])[0]!;
     // 测试前提隔离:既有 READY 任务置 BLOCKED,保证本例任务被领取
     await t.db.execute(sql`UPDATE tasks SET state='BLOCKED', state_version=state_version+1 WHERE id <> ${taskId} AND state='READY'`);
-    const seed = mkdtempSync(join(tmpdir(), "rework2-seed-"));
+    const seed = markTemp(mkdtempSync(join(tmpdir(), "rework2-seed-")));
     writeFileSync(join(seed, "brief.txt"), "numbers: 12 30 45\n", "utf8");
     // Coder 桩 env(经 STUB_* 命名空间进 CLI;Reviewer 缺省 verdict PASS)
     process.env.STUB_MODE = "ok";
@@ -264,7 +265,7 @@ describe("P0-REWORK-2:最小 CLI(US-04/V03)", { timeout: 120_000 }, () => {
     } finally {
       delete process.env.STUB_MODE;
       delete process.env.STUB_WRITE_FILE;
-      rmSync(seed, { recursive: true, force: true });
+      safeRm(seed, { roots: [seed], sentinel: RUN_SENTINEL });
     }
   });
 

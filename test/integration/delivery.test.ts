@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { createServer, type Server } from "node:http";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,7 +36,7 @@ function tmpRoot(prefix: string): string {
   return d;
 }
 afterAll(async () => {
-  for (const r of roots) rmSync(r, { recursive: true, force: true });
+  for (const r of roots) safeRm(r, { roots, sentinel: RUN_SENTINEL });
 });
 
 describe("P0-02B 交付链(bare Git + 真 PG)", () => {

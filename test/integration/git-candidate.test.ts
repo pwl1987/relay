@@ -3,6 +3,7 @@
 //       base 父提交不符 / 符号链接剔除 / 绑定重核(漂移拒绝)/ 远端内容核验。
 import { afterAll, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -27,7 +28,7 @@ function stageRoot(): string {
   return d;
 }
 afterAll(() => {
-  for (const r of roots) rmSync(r, { recursive: true, force: true });
+  for (const r of roots) safeRm(r, { roots, sentinel: RUN_SENTINEL });
 });
 
 async function build(ws: ReturnType<typeof makeWorkspaceRepo>, files: string[], diff: { added: string[]; modified: string[]; removed: string[] }, changesetId: string) {

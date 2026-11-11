@@ -42,3 +42,21 @@
 ## 6. 测试账(阶段 D 增量)
 
 - 新增:`safe-rm.test.ts` 7 例、`f1-ux-journey.test.ts` 2 例(真模型门控+stub 机制)、`f2-bug-fix.test.ts` 2 例(同)、`f3-injection.test.ts` 1 例(真模型门控);全量回归见提交信息(tsc 0)。
+
+## 7. 复核处置(REVIEW-stage-d.md PASS-WITH-FIXES)
+
+| 发现 | 级别 | 处置 |
+| --- | --- | --- |
+| safeRm sentinel 可省略即跳过哨兵校验 | Major-1 | **已修**:sentinel 必填(类型层强制,省略即编译错误);无逃生口 |
+| 测试 rmSync 接入未达"全部" | Major-2 | **已修**:git-candidate/f3-injection/delivery/web-journey/cli 5 处接入 safeRm(创建点 markTemp/markRunDir);extension-policy-parity 的 `/tmp` 单文件 force(非递归)与 safe-rm.test 自身 raw 清理属守卫对象本体,保留并登记 |
+| f3-matrix 三处引用口径 | Minor | **已修**(V08 归属/T01 链路范围) |
+| F2 首次真模型机判拒原始输出未落证 | Minor | **登记为证据缺口**(首轮未捕获;后续轮证据齐全;不影响 PARTIAL 判定——多轮一致) |
+| F1/F2 无 final-diff.patch | Minor | 已由 Reviewer 从 bare 远端亲验替代;clone 时补落 |
+| 哨兵可被 roots 内可写面伪造/TOCTOU | Minor | **登记**(当前无可利用路径;候选面外+进程内创建;纵深方向=内核级句柄,不在本包) |
+| 观察项:真模型门控测试宜加显式失败断言模式 | 观察 | 采纳为 REWORK 建议(当前 skipIf+失败如实落 FAILED 已满足诚实底线) |
+
+## 8. rm -rf 脚本面审计(合同 D4)
+
+- `scripts/` 与 `src/` 内 shell 层面:**无 `rm -rf` 调用**(grep 实证;仅测试语料字符串与测试进程内 rmSync/safeRm)。
+- 运行时残留文件级 rmSync(非递归,单文件 force):`github-credentials.ts:49`(临时凭据文件自删)、`git-candidate.ts:90`(候选面 removed 清单)——均为受控单文件,不适用递归守卫,登记备查。
+- 测试递归清理面:全部走 safeRm(21+ 调用点,见 REVIEW 清点)。

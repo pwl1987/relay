@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { execFileSync } from "node:child_process";
+import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -150,7 +151,7 @@ async function stopStack(s: Stack): Promise<void> {
   s.httpLog.flush("http-responses.log");
   s.errLog.flush("browser-errors.log");
   s.dbLog.flush("db-state.log");
-  for (const r of s.tmpRoots) rmSync(r, { recursive: true, force: true });
+  for (const r of s.tmpRoots) safeRm(r, { roots: s.tmpRoots, sentinel: RUN_SENTINEL });
 }
 
 async function shot(page: Page, name: string): Promise<void> {

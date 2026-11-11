@@ -56,8 +56,9 @@ function isWithin(target: string, root: string): boolean {
  */
 export function safeRm(
   target: string,
-  opts: { roots: string[]; sentinel?: string },
+  opts: { roots: string[]; sentinel: string },
 ): { ok: true } {
+  // REVIEW Major-1 修复:sentinel 必填 —— 省略即拒(无哨兵校验 = 无归属证明,不允许逃生口)
   if (!isAbsolute(target)) {
     throw new SafeRmRefusalError(target, "relative_path(必须显式绝对路径)");
   }
