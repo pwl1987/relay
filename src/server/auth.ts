@@ -83,8 +83,12 @@ export class Auth {
   private readonly sessions = new Map<string, Session>();
   private readonly attempts = new Map<string, AttemptState>();
   private readonly sessionsByRole = new Map<string, number>();
+  // P0-ACCEPT 缺口 E:禁用 TS 参数属性(裸 node strip-types 生产入口不支持;P0-02B 环境事实)
+  private readonly config: AuthConfig;
 
-  constructor(private readonly config: AuthConfig) {}
+  constructor(config: AuthConfig) {
+    this.config = config;
+  }
 
   get operators(): readonly string[] {
     return this.config.operators;
