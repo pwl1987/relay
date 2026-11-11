@@ -9,12 +9,16 @@ function registry() {
 }
 
 describe("P0-02C:能力登记表", () => {
-  it("模型驱动的发现与推荐标记为 NOT_IMPLEMENTED", () => {
+  it("模型驱动的发现与推荐状态如实(REWORK-1 P0 最小=IMPLEMENTED;公网搜索仍 NOT_IMPLEMENTED)", () => {
     const reg = registry();
     const discovery = reg.entries.find((e) => e.id === "goal.discovery.model");
     const recommendation = reg.entries.find((e) => e.id === "goal.recommendation.model");
-    expect(discovery?.status).toBe("NOT_IMPLEMENTED");
-    expect(recommendation?.status).toBe("NOT_IMPLEMENTED");
+    // REWORK-1:本地只读调查最小闭环已实现(真模型联验 p0-rework1/REPORT.md)
+    expect(discovery?.status).toBe("IMPLEMENTED");
+    expect(discovery?.note).toContain("P0 最小");
+    expect(discovery?.note).toContain("P1"); // 公网 Search/Crawler 仍 NOT_IMPLEMENTED,如实登记
+    expect(recommendation?.status).toBe("IMPLEMENTED");
+    expect(recommendation?.note).toContain("规则"); // 无记录/失败时规则面兜底,不冒充模型
   });
 
   it("D3 超时自动批准标记为 NOT_IMPLEMENTED(永不存在)", () => {

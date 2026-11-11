@@ -25,6 +25,7 @@ import { goalListView, goalDetailView, decisionListView, dashboardView } from ".
 import { createLiveWorkerDriver, type WorkerDriver } from "./server/worker.ts";
 import { resolveVendoredPi } from "./runtime/pi-version.ts";
 import { dockerAvailable } from "./runtime/sandbox.ts";
+import { runGoalDiscovery } from "./core/discovery.ts";
 
 export const EXIT = {
   OK: 0,
@@ -389,12 +390,77 @@ async function cmdDoctor(f: Flags): Promise<CliResult> {
   });
 }
 
+async function cmdGoalAnalyze(f: Flags): Promise<CliResult> {
+  const goalId = f.positional[0];
+  if (!goalId) return usage("用法:relay goal analyze <goalId> --project-dir <dir> [--budget-calls 3] [--actor owner] [--stub]");
+  const req = requireFlags(f, ["project-dir"]);
+  if (typeof req === "string") return usage(req);
+  const actor = req.get("actor") ?? "owner";
+  if (!operatorAllowed(actor)) {
+    return { code: EXIT.DENIED, out: print({ ok: false, error: "actor_not_authorized", actor }) };
+  }
+  const reserveCalls = req.has("budget-calls") ? Number(req.get("budget-calls")) : 3;
+  if (!Number.isFinite(reserveCalls) || reserveCalls <= 0) return usage("--budget-calls 必须为正数(先声明预算;FAIL-CLOSED)");
+  return withDb(async (db) => {
+    const pi = resolveVendoredPi();
+    // 模型面:env RELAY_PI_*(真实路由)或 --stub(测试/演练注入口,如实标注 stub)
+    let model: { provider: string; model: string; apiKey: string; baseUrl: string };
+    let sandbox: "docker" | "host-fallback";
+    let argvOverride: string[] | undefined;
+    let envOverride: Record<string, string> | undefined;
+    if (f.flags.has("stub")) {
+      const stubVal = f.flags.get("stub");
+      const stubPath = !stubVal || stubVal === "true" ? join(process.cwd(), "test", "helpers", "stub-pi.mjs") : stubVal;
+      model = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
+      sandbox = "host-fallback";
+      const env: Record<string, string> = {};
+      for (const [k, v] of Object.entries(process.env)) {
+        if (v && (k.startsWith("STUB_") || k === "STUB_DISCOVERY_JSON")) env[k] = v;
+      }
+      env.STUB_MODE = env.STUB_MODE ?? "discovery";
+      argvOverride = [process.execPath, stubPath];
+      envOverride = env;
+    } else {
+      const provider = process.env.RELAY_PI_PROVIDER;
+      const m = process.env.RELAY_PI_MODEL;
+      const key = process.env.RELAY_PI_API_KEY;
+      const baseUrl = process.env.RELAY_PI_BASE_URL;
+      if (!provider || !m || !key || !baseUrl) {
+        return { code: EXIT.ENV, payload: { ok: false, error: "provider_not_configured", note: "未配置 RELAY_PI_* ⇒ 不发起模型分析(FAIL-CLOSED);规则面继续可用并标注来源" } };
+      }
+      model = { provider, model: m, apiKey: key, baseUrl };
+      sandbox = "docker";
+    }
+    const result = await runGoalDiscovery(db, pi, {
+      goalId,
+      model,
+      sandbox,
+      projectDir: req.get("project-dir")!,
+      reserveCallsPerRun: reserveCalls,
+      actor,
+      ...(argvOverride ? { argvOverride } : {}),
+      ...(envOverride ? { envOverride } : {}),
+    });
+    return {
+      code: result.ok ? EXIT.OK : result.reason?.includes("not_found") || result.reason === "goal_has_no_task" ? EXIT.NOT_FOUND : result.reason === "budget_exhausted" || result.reason === "budget_ledger_missing_or_unlimited" ? EXIT.DENIED : EXIT.INTERNAL,
+      payload: {
+        ok: result.ok,
+        source: result.source,
+        ...(result.discoveryId ? { discoveryId: result.discoveryId } : {}),
+        ...(result.ok ? { report: result.report } : { reason: result.reason }),
+        note: result.ok ? "来源=模型(结构化报告持久化,可回放)" : "失败如实落记;视图降级规则面并标注来源",
+      },
+    };
+  });
+}
+
 function usage(message: string): CliResult {
   const help = [
     "Relay CLI(最小 operator 控制面;全部命令经 Core,零第二状态机)",
     "",
     "  relay goal create --text \"…\" [--model-calls 8] [--scope /workspace] [--commands echo] [--actor owner]",
     "  relay goal list | relay goal show <goalId>",
+    "  relay goal analyze <goalId> --project-dir <dir> [--budget-calls 3] [--actor owner] [--stub]",
     "  relay decision list | relay decision resolve <id> --task <taskId> --approve|--reject --expected-state-version N [--verdict-json '{}']",
     "  relay decision defer <id> --task <taskId> --deadline <ISO8601> --expected-state-version N",
     "  relay task resume <taskId> --expected-state-version N",
@@ -416,7 +482,8 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     if (sub === "create") return cmdGoalCreate(f);
     if (sub === "list") return withDb(async (db) => ({ code: EXIT.OK, payload: { ok: true, goals: await goalListView(db) } }));
     if (sub === "show") return cmdGoalShow(f);
-    return usage("用法:relay goal create|list|show …");
+    if (sub === "analyze") return cmdGoalAnalyze(f);
+    return usage("用法:relay goal create|list|show|analyze …");
   }
   if (cmd === "decision") {
     if (sub === "list") return withDb(async (db) => ({ code: EXIT.OK, payload: { ok: true, decisions: await decisionListView(db) } }));

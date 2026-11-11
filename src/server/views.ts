@@ -439,6 +439,25 @@ export interface GoalDetail {
   audit: Array<{ seq: number; ts: string; actor: string; authority: string; action: string; taskId: string | null; beforeState: string | null; afterState: string | null; detail: Record<string, unknown> }>;
   budget: Array<{ kind: string; limit: number | null; reserved: number; used: number }>;
   analysis: GoalAnalysis;
+  /** REWORK-1:最新 Discovery 记录与来源徽章(model=模型分析;rules=规则面兜底,不冒充模型) */
+  discovery: GoalDiscoveryView;
+}
+
+export interface GoalDiscoveryView {
+  source: "model" | "rules";
+  note: string;
+  /** 最新记录(SUCCEEDED 含 report;FAILED 含 reason —— 失败如实,不伪造) */
+  latest?: {
+    id: string;
+    runId: string;
+    outcome: "SUCCEEDED" | "FAILED";
+    reason: string | null;
+    report: Record<string, unknown> | null;
+    contentSha256: string | null;
+    modelRef: string;
+    sandbox: string;
+    createdAt: string;
+  };
 }
 
 export interface GoalAnalysis {
@@ -664,6 +683,48 @@ export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalD
     ledger,
   );
 
+  const discRows = await exec.execute(sql`
+    SELECT id, run_id, outcome, reason, report, content_sha256, model_ref, sandbox, created_at
+    FROM discoveries WHERE goal_id = ${goalId} ORDER BY created_at DESC LIMIT 1
+  `);
+  const discRow = discRows.rows[0];
+  let discovery: GoalDiscoveryView;
+  if (discRow && str(discRow["outcome"]) === "SUCCEEDED") {
+    discovery = {
+      source: "model",
+      note: "来源=模型(结构化分析持久化;可经 discoveries+runs 回放)",
+      latest: {
+        id: str(discRow["id"]),
+        runId: str(discRow["run_id"]),
+        outcome: "SUCCEEDED",
+        reason: null,
+        report: json<Record<string, unknown> | null>(discRow["report"], null),
+        contentSha256: discRow["content_sha256"] === null ? null : str(discRow["content_sha256"]),
+        modelRef: str(discRow["model_ref"]),
+        sandbox: str(discRow["sandbox"]),
+        createdAt: iso(discRow["created_at"]) ?? "",
+      },
+    };
+  } else if (discRow && str(discRow["outcome"]) === "FAILED") {
+    discovery = {
+      source: "rules",
+      note: `模型分析失败(已如实落记:${str(discRow["reason"])});以下为规则推导,非模型结论`,
+      latest: {
+        id: str(discRow["id"]),
+        runId: str(discRow["run_id"]),
+        outcome: "FAILED",
+        reason: discRow["reason"] === null ? null : str(discRow["reason"]),
+        report: null,
+        contentSha256: null,
+        modelRef: str(discRow["model_ref"]),
+        sandbox: str(discRow["sandbox"]),
+        createdAt: iso(discRow["created_at"]) ?? "",
+      },
+    };
+  } else {
+    discovery = { source: "rules", note: "尚未运行模型分析;以下为规则推导,非模型结论" };
+  }
+
   return {
     goal: {
       id: str(grow["id"]),
@@ -692,6 +753,7 @@ export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalD
     })),
     budget: ledger,
     analysis,
+    discovery,
   };
 }
 

@@ -255,3 +255,20 @@ export const budgetLedger = pgTable("budget_ledger", {
   used: integer("used").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Discovery(REWORK-1/US-02 P0 最小):Goal 的一次模型驱动分析记录。
+// 结果持久化(不依赖聊天上下文);失败行如实保留 reason(降级可见,不伪造成功)。
+export const discoveries = pgTable("discoveries", {
+  id: text("id").primaryKey(),
+  goalId: text("goal_id")
+    .notNull()
+    .references(() => goals.id),
+  runId: text("run_id").notNull(),
+  outcome: text("outcome").notNull(), // SUCCEEDED | FAILED
+  reason: text("reason"), // FAILED 时:parse/budget/timeout/disconnect 等(如实)
+  report: jsonb("report").$type<Record<string, unknown> | null>(), // SUCCEEDED 时:结构化分析
+  contentSha256: text("content_sha256"), // report 原文摘要(回放/一致性)
+  modelRef: text("model_ref").notNull(),
+  sandbox: text("sandbox").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

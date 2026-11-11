@@ -9,6 +9,7 @@
 //   GET    /api/goals              Goal 列表
 //   POST   /api/goals              创建 Goal(一句自然语言)
 //   GET    /api/goals/:id          Goal 详情(理解/建议/任务/证据)
+//   POST   /api/goals/:id/discovery  模型驱动 Discovery(REWORK-1;operator 显式;预算账本)
 //   GET    /api/decisions          Decision Inbox
 //   POST   /api/decisions/:id/resolve  批准/拒绝(core.ops.resolveDecision)
 //   POST   /api/decisions/:id/defer    推迟(仅改截止时间;状态不变)
@@ -20,6 +21,8 @@ import { sql } from "drizzle-orm";
 import type { RelayDb, Exec } from "../core/db.ts";
 import { planGoal } from "../core/goals.ts";
 import { operatorAllowed, resolveDecision, resumeTask, pauseTask } from "../core/ops.ts";
+import { runGoalDiscovery } from "../core/discovery.ts";
+import { resolveVendoredPi } from "../runtime/pi-version.ts";
 import { deferDecision } from "../core/decisions.ts";
 import { appendAudit } from "../core/audit.ts";
 import { dashboardView, goalListView, goalDetailView, decisionListView, changesetDetailView, changesetListView } from "./views.ts";
@@ -271,6 +274,36 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const detail = await goalDetailView(deps.db, goalId);
       if (!detail) return fail(404, "goal_not_found", "Goal 不存在");
       return ok({ goal: detail });
+    }
+    // P0-REWORK-1:模型驱动 Discovery(operator 显式调用;预算经账本 FAIL-CLOSED;失败降级不伪造)
+    const discoveryMatch = /^\/api\/goals\/([^/]+)\/discovery$/.exec(path);
+    if (discoveryMatch && method === "POST") {
+      const goalId = decodeURIComponent(discoveryMatch[1]!);
+      const projectDir = str(req.body?.["projectDir"]).trim();
+      if (!projectDir) return fail(400, "project_dir_required", "缺少 projectDir(被调查的项目目录)");
+      const budgetCalls = int(req.body?.["budgetCalls"]) ?? 3;
+      if (budgetCalls <= 0) return fail(400, "budget_calls_invalid", "budgetCalls 必须为正数");
+      const provider = process.env.RELAY_PI_PROVIDER;
+      const m = process.env.RELAY_PI_MODEL;
+      const key = process.env.RELAY_PI_API_KEY;
+      const baseUrl = process.env.RELAY_PI_BASE_URL;
+      if (!provider || !m || !key || !baseUrl) {
+        return fail(501, "provider_not_configured", "未配置 RELAY_PI_* ⇒ 不发起模型分析(FAIL-CLOSED);规则面继续可用并标注来源");
+      }
+      const result = await runGoalDiscovery(deps.db, resolveVendoredPi(), {
+        goalId,
+        model: { provider, model: m, apiKey: key, baseUrl },
+        sandbox: "docker",
+        projectDir,
+        reserveCallsPerRun: budgetCalls,
+        actor: session.role,
+      });
+      if (!result.ok) {
+        const reason = result.reason ?? "discovery_failed";
+        const status = reason === "goal_not_found" || reason === "goal_has_no_task" ? 404 : reason.includes("budget") ? 409 : 500;
+        return fail(status, reason);
+      }
+      return ok({ source: result.source, discoveryId: result.discoveryId, report: result.report, note: "来源=模型(结构化报告持久化,可回放)" }, 201);
     }
     if (path === "/api/decisions" && method === "GET") {
       return ok({ decisions: await decisionListView(deps.db) });

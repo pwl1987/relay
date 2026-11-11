@@ -16,18 +16,51 @@
     return h("dl", { class: "kv" }, rows);
   }
 
-  function analysisBlock(a) {
+  function analysisBlock(a, discovery) {
     const src = h(
       "div",
       { class: "row" },
       A.badge("分析来源:" + a.sourceLabel, "info"),
       h("span", { class: "small dim", text: "每条建议都标注依据(basis)与验证方式(verifiableBy)" }),
     );
+    // REWORK-1:Discovery 区块(来源徽章三态;失败/未运行如实降级规则面,不冒充模型)
+    const discoveryParts = [h("h3", { text: "模型发现(Discovery)" })];
+    if (discovery && discovery.source === "model" && discovery.latest && discovery.latest.report) {
+      const r = discovery.latest.report;
+      discoveryParts.push(h("div", { class: "row" }, A.badge("来源:模型", "ok"), h("span", { class: "small dim", text: discovery.note })));
+      discoveryParts.push(h("p", { text: "问题陈述:" + String(r.problemStatement ?? "") }));
+      if (Array.isArray(r.assumptions) && r.assumptions.length) {
+        discoveryParts.push(
+          h("ul", { class: "plain", "data-testid": "discovery-assumptions" }, r.assumptions.map(function (x) {
+            return h("li", { text: "假设:" + String(x.text ?? "") + "(置信度:" + String(x.confidence ?? "?") + ")" });
+          })),
+        );
+      }
+      if (r.recommendation) {
+        discoveryParts.push(h("p", { "data-testid": "discovery-recommendation", text: "推荐:" + String(r.recommendation.action ?? "") }));
+        discoveryParts.push(h("p", { class: "small dim", text: "依据:" + String(r.recommendation.rationale ?? "") }));
+      }
+      if (Array.isArray(r.acceptanceCriteria) && r.acceptanceCriteria.length) {
+        discoveryParts.push(h("p", { text: "可判定验收:" + r.acceptanceCriteria.join(";") }));
+      }
+      if (Array.isArray(r.openQuestions) && r.openQuestions.length) {
+        discoveryParts.push(h("p", { class: "small", text: "仍需人决:" + r.openQuestions.join(";") }));
+      }
+      if (Array.isArray(r.sources) && r.sources.length) {
+        discoveryParts.push(h("p", { class: "small dim", text: "来源文件:" + r.sources.join(", ") }));
+      }
+    } else {
+      const note = discovery && discovery.latest && discovery.latest.reason
+        ? "模型分析失败(" + discovery.latest.reason + "),已如实落记;以下为规则推导,非模型结论。"
+        : "尚未运行模型分析;以下为规则推导,非模型结论。可用 relay goal analyze <goalId> --project-dir <dir> 发起(预算经账本)。";
+      discoveryParts.push(h("div", { class: "notice", "data-testid": "discovery-notice" }, h("strong", { text: "来源:规则面兜底。" }), h("span", { text: " " + note })));
+    }
+    const discoveryBlock = h("div", {}, discoveryParts);
     const modelNotice = h(
       "div",
       { class: "notice", "data-testid": "model-analysis-notice" },
-      h("strong", { text: "模型驱动的分析/推荐:未实现。" }),
-      h("span", { text: " " + a.modelAnalysis.note }),
+      h("strong", { text: "规则面理解/建议为确定性推导;" }),
+      h("span", { text: " 模型结论仅在上方 Discovery 区块展示(带来源徽章),两者不混用。" }),
     );
     const understanding = h(
       "div",
@@ -64,7 +97,7 @@
         }),
       ),
     );
-    return h("div", { class: "stack" }, src, modelNotice, understanding, suggestions);
+    return h("div", { class: "stack" }, src, discoveryBlock, modelNotice, understanding, suggestions);
   }
 
   function tasksBlock(tasks) {
@@ -262,7 +295,7 @@
       document.getElementById("goal-header").textContent = "";
       document.getElementById("goal-header").appendChild(headerBlock(g));
       document.getElementById("goal-analysis").textContent = "";
-      document.getElementById("goal-analysis").appendChild(analysisBlock(g.analysis));
+      document.getElementById("goal-analysis").appendChild(analysisBlock(g.analysis, g.discovery));
       document.getElementById("goal-tasks").textContent = "";
       document.getElementById("goal-tasks").appendChild(tasksBlock(g.tasks));
       document.getElementById("goal-changesets").textContent = "";

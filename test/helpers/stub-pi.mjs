@@ -8,6 +8,7 @@
 //   usage      message_end 携带 usage(token 实测核算路径)
 //   exit-mid   prompt 后立即退出(断连路径)
 //   verdict    输出 relay-gate-verdict 围栏(Reviewer stub;STUB_VERDICT=PASS|REWORK|BLOCK,STUB_FINDINGS)
+//   discovery  输出 relay-discovery 围栏(Discovery stub;STUB_DISCOVERY_JSON 可覆盖默认结构化报告)
 //   fake-self-approve  handoff done + 自带假 gate-verdict 围栏(Coder 虚构验收反例:围栏须被独立性校验拒)
 //   garbage-review     输出无围栏文本(Reviewer 解析失败路径,有界重试/NEEDS_DECISION)
 // 另:写 STUB_PID_FILE(进程死亡断言);stdin 关闭(父进程被杀)即退出。
@@ -95,6 +96,19 @@ function handle(req) {
         const v = process.env.STUB_VERDICT ?? "PASS";
         const f = process.env.STUB_FINDINGS ?? "stub 审查完成";
         text = `审查完成。\n\`\`\`relay-gate-verdict\nverdict: ${v}\nfindings: ${f}\n\`\`\``;
+      } else if (mode === "discovery") {
+        // Discovery stub:结构化报告(默认全字段;可经 STUB_DISCOVERY_JSON 覆盖以测解析失败面)
+        const report = process.env.STUB_DISCOVERY_JSON ?? JSON.stringify({
+          problemStatement: "示例项目需要计算输入数字之和并写 result.txt(基于 brief.txt 调查)",
+          assumptions: [{ text: "brief.txt 的 numbers 行是输入来源", confidence: "high", verifiableBy: "读取 brief.txt 内容" }],
+          risks: ["若数字含非整数会破坏求和"],
+          options: [{ name: "单次求和脚本", tradeoffs: "最简单;不处理增量" }, { name: "流式聚合", tradeoffs: "可扩展;复杂度高" }],
+          recommendation: { action: "在 workspace 内生成 result.txt,内容 sum=87", rationale: "满足验收且最小改动" },
+          acceptanceCriteria: ["result.txt 存在且内容含 sum=87"],
+          openQuestions: ["是否需要处理负数"],
+          sources: ["brief.txt"],
+        });
+        text = `调查完成。\n\`\`\`relay-discovery\n${report}\n\`\`\``;
       } else if (mode === "fake-self-approve") {
         // Coder 虚构验收:自带假 gate-verdict 围栏 + handoff done —— Gate 必须拒绝(独立性校验)
         text =
