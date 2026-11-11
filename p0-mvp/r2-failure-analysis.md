@@ -37,6 +37,13 @@
 - 判定:真实模型完成修改+机判通过+独立 Reviewer PASS+commit 绑定正确+交付成功 ⇒ F1/F2 改 VERIFIED;否则维持 PARTIAL 并记录对照数据。
 - Stub 成功不替代真实验收(合同明令)。
 
-## 4. 本包动作边界
+## 4. 本包动作边界(REVIEW-close-pack Minor-m1 措辞精确化)
 
-只读诊断+文档落证;**未重跑任何真模型任务**(预算未授权);F1/F2 维持 PARTIAL。
+- 本包写路径**零主动重跑**真模型任务;但全量回归验证会触发 `live-worker-e2e.test.ts` 的既定 A-4 授权实验(三重门控;预算 limit=8 未变)——**每次全量跑消耗 1 次真模型调用,应向用户明示**(Reviewer 自身全量复核亦触发一次 used=6,已如实披露)。
+- F1/F2 维持 PARTIAL;替代模型对照实验待用户授权。
+
+## 5. 证据映射补全(REVIEW 三处缺口)
+
+- run-abe16b7d(F1 某轮 TIMEOUT)补列:该轮 outcome=TIMEOUT(wall 预算到点)——归类同"服务超时"行。
+- "采纳装配前/后"标注:F1 首轮(零编辑,SUCCEEDED turns=2)发生于 goalTextFor 采纳装配**之前**(JSON 中 goalText 为模糊原话);后续轮均为装配后——与 runs-detail.json 的 goal 文本字段一致。
+- 次轮 turns=12(非 6):F1 次轮声明 reserve=12(JSON budget.reserveCallsPerRun=12),F2 轮 2 为 6——两文件证据各自吻合,已按 JSON 逐轮核对。

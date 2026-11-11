@@ -2,7 +2,7 @@
 
 - 状态:**总包收口包(CLOSE-PACK)ACTIVE**——目标:治理收口+R-1/R-2 只读诊断+R-3 验证器(不改变 REWORK 终判;三项解除项按证据推进)。
 - 写者:**本窗口唯一 Writer**(main-only;禁强推)。
-- 冷启动基线:HEAD == origin/main == `abd7d8e`(跟踪引用漂移已修);工作区仅 soak 观测产物脏(`p0-mvp/soak-24h/samples.csv`+`worker.log`,**不 reset 不提交中间态**);soak 两进程存活(4.6h/24h;RSS ~118MB)。
+- 冷启动基线:HEAD == origin/main(动态核对,勿写死;本轮已修跟踪引用漂移——此前推送走 ssh URL 不更新跟踪引用);工作区仅 soak 观测产物脏(`p0-mvp/soak-24h/samples.csv`+`worker.log`,**不 reset 不提交中间态**);soak 两进程存活(4.6h/24h;RSS ~118MB)。
 - 基线事实:R-1 PAT **仍未授权**(仓库端点 404+72 可见仓库无沙箱仓——保持 BLOCKED);R-2 只读诊断完成(见下);R-3 到期前不判。
 
 ## 本包范围
