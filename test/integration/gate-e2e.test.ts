@@ -4,7 +4,7 @@
 // → 独立 Reviewer Run(真实模型,容器,共享候选工作区,role=reviewer)
 // → 绑定版 Gate 记录+消费 → ACCEPTED → goal COMPLETED。
 // C-9:代理层 completions 计数 == coder+reviewer assistant 回合数(独立核验硬顶;
-//      不一致 ⇒ 断言失败,不得宣称硬顶已证明)。预算:goal limit=8(coder 预留5+reviewer 预留3)。
+//      不一致 ⇒ 断言失败,不得宣称硬顶已证明)。预算:goal limit=8(coder 预留4+reviewer 预留4,与下方代码一致——O-5 口径对齐)。
 // 门:provider 探测 + docker + sudo iptables + 显式模型门禁 RELAY_GATE_E2E=1(第四包遗留②:
 // 基础设施门全开不等于授权跑真模型;缺一显式 skip,不假装)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

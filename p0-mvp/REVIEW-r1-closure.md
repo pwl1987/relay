@@ -177,3 +177,13 @@
 - 唯一 Minor=Minor-p4-1(披露口径:单轮实际 5 次上游调用 vs 命名窗 3 次;账本未动、无预算突破)。
 - 报告"独立 Reviewer 复核见 REVIEW-r1-closure.md 追加节"的自指承诺由本节兑现。
 - 复核时点 HEAD:`f8e0263dddce9eda1094a44258d097d67a020289`(工作区仅未跟踪 `p0-mvp/soak-24h/final-runner.log`,属第一包收尾面);复核时点 2026-11-12 07:13:12+0800。
+
+### 增量附审:遗留②③(1ec7aad)
+
+- 增量范围:合同 `c6b3e4e`(CURRENT.md 第四包行改完成+新增遗留行②显式 env 门禁/③账本对账;零模型消耗);实施 `1ec7aad`(已推送,`git ls-remote origin main` 亲验 == `1ec7aad116856c7cd86ed6fc2d8626fd2dd1e37f`);复核时点 **2026-11-12 07:38:03+0800**。
+- **diff 面审(确认)**:`git show 1ec7aad --stat` 恰 5 文件——三个测试(live-worker-e2e/gate-e2e/egress-proxy)各仅在 `describe.skipIf` 谓词**追加** `|| process.env.RELAY_A4_E2E/RELAY_GATE_E2E/RELAY_EGRESS_E2E !== "1"` + 注释行:skip 谓词取析取,条件只会使跳过集合增大 ⇒ **门禁只会更严不会更松**;零断言/fixture/timeout 改动,无 soak/凭据/运行时语义面;`docs/CONTINUATION.md` 门控清单同步(纯文档);`pack4-test-governance.md` +6 行⑦节(全插入,原披露节 5×200 口径已在 715c35e 对齐)。
+- **无 env 回归亲测(确认)**:`env` 亲查三变量未置位;`npx vitest run test/integration/{live-worker-e2e,gate-e2e,egress-proxy}.test.ts` → **3 文件 8 测试全 skip**(egress 6+gate 1+lw-e2e 1)、Duration 3.47s/tests 0ms,与提交声称 3.7s 一致;"修复前同命令真实运行 33.5s"的对比由 07:00 运行窗 magpie 5×200 实锤支撑(两次运行间唯一 diff 变量即本 env 门)。`npx tsc --noEmit` → 0 错。
+- **账本对账亲验(确认)**:第一手证据 `test-evidence/live-worker-e2e/live-worker-e2e.log` 行 9 `2026-11-11T23:00:18.101Z(=07:00:18+0800) ledger model_calls used=5 limit=8 reserved=0` == magpie 路由日志 06:59:46~07:00:08 窗 **5 次** `zcode:200`(06:59:46.900/52.677/57.879/07:00:03.749/08.899)——**1:1 吻合**;pack4 ⑦"测试次数(1 次运行)≠模型请求次数(5 次);limit=8 为每 Goal 口径"与源码一致(live-worker-e2e.test.ts:10 注释+行 128-129 `reserveCallsPerRun:4/reviewerReserveCallsPerRun:4` ⇒ limit 8;账本随测试 schema 清理,常设账本 1/8/1 不变)。
+- **零模型副作用实证**:本附审两次跑 skip 回归(07:36)后,路由日志仍 46 行/末条 07:00:08.899/其后零新增——本 Reviewer 全程零模型消耗。
+- **观察 O-5(登记,非本次引入)**:`gate-e2e.test.ts:7` 头注释"coder 预留5+reviewer 预留3"与其自身代码陈旧不符(行 104/128 实际 `reserveCallsPerRun:4`+`4`,内联注释"4+4 ≤ 8"为准)——该注释先于 1ec7aad 存在(本次 diff 上下文行,未触碰);建议后续顺手对齐,不阻塞。
+- **增量裁决:PASS**——遗留②(env 门禁,更严不更松)与③(账本 1:1 对账)均亲测确认,无 Major/Minor;O-5 为先前遗留注释漂移仅登记。合同遗留行①(REVIEW/CI 核查)由本节及后续 CI 核查兑现,④已在 c6b3e4e 完成。
