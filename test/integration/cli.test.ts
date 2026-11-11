@@ -7,8 +7,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { createTestDb, taskState, type TestDb } from "../setup/testdb.ts";
 import { runCli, EXIT } from "../../src/cli.ts";
@@ -145,13 +146,18 @@ describe("P0-REWORK-2:最小 CLI(US-04/V03)", { timeout: 120_000 }, () => {
     expect(parseOut(deferAgain.out)).toMatchObject({ error: "decision_not_pending:REJECTED" });
   });
 
-  it("doctor:迁移面/守卫/凭据存在性可见,凭据零明文;未迁移环境退出码 5", async () => {
+  it("doctor:迁移面/守卫/凭据零明文(存在时验权限位);未迁移环境退出码 5", async () => {
     const doc = parseOut((await runCli(["doctor"])).out) as { doctor: { db: { ok: boolean }; githubCredential: { exists: boolean; mode: string; contentShown: boolean }; pi: unknown; docker: { available: boolean } } };
     const raw = JSON.stringify(doc);
     expect(doc.doctor.db.ok).toBe(true);
-    expect(doc.doctor.githubCredential?.exists).toBe(true);
-    expect(doc.doctor.githubCredential?.mode).toBe("600");
-    expect(doc.doctor.githubCredential?.contentShown).toBe(false);
+    // 凭据文件是 VM80 宿主事实(CI runner 无):存在则验 0600,不存在仅验"如实报告不存在"
+    if (existsSync(join(homedir(), ".relay", "credentials", "github-sandbox-pat"))) {
+      expect(doc.doctor.githubCredential.exists).toBe(true);
+      expect(doc.doctor.githubCredential.mode).toBe("600");
+    } else {
+      expect(doc.doctor.githubCredential.exists).toBe(false);
+    }
+    expect(doc.doctor.githubCredential.contentShown).toBe(false);
     // 零明文:输出不得包含任何 token 形态
     expect(raw).not.toMatch(/github_pat_|ghp_[A-Za-z0-9]/);
     // pi/docker 项存在

@@ -1,6 +1,10 @@
 # Relay / HIVE Next 续接(以最新 live main 为准)
 
-状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09 完成 P0-00(实验)与 P0-01A(状态内核);2026-11-10 完成 P0-01B(有界 Pi Run)、P0-01C(受控 Goal Loop)、P0-02A(候选变更与独立质量验证)、P0-02B(GitHub 安全交付集成)+ 补验包、P0-02C(最小 Web 控制台与真实用户旅程验证);**2026-11-11 完成 P0-ACCEPT(验收/一致性审计/缺口裁决;MVP 判 REWORK:REWORK-1 Discovery / REWORK-2 CLI / github-real 随 PAT 补权闭环)**。下一包未激活。
+状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09 完成 P0-00(实验)与 P0-01A(状态内核);2026-11-10 完成 P0-01B(有界 Pi Run)、P0-01C(受控 Goal Loop)、P0-02A(候选变更与独立质量验证)、P0-02B(GitHub 安全交付集成)+ 补验包、P0-02C(最小 Web 控制台与真实用户旅程验证);2026-11-11 完成 P0-ACCEPT(验收/一致性审计/缺口裁决;MVP 判 REWORK)**与总执行包·阶段 A(REWORK-2 最小 CLI,US-04/V03 闭合;独立复核 PASS-WITH-FIXES 两 Major 已修)**。下一包:阶段 B(REWORK-1 Discovery)。
+
+## 总授权执行包(2026-11-11 用户下发,连续执行中)
+
+六阶段:A(REWORK-2 CLI)✅ → B(REWORK-1 Discovery)→ C(GitHub 补验)→ D(F1/F2/F3+清理安全)→ E(编排/长稳/备份)→ F(最终复核终判)。每阶段独立合同/实现/复核/CI/推送;CURRENT.md 为唯一动态合同。
 
 ## 唯一事实源及阅读
 
