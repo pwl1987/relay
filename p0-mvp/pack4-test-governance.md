@@ -40,6 +40,12 @@
 - **披露(如实)**:live-worker-e2e 三重门控在本机全开(magpie+docker+iptables)⇒ 定向回归触发了 **A-4 既定授权实验真实运行 1 次**(33.5s,DELIVERED;非 F1/F2 对照实验)。消耗实证:magpie 路由日志本次运行总窗(06:59:46~07:00:08)**5 次 `zcode:200` 上游调用**(Minor-p4-1 口径对齐:此前按命名窗 06:59:57~07:00:08 计 3 次系窗口取窄;按"每运行=上游调用数"口径为准);测试 schema 随 afterAll 清理故常设账本零变动(历史累计 used≈6+本次=7 次运行,limit=8 未触及,`r2-failure-analysis.md` §4 义务条款)。
 - **零 F1/F2 对照消耗**:`RELAY_F1_E2E/F2_E2E` 未置位,两测试 skip;替代模型授权仍未到位,零对照实验运行。
 
+## ⑦ 遗留补充(用户指令 2026-11-12 07:32;合同 c6b3e4e)
+
+- **账本与上游请求对账(三.3)**:第一手证据 `test-evidence/live-worker-e2e/live-worker-e2e.log`:`ledger model_calls used=5 limit=8 reserved=0` == magpie 路由日志同运行窗 **5 次** `zcode:200` 上游调用——**1:1 吻合**。口径钉死:**测试次数(1 次运行)≠ 模型请求次数(5 次)**;`limit=8` 为**每 Goal** 的 model_calls 上限(coder 预留 4+reviewer 预留 4,goal 随测试 schema 清理),非终身实验配额——此前"累计 used≈7"表述作废,各历史 A-4 运行各有独立 goal 账本。
+- **显式模型调用门禁(三.2)**:`live-worker-e2e`(RELAY_A4_E2E)/`gate-e2e`(RELAY_GATE_E2E)/`egress-proxy`(RELAY_EGRESS_E2E)三测试在基础设施门(provider/docker/iptables)之上增加显式 env 门——本机三重门全开时**不再自动执行真模型**;"零模型定向回归"默认零模型。验证:无 env 回归 3 文件 8 测试全 skip(3.7s;此前同命令意外真实运行 33.5s);`npx tsc --noEmit` 0 错;CONTINUATION 门控清单已同步。
+- 07:00 A-4 意外运行的教训根因:三重基础设施门≠授权门;授权面在合同(用户),门禁在 env。
+
 ## 结论
 
 第四包六项全部完成/核查完毕;github-real 夹具现为"每轮唯一载荷→正常快进→历史只增"可重跑形态;模型测试证据面与已跟踪目录完全解耦。独立 Reviewer 复核见 REVIEW-r1-closure.md 追加节(随收官提交)。

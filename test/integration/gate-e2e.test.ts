@@ -5,7 +5,8 @@
 // → 绑定版 Gate 记录+消费 → ACCEPTED → goal COMPLETED。
 // C-9:代理层 completions 计数 == coder+reviewer assistant 回合数(独立核验硬顶;
 //      不一致 ⇒ 断言失败,不得宣称硬顶已证明)。预算:goal limit=8(coder 预留5+reviewer 预留3)。
-// 门:provider 探测 + docker + sudo iptables,缺一显式 skip(不假装)。
+// 门:provider 探测 + docker + sudo iptables + 显式模型门禁 RELAY_GATE_E2E=1(第四包遗留②:
+// 基础设施门全开不等于授权跑真模型;缺一显式 skip,不假装)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { writeFileSync, existsSync, readFileSync, chmodSync, mkdtempSync } from "node:fs";
@@ -44,7 +45,7 @@ const MODEL: ProviderConfig | null = await probeProvider();
 const dockerOk = dockerAvailable();
 const iptOk = sudoIptablesAvailable();
 
-describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-02A 验收:真实模型 提交+独立 Reviewer 全闭环(预算账本)", () => {
+describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_GATE_E2E !== "1")("P0-02A 验收:真实模型 提交+独立 Reviewer 全闭环(预算账本)", () => {
   let t: TestDb;
   let egress: EgressStatus | null = null;
   let keyFile: string;

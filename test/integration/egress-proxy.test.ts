@@ -42,7 +42,8 @@ const MODEL: ProviderConfig | null = await probeProvider();
 const dockerOk = dockerAvailable();
 const iptOk = sudoIptablesAvailable();
 
-describe.skipIf(!MODEL || !dockerOk || !iptOk)("出口代理 v2(密钥隔离 + 请求计数,容器实测)", () => {
+// 第四包遗留②:显式模型调用门禁 RELAY_EGRESS_E2E=1(与基础设施门分离;定向回归零模型默认)。
+describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_EGRESS_E2E !== "1")("出口代理 v2(密钥隔离 + 请求计数,容器实测)", () => {
   let t: TestDb;
   let egress: EgressStatus | null = null;
   // G-3:真实 key 只存宿主 0600 文件(经只读挂载进代理;env/inspect 零可见)

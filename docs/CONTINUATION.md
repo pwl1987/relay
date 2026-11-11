@@ -27,7 +27,7 @@
 - 测试 PG:docker `relay-p000-pg`(127.0.0.1:55433);宿主无 pg_dump/psql ⇒ 脚本走 docker exec 回退(backup/restore/采样器同源)。
 - **清理安全**:`src/runtime/safe-rm.ts` safeRm/markRunDir/markTemp(中央守卫;sentinel 必填)——新增递归删除一律走它(教训:`tmpRoots.push(tmpdir())` 险删 /tmp;git clone 要求空目录 ⇒ 哨兵在 clone/commit 后打)。
 - worker 驱动:worker-entry 是唯一调度权威(supervisor claim:false 修正两环路争抢);server 默认 external;三入口同 Core(RELAY_DB_SCHEMA 三入口对等)。
-- 门控测试:RELAY_E2E/RELAY_BACKUP_E2E/RELAY_DISCOVERY_E2E/RELAY_F1_E2E/RELAY_F2_E2E/RELAY_F3_E2E——常规全量自动 skip 不假装;测试内改进程 env 必须**子进程隔离**(discovery.test.ts Major-F1 教训)。
+- 门控测试:RELAY_E2E/RELAY_BACKUP_E2E/RELAY_DISCOVERY_E2E/RELAY_F1_E2E/RELAY_F2_E2E/RELAY_F3_E2E + **模型消耗测试显式门禁(2026-11-12 第四包遗留):RELAY_A4_E2E(live-worker-e2e)/RELAY_GATE_E2E(gate-e2e)/RELAY_EGRESS_E2E(egress-proxy)**——基础设施门全开不等于授权跑真模型;"零模型定向回归"不再意外触发(教训:07:00 A-4 意外运行);常规全量自动 skip 不假装;测试内改进程 env 必须**子进程隔离**(discovery.test.ts Major-F1 教训)。
 - **长跑任务必须脱离会话进程组**(2026-11-12 教训):会话解体对其子进程连坐 SIGTERM——soak 两进程曾在 12.53h 时点被波及(优雅停铁证在 worker.log)。重启一律 `setsid nohup bash -c 'echo $$/WORKER_PID=$$ > pidfile && exec env … cmd >> log 2>&1' &` 模式(exec 保 PID);sample.sh 重启会追加表头(验证器①内建剔除),elapsed 沿 start-epoch 不重置。
 
 ## 治理流程(累计)

@@ -58,7 +58,9 @@ ev(`# 门控:provider=${MODEL ? MODEL.provider + "/" + MODEL.model : "unavailabl
 // dockerAvailable 从 sandbox.ts 引入(与 gate-e2e 同源)
 import { dockerAvailable } from "../../src/runtime/sandbox.ts";
 
-describe.skipIf(!MODEL || !dockerOk || !iptOk)("P0-ACCEPT 缺口 A-4:Web/API 入口 + live worker 真实模型联合验证", { timeout: 900_000 }, () => {
+// 第四包遗留②:增加显式模型调用门禁 RELAY_A4_E2E=1——三重基础设施门在本机全开时
+// 不再自动执行真模型实验(2026-11-12 定向回归意外触发 A-4 的教训;"零模型回归"必须零模型)。
+describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_A4_E2E !== "1")("P0-ACCEPT 缺口 A-4:Web/API 入口 + live worker 真实模型联合验证", { timeout: 900_000 }, () => {
   let t: TestDb;
   let egress: EgressStatus | null = null;
   let remote: BareRemoteFixture;
