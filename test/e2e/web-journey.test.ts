@@ -226,7 +226,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     expect(analysis).toContain("确定性规则推导");
     expect(analysis).toContain("非模型");
     const notice = await textOf(page, '[data-testid="model-analysis-notice"]');
-    expect(notice).toContain("未实现");
+    // REWORK-1 后口径:模型 Discovery 已实现(显式发起);页面如实区分规则面与模型结论(不混用)
+    expect(notice).toContain("规则面");
+    expect(notice).toContain("Discovery");
     // 建议必须带依据与验证方式
     const suggestions = await page.locator('[data-testid="suggestion-list"] li').count();
     expect(suggestions).toBeGreaterThan(0);
@@ -236,7 +238,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     const raw = await textOf(page, '[data-testid="goal-raw-input"]');
     expect(raw).toContain("登录页");
     await shot(page, "j1-goal-created.png");
-    s.log.log(`J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型分析=未实现(页面标注);建议 ${suggestions} 条(含依据/验证方式)`);
+    s.log.log(`J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 ${suggestions} 条(含依据/验证方式)`);
     await dumpDbState(s, "J1 after goal create");
   });
 

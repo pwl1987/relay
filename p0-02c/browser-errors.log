@@ -13,3 +13,17 @@
     at http://127.0.0.1:42559/changeset.js:200:18
     at Object.guarded (http://127.0.0.1:42559/app.js:165:26)
     at HTMLButtonElement.refresh (http://127.0.0.1:42559/changeset.js:199:27)
+
+
+2026-11-11T07:00:15.990Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-11T07:00:15.990Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:40223/app.js:88:23)
+    at http://127.0.0.1:40223/changeset.js:186:18
+    at Object.guarded (http://127.0.0.1:40223/app.js:165:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:40223/changeset.js:185:27)
+2026-11-11T07:00:15.991Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-11T07:00:15.991Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:40223/app.js:88:23)
+    at http://127.0.0.1:40223/changeset.js:200:18
+    at Object.guarded (http://127.0.0.1:40223/app.js:165:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:40223/changeset.js:199:27)
