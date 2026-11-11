@@ -15,7 +15,7 @@
 7. **V03 演练**:`p0-rework2/v03-journey.sh` + `v03-cli-journey.log` 真实进程全程(doctor→create→pause→重复 pause exit3→resume→stub tick ACCEPTED→show/decision/status)✅
 8. **报告**:`p0-rework2/REPORT.md` ✅;待独立 Reviewer + CI 绿 + 快进推送。
 
-全量回归(本机无并发窗口):213 例 = 202 passed + 7 skipped + 4 failed(50 文件);4 failed 定性:egress-proxy 1(magpie 间歇挂起,R-9 同源)+ github-real 2(PAT 403 凭据面)+ live-worker-e2e 1(真实模型联验,magpie 环境型;隔离复跑定性中)——三者均与本包改动无关(CI 自动 skip);tsc 0。
+全量回归(本机无并发窗口,处置后终账):**216 例 = 207 passed + 7 skipped + 2 failed(50 文件)**;2 failed = github-real PAT 403 凭据面(用户侧单点);egress-proxy/live-worker-e2e 前轮间歇失败(magpie 环境型,隔离复跑绿);tsc 0。独立复核:`p0-rework2/REVIEW.md` **PASS-WITH-FIXES**;两处 Major(RUNNING 可被 pause 打断租约 / CLI defer 无 operator 门)已修复并补 3 例回归(cli.test.ts 13 例全绿)。
 
 ## 验收标准(不可降低)
 

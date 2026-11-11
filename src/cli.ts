@@ -94,7 +94,7 @@ function intFlag(flags: Map<string, string>, name: string): number | null {
 
 function reasonToExit(reason: string): number {
   if (reason.includes("not_found") || reason === "decision_task_mismatch" || reason === "task_not_found") return EXIT.NOT_FOUND;
-  if (reason === "actor_not_authorized" || reason.includes("state_version_mismatch") || reason.includes("illegal_transition") || reason.includes("state_terminal") || reason.includes("not_open") || reason.includes("not_pending")) return EXIT.DENIED;
+  if (reason === "actor_not_authorized" || reason.includes("state_version_mismatch") || reason.includes("illegal_transition") || reason.includes("state_terminal") || reason.includes("not_open") || reason.includes("not_pending") || reason.startsWith("pause_requires_ready")) return EXIT.DENIED;
   return EXIT.INTERNAL;
 }
 
@@ -241,6 +241,11 @@ async function cmdTaskTransition(f: Flags, mode: "resume" | "pause", taskIdFromS
 }
 
 async function cmdWorkerTick(f: Flags): Promise<CliResult> {
+  // REVIEW Minor:tick 与 API POST /api/worker/tick 同口径走 operator 门(API 由会话承载)
+  const actor = f.flags.get("actor") ?? "owner";
+  if (!operatorAllowed(actor)) {
+    return { code: EXIT.DENIED, out: print({ ok: false, error: "actor_not_authorized", actor }) };
+  }
   return withDb(async (db) => {
     const workerId = f.flags.get("worker-id") ?? "relay-cli-worker";
     // --seed <dir>:工作区初始化(复制种子内容 + git main 基线),候选变更绑定需要 git base;
@@ -259,7 +264,7 @@ async function cmdWorkerTick(f: Flags): Promise<CliResult> {
     // 与 server live 同构;--stub 仅为测试/演练注入口(显式旗标,报告如实标注 stub,不冒充真实模型)
     let driver: WorkerDriver;
     if (f.flags.has("stub")) {
-      // --stub 无值(布尔旗标 parseArgs 置 "true")⇒ 默认仓库桩;--stub <path> 用指定桩
+      // --stub 无值(布尔旗标 parseArgs 置 "true")⇒ 默认仓库桩;--stub=<path> 用指定桩(空格语法不可用)
       const stubVal = f.flags.get("stub");
       const stubPath = !stubVal || stubVal === "true" ? join(process.cwd(), "test", "helpers", "stub-pi.mjs") : stubVal;
       // 角色命名空间:STUB_REVIEWER_* → Reviewer env(剥离前缀);其余 STUB_* → Coder env。
@@ -394,7 +399,7 @@ function usage(message: string): CliResult {
     "  relay decision defer <id> --task <taskId> --deadline <ISO8601> --expected-state-version N",
     "  relay task resume <taskId> --expected-state-version N",
     "  relay pause <taskId> --expected-state-version N [--reason …]",
-    "  relay worker tick [--worker-id relay-cli-worker] [--stub] [--seed <dir>]",
+    "  relay worker tick [--worker-id relay-cli-worker] [--actor owner] [--stub | --stub=<path>] [--seed <dir>]",
     "  relay status | relay doctor [--probe]",
     "",
     "退出码:0 成功 / 1 内部错误 / 2 用法错误 / 3 业务拒绝 / 4 未找到 / 5 环境不可用",

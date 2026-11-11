@@ -139,16 +139,32 @@ export async function resumeTask(
 
 /**
  * READY → PAUSED(P0-REWORK-2:暂停置入入口;此前 PAUSED 无任何置入途径)。
- * 语义边界(总执行包 A2):暂停 = 阻止 claimNextReady 再领取(领取只查 state='READY');
- * 已在租约链(LEASED/RUNNING/SUBMITTED/VERIFYING)上的执行**不打断**——外部副作用由既有
- * 租约/Intent/Reconcile 管理,故本入口只允许从 READY 置入,避免与 fencing 竞争。
- * 同口径:actor 授权 + expected state_version + 合法转移 + 审计(复用 recoverTransition)。
+ * 语义边界(总执行包 A2 + REVIEW Major-1 修复):**仅 READY 可置入**。
+ * 暂停 = 阻止 claimNextReady 再领取(领取只查 state='READY');已在租约链
+ * (LEASED/RUNNING/SUBMITTED/VERIFYING)上的执行**不打断**——外部副作用由既有
+ * 租约/Intent/Reconcile 管理,故 RUNNING→PAUSED 虽在转移表内合法,本入口显式拒绝
+ * (避免与 fencing 竞争打断在飞执行)。同口径:actor 授权 + expected state_version
+ * + 合法转移 + 审计(复用 recoverTransition)。
  */
 export async function pauseTask(
   exec: Exec,
   taskId: string,
   opts: { actor: string; expectedStateVersion: number; reason?: string },
 ): Promise<RecoveryResult> {
+  const row = await exec.execute(sql`SELECT state FROM tasks WHERE id = ${taskId} FOR UPDATE`);
+  const cur = row.rows[0];
+  if (!cur) return { ok: false, reason: "task_not_found" };
+  const fromState = String(cur["state"]);
+  if (fromState !== "READY") {
+    await appendAudit(exec, {
+      actor: opts.actor,
+      authority: "OPERATOR",
+      action: "TASK_PAUSED_REJECTED",
+      taskId,
+      detail: { reason: `pause_requires_ready:${fromState}`, note: "仅 READY 可置入 PAUSED;租约链上的执行不打断(归租约/Intent/Reconcile)" },
+    });
+    return { ok: false, reason: `pause_requires_ready:${fromState}`, fromState };
+  }
   return recoverTransition(exec, taskId, "PAUSED", {
     actor: opts.actor,
     expectedStateVersion: opts.expectedStateVersion,

@@ -65,9 +65,10 @@ describe("P0-REWORK-2:最小 CLI(US-04/V03)", { timeout: 120_000 }, () => {
     const pause = await runCli(["pause", taskId, "--expected-state-version", "0", "--actor", "owner"]);
     expect(pause.code).toBe(EXIT.OK);
     expect(parseOut(pause.out)).toMatchObject({ ok: true, fromState: "READY", toState: "PAUSED" });
-    // 阻断实证:claim 只查 READY ⇒ PAUSED 任务不被领取
+    // 阻断实证:claim 只查 READY ⇒ PAUSED 任务不被领取(reason=no_ready_tasks,候选 SQL 计数 0)
     const claimPaused = await claimNextReady(t.db, "w1", 60);
     expect(claimPaused.ok).toBe(false);
+    if (!claimPaused.ok) expect(claimPaused.reason).toBe("no_ready_tasks");
     // resume:v1 PAUSED → READY,随后可被领取(fencing 成立)
     const resume = await runCli(["task", "resume", taskId, "--expected-state-version", "1", "--actor", "owner"]);
     expect(resume.code).toBe(EXIT.OK);
@@ -180,7 +181,7 @@ describe("P0-REWORK-2:最小 CLI(US-04/V03)", { timeout: 120_000 }, () => {
     expect(Number(runs.rows[0]!["n"])).toBe(0);
   });
 
-  it("API pause 端点与 CLI 同一 Core:正例 200/失配 409/未认证 401", async () => {
+  it("API pause 端点与 CLI 同一 Core:正例 200/状态门 400/未认证 401", async () => {
     const created = parseOut((await runCli(["goal", "create", "--text", "REWORK2:API 对等", "--actor", "owner"])).out);
     const taskId = (created["taskIds"] as string[])[0]!;
     const authedDeps = {
@@ -215,9 +216,10 @@ describe("P0-REWORK-2:最小 CLI(US-04/V03)", { timeout: 120_000 }, () => {
     const okRes = await call(authedDeps, "POST", `/api/tasks/${taskId}/pause`, { expectedStateVersion: 0 }, { cookie: "relay_session=x", "x-relay-csrf": "c", origin: "null" });
     expect(okRes.status).toBe(200);
     expect(okRes.body).toMatchObject({ ok: true, fromState: "READY", toState: "PAUSED" });
-    // 版本失配 409
+    // 重复同版本 pause ⇒ 400(状态门先于版本门:PAUSED 非 READY ⇒ pause_requires_ready:PAUSED)
     const conflict = await call(authedDeps, "POST", `/api/tasks/${taskId}/pause`, { expectedStateVersion: 0 }, { cookie: "relay_session=x", "x-relay-csrf": "c", origin: "null" });
-    expect(conflict.status).toBe(409);
+    expect(conflict.status).toBe(400);
+    expect((conflict.body as { error: string }).error).toBe("pause_requires_ready:PAUSED");
     // API 暂停后 CLI 恢复(状态版本由 API +1)
     const row = await taskState(t.db, taskId);
     const resume = await runCli(["task", "resume", taskId, "--expected-state-version", String(Number(row["state_version"])), "--actor", "owner"]);
@@ -258,6 +260,57 @@ describe("P0-REWORK-2:最小 CLI(US-04/V03)", { timeout: 120_000 }, () => {
       delete process.env.STUB_WRITE_FILE;
       rmSync(seed, { recursive: true, force: true });
     }
+  });
+
+  it("REVIEW Major-1 修复回归:RUNNING(活跃租约)任务不可被 pause——租约链不打断", async () => {
+    const created = parseOut((await runCli(["goal", "create", "--text", "REWORK2:RUNNING 不可 pause", "--actor", "owner"])).out);
+    const taskId = (created["taskIds"] as string[])[0]!;
+    await t.db.execute(sql`UPDATE tasks SET state='BLOCKED', state_version=state_version+1 WHERE id <> ${taskId} AND state='READY'`);
+    // 领取进入租约链,推进到 RUNNING(模拟 worker 在飞执行)
+    const claim = await claimNextReady(t.db, "w-running", 3600);
+    expect(claim.ok).toBe(true);
+    if (claim.ok) expect(claim.taskId).toBe(taskId);
+    await t.db.execute(sql`UPDATE tasks SET state='RUNNING' WHERE id=${taskId}`);
+    // 直接调 Core(REVIEW 实证路径):RUNNING ⇒ 拒绝,原因 pause_requires_ready
+    const { pauseTask } = await import("../../src/core/ops.ts");
+    const r = await t.db.transaction(async (tx) => pauseTask(tx as unknown as Exec, taskId, { actor: "owner", expectedStateVersion: 1 }));
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("pause_requires_ready:RUNNING");
+    // 任务保持 RUNNING(在飞执行未被打断),租约仍在
+    const row = await taskState(t.db, taskId);
+    expect(String(row["state"])).toBe("RUNNING");
+    const lease = await t.db.execute(sql`SELECT count(*)::int AS n FROM leases WHERE task_id=${taskId} AND lease_expires_at > now()`);
+    expect(Number(lease.rows[0]!["n"])).toBe(1);
+    // CLI 口径同样拒绝(exit 3)
+    const cliPause = await runCli(["pause", taskId, "--expected-state-version", "1", "--actor", "owner"]);
+    expect(cliPause.code).toBe(EXIT.DENIED);
+    const audits = await t.db.execute(sql`SELECT detail FROM audit_events WHERE task_id=${taskId} AND action='TASK_PAUSED_REJECTED' ORDER BY seq DESC LIMIT 1`);
+    expect(JSON.stringify(audits.rows[0]!["detail"])).toContain("pause_requires_ready:RUNNING");
+  });
+
+  it("REVIEW Major-2 修复回归:decision defer 无授权 actor 拒绝(Core 层门,截止时间不变)", async () => {
+    const goal = parseOut((await runCli(["goal", "create", "--text", "REWORK2:defer 授权门", "--actor", "owner"])).out);
+    const taskId = (goal["taskIds"] as string[])[0]!;
+    await t.db.execute(sql`UPDATE tasks SET state='NEEDS_DECISION', state_version=state_version+1 WHERE id=${taskId}`);
+    const dec = await t.db.transaction(async (tx) =>
+      createDecision(tx as unknown as Exec, { taskId, level: "D3", question: "defer 授权门演练" }),
+    );
+    const decisionId = dec.ok ? dec.id : "";
+    const before = await t.db.execute(sql`SELECT deadline FROM decisions WHERE id=${decisionId}`);
+    // CLI 直调路径:intruder 应被 Core 层 operatorAllowed 拒绝(exit 3)
+    const intruder = await runCli(["decision", "defer", decisionId, "--task", taskId, "--deadline", "2027-06-01T00:00:00Z", "--expected-state-version", "1", "--actor", "intruder"]);
+    expect(intruder.code).toBe(EXIT.DENIED);
+    expect(parseOut(intruder.out)).toMatchObject({ ok: false, error: "actor_not_authorized" });
+    const after = await t.db.execute(sql`SELECT deadline FROM decisions WHERE id=${decisionId}`);
+    expect(String(after.rows[0]!["deadline"])).toBe(String(before.rows[0]!["deadline"]));
+    const rej = await t.db.execute(sql`SELECT detail FROM audit_events WHERE task_id=${taskId} AND action='DECISION_DEFER_REJECTED' ORDER BY seq DESC LIMIT 1`);
+    expect(JSON.stringify(rej.rows[0]!["detail"])).toContain("actor_not_authorized");
+  });
+
+  it("REVIEW Minor 修复回归:worker tick 越权 actor 拒绝(与 API tick 同 operator 门)", async () => {
+    const r = await runCli(["worker", "tick", "--actor", "intruder"]);
+    expect(r.code).toBe(EXIT.DENIED);
+    expect(parseOut(r.out)).toMatchObject({ ok: false, error: "actor_not_authorized" });
   });
 
   it("bin 薄壳真实进程:node bin/relay.mjs doctor 结构化输出与确定性退出码", async () => {

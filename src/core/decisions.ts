@@ -9,6 +9,8 @@ import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
+// 授权权威复用(ESM 函数声明循环引用安全:ops.ts 亦 import 本模块的 resolveDecisionRow)
+import { operatorAllowed } from "./ops.ts";
 
 export type DecisionLevel = "D0" | "D1" | "D2" | "D3" | "D4";
 export type DecisionState =
@@ -110,6 +112,8 @@ export async function expireStaleDecisions(exec: Exec, actor = "supervisor"): Pr
 
 /**
  * 推迟决策(P0-02C D-3/G-6):**只改截止时间,不改状态**。
+ * - actor 必须在 operator 名单(REWORK-2 REVIEW Major-2 修复:此前本函数无授权检查,
+ *   API 靠全局写门补偿而 CLI 直调时无门 —— 授权下沉 Core,三入口同一权威);
  * - 状态必须仍是待决(OPEN / EXPIRED_STILL_BLOCKED);已裁决的决策不可再推迟;
  * - 乐观并发:任务 state_version 必须与 expectedStateVersion 一致(防止与并发状态转移打架);
  * - D3 依然**永不超时自动批准** —— 推迟只是把"必须由人裁决"这件事的截止点后移。
@@ -124,6 +128,16 @@ export async function deferDecision(
     actor: string;
   },
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!operatorAllowed(spec.actor)) {
+    await appendAudit(exec, {
+      actor: spec.actor,
+      authority: "OPERATOR",
+      action: "DECISION_DEFER_REJECTED",
+      taskId: spec.taskId,
+      detail: { decisionId: spec.decisionId, reason: "actor_not_authorized" },
+    });
+    return { ok: false, reason: "actor_not_authorized" };
+  }
   const decRes = await exec.execute(sql`
     SELECT id, state, task_id FROM decisions WHERE id = ${spec.decisionId} FOR UPDATE
   `);
