@@ -12,7 +12,10 @@ DB_URL="${RELAY_DB_URL:?需 RELAY_DB_URL}"
 if command -v pg_dump >/dev/null 2>&1; then
   pg_dump "$DB_URL" --no-owner --no-privileges --file "$OUT/db-$STAMP.sql"
 else
-  docker exec relay-p000-pg pg_dump -U postgres --no-owner --no-privileges relayp000 > "$OUT/db-$STAMP.sql"
+  # 容器回退:库名取 RELAY_DB_URL 末段(指他库时不再静默备错)
+  DB_NAME="${DB_URL##*/}"
+  CONT="${RELAY_PG_CONTAINER:-relay-p000-pg}"
+  docker exec "$CONT" pg_dump -U postgres --no-owner --no-privileges "$DB_NAME" > "$OUT/db-$STAMP.sql"
 fi
 echo "[backup] db dump: $OUT/db-$STAMP.sql ($(wc -c < "$OUT/db-$STAMP.sql") bytes)"
 

@@ -5,6 +5,8 @@
 set -euo pipefail
 BK="${1:?用法:restore-verify.sh <备份目录> <隔离连接串>}"
 RESTORE_URL="${2:?需隔离实例连接串}"
+# 演练容器名(默认 relay-restore-verify;容器内需有 psql;可用 RELAY_RESTORE_CONTAINER 覆盖)
+RC="${RELAY_RESTORE_CONTAINER:-relay-restore-verify}"
 T0="$(date +%s)"
 
 # 1) DB 恢复(隔离实例;每次演练新建干净库——整库 dump 含 CREATE SCHEMA,重复恢复会撞)
@@ -15,9 +17,9 @@ if command -v psql >/dev/null 2>&1; then
   psql "$RESTORE_URL/postgres" -c "CREATE DATABASE $TARGET_DB" -q
   psql "$RESTORE_URL/$TARGET_DB" -v ON_ERROR_STOP=1 -q -f "$SQLFILE"
 else
-  docker exec relay-restore-verify psql -U postgres -c "DROP DATABASE IF EXISTS $TARGET_DB" -q
-  docker exec relay-restore-verify psql -U postgres -c "CREATE DATABASE $TARGET_DB" -q
-  docker exec -i relay-restore-verify psql -U postgres -d "$TARGET_DB" -v ON_ERROR_STOP=1 -q < "$SQLFILE"
+  docker exec "$RC" psql -U postgres -c "DROP DATABASE IF EXISTS $TARGET_DB" -q
+  docker exec "$RC" psql -U postgres -c "CREATE DATABASE $TARGET_DB" -q
+  docker exec -i "$RC" psql -U postgres -d "$TARGET_DB" -v ON_ERROR_STOP=1 -q < "$SQLFILE"
 fi
 export RESTORE_TARGET_URL="${RESTORE_URL%/*}/$TARGET_DB"
 echo "[restore] 目标库:$TARGET_DB"

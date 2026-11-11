@@ -31,7 +31,7 @@ fs.writeFileSync('$DIR/soak-final.json', JSON.stringify({
   workerAliveAtEnd: alive > 0 && lines[lines.length-1].split(',')[4]==='yes',
   samples: lines.length, rssPeakKb: Math.max(...rss, 0),
   thresholdRssKb: 400000,
-  verdict: end.elapsed_s >= 86400 && end.rss_kb < 400000 ? '观察期已满——判定交由 REVIEW' : '观察期未满或超阈值——不得宣称 PASS'
+  verdict: end.elapsed_s >= 86400 && Math.max(...rss, 0) < 400000 ? '观察期已满——判定交由 REVIEW' : '观察期未满或超阈值——不得宣称 PASS'
 }, null, 2));
 " 2>/dev/null || true
     break
