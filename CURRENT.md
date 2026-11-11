@@ -1,29 +1,29 @@
 # Relay 当前执行契约
 
-- 状态:**总授权执行包 · 阶段 A(REWORK-2 最小 CLI)ACTIVE**。授权来源:用户 2026-11-11"MVP 收敛与最终验收总执行包"(六阶段 A~F 连续执行授权;每子包仍须独立合同/实现/复核/CI/推送)。上一包 P0-ACCEPT 已闭环(`3069aa1`,CI success)。
-- 写者:**本窗口唯一 Writer**(main-only;禁强推/禁其他分支)。
-- 冷启动基线(2026-11-11 复核):本地 HEAD == origin/main == `3069aa101df8b1ecbe505fa846a761870acbaa5e`;工作区 clean;CI run `42952099140` success;PG 容器健康;Node v24.21.0。
+- 状态:**总授权执行包 · 阶段 A(REWORK-2)CLOSED / 阶段 B(REWORK-1 Discovery)NOT_ACTIVE(合同起草中)**。完成:2026-11-11。终态以远端 `main` 为准(`70b94c5`;CI run `42965135078` test+e2e 双绿)。
+- 写者:阶段 A 已释放;**阶段 B 由本窗口继续担任唯一 Writer**(合同先行)。
+- 提交链:`3069aa1 → 382edf7(A 合同)→ f748441(A 实现)→ 9b87e69(复核处置)→ 70b94c5(CI 处置)`。
 
-## 本包范围(阶段 A:REWORK-2,US-04/V03 闭合)——已实现,待复核/CI
+## 阶段 A 终账(REWORK-2;证据见 `p0-rework2/`)
 
-1. **Core 最小增量**:`src/core/ops.ts` 新增 `pauseTask`(READY→PAUSED 置入;actor+expectedStateVersion+合法转移+审计同 resumeTask 口径;租约链不打断)✅
-2. **CLI**:`src/cli.ts` + `bin/relay.mjs` + package.json bin;命令集 goal create/list/show、decision list/resolve/defer、task resume、pause、worker tick(--stub/--seed)、status、doctor ✅(三入口同调 Core;零新依赖)
-3. **API 对等**:`POST /api/tasks/:id/pause`(同一 pauseTask)+ 能力登记表 `cli.entry`/`task.pause` 两行 ✅
-4. **doctor**:只读(13 表迁移面+守卫/provider 可见性/Pi/docker/凭据存在性零明文/阻断面);逐项容错 ✅
-5. **退出码**:0/1/2/3/4/5 确定性 ✅
-6. **测试 ≥8 例**:`test/integration/cli.test.ts` **10 例全绿**(含 PAUSED 阻断 claimNextReady 实证、API 对等 401/200/409、bin 真实进程 exit 0/5、stub tick 单拍 ACCEPTED、控制面零模型 Run)✅
-7. **V03 演练**:`p0-rework2/v03-journey.sh` + `v03-cli-journey.log` 真实进程全程(doctor→create→pause→重复 pause exit3→resume→stub tick ACCEPTED→show/decision/status)✅
-8. **报告**:`p0-rework2/REPORT.md` ✅;待独立 Reviewer + CI 绿 + 快进推送。
+- **交付**:Core `pauseTask`(READY 状态门 + actor/version/审计同口径)+ `src/cli.ts` + `bin/relay.mjs`(零新依赖;goal create/list/show、decision list/resolve/defer、task resume、pause、worker tick(--stub 命名空间 env/--seed)、status、doctor 逐项容错)+ API `POST /api/tasks/:id/pause` + 能力登记 `cli.entry`/`task.pause` + 确定性退出码 0/1/2/3/4/5。
+- **验收**:V03 全程真实 CLI 演练(`v03-journey.sh`/`v03-cli-journey.log`,零浏览器零 ChatGPT;stub 如实标注);PAUSED 阻断领取实证;CLI/API 同 Core 对等;控制面零模型 Run。
+- **独立复核**:`p0-rework2/REVIEW.md` PASS-WITH-FIXES;**Major-1**(RUNNING 可被 pause 打断租约)→ READY 状态门;**Major-2**(CLI defer 无 operator 门)→ 授权下沉 Core deferDecision;Minor×4 修复/登记。
+- **测试**:cli.test.ts **13 例全绿**;全量终账(本机)216=207+7skip+2fail(2fail=github-real 403 凭据面;magpie 间歇与 CI 无关);tsc 0;CI test+e2e 双绿。
+- **US-04/V03 裁决:VERIFIED**(PRD 覆盖矩阵待阶段 F 统一重生成)。
 
-全量回归(本机无并发窗口,处置后终账):**216 例 = 207 passed + 7 skipped + 2 failed(50 文件)**;2 failed = github-real PAT 403 凭据面(用户侧单点);egress-proxy/live-worker-e2e 前轮间歇失败(magpie 环境型,隔离复跑绿);tsc 0。独立复核:`p0-rework2/REVIEW.md` **PASS-WITH-FIXES**;两处 Major(RUNNING 可被 pause 打断租约 / CLI defer 无 operator 门)已修复并补 3 例回归(cli.test.ts 13 例全绿)。
+## 阶段 B 范围(下一步:REWORK-1 模型驱动 Discovery,US-02 P0 最小 + US-01 模型面)
 
-## 验收标准(不可降低)
+1. 先起草 ACTIVE 合同独立提交,再实施。
+2. Goal 创建后一次真实模型分析(magpie 本地路由):问题陈述/关键假设及置信度/风险/方案比较/推荐行动/可判定验收/仍需人决事项;调研来源引用路径;可回放记录(复用 runs/budget_ledger/Evidence,零第二状态机)。
+3. 失败如实降级规则面并标注来源(模型/规则/未实现三态);不伪造 Discovery 成功;预算经账本,超额即停;禁无限重复调用。
+4. 项目文档内恶意指令不得改变工具权限(结构层防线不变)。
+5. 真实验收:模糊需求调查/不合理方案反驳/不完整需求形成可判定验收/注入抵抗/预算耗尽停止/断线恢复不伪造隐状态/独立 Reviewer。
+6. 能力登记表 `goal.discovery.model`/`goal.recommendation.model` 从 NOT_IMPLEMENTED 改为有证据状态;Goal 页展示分析来源徽章。
+7. 安全边界(总包继承):不生产部署/不 RSI/不扩权/不加预算/D3 永不自动批准/每轮真实模型试验先声明预算。
 
-- V03:不连 ChatGPT、不开浏览器,控制操作全部经 CLI 独立完成且状态与 API/DB 一致。
-- 未授权 actor、旧 state_version、非法转移、重复操作正确拒绝且有审计行。
-- 全部命令确定性退出码;控制面命令不触发任何模型请求。
-- PAUSED 实证阻断领取;SIGKILL 后状态不丢(既有 V04 语义不被 CLI 破坏)。
+## 遗留(结转)
 
-## 安全边界(总包继承)
-
-不生产部署;不 RSI;不扩大 Token/模型预算/文件权限/仓库写入范围;D3 永不自动批准;不触碰其他业务仓库;禁宽权限 gh token;遇到 D3/生产风险/权限扩大/预算扩大/数据破坏风险即阻断并说明。
+1. github-real 403(PAT 缺沙箱仓 Contents RW;用户侧单点,补权后 `npx vitest run test/integration/github-real.test.ts` 闭环)。
+2. 本机代理栈上游断(宿主运维;git push 暂走 ssh.github.com:443 通道)。
+3. 登记遗留维持:R-2(XFF)/R-5(Origin:null)/T01 模型级注入语料化/stage 仓回收/base 纵深(F-12)/toolEvents 宿主副本并入 REWORK-1。
