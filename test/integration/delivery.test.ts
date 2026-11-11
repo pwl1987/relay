@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { createServer, type Server } from "node:http";
 import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, chmodSync, writeFileSync } from "node:fs";
+import { mkdtempSync, chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb, seedTask, type TestDb } from "../setup/testdb.ts";
@@ -31,7 +31,7 @@ import { manifestOf, makeWorkspaceRepo, makeBareRemote, type BareRemoteFixture }
 
 const roots: string[] = [];
 function tmpRoot(prefix: string): string {
-  const d = mkdtempSync(join(tmpdir(), prefix));
+  const d = markTemp(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(d);
   return d;
 }

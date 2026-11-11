@@ -4,7 +4,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { markTemp, safeRm, RUN_SENTINEL } from "../../src/runtime/safe-rm.ts";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -23,7 +23,7 @@ import {
 
 const roots: string[] = [];
 function stageRoot(): string {
-  const d = mkdtempSync(join(tmpdir(), "relay-stage-"));
+  const d = markTemp(mkdtempSync(join(tmpdir(), "relay-stage-")));
   roots.push(d);
   return d;
 }
@@ -97,7 +97,7 @@ describe("P0-02B D-2:候选 Commit 构建(stage 克隆 + 树==清单往返核验
   });
 
   it("非 git 工作区 ⇒ not_a_git_workspace;base 不在仓库 ⇒ 阻断(候选父恒为 base,base_parent_mismatch 为纵深防线)", async () => {
-    const plain = mkdtempSync(join(tmpdir(), "relay-plain-"));
+    const plain = markTemp(mkdtempSync(join(tmpdir(), "relay-plain-")));
     roots.push(plain);
     const e1 = await createCandidateCommit({
       workspaceDir: plain,
