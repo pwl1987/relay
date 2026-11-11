@@ -68,12 +68,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: install chromium
-        # apt 镜像抖动重试(实测 exit 100 连续两轮;基建型失败,非代码)
+        # apt exit 100 持续故障(2026-11-11 四连败)⇒ 先试 runner 预装库路径(免 apt);
+        # 失败再退回 --with-deps。基建型失败,非代码;浏览器本体经 playwright 下载(非 apt)。
         run: |
-          for i in 1 2 3; do
-            npx playwright install --with-deps chromium && break
-            echo "retry $i failed; sleep 30"; sleep 30
-          done
-          npx playwright install --with-deps chromium
+          npx playwright install chromium || npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: browser journeys(J1..J5)
         run: npx vitest run test/e2e
