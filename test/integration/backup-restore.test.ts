@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
@@ -89,8 +89,18 @@ describe.skipIf(!dumpOk || !dockerOk)("P0-ACCEPT 缺口 F:备份 → 隔离实�
         '1111222233334444555566667777888899990000', 'tree-sha-bak-40-digits-aaaaaaaaaaaaaaa', 'COMMITSHA',
         'DELIVERED', 'intent-bak-1', now(), 'COMMITSHA')
     `);
-    // 外部 Git:让 bare 远端 HEAD 真实指向演练 commit(三 SHA 中的 commit 面用真实 sha)
-    const realSha = execFileSync("git", ["-C", remote.dir, "rev-parse", "refs/heads/main"], { encoding: "utf8" }).trim();
+    // 外部 Git:让 bare 远端 main 真实存在(种子 commit),changeset 的 commit 面用真实 sha
+    const seedWs = join(tmpRoot, "seed-ws");
+    mkdirSync(seedWs, { recursive: true });
+    execFileSync("git", ["-C", seedWs, "init", "--initial-branch=main"], { encoding: "utf8" });
+    execFileSync("git", ["-C", seedWs, "config", "user.email", "s@l"], { encoding: "utf8" });
+    execFileSync("git", ["-C", seedWs, "config", "user.name", "s"], { encoding: "utf8" });
+    writeFileSync(join(seedWs, "seed.txt"), "seed\n", "utf8");
+    execFileSync("git", ["-C", seedWs, "add", "-A"], { encoding: "utf8" });
+    execFileSync("git", ["-C", seedWs, "commit", "--quiet", "-m", "seed"], { encoding: "utf8" });
+    execFileSync("git", ["-C", seedWs, "push", "--quiet", remote.dir, "main"], { encoding: "utf8" });
+    const realSha = remote.head();
+    expect(realSha).toMatch(/^[0-9a-f]{40}$/);
     await t.db.execute(sql`UPDATE candidate_changesets SET git_commit_sha=${realSha}, delivered_remote_head=${realSha} WHERE id='cs-bak-1'`);
     await t.db.execute(sql`
       INSERT INTO task_gate_verdicts (id, task_id, commit_ref, verdict, reviewer, attempt, candidate_sha,
@@ -143,10 +153,11 @@ describe.skipIf(!dumpOk || !dockerOk)("P0-ACCEPT 缺口 F:备份 → 隔离实�
   });
 
   it("隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变", async () => {
-    // ---- 隔离实例:一次性 PG16 容器(随机宿主端口)----
+    // ---- 隔离实例:一次性 PG 容器(随机宿主端口;镜像用本地已有版,代理故障时拉不了新镜像)----
+    const image = process.env.RELAY_RESTORE_PG_IMAGE ?? "postgres:17-alpine";
     execFileSync("docker", ["run", "-d", "--rm", "--name", container,
       "-e", "POSTGRES_PASSWORD=restore", "-e", "POSTGRES_DB=relay_restore",
-      "-p", "127.0.0.1::5432", "postgres:16"], { stdio: "ignore", timeout: 120_000 });
+      "-p", "127.0.0.1::5432", image], { stdio: "ignore", timeout: 120_000 });
     const portLine = execFileSync("docker", ["port", container, "5432"], { encoding: "utf8" }).trim();
     restorePort = portLine.split("\n")[0]!.split(":").pop()!;
     // 就绪等待(pg_isready 容器内自检)

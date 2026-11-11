@@ -1,0 +1,24 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/backup-restore.test.ts
+[缺口 F 门控] pg_dump=false container_pg_dump=true docker=true 走容器导出=true
+
+stdout | test/integration/backup-restore.test.ts > P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对
+[缺口 F] pg_dump 完成:23819 /tmp/p0acc-backup-rI9jBy/relay-backup.sql
+
+stdout | test/integration/backup-restore.test.ts > P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对 > 隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变
+[缺口 F] 隔离实例就绪:127.0.0.1:32769(relay_restore)
+[缺口 F] psql 恢复完成(ON_ERROR_STOP=1 零错误)
+
+stdout | test/integration/backup-restore.test.ts > P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对 > 隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变
+[缺口 F] 外部 Git HEAD 不变:40f09885b8fd;13 表行数+摘要全部一致
+
+ ✓ test/integration/backup-restore.test.ts (1 test) 5697ms
+   ✓ P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对 > 隔离实例恢复 + 13 表全实体核对 + 外部 Git 状态不变  4813ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  10:04:35
+   Duration  7.04s (transform 158ms, setup 0ms, collect 1.04s, tests 5.70s, environment 0ms, prepare 75ms)
+
