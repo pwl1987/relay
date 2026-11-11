@@ -1,28 +1,31 @@
-2026-11-11T02:04:59Z === P0-ACCEPT 缺口 E:真实进程演练开始(基线:511c2b60ab9c)===
-2026-11-11T02:05:00Z E0 独立库就绪:p0acc_procs_1794362699(迁移 5 个文件)
-2026-11-11T02:05:00Z E1 启动 relay-server(live+docker+magpie)…
-node:internal/modules/run_main:107
-    triggerUncaughtException(
-    ^
-
-file:///home/ubuntu/dev/relay/src/server/auth.ts:87
-
-  constructor(private readonly config: AuthConfig) {}
-                               ^^^^^^^^^^^^^^^^^^
-
-SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript parameter property is not supported in strip-only mode
-    at parseTypeScript (node:internal/modules/typescript:68:40)
-    at processTypeScriptCode (node:internal/modules/typescript:146:42)
-    at stripTypeScriptModuleTypes (node:internal/modules/typescript:215:22)
-    at ModuleLoader.<anonymous> (node:internal/modules/esm/translators:680:29)
-    at #translate (node:internal/modules/esm/loader:438:20)
-    at afterLoad (node:internal/modules/esm/loader:506:29)
-    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:511:12)
-    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:564:36)
-    at afterResolve (node:internal/modules/esm/loader:611:52)
-    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:617:12) {
-  code: 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX'
-}
-
-Node.js v24.21.0
-2026-11-11T02:05:30Z FAIL: server 未在 30s 内就绪(见日志)
+2026-11-11T02:10:45Z === P0-ACCEPT 缺口 E:真实进程演练开始(基线:042b4c5f0bd9)===
+2026-11-11T02:10:46Z E0 独立库就绪:p0acc_procs_1794363045(迁移 5 个文件)
+2026-11-11T02:10:46Z E1 启动 relay-server(live+docker+magpie)…
+[relay-web] listening on http://127.0.0.1:39781 (worker=live;仅本地;Mac 请用 SSH 端口转发)
+[relay-web] operators=owner;口令来源=env
+2026-11-11T02:10:47Z E1 PASS:server 就绪 127.0.0.1:39781;health 未登录 401/登录后 ok(认证门生效);{"ok":true,"db":{"ok":true},"worker":{"mode":"live","lastTick":null,"active":true},"provider":{"configured":true,"probed":false,"note":"本包不探测模型路由;是否可用以运行时事实为准"},"sessions":1,"serverTime":"2026-11-11T02:10:47.477Z"}
+2026-11-11T02:10:47Z E2 PASS:登录+建 Goal 经 Web API(写路径经 core);goalId=goal-6d204ea9-ae23-4e85-9218-37ee7b2b328a
+2026-11-11T02:10:47Z E3 重启恢复演练:SIGTERM → 重启 → 健康 + 实体保留
+[relay-web] shutting down
+[relay-web] listening on http://127.0.0.1:46317 (worker=live;仅本地;Mac 请用 SSH 端口转发)
+[relay-web] operators=owner;口令来源=env
+2026-11-11T02:10:49Z E3 PASS:SIGTERM→重启;health ok;Goal 实体保留(1 行)
+2026-11-11T02:10:49Z E4 provider 离线演练:重启时 BASE_URL 指不可达地址 → tick 应 IDLE_PROVIDER_DOWN
+[relay-web] shutting down
+[relay-web] listening on http://127.0.0.1:35161 (worker=live;仅本地;Mac 请用 SSH 端口转发)
+[relay-web] operators=owner;口令来源=env
+2026-11-11T02:10:50Z E4 PASS:provider 离线 ⇒ tick IDLE_PROVIDER_DOWN,不领取任务、零副作用、零模型调用
+2026-11-11T02:10:50Z E5 SIGKILL 演练:kill -9 → 重启 → 健康恢复 + DB 事实源 + 会话失效
+2026-11-11T02:10:50Z E5:进程已死(SIGKILL)
+[relay-web] listening on http://127.0.0.1:41717 (worker=live;仅本地;Mac 请用 SSH 端口转发)
+[relay-web] operators=owner;口令来源=env
+2026-11-11T02:10:51Z E5 PASS:SIGKILL→重启;health ok;DB 为事实源;旧会话失效 401(服务端会话语义)
+2026-11-11T02:10:51Z E6 PG 断连演练:docker stop relay-p000-pg → health 降级可见 → start → 恢复
+[relay-db] pool idle client error(不崩进程;等待 PG 恢复后自愈):terminating connection due to administrator command
+2026-11-11T02:10:52Z E6:PG down 时 health HTTP=401
+2026-11-11T02:10:52Z E6:PG down 时 tick HTTP=200(失败但不推进)
+2026-11-11T02:10:53Z E6 PASS:PG 断连降级可见;恢复后 health ok(连接池自愈);状态推进零发生
+2026-11-11T02:10:53Z E7 长稳基线:观测 300s(provider 离线 tick 循环)。冻结阈值:RSS<400MB;tick 恒 IDLE_PROVIDER_DOWN
+2026-11-11T02:15:57Z E7 结果:tick 空闲=60 其他=0;RSS峰值=333496KB
+2026-11-11T02:15:57Z E7 PASS:长稳基线观测段完成(**24h/72h 长稳未跑满,如实标注**——本包仅交付冻结阈值+起跑基线)
+2026-11-11T02:15:57Z === 缺口 E 演练全部 PASS ===

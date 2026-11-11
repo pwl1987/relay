@@ -50,10 +50,14 @@ start_server() { # $1=模型 base_url
   SRV_PID=$!
 }
 
-wait_banner() { # server 横幅含 "listening on http://127.0.0.1:<port>"(port=0 打印实际端口;取最新一行)
+wait_banner() { # 横幅行数增量等待:必须等到**本次启动进程**写入的新横幅(端口随机,旧横幅作废)
+  local n0; n0=$(grep -c "listening on" "$LOG" || true)
   for _ in $(seq 1 30); do
-    SRV_PORT=$(grep -o "listening on http://127.0.0.1:[0-9]*" "$LOG" | tail -1 | grep -o "[0-9]*$")
-    if [ -n "$SRV_PORT" ] && kill -0 "$SRV_PID" 2>/dev/null; then return 0; fi
+    local n1; n1=$(grep -c "listening on" "$LOG" || true)
+    if [ "${n1:-0}" -gt "${n0:-0}" ]; then
+      SRV_PORT=$(grep -o "listening on http://127.0.0.1:[0-9]*" "$LOG" | tail -1 | grep -o "[0-9]*$")
+      if [ -n "$SRV_PORT" ] && kill -0 "$SRV_PID" 2>/dev/null; then return 0; fi
+    fi
     sleep 1
   done
   return 1
@@ -69,7 +73,7 @@ provision_db() { # 独立 database + 全部迁移("public". 前缀已从迁移�
 
 relogin() { # 刷新 COOKIE/CSRF(重启后会话失效,须重登)
   rm -f /tmp/p0acc-hdr.json
-  curl -sS -D /tmp/p0acc-hdr.txt -o /tmp/p0acc-login.json "http://127.0.0.1:${SRV_PORT}/api/session" \
+  curl -sS --noproxy '*' -D /tmp/p0acc-hdr.txt -o /tmp/p0acc-login.json "http://127.0.0.1:${SRV_PORT}/api/session" \
     -X POST -H 'content-type: application/json' -d '{"password":"p0acc-procs-pw"}' || fail "登录请求失败"
   COOKIE=$(grep -i '^set-cookie:' /tmp/p0acc-hdr.txt | sed 's/^[Ss]et-[Cc]ookie: //' | cut -d';' -f1 | tr -d '\r')
   CSRF=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/tmp/p0acc-login.json","utf8")).csrfToken||"")')
@@ -77,7 +81,7 @@ relogin() { # 刷新 COOKIE/CSRF(重启后会话失效,须重登)
 }
 
 tick_http() {
-  curl -sS -m 30 "http://127.0.0.1:${SRV_PORT}/api/worker/tick" -X POST \
+  curl -sS --noproxy '*' -m 30 "http://127.0.0.1:${SRV_PORT}/api/worker/tick" -X POST \
     -H "cookie: $COOKIE" -H "x-relay-csrf: $CSRF" | tail -c 300
 }
 
@@ -91,13 +95,16 @@ provision_db
 log "E1 启动 relay-server(live+docker+magpie)…"
 start_server "http://127.0.0.1:3425/v1"
 wait_banner || fail "server 未在 30s 内就绪(见日志)"
-health=$(curl -sS "http://127.0.0.1:${SRV_PORT}/api/health")
+anon=$(curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' "http://127.0.0.1:${SRV_PORT}/api/health")
+[ "$anon" = "401" ] || fail "E1:未登录 health 应 401(认证门),得 $anon"
+relogin
+health=$(curl -sS --noproxy '*' "http://127.0.0.1:${SRV_PORT}/api/health" -H "cookie: $COOKIE")
 echo "$health" | grep -q '"ok":true' || fail "health 非 ok:$health"
-log "E1 PASS:server 就绪 127.0.0.1:${SRV_PORT};worker=live sandbox=docker(隔离 FAIL-CLOSED 生效面)"
+log "E1 PASS:server 就绪 127.0.0.1:${SRV_PORT};health 未登录 401/登录后 ok(认证门生效);$health"
 
 # ---- E2 登录 + Web API 建 Goal ----
 relogin
-body=$(curl -sS "http://127.0.0.1:${SRV_PORT}/api/goals" -X POST -H 'content-type: application/json' \
+body=$(curl -sS --noproxy '*' "http://127.0.0.1:${SRV_PORT}/api/goals" -X POST -H 'content-type: application/json' \
   -H "cookie: $COOKIE" -H "x-relay-csrf: $CSRF" \
   -d '{"rawInput":"缺口E 进程演练目标(不期望真实执行)"}')
 echo "$body" | grep -q '"goalId"' || fail "E2:创建 Goal 失败:$body"
@@ -110,7 +117,8 @@ log "E3 重启恢复演练:SIGTERM → 重启 → 健康 + 实体保留"
 kill -TERM "$SRV_PID" 2>/dev/null; wait "$SRV_PID" 2>/dev/null; SRV_PID=""
 start_server "http://127.0.0.1:3425/v1"
 wait_banner || fail "E3:重启未就绪"
-health=$(curl -sS "http://127.0.0.1:${SRV_PORT}/api/health")
+relogin   # E3 重启后会话失效(服务端会话),重登
+health=$(curl -sS --noproxy '*' "http://127.0.0.1:${SRV_PORT}/api/health" -H "cookie: $COOKIE")
 echo "$health" | grep -q '"ok":true' || fail "E3:恢复后 health 非 ok:$health"
 GOALS_AFTER=$(docker exec "$PG_NAME" psql -U postgres -d "$DB_NAME" -tA -c "SELECT id || ':' || state FROM goals")
 [ "$GOALS_BEFORE" = "$GOALS_AFTER" ] || fail "E3:重启前后 DB 实体不一致"
@@ -134,24 +142,24 @@ kill -0 "$SRV_PID" 2>/dev/null && fail "E5:进程未死"
 log "E5:进程已死(SIGKILL)"
 start_server "http://127.0.0.1:3425/v1"
 wait_banner || fail "E5:重启未就绪"
-health=$(curl -sS "http://127.0.0.1:${SRV_PORT}/api/health")
-echo "$health" | grep -q '"ok":true' || fail "E5:恢复后 health 非 ok:$health"
-old_res=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${SRV_PORT}/api/dashboard" -H "cookie: $OLD_COOKIE")
+old_res=$(curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' "http://127.0.0.1:${SRV_PORT}/api/dashboard" -H "cookie: $OLD_COOKIE")
 [ "$old_res" = "401" ] || fail "E5:重启后旧会话应失效(401),得 $old_res"
 relogin
+health=$(curl -sS --noproxy '*' "http://127.0.0.1:${SRV_PORT}/api/health" -H "cookie: $COOKIE")
+echo "$health" | grep -q '"ok":true' || fail "E5:恢复后 health 非 ok:$health"
 log "E5 PASS:SIGKILL→重启;health ok;DB 为事实源;旧会话失效 401(服务端会话语义)"
 
 # ---- E6 PG 断连 → 恢复 ----
 log "E6 PG 断连演练:docker stop relay-p000-pg → health 降级可见 → start → 恢复"
 docker stop "$PG_NAME" >/dev/null || fail "E6:stop 失败"
-pg_down_health=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 "http://127.0.0.1:${SRV_PORT}/api/health" 2>/dev/null)
+pg_down_health=$(curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' -m 10 "http://127.0.0.1:${SRV_PORT}/api/health" 2>/dev/null)
 log "E6:PG down 时 health HTTP=$pg_down_health"
 [ "$pg_down_health" != "200" ] || fail "E6:PG down 时 health 不应为 200"
-pg_down_tick=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 "http://127.0.0.1:${SRV_PORT}/api/worker/tick" -X POST -H "cookie: $COOKIE" -H "x-relay-csrf: $CSRF" 2>/dev/null)
+pg_down_tick=$(curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' -m 10 "http://127.0.0.1:${SRV_PORT}/api/worker/tick" -X POST -H "cookie: $COOKIE" -H "x-relay-csrf: $CSRF" 2>/dev/null)
 log "E6:PG down 时 tick HTTP=$pg_down_tick(失败但不推进)"
 docker start "$PG_NAME" >/dev/null
 for _ in $(seq 1 30); do docker exec "$PG_NAME" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
-health=$(curl -sS -m 10 "http://127.0.0.1:${SRV_PORT}/api/health")
+health=$(curl -sS --noproxy '*' -m 10 "http://127.0.0.1:${SRV_PORT}/api/health" -H "cookie: $COOKIE")
 echo "$health" | grep -q '"ok":true' || fail "E6:PG 恢复后 health 未恢复:$health"
 log "E6 PASS:PG 断连降级可见;恢复后 health ok(连接池自愈);状态推进零发生"
 

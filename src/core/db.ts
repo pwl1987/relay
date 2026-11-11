@@ -26,6 +26,13 @@ export function connectDb(url: string = DEFAULT_TEST_DATABASE_URL, searchPath?: 
     connectionString: url,
     ...(searchPath ? { options: `-c search_path=${searchPath}` } : {}),
   });
+  // P0-ACCEPT 缺口 E 收口:PG 断连必须"可见降级"而非进程崩溃(SECURITY_MODEL §5:数据库不可用 ⇒
+  // 停止新写执行/拒绝状态推进,恢复后自愈)。空闲连接被服务端断开时 Pool 发 'error' 事件,
+  // 无监听即 unhandled ⇒ uncaughtException ⇒ 进程死(E 演练实测:docker stop PG ⇒ relay-server 崩溃)。
+  // 监听后:记录 stderr,后续请求经 health/tick 的 SQL 失败自然降级;PG 恢复后连接池自愈。
+  pool.on("error", (err: Error) => {
+    console.error(`[relay-db] pool idle client error(不崩进程;等待 PG 恢复后自愈):${err.message}`);
+  });
   return { pool, db: drizzle(pool, { schema }) };
 }
 
