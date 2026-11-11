@@ -31,3 +31,7 @@
 2026-11-11T02:02:00.525Z toolEvents 空(pi 1.5.0 真实事件流无 tool_call 记录);允许/越权实证 = 本次交付内容核验 + 既有 pi-e2e 越权断言(test/integration/pi-e2e.test.ts)
 2026-11-11T02:02:00.534Z DELIVERED;commit=35323b45a3a2;remote head 一致
 2026-11-11T02:02:00.536Z ledger model_calls used=6 limit=8 reserved=0
+2026-11-11T02:20:16.966Z # 门控:provider=magpie/group/gm docker=true iptables=true
+2026-11-11T02:20:29.235Z # server http://127.0.0.1:36343 workerMode=live sandbox=docker
+2026-11-11T02:20:29.381Z 登录 200;cookie=relay_session=1e4a9e780a…;csrf=5881a225…
+2026-11-11T02:20:29.395Z POST /api/goals 201;goalId=goal-0ca524eb-6ec5-4596-ad7a-7c70ad64035a;tasks=["task-2d4d47c9-9fda-4459-82dd-e50c5dfbc08f"]
