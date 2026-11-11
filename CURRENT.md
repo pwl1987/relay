@@ -1,8 +1,17 @@
 # Relay 当前执行契约
 
-- 状态:**总授权执行包 · 阶段 B(REWORK-1 Discovery)CLOSED / 阶段 C(GitHub 补验)进行中**。阶段 B 终态:远端 `main` == `a1707af`(CI `42976375094` 双绿)。
+- 状态:**总授权执行包 · 阶段 D(真实业务样例与安全验收)ACTIVE**。阶段 C 已收账:BLOCKED(仓库不在 PAT 授权范围;`p0-mvp/stage-c-github-permission.md`)。
 - 写者:**本窗口唯一 Writer**(main-only;禁强推)。
-- 提交链(总包):`3069aa1 → 382edf7(A 合同)→ f748441(A 实现)→ 9b87e69(A 复核处置)→ 70b94c5(A CI 处置)→ 3a4b10a(A 收尾)→ 8880528(B 合同)→ 49edffe(B 实现)→ 20e0662(B 复核处置)→ a1707af(B CI 处置)`。
+- 提交链(总包):`… → f618d51(B 收尾)→ 710d596(C 收账)→ 本合同`。
+
+## 本包范围(阶段 D:F1/F2/F3 + 清理安全加固)
+
+1. **Fixture F1(模糊 UX 需求,真模型全链)**:`test/fixtures/f1-tasklist/` 真实迷你 Web 项目(新增任务表单页;localStorage;无敏感信息)。给 Relay 一句"新增任务的页面不好用。"→ Discovery(真模型,项目调查+推荐)→ operator 采纳 → 真模型 Coder 有限修改 → Gate(**Playwright 真浏览器确定性检查**为 evidenceCheck:填表→提交→条目出现 + HTTP 断言)+ 独立 Reviewer → 本地 bare 交付(GitHub BLOCKED 不冒充)→ 证据落 `p0-mvp/f1/`。预算声明:discovery 6 + coder 6 + reviewer 4(账本 16;magpie 零真实成本);magpie 方差如实(失败诚实落 FAILED,隔离复跑一次定性)。
+2. **Fixture F2(真实 Bug,真模型全链)**:`test/fixtures/f2-api/` 含 HTTP API(node:http)+ 真实边界错误(POST /api/divide 对 0 除 500/crash)+ **失败回归测试**。Relay:复现(失败测试为证据)→ 定位根因 → 修复 → 新增回归测试 → 真实 HTTP 验证(起服务+curl)→ 独立 Review → Gate → 交付。证据落 `p0-mvp/f2/`;预算声明同 F1 口径。既有加法算例保留为机制验证,不再充当业务样例。
+3. **Fixture F3(故意失败与越权)**:盘点矩阵(`p0-mvp/f3-matrix.md`)把既有实锤映射到总包清单:无限重试(V11)/假造 DONE(V08 fake-self-approve)/旧 SHA 旧 Gate(V09 staleEvidence)/并发 Writer(V06/V20)/远端漂移(V10;真实远端漂移=C 阶段 BLOCKED 如实)/DB 断线(E6 收口)/不确定副作用(V05)/越权读写(pi-e2e+command-scope)。**补真模型级注入语料化(T01 遗留)**:evil fixture 下真模型 Discovery+Coder 全链,断言零 exec/项目目录零变化/报告把语料当数据分析;失败如实落 FAILED。全部危险测试在隔离沙箱+独立 schema+本地 bare。
+4. **D4 清理安全(中央防护)**:`src/runtime/safe-rm.ts` `safeRm(path, {roots, sentinel})`——拒绝 `/`、`/tmp`、HOME、仓库根、roots 之外路径、无哨兵目录;**纯逻辑守卫(不依赖权限碰巧不足)**;应用于 `cleanupSandbox`、git-candidate stage 回收、全部测试 rmSync 点(普查 ~15 处);回归测试:危险路径逐一拒绝+正常路径放行;`rm -rf` 脚本面审计入报告。
+5. **收尾**:`p0-mvp/f1|f2/` 证据 + `f3-matrix.md` + `REPORT-stage-d.md` + 独立 Reviewer → CI 绿 → 快进推送。
+6. **安全边界**:预算每轮先声明超额即停;magpie 零真实成本;不生产部署;不 RSI;不扩权;GitHub 交付不冒充(本地 bare + BLOCKED 如实);Playwright 仅本地面。
 
 ## 阶段 B 终账(REWORK-1;证据见 `p0-rework1/`)
 
