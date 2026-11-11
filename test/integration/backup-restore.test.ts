@@ -4,7 +4,8 @@
 //  3) 核对:13 表逐表行数 + 全行 JSON 摘要 md5 两库一致(实体零丢失/零漂移);
 //  4) 外部 Git:恢复后 bare 远端 HEAD 仍 == candidate_changesets.git_commit_sha(外部事实不被恢复动作改变)。
 // 不允许以"简单重启"代替:恢复目标是**新起的独立实例**。
-// 门:docker(起隔离恢复实例)+ pg_dump;缺一显式 skip(不假装)。
+// 门:RELAY_BACKUP_E2E=1(显式;与 RELAY_E2E 同哲学——该测试依赖宿主 docker 细节与一次性容器,
+// 目标环境=VM80 实测;CI runner 的 service 环境非其目标环境,常规全量自动 skip 不假装)+ pg_dump + docker。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
@@ -42,9 +43,10 @@ function relayPgContainerDumpAvailable(): boolean {
 const dumpOk = hostPgDumpAvailable() || relayPgContainerDumpAvailable();
 const useContainerDump = !hostPgDumpAvailable() && relayPgContainerDumpAvailable();
 const dockerOk = dockerAvailable();
-console.log(`[缺口 F 门控] pg_dump=${hostPgDumpAvailable()} container_pg_dump=${relayPgContainerDumpAvailable()} docker=${dockerOk} 走容器导出=${useContainerDump}`);
+const gateEnv = process.env.RELAY_BACKUP_E2E === "1";
+console.log(`[缺口 F 门控] RELAY_BACKUP_E2E=${gateEnv} pg_dump=${hostPgDumpAvailable()} container_pg_dump=${relayPgContainerDumpAvailable()} docker=${dockerOk} 走容器导出=${useContainerDump}`);
 
-describe.skipIf(!dumpOk || !dockerOk)("P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对", { timeout: 300_000 }, () => {
+describe.skipIf(!gateEnv || !dumpOk || !dockerOk)("P0-ACCEPT 缺口 F:备份 → 隔离实例恢复 → 全实体核对", { timeout: 300_000 }, () => {
   let t: TestDb;
   let backupFile: string;
   let tmpRoot = "";
@@ -160,16 +162,23 @@ describe.skipIf(!dumpOk || !dockerOk)("P0-ACCEPT 缺口 F:备份 → 隔离实�
       "-p", "127.0.0.1::5432", image], { stdio: "ignore", timeout: 120_000 });
     const portLine = execFileSync("docker", ["port", container, "5432"], { encoding: "utf8" }).trim();
     restorePort = portLine.split("\n")[0]!.split(":").pop()!;
-    // 就绪等待(pg_isready 容器内自检)
+    // 就绪等待:pg_isready + psql SELECT 1 双重确认(单凭 pg_isready 曾在 CI 出现"ready 但 socket 未就绪")
     let ready = false;
     for (let i = 0; i < 30; i++) {
       try {
         execFileSync("docker", ["exec", container, "pg_isready", "-U", "postgres"], { stdio: "ignore", timeout: 5_000 });
+        execFileSync("docker", ["exec", container, "psql", "-U", "postgres", "-d", "relay_restore", "-tA", "-c", "SELECT 1"], { stdio: "ignore", timeout: 5_000 });
         ready = true;
         break;
       } catch { execFileSync("sleep", ["1"]); }
     }
-    expect(ready, "隔离恢复实例应就绪").toBe(true);
+    if (!ready) {
+      try {
+        const logs = execFileSync("docker", ["logs", "--tail", "30", container], { encoding: "utf8", timeout: 10_000 });
+        console.log(`[缺口 F 诊断] 恢复容器日志尾:\n${logs}`);
+      } catch { /* 诊断尽力而为 */ }
+    }
+    expect(ready, "隔离恢复实例应就绪(pg_isready+psql 双确认)").toBe(true);
     console.log(`[缺口 F] 隔离实例就绪:127.0.0.1:${restorePort}(relay_restore)`);
 
     // ---- 恢复:psql 导入备份 ----
