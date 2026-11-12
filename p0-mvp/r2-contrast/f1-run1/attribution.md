@@ -19,6 +19,7 @@
 - 逐行:discovery 3 行(1158/90、1464/91、2545/1024)+ coder 2 行(1016/56、**9514/8192/144.4s**)+ reviewer 1 行(1921/942,BLOCK)。
 - 网关聚合:in 17618 / out 10395。
 - 记账口径:run 侧 coder tokensOut=8248 与网关两行 out 之和(56+8192)**精确一致**;tokensIn 口径仍不一致(run 1386 vs 网关 10530)——与 F2 同一披露:对账以网关日志为权威。
+- **candidateCommitError 字段披露(Reviewer Minor-3 消化)**:F1 runs-detail 含 `"candidateCommitError": "git_failed: git -c failed: "`——系候选 diff 为空、git 无可提交内容所致,与零编辑空提交(baseSha==candidateSha)自洽,**非 git 链路故障**,避免误读。
 
 ## 决定性根因(实证)
 

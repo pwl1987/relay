@@ -48,7 +48,9 @@
 
 1. **调用数**:F2 网关 7 行 vs run 记账 6 turns——止损边界在途调用未计入 run;"测试次数≠模型请求次数"再实证;
 2. **token 口径**:run 侧 tokensIn 与网关全量 prompt token 显著不一致(F2:3265 vs 20475;F1 coder:1386 vs 10530),tokensOut 精确一致(F1 8248=56+8192);**对账以 Magpie 路由日志为权威**(本报告全部 token 数取网关口径);
-3. effort=medium 为网关侧缺省,不在授权四参数内,未调整。
+3. effort=medium 为网关侧缺省,不在授权四参数内,未调整;
+4. **wall 数值来源披露(Reviewer Minor-2 消化)**:F2 135.2s/135196ms、F1 247.3s 取自执行会话 vitest 控制台输出,执行时证据面无该字段、未落盘;可由网关时间窗旁证(F2 窗 147.4s ≥ 135.2s;F1 窗 239.8s + 调度开销 ≈ 247.3s);改进项已记:后续实验将耗时行随 evidence() 一并落盘;
+5. F2 stub 机制对照件(stub-final-check.json 4/4 ok、stub-tick-summary.json gate ACCEPTED+DELIVERED)原仅存未跟踪运行时面,已按 Reviewer Minor-1 补入 `p0-mvp/r2-contrast/f2-run1/`(与 F1 stub 四件对称)。
 
 ## 四、边界遵守声明
 
