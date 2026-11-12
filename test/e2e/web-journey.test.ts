@@ -163,7 +163,7 @@ async function loginViaUi(page: Page, base: string): Promise<void> {
   await page.goto(`${base}/login.html`);
   await page.fill("#password", PASSWORD);
   await page.click("#btn-login");
-  await page.waitForURL(`${base}/`);
+  await page.waitForURL(/\/workspace/); // WEB-UX-03C:/ 登录后 302 → /workspace
 }
 
 async function textOf(page: Page, sel: string): Promise<string> {

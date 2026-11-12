@@ -125,11 +125,11 @@ async function login(page: Page, base: string): Promise<void> {
   await page.goto(`${base}/login.html`);
   await page.fill("#password", PASSWORD);
   await page.click("#btn-login");
-  await page.waitForURL(`${base}/`);
+  await page.waitForURL(/\/workspace/); // WEB-UX-03C:/ 登录后 302 → /workspace
 }
 
 async function createGoal(page: Page, base: string, raw: string, projectId?: string): Promise<string> {
-  await page.goto(`${base}/`);
+  await page.goto(`${base}/index.html`); // WEB-UX-03C:旧总览重定位至 /index.html(/ 现 302 → /workspace)
   if (projectId) {
     await page.waitForSelector('[data-testid="goal-project"] option[value="' + projectId + '"]', { state: "attached" });
     await page.selectOption('[data-testid="goal-project"]', projectId);
@@ -192,7 +192,7 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     const { page, base } = s;
     // 1 工作台(Hero + 四区)
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${base}/`);
+    await page.goto(`${base}/index.html`); // WEB-UX-03C:旧总览重定位至 /index.html(/ 现 302 → /workspace)
     await page.waitForSelector('[data-testid="goal-input"]');
     await shot(page, "d1-1440-workbench.png");
     // 2 任务列表
@@ -246,14 +246,14 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
   it("桌面 1512×982 与 1728×1117:关键页复查", async () => {
     const { page, base } = s;
     await page.setViewportSize({ width: 1512, height: 982 });
-    await page.goto(`${base}/`);
+    await page.goto(`${base}/index.html`); // WEB-UX-03C:旧总览重定位至 /index.html(/ 现 302 → /workspace)
     await page.waitForSelector('[data-testid="goal-input"]');
     await shot(page, "m1-1512-workbench.png");
     await page.goto(`${base}/goal.html?id=${goalBlocked}`);
     await page.waitForSelector('[data-testid="goal-timeline-steps"]');
     await shot(page, "m2-1512-goal-timeline.png");
     await page.setViewportSize({ width: 1728, height: 1117 });
-    await page.goto(`${base}/`);
+    await page.goto(`${base}/index.html`); // WEB-UX-03C:旧总览重定位至 /index.html(/ 现 302 → /workspace)
     await page.waitForSelector('[data-testid="goal-input"]');
     await shot(page, "m3-1728-workbench.png");
     await page.goto(`${base}/decisions.html`);
@@ -264,7 +264,7 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
   it("手机 390×844:工作台/任务/待决定/结果 + 抽屉导航", async () => {
     const { page, base } = s;
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${base}/`);
+    await page.goto(`${base}/index.html`); // WEB-UX-03C:旧总览重定位至 /index.html(/ 现 302 → /workspace)
     await page.waitForSelector('[data-testid="mobile-topbar"]');
     await page.waitForSelector('[data-testid="goal-input"]');
     await shot(page, "p1-390-workbench.png");
