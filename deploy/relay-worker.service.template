@@ -1,0 +1,15 @@
+# Relay Console 独立 worker(schema=relay_console;provider=Magpie/zcode-GLM-5.3;FAIL-CLOSED)
+[Unit]
+Description=Relay Console worker (relay_console schema)
+After=network-online.target relay-web.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/dev/relay
+EnvironmentFile=/home/ubuntu/.relay/console/env
+ExecStart=/usr/bin/env node src/worker-entry.ts
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

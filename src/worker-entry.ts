@@ -14,6 +14,7 @@ import type { SafeLoopHandle } from "./core/loop-safety.ts";
 import { startSafeLoop } from "./core/loop-safety.ts";
 import { createLiveWorkerDriver, type WorkerDriver } from "./server/worker.ts";
 import { appendAudit } from "./core/audit.ts";
+import { ensureEgress, type EgressStatus } from "./runtime/egress.ts";
 import type { Exec } from "./core/db.ts";
 
 export interface WorkerEntryOptions {
@@ -31,12 +32,16 @@ export function startWorkerEntry(opts: WorkerEntryOptions = {}): { handle: Worke
   const intervalMs = opts.intervalMs ?? Number(process.env.RELAY_WORKER_INTERVAL_MS ?? "15000");
   const workerId = opts.workerId ?? process.env.RELAY_WORKER_ID ?? "relay-worker-1";
   const { pool, db } = connectDb(opts.dbUrl ?? process.env.RELAY_DB_URL, process.env.RELAY_DB_SCHEMA || undefined);
-  const driver = createLiveWorkerDriver({
+  // 阶段六(运营实例):live docker 驱动要求出口栈(ensureEgress;与 discovery/API 同机制)。
+  // driver 持本对象引用,egress 在首拍前惰性初始化并回填;FAIL-CLOSED 语义不变:
+  // provider 未配置 / egress 未就绪 ⇒ driver tick 回报不领取(IDLE_PROVIDER_DOWN)。
+  const driverOptions: Parameters<typeof createLiveWorkerDriver>[0] = {
     db,
     workerId,
     sandbox: process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker",
     stageBaseDir: process.env.RELAY_WEB_STAGE_DIR ?? join(homedir(), ".relay", "stage"),
-  });
+  };
+  const driver = createLiveWorkerDriver(driverOptions);
   const banner = `[relay-worker] started workerId=${workerId} intervalMs=${intervalMs} sandbox=${process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker"} pid=${process.pid}`;
   console.log(banner);
 
@@ -44,8 +49,22 @@ export function startWorkerEntry(opts: WorkerEntryOptions = {}): { handle: Worke
   // Supervisor 只做回收/Reconcile/释放(无执行器 ⇒ claim:false;领取归 goal 环路,E1 复核修正)
   const supervisor: SafeLoopHandle = startSupervisorLoop(db, { intervalMs, workerId, claim: false });
   // goal 环路:一拍 = driver.tick()(与 server live driver 同构;FAIL-CLOSED:provider 未配置 ⇒ IDLE_PROVIDER_DOWN 不领取)
+  let egressInitDone = false;
   const goal: SafeLoopHandle = startSafeLoop(
     async () => {
+      if (!egressInitDone) {
+        egressInitDone = true;
+        const base = process.env.RELAY_PI_BASE_URL;
+        if (base) {
+          try {
+            const eg: EgressStatus = await ensureEgress(base);
+            driverOptions.egress = eg.ok ? eg : undefined;
+            console.log(`[relay-worker] egress ${eg.ok ? `ready(network=${eg.network})` : `unavailable:${eg.reason ?? "?"}`}`);
+          } catch (err) {
+            console.log(`[relay-worker] egress init failed:${err instanceof Error ? err.message : String(err)}(FAIL-CLOSED 不领取)`);
+          }
+        }
+      }
       const report = await driver.tick();
       console.log(`[relay-worker] tick status=${report.status} claimed=${report.tick?.claimed?.taskId ?? "-"} at=${new Date().toISOString()}`);
       return report;
