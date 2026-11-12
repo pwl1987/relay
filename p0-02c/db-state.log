@@ -2014,3 +2014,1212 @@
     }
   ]
 }
+## J3 after crash tick(finally)
+{
+  "tag": "J3 after crash tick(finally)",
+  "at": "2026-11-12T03:59:57.684Z",
+  "goals": [
+    {
+      "id": "goal-f8bcb0bb-327e-4804-bf7c-9b23c5be362c",
+      "state": "ACTIVE",
+      "raw_input": "目标C:Worker 中途崩溃的任务"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-e93226af-9b3c-4322-ae59-fde8c7320c9d",
+      "state": "READY",
+      "state_version": 4,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": "2026-11-12 04:00:06.961705+00"
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-4b1bc7d0-df23-4222-a58e-65b76d16c995",
+      "task_id": "task-e93226af-9b3c-4322-ae59-fde8c7320c9d",
+      "outcome": "FAILED",
+      "reason": "rpc_disconnect",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [],
+  "gates": [],
+  "proposals": [],
+  "intents": [],
+  "evidence": []
+}
+## J1 after goal create
+{
+  "tag": "J1 after goal create",
+  "at": "2026-11-12T03:59:53.404Z",
+  "goals": [
+    {
+      "id": "goal-b147baf5-3205-4581-9138-4c2f77429123",
+      "state": "ACTIVE",
+      "raw_input": "感觉登录页不好用,想让登录更快更清楚"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "state": "READY",
+      "state_version": 0,
+      "attempt": 0,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [],
+  "decisions": [],
+  "changesets": [],
+  "gates": [],
+  "proposals": [],
+  "intents": [],
+  "evidence": []
+}
+## J2 after tick(finally)
+{
+  "tag": "J2 after tick(finally)",
+  "at": "2026-11-12T03:59:55.981Z",
+  "goals": [
+    {
+      "id": "goal-b147baf5-3205-4581-9138-4c2f77429123",
+      "state": "COMPLETED",
+      "raw_input": "感觉登录页不好用,想让登录更快更清楚"
+    },
+    {
+      "id": "goal-02c811ee-d0a0-4a5a-8b7f-b6472d534397",
+      "state": "ACTIVE",
+      "raw_input": "目标A:被 D3 卡住的工作"
+    },
+    {
+      "id": "goal-ef628346-3279-44cd-89a8-47695e1981ea",
+      "state": "COMPLETED",
+      "raw_input": "目标B:不受 D3 影响的安全任务"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    },
+    {
+      "id": "task-eba6fa92-98ec-4cb9-abe5-cd116dae7c85",
+      "state": "NEEDS_DECISION",
+      "state_version": 1,
+      "attempt": 0,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    },
+    {
+      "id": "task-d617603f-4e2b-4f9f-9039-0367f8e2158a",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-205ab31e-d4e2-4832-812f-c3d8739a59b5",
+      "task_id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-dc1dcaff-4427-40e0-930e-91e66b8758f1",
+      "task_id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-62091ec3-e554-4a38-992e-35884f339ad4",
+      "task_id": "task-d617603f-4e2b-4f9f-9039-0367f8e2158a",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-4ca67057-e64b-4182-bca2-f2906c8590dd",
+      "task_id": "task-d617603f-4e2b-4f9f-9039-0367f8e2158a",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec-e2e-d3",
+      "task_id": "task-eba6fa92-98ec-4cb9-abe5-cd116dae7c85",
+      "level": "D3",
+      "state": "OPEN",
+      "question": "是否扩大作用域?(长期未审批)",
+      "deadline": "2026-12-12 03:59:53.552642+00"
+    }
+  ],
+  "changesets": [
+    {
+      "id": "cs-3f3c7e78-78e8-4437-b07e-d9b059e57101",
+      "task_id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": null,
+      "git_commit_sha": null,
+      "delivery_state": "NONE",
+      "delivered_remote_head": null
+    },
+    {
+      "id": "cs-ba8e2a4d-22a6-44c7-9aa9-cc44a29953fe",
+      "task_id": "task-d617603f-4e2b-4f9f-9039-0367f8e2158a",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": null,
+      "git_commit_sha": null,
+      "delivery_state": "NONE",
+      "delivered_remote_head": null
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-f1ce155e-5da7-42f9-be33-2dfc7c5ade41",
+      "task_id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 03:59:54.298802+00"
+    },
+    {
+      "id": "gate-3060a492-c724-42ac-8e64-1eeb4a8ae12a",
+      "task_id": "task-d617603f-4e2b-4f9f-9039-0367f8e2158a",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 03:59:55.11635+00"
+    }
+  ],
+  "proposals": [],
+  "intents": [],
+  "evidence": [
+    {
+      "id": "ev-52e63dd3-730c-4e7a-8755-412678f36992",
+      "task_id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-86c0c867-e39d-45f6-bfac-c82148ecbba4",
+      "task_id": "task-0c926c36-4b32-411d-b18c-9f1e949edfbd",
+      "kind": "reviewer_output",
+      "passed": true
+    },
+    {
+      "id": "ev-36257ff4-0256-417b-b642-0af26fd62435",
+      "task_id": "task-d617603f-4e2b-4f9f-9039-0367f8e2158a",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-4c419f68-1c70-485f-be35-b971dc77f5e1",
+      "task_id": "task-d617603f-4e2b-4f9f-9039-0367f8e2158a",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J4 after delivery
+{
+  "tag": "J4 after delivery",
+  "at": "2026-11-12T04:00:30.792Z",
+  "goals": [
+    {
+      "id": "goal-9a438ef4-6f80-4213-bd06-da1a4d3017fb",
+      "state": "COMPLETED",
+      "raw_input": "目标D:生成 delivered.txt 内容为 ok"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-9700a757-0f50-44c8-9e70-51e188bf74e3",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-0c150497-ee4c-404e-8555-53bc08d88065",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [
+    {
+      "id": "cs-2827781c-a82c-4547-9c7b-b6ba6f7a6535",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": "a3d3cae9374ef385fa228fd7b364ed613becc0bf",
+      "git_commit_sha": "61f69f90e97a91d1a5c46b5d8fa63b2767273494",
+      "delivery_state": "DELIVERED",
+      "delivered_remote_head": "61f69f90e97a91d1a5c46b5d8fa63b2767273494"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-f5e832d0-e400-45b2-9d38-c9455a6d8a60",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:00:30.16647+00"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "prop-93eb46ef-b614-4d8a-8485-905e20b1023d",
+      "changeset_id": "cs-2827781c-a82c-4547-9c7b-b6ba6f7a6535",
+      "state": "CONSUMED",
+      "commit_sha": "61f69f90e97a91d1a5c46b5d8fa63b2767273494",
+      "target": "/tmp/p02c-e2e-remote-iI1g3U/relay-remote-9qk5Uq"
+    }
+  ],
+  "intents": [
+    {
+      "id": "intent-4dcb92ab986497945b3dc7e73307b17037aeda707a334bb35de084b93bf6c39d",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "state": "COMPLETED",
+      "payload_sha": "61f69f90e97a91d1a5c46b5d8fa63b2767273494",
+      "target": "/tmp/p02c-e2e-remote-iI1g3U/relay-remote-9qk5Uq"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-dd9ffb1f-fff4-4818-af29-2ea458a326a7",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-56027db7-d37b-4dfb-bb2c-21d4d7364579",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J5 final
+{
+  "tag": "J5 final",
+  "at": "2026-11-12T04:00:31.542Z",
+  "goals": [
+    {
+      "id": "goal-9a438ef4-6f80-4213-bd06-da1a4d3017fb",
+      "state": "COMPLETED",
+      "raw_input": "目标D:生成 delivered.txt 内容为 ok"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-9700a757-0f50-44c8-9e70-51e188bf74e3",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-0c150497-ee4c-404e-8555-53bc08d88065",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [
+    {
+      "id": "cs-2827781c-a82c-4547-9c7b-b6ba6f7a6535",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": "a3d3cae9374ef385fa228fd7b364ed613becc0bf",
+      "git_commit_sha": "61f69f90e97a91d1a5c46b5d8fa63b2767273494",
+      "delivery_state": "DELIVERED",
+      "delivered_remote_head": "61f69f90e97a91d1a5c46b5d8fa63b2767273494"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-f5e832d0-e400-45b2-9d38-c9455a6d8a60",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:00:30.16647+00"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "prop-93eb46ef-b614-4d8a-8485-905e20b1023d",
+      "changeset_id": "cs-2827781c-a82c-4547-9c7b-b6ba6f7a6535",
+      "state": "CONSUMED",
+      "commit_sha": "61f69f90e97a91d1a5c46b5d8fa63b2767273494",
+      "target": "/tmp/p02c-e2e-remote-iI1g3U/relay-remote-9qk5Uq"
+    }
+  ],
+  "intents": [
+    {
+      "id": "intent-4dcb92ab986497945b3dc7e73307b17037aeda707a334bb35de084b93bf6c39d",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "state": "COMPLETED",
+      "payload_sha": "61f69f90e97a91d1a5c46b5d8fa63b2767273494",
+      "target": "/tmp/p02c-e2e-remote-iI1g3U/relay-remote-9qk5Uq"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-dd9ffb1f-fff4-4818-af29-2ea458a326a7",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-56027db7-d37b-4dfb-bb2c-21d4d7364579",
+      "task_id": "task-09789ed7-f071-46c6-8c9f-9e8f7ca0c0d2",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J3 after crash tick(finally)
+{
+  "tag": "J3 after crash tick(finally)",
+  "at": "2026-11-12T04:02:00.340Z",
+  "goals": [
+    {
+      "id": "goal-b885a6e0-0652-4724-95ca-dc25a3601cde",
+      "state": "ACTIVE",
+      "raw_input": "目标C:Worker 中途崩溃的任务"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-677066d5-0695-45d8-9ad3-2ed15e301220",
+      "state": "READY",
+      "state_version": 4,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": "2026-11-12 04:02:09.616773+00"
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-13716531-d49d-4f79-b81f-db431552e97d",
+      "task_id": "task-677066d5-0695-45d8-9ad3-2ed15e301220",
+      "outcome": "FAILED",
+      "reason": "rpc_disconnect",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [],
+  "gates": [],
+  "proposals": [],
+  "intents": [],
+  "evidence": []
+}
+## J1 after goal create
+{
+  "tag": "J1 after goal create",
+  "at": "2026-11-12T04:01:56.082Z",
+  "goals": [
+    {
+      "id": "goal-d8d2f5d9-e48b-4345-a7c5-8189e04ba9f9",
+      "state": "ACTIVE",
+      "raw_input": "感觉登录页不好用,想让登录更快更清楚"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "state": "READY",
+      "state_version": 0,
+      "attempt": 0,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [],
+  "decisions": [],
+  "changesets": [],
+  "gates": [],
+  "proposals": [],
+  "intents": [],
+  "evidence": []
+}
+## J2 after tick(finally)
+{
+  "tag": "J2 after tick(finally)",
+  "at": "2026-11-12T04:01:58.614Z",
+  "goals": [
+    {
+      "id": "goal-d8d2f5d9-e48b-4345-a7c5-8189e04ba9f9",
+      "state": "COMPLETED",
+      "raw_input": "感觉登录页不好用,想让登录更快更清楚"
+    },
+    {
+      "id": "goal-3a71bad2-eb77-4998-8444-5d82d11bca4a",
+      "state": "ACTIVE",
+      "raw_input": "目标A:被 D3 卡住的工作"
+    },
+    {
+      "id": "goal-c3db7e20-e7ff-43a2-978f-f3bcb8798703",
+      "state": "COMPLETED",
+      "raw_input": "目标B:不受 D3 影响的安全任务"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    },
+    {
+      "id": "task-ec2b9149-7290-4cda-b53d-a3505f4dd5e3",
+      "state": "NEEDS_DECISION",
+      "state_version": 1,
+      "attempt": 0,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    },
+    {
+      "id": "task-3399af65-0325-4437-8fff-3d1009f20f61",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-c9e5dd90-fd2a-4ac4-86e9-2ccee7b07111",
+      "task_id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-689376cd-a349-455f-a281-fe54b0effc32",
+      "task_id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-1528ba33-e027-42f9-9843-4378b2d4f307",
+      "task_id": "task-3399af65-0325-4437-8fff-3d1009f20f61",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-b7eb899a-82f9-4b43-a774-609506214eae",
+      "task_id": "task-3399af65-0325-4437-8fff-3d1009f20f61",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec-e2e-d3",
+      "task_id": "task-ec2b9149-7290-4cda-b53d-a3505f4dd5e3",
+      "level": "D3",
+      "state": "OPEN",
+      "question": "是否扩大作用域?(长期未审批)",
+      "deadline": "2026-12-12 04:01:56.216214+00"
+    }
+  ],
+  "changesets": [
+    {
+      "id": "cs-b1aa8c09-a451-4a7d-a454-2568b8e38429",
+      "task_id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": null,
+      "git_commit_sha": null,
+      "delivery_state": "NONE",
+      "delivered_remote_head": null
+    },
+    {
+      "id": "cs-453bfc87-5f83-4eba-8a95-8244d4eb0396",
+      "task_id": "task-3399af65-0325-4437-8fff-3d1009f20f61",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": null,
+      "git_commit_sha": null,
+      "delivery_state": "NONE",
+      "delivered_remote_head": null
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-90d4479a-00ef-4b23-9f45-0b279273dbcf",
+      "task_id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:01:56.974261+00"
+    },
+    {
+      "id": "gate-18451fcb-83a5-4482-af64-42485714b23e",
+      "task_id": "task-3399af65-0325-4437-8fff-3d1009f20f61",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:01:57.757752+00"
+    }
+  ],
+  "proposals": [],
+  "intents": [],
+  "evidence": [
+    {
+      "id": "ev-2105c4c2-19b9-4a01-be26-30551552938e",
+      "task_id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-1ed065db-b014-4182-97ba-d8fae54ea088",
+      "task_id": "task-5074ca9e-cfe2-4e44-b05c-7fccc9a1cb87",
+      "kind": "reviewer_output",
+      "passed": true
+    },
+    {
+      "id": "ev-5c7db1be-e254-400d-9551-16a8185d4047",
+      "task_id": "task-3399af65-0325-4437-8fff-3d1009f20f61",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-b41739b0-53c0-4e9c-ad56-fb8d9d7c842e",
+      "task_id": "task-3399af65-0325-4437-8fff-3d1009f20f61",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J4 after delivery
+{
+  "tag": "J4 after delivery",
+  "at": "2026-11-12T04:02:04.091Z",
+  "goals": [
+    {
+      "id": "goal-e7d1caf0-22a8-41ee-bbcd-fe5074eb7e23",
+      "state": "COMPLETED",
+      "raw_input": "目标D:生成 delivered.txt 内容为 ok"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-cdd68fff-3058-4e05-bbaa-2568856f3c43",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-1a54ca10-a349-4417-8f27-fedee625e059",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [
+    {
+      "id": "cs-9c18eb8f-8953-41e1-9866-6f4753752613",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": "a3d3cae9374ef385fa228fd7b364ed613becc0bf",
+      "git_commit_sha": "8825d32f21e7f278082788559668572f29c6e715",
+      "delivery_state": "DELIVERED",
+      "delivered_remote_head": "8825d32f21e7f278082788559668572f29c6e715"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-8c8be1ac-102b-4162-9a8f-e727837c2b67",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:02:03.466286+00"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "prop-6a5af355-2d49-42da-bfc0-d0297d4cdc8e",
+      "changeset_id": "cs-9c18eb8f-8953-41e1-9866-6f4753752613",
+      "state": "CONSUMED",
+      "commit_sha": "8825d32f21e7f278082788559668572f29c6e715",
+      "target": "/tmp/p02c-e2e-remote-08Lwu0/relay-remote-ARVZz6"
+    }
+  ],
+  "intents": [
+    {
+      "id": "intent-29535debee4c7037b0968c08a29043b296aa00b454d024f616fd5b87d9892433",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "state": "COMPLETED",
+      "payload_sha": "8825d32f21e7f278082788559668572f29c6e715",
+      "target": "/tmp/p02c-e2e-remote-08Lwu0/relay-remote-ARVZz6"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-b78493cc-147b-4fe2-89fd-4a0857c11019",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-0e2e44b3-c527-4c5f-98bf-6d4c0a4ab0ea",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J5 final
+{
+  "tag": "J5 final",
+  "at": "2026-11-12T04:02:04.837Z",
+  "goals": [
+    {
+      "id": "goal-e7d1caf0-22a8-41ee-bbcd-fe5074eb7e23",
+      "state": "COMPLETED",
+      "raw_input": "目标D:生成 delivered.txt 内容为 ok"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-cdd68fff-3058-4e05-bbaa-2568856f3c43",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-1a54ca10-a349-4417-8f27-fedee625e059",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [
+    {
+      "id": "cs-9c18eb8f-8953-41e1-9866-6f4753752613",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": "a3d3cae9374ef385fa228fd7b364ed613becc0bf",
+      "git_commit_sha": "8825d32f21e7f278082788559668572f29c6e715",
+      "delivery_state": "DELIVERED",
+      "delivered_remote_head": "8825d32f21e7f278082788559668572f29c6e715"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-8c8be1ac-102b-4162-9a8f-e727837c2b67",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:02:03.466286+00"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "prop-6a5af355-2d49-42da-bfc0-d0297d4cdc8e",
+      "changeset_id": "cs-9c18eb8f-8953-41e1-9866-6f4753752613",
+      "state": "CONSUMED",
+      "commit_sha": "8825d32f21e7f278082788559668572f29c6e715",
+      "target": "/tmp/p02c-e2e-remote-08Lwu0/relay-remote-ARVZz6"
+    }
+  ],
+  "intents": [
+    {
+      "id": "intent-29535debee4c7037b0968c08a29043b296aa00b454d024f616fd5b87d9892433",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "state": "COMPLETED",
+      "payload_sha": "8825d32f21e7f278082788559668572f29c6e715",
+      "target": "/tmp/p02c-e2e-remote-08Lwu0/relay-remote-ARVZz6"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-b78493cc-147b-4fe2-89fd-4a0857c11019",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-0e2e44b3-c527-4c5f-98bf-6d4c0a4ab0ea",
+      "task_id": "task-19c611b8-ace0-40c4-a337-a6556917bcca",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J3 after crash tick(finally)
+{
+  "tag": "J3 after crash tick(finally)",
+  "at": "2026-11-12T04:02:35.030Z",
+  "goals": [
+    {
+      "id": "goal-996f040b-7543-4a93-ae2c-00aba39c0a46",
+      "state": "ACTIVE",
+      "raw_input": "目标C:Worker 中途崩溃的任务"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-3ed6e12f-4940-42b6-878b-5dd913f85bcd",
+      "state": "READY",
+      "state_version": 4,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": "2026-11-12 04:02:44.329197+00"
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-175badf8-8198-436e-8344-b6276b76f6f4",
+      "task_id": "task-3ed6e12f-4940-42b6-878b-5dd913f85bcd",
+      "outcome": "FAILED",
+      "reason": "rpc_disconnect",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [],
+  "gates": [],
+  "proposals": [],
+  "intents": [],
+  "evidence": []
+}
+## J1 after goal create
+{
+  "tag": "J1 after goal create",
+  "at": "2026-11-12T04:02:30.861Z",
+  "goals": [
+    {
+      "id": "goal-2af7730f-4eba-45c3-9c1c-73c15c165991",
+      "state": "ACTIVE",
+      "raw_input": "感觉登录页不好用,想让登录更快更清楚"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "state": "READY",
+      "state_version": 0,
+      "attempt": 0,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [],
+  "decisions": [],
+  "changesets": [],
+  "gates": [],
+  "proposals": [],
+  "intents": [],
+  "evidence": []
+}
+## J2 after tick(finally)
+{
+  "tag": "J2 after tick(finally)",
+  "at": "2026-11-12T04:02:33.410Z",
+  "goals": [
+    {
+      "id": "goal-2af7730f-4eba-45c3-9c1c-73c15c165991",
+      "state": "COMPLETED",
+      "raw_input": "感觉登录页不好用,想让登录更快更清楚"
+    },
+    {
+      "id": "goal-95caa7fa-a4d8-4365-b2d6-d9b79f38afe2",
+      "state": "ACTIVE",
+      "raw_input": "目标A:被 D3 卡住的工作"
+    },
+    {
+      "id": "goal-bb3cc5a6-9f12-4a1e-bdbe-a458af011f8d",
+      "state": "COMPLETED",
+      "raw_input": "目标B:不受 D3 影响的安全任务"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    },
+    {
+      "id": "task-0a5c7e8f-e27f-4e6d-a193-7456724bc064",
+      "state": "NEEDS_DECISION",
+      "state_version": 1,
+      "attempt": 0,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    },
+    {
+      "id": "task-c256b01e-c031-4d6b-a713-1e34b62130a2",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-be96d0e2-66df-487c-9707-97f86a071627",
+      "task_id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-11fc0b63-c4be-45ae-a2c6-d33be2401e36",
+      "task_id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-8b72dc81-f0cd-4a09-a650-686354a99ad7",
+      "task_id": "task-c256b01e-c031-4d6b-a713-1e34b62130a2",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-3e1d266c-fa42-4edc-8ee1-f39bc0bf7863",
+      "task_id": "task-c256b01e-c031-4d6b-a713-1e34b62130a2",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec-e2e-d3",
+      "task_id": "task-0a5c7e8f-e27f-4e6d-a193-7456724bc064",
+      "level": "D3",
+      "state": "OPEN",
+      "question": "是否扩大作用域?(长期未审批)",
+      "deadline": "2026-12-12 04:02:30.996351+00"
+    }
+  ],
+  "changesets": [
+    {
+      "id": "cs-7d930851-cbb4-48b5-b844-bd4653db32b1",
+      "task_id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": null,
+      "git_commit_sha": null,
+      "delivery_state": "NONE",
+      "delivered_remote_head": null
+    },
+    {
+      "id": "cs-e9b008a0-8bc9-4cd5-80a6-20bf619d86c7",
+      "task_id": "task-c256b01e-c031-4d6b-a713-1e34b62130a2",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": null,
+      "git_commit_sha": null,
+      "delivery_state": "NONE",
+      "delivered_remote_head": null
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-9a7e956a-dc63-48fe-bf92-75a8b80dc608",
+      "task_id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:02:31.766336+00"
+    },
+    {
+      "id": "gate-04215ca4-e4b4-4bf6-92f9-1f67fd52c922",
+      "task_id": "task-c256b01e-c031-4d6b-a713-1e34b62130a2",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:02:32.564238+00"
+    }
+  ],
+  "proposals": [],
+  "intents": [],
+  "evidence": [
+    {
+      "id": "ev-1f249e03-1652-48e2-a2ec-2aa7349ef990",
+      "task_id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-632aee53-81c4-486a-8102-517ca7f77cf2",
+      "task_id": "task-a97c165f-b535-44df-98a3-5a3f46ff9e7f",
+      "kind": "reviewer_output",
+      "passed": true
+    },
+    {
+      "id": "ev-21aec952-0542-4fed-854b-9cb5741eefa8",
+      "task_id": "task-c256b01e-c031-4d6b-a713-1e34b62130a2",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-c92c7bbd-ccba-4d40-9b94-f78bcea06a52",
+      "task_id": "task-c256b01e-c031-4d6b-a713-1e34b62130a2",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J4 after delivery
+{
+  "tag": "J4 after delivery",
+  "at": "2026-11-12T04:02:38.820Z",
+  "goals": [
+    {
+      "id": "goal-ba87f255-6f7e-4dde-ae50-eb83cacfce52",
+      "state": "COMPLETED",
+      "raw_input": "目标D:生成 delivered.txt 内容为 ok"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-e8f833bb-21cc-4c0e-a726-419ee18d0e68",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-4df2ca1d-0fa5-4c01-ae8d-fc55a91888fd",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [
+    {
+      "id": "cs-a7897321-be34-46c3-ba24-1c34a76a77e8",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": "a3d3cae9374ef385fa228fd7b364ed613becc0bf",
+      "git_commit_sha": "5d61ea5db7d93cd26276f01e844b6482860e57cd",
+      "delivery_state": "DELIVERED",
+      "delivered_remote_head": "5d61ea5db7d93cd26276f01e844b6482860e57cd"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-1b0d049d-c635-4b06-8065-d634ea3bbe2c",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:02:38.186814+00"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "prop-666a8e43-77ff-4d4b-b0c5-28c05b8a5f07",
+      "changeset_id": "cs-a7897321-be34-46c3-ba24-1c34a76a77e8",
+      "state": "CONSUMED",
+      "commit_sha": "5d61ea5db7d93cd26276f01e844b6482860e57cd",
+      "target": "/tmp/p02c-e2e-remote-uafbRf/relay-remote-mj6mfE"
+    }
+  ],
+  "intents": [
+    {
+      "id": "intent-3c5198d2f1d3e8b82c35829792358b9a6b1490858491c0d908654d3a7e569070",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "state": "COMPLETED",
+      "payload_sha": "5d61ea5db7d93cd26276f01e844b6482860e57cd",
+      "target": "/tmp/p02c-e2e-remote-uafbRf/relay-remote-mj6mfE"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-e2aeb4df-4d00-4fe4-96b4-c76b7b0333aa",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-8edc60c7-a0c9-47a7-915b-d1942a663bed",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}
+## J5 final
+{
+  "tag": "J5 final",
+  "at": "2026-11-12T04:02:39.525Z",
+  "goals": [
+    {
+      "id": "goal-ba87f255-6f7e-4dde-ae50-eb83cacfce52",
+      "state": "COMPLETED",
+      "raw_input": "目标D:生成 delivered.txt 内容为 ok"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "state": "ACCEPTED",
+      "state_version": 5,
+      "attempt": 1,
+      "max_attempts": 3,
+      "blocked_reason": null,
+      "retry_not_before": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-e8f833bb-21cc-4c0e-a726-419ee18d0e68",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "outcome": "SUCCEEDED",
+      "reason": null,
+      "sandbox": "host-fallback"
+    },
+    {
+      "id": "run-4df2ca1d-0fa5-4c01-ae8d-fc55a91888fd",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "outcome": "SUCCEEDED",
+      "reason": "PASS",
+      "sandbox": "host-fallback"
+    }
+  ],
+  "decisions": [],
+  "changesets": [
+    {
+      "id": "cs-a7897321-be34-46c3-ba24-1c34a76a77e8",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "candidate_sha": "31f5ec68aec562383b5a255bf07e02532fcf52c4df719befe86837153f67337d",
+      "git_tree_sha": "a3d3cae9374ef385fa228fd7b364ed613becc0bf",
+      "git_commit_sha": "5d61ea5db7d93cd26276f01e844b6482860e57cd",
+      "delivery_state": "DELIVERED",
+      "delivered_remote_head": "5d61ea5db7d93cd26276f01e844b6482860e57cd"
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-1b0d049d-c635-4b06-8065-d634ea3bbe2c",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "verdict": "PASS",
+      "consumed_at": "2026-11-12 04:02:38.186814+00"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "prop-666a8e43-77ff-4d4b-b0c5-28c05b8a5f07",
+      "changeset_id": "cs-a7897321-be34-46c3-ba24-1c34a76a77e8",
+      "state": "CONSUMED",
+      "commit_sha": "5d61ea5db7d93cd26276f01e844b6482860e57cd",
+      "target": "/tmp/p02c-e2e-remote-uafbRf/relay-remote-mj6mfE"
+    }
+  ],
+  "intents": [
+    {
+      "id": "intent-3c5198d2f1d3e8b82c35829792358b9a6b1490858491c0d908654d3a7e569070",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "state": "COMPLETED",
+      "payload_sha": "5d61ea5db7d93cd26276f01e844b6482860e57cd",
+      "target": "/tmp/p02c-e2e-remote-uafbRf/relay-remote-mj6mfE"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-e2aeb4df-4d00-4fe4-96b4-c76b7b0333aa",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "kind": "deterministic_test",
+      "passed": true
+    },
+    {
+      "id": "ev-8edc60c7-a0c9-47a7-915b-d1942a663bed",
+      "task_id": "task-3526e0c1-bf47-4e67-a0bf-007627abf926",
+      "kind": "reviewer_output",
+      "passed": true
+    }
+  ]
+}

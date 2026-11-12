@@ -69,3 +69,58 @@
     at http://127.0.0.1:42881/changeset.js:200:18
     at Object.guarded (http://127.0.0.1:42881/app.js:176:26)
     at HTMLButtonElement.refresh (http://127.0.0.1:42881/changeset.js:199:27)
+2026-11-12T03:59:56.566Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T03:59:57.020Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T03:59:53.116Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T03:59:53.547Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T03:59:53.663Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T03:59:55.735Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T03:59:58.452Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:00:29.464Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:00:30.998Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:00:30.999Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:41841/app.js:101:23)
+    at http://127.0.0.1:41841/changeset.js:205:18
+    at Object.guarded (http://127.0.0.1:41841/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:41841/changeset.js:204:27)
+2026-11-12T04:00:30.999Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:00:30.999Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:41841/app.js:101:23)
+    at http://127.0.0.1:41841/changeset.js:219:18
+    at Object.guarded (http://127.0.0.1:41841/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:41841/changeset.js:218:27)
+2026-11-12T04:01:59.259Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:01:59.705Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:01:55.810Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:01:56.208Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:01:56.340Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:01:58.365Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:02:01.101Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:02:01.509Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:02:02.808Z console.error Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-Pkexk/hHfuAbicJBxPo9ooNuWsnrQKwWdPirSqrhGXE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+2026-11-12T04:02:04.294Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:02:04.296Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:37799/app.js:101:23)
+    at http://127.0.0.1:37799/changeset.js:205:18
+    at Object.guarded (http://127.0.0.1:37799/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:37799/changeset.js:204:27)
+2026-11-12T04:02:04.296Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:02:04.296Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:37799/app.js:101:23)
+    at http://127.0.0.1:37799/changeset.js:219:18
+    at Object.guarded (http://127.0.0.1:37799/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:37799/changeset.js:218:27)
+
+
+2026-11-12T04:02:39.010Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:02:39.011Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:33147/app.js:101:23)
+    at http://127.0.0.1:33147/changeset.js:205:18
+    at Object.guarded (http://127.0.0.1:33147/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:33147/changeset.js:204:27)
+2026-11-12T04:02:39.011Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:02:39.011Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:33147/app.js:101:23)
+    at http://127.0.0.1:33147/changeset.js:219:18
+    at Object.guarded (http://127.0.0.1:33147/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:33147/changeset.js:218:27)
