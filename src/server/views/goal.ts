@@ -636,3 +636,136 @@ export function buildGoalProgress(args: {
 }): GoalProgress {
   return deriveGoalPhase({ ...args, nowMs: args.nowMs ?? Date.now() });
 }
+
+// ─── WEB-UX-03 03B:Goal Feed 读模型(纯投影;goal_messages 为会话事实,Core 表为执行事实) ───
+
+export interface GoalFeedItem {
+  id: number;
+  kind: string;
+  actor: string;
+  content: string;
+  createdAt: string | null;
+}
+
+export interface GoalFeedDecision {
+  id: string;
+  taskId: string;
+  level: string;
+  question: string;
+  fallback: Record<string, unknown>;
+  deadline: string | null;
+  createdAt: string | null;
+}
+
+export interface GoalFeedView {
+  goalId: string;
+  cursor: number | null;
+  nextCursor: number | null;
+  hasMore: boolean;
+  items: GoalFeedItem[];
+  decisions: GoalFeedDecision[];
+  status: GoalStatusView;
+}
+
+export interface GoalStatusView {
+  goalId: string;
+  goalState: string;
+  rawInput: string;
+  inFlight: boolean;
+  tasks: Array<{ id: string; state: string; priority: number; updatedAt: string | null }>;
+  pendingDecisions: number;
+}
+
+/** Goal 是否有在途执行(LEASED/RUNNING/SUBMITTED/VERIFYING)。follow-up 派生的前置检查。 */
+export async function goalHasInFlightRun(db: RelayDb, goalId: string): Promise<boolean> {
+  const states = sql.join(IN_FLIGHT_STATES.map((s) => sql`${s}`), sql`, `);
+  const rows = await db.execute(sql`
+    SELECT 1 FROM tasks
+    WHERE goal_id = ${goalId} AND state IN (${states})
+    LIMIT 1
+  `);
+  return rows.rows.length > 0;
+}
+
+/** Goal 状态轻量投影(GET /api/goals/:id/status)。 */
+export async function goalStatusView(db: RelayDb, goalId: string): Promise<GoalStatusView | null> {
+  const goalRows = await db.execute(sql`
+    SELECT id, raw_input, state FROM goals WHERE id = ${goalId}
+  `);
+  if (goalRows.rows.length === 0) return null;
+  const g = goalRows.rows[0]!;
+  const taskRows = await db.execute(sql`
+    SELECT id, state, priority, updated_at FROM tasks
+    WHERE goal_id = ${goalId}
+    ORDER BY created_at ASC, id ASC
+  `);
+  const decRows = await db.execute(sql`
+    SELECT COUNT(*)::int AS n FROM decisions
+    WHERE goal_id = ${goalId} AND state = 'OPEN'
+  `);
+  const tasks = taskRows.rows.map((r) => ({
+    id: str(r["id"]),
+    state: str(r["state"]),
+    priority: num(r["priority"]),
+    updatedAt: iso(r["updated_at"]),
+  }));
+  const pendingDecisions = num(decRows.rows[0]?.["n"]);
+  return {
+    goalId: str(g["id"]),
+    goalState: str(g["state"]),
+    rawInput: str(g["raw_input"]),
+    inFlight: tasks.some((t) => (IN_FLIGHT_STATES as readonly string[]).includes(t.state)),
+    tasks,
+    pendingDecisions,
+  };
+}
+
+/**
+ * Goal Feed 投影(GET /api/goals/:id/feed?after=<id>)。
+ * messages:goal_messages 增量(游标 = bigserial id,单调);decisions:该 Goal 未决决策(全量快照,客户端整体替换);
+ * status:轻量状态快照(同上)。合同 §6:Decision 直接进对话流;既有 resolve 端点语义不变。
+ */
+export async function goalFeedView(db: RelayDb, goalId: string, after: number | null): Promise<GoalFeedView | null> {
+  const status = await goalStatusView(db, goalId);
+  if (!status) return null;
+  const limit = 200;
+  const items: GoalFeedItem[] = after === null
+    ? []
+    : (await db.execute(sql`
+        SELECT id, kind, actor, content, created_at FROM goal_messages
+        WHERE goal_id = ${goalId} AND id > ${after}
+        ORDER BY id ASC
+        LIMIT ${limit + 1}
+      `)).rows.map((r) => ({
+        id: num(r["id"]),
+        kind: str(r["kind"]),
+        actor: str(r["actor"]),
+        content: str(r["content"]),
+        createdAt: iso(r["created_at"]),
+      }));
+  const hasMore = items.length > limit;
+  const page = hasMore ? items.slice(0, limit) : items;
+  const decRows = await db.execute(sql`
+    SELECT id, task_id, level, question, fallback, deadline, created_at FROM decisions
+    WHERE goal_id = ${goalId} AND state = 'OPEN'
+    ORDER BY created_at ASC
+  `);
+  const decisions = decRows.rows.map((r) => ({
+    id: str(r["id"]),
+    taskId: str(r["task_id"]),
+    level: str(r["level"]),
+    question: str(r["question"]),
+    fallback: json<Record<string, unknown>>(r["fallback"], {}),
+    deadline: r["deadline"] === null || r["deadline"] === undefined ? null : iso(r["deadline"]),
+    createdAt: iso(r["created_at"]),
+  }));
+  return {
+    goalId,
+    cursor: after,
+    nextCursor: page.length > 0 ? page[page.length - 1]!.id : after,
+    hasMore,
+    items: page,
+    decisions,
+    status,
+  };
+}

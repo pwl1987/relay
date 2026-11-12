@@ -73,6 +73,49 @@ export async function planGoal(exec: Exec, spec: GoalSpec): Promise<PlannedGoal>
   return { goalId, taskIds };
 }
 
+export interface FollowUpTaskSpec {
+  goalId: string;
+  goalText: string;
+  actor?: string;
+  priority?: number;
+  maxAttempts?: number;
+  allowedScope?: string[];
+  allowedCommands?: string[];
+}
+
+/**
+ * WEB-UX-03 §9-J5:follow-up = 同 Goal 下的新受控执行动作(READY 复用;零生命周期变更)。
+ * 不创建脱离当前 Goal 的匿名会话,不绕 Relay Core;Task 形状与 planGoal 完全一致。
+ * 调用方(API 层)负责先做在途检查(RUNNING/VERIFYING 在途 ⇒ 只记录不派生)。
+ */
+export async function planFollowUpTask(exec: Exec, spec: FollowUpTaskSpec): Promise<{ taskId: string }> {
+  if (!spec.goalText || !spec.goalText.trim()) throw new Error("goalText 必须为非空描述");
+  const goalRows = await exec.execute(sql`SELECT id FROM goals WHERE id = ${spec.goalId}`);
+  if (goalRows.rows.length === 0) throw new Error(`goal 不存在:${spec.goalId}`);
+  const taskId = `task-${randomUUID()}`;
+  await exec.execute(sql`
+    INSERT INTO tasks (id, goal_id, state, priority, max_attempts, allowed_scope, allowed_commands)
+    VALUES (${taskId}, ${spec.goalId}, 'READY', ${spec.priority ?? 0}, ${spec.maxAttempts ?? 3},
+      ${JSON.stringify(spec.allowedScope ?? [])}::jsonb, ${JSON.stringify(spec.allowedCommands ?? [])}::jsonb)
+  `);
+  await appendAudit(exec, {
+    actor: spec.actor ?? "planner",
+    authority: "SUPERVISOR",
+    action: "TASK_PLANNED",
+    taskId,
+    beforeState: null,
+    afterState: "READY",
+    detail: { goalId: spec.goalId, goalText: spec.goalText.trim(), origin: "follow-up" },
+  });
+  await appendAudit(exec, {
+    actor: spec.actor ?? "planner",
+    authority: "SUPERVISOR",
+    action: "GOAL_FOLLOWUP_REQUESTED",
+    detail: { goalId: spec.goalId, taskId, goalText: spec.goalText.trim() },
+  });
+  return { taskId };
+}
+
 /** Goal 状态推进(loop 用;确定性,无人工语义)。 */
 export async function setGoalState(
   exec: Exec,
