@@ -332,7 +332,8 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           ? {
               goalId: created.goalId,
               projectId: boundProject.name,
-              projectName: str(req.body?.["projectName"]) || boundProject.name,
+              // REVIEW Minor-2 消化:projectName 以注册表为权威(浏览器同名值仅提示,不入审计)
+              projectName: boundProject.name,
               resolvedPath: boundProject.path,
               repo: boundProject.repo,
               branch: boundProject.branch,
@@ -506,8 +507,11 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       }
       const scope = detail.task && detail.task.allowedScope.length ? detail.task.allowedScope[0]! : "";
       const reg = readProjectRegistry().projects;
+      // REVIEW Minor-1 消化:多项目路径存在前缀包含关系时取最长前缀(最具体)者,避免误配
       const entry = scope
-        ? reg.find((p) => p.path === scope || scope.startsWith(p.path) || p.path.startsWith(scope))
+        ? reg
+            .filter((p) => p.path === scope || scope.startsWith(p.path) || p.path.startsWith(scope))
+            .sort((a, b) => b.path.length - a.path.length)[0]
         : undefined;
       if (!entry) {
         return ok({

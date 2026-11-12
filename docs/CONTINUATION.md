@@ -27,6 +27,10 @@
 
 **MVP 验收口径正式调整**:连续 24h(及 72h/业务长稳)不再作为 Usable MVP ACCEPTED 硬阻断,重定位为 **Operational/Pilot Readiness Gate**;原 R-3 结论保持 PARTIAL(历史事实,不改 PASS、不重启);**原第二包 R-3B 暂缓**(`p0-mvp/soak-r3b/` 预置产物保持未跟踪、不启动),24h 移至 MVP 后 **PILOT-24H** 在真实使用中完成(真实任务/空闲/模型调用/GitHub/DB/Web/Decision/自然 Restart,无未解释退出/无重复副作用/无状态丢失 ⇒ Operational Readiness=VERIFIED)。执行顺序取代五包中 R-3B 位置:**阶段A 旧 R-3 收口(17:32:52+0800 Runner 唯一快照后;受控停止/冻结证据/解除 skip-worktree/更新 CURRENT+CONTINUATION+matrix/独立 Reviewer/CI/快进推送)→ 阶段B R-2 F2→失败归因→F1(授权四参数不变,F2 失败先归因禁自动重跑)→ 阶段C Operator Console(复用现有 Web/API/Core 禁大型重构;信息架构:Dashboard/Projects/New Goal/Goal Detail/Decisions/Review·Result/Models·Usage(仅可观察性)/System)→ 阶段D Mac LAN+手机 VPN 真实验收 → 阶段E 真实项目 Pilot(≥1 完整任务,自然语言需求禁理想化 Prompt;采集 first_pass_rate/accepted_rate/rework_rate/model_calls/wall_time/tool_failure_rate/reviewer_reject_rate/人工介入/Decision 数/Delivery 成功率)→ MVP 最终裁决(必需项清单见 ADR-0010)**。安全边界:Web 第一阶段仅 LAN+VPN,禁公网裸端口/自动公网域名/Cloudflare Tunnel/浏览器保存 Provider Key/Web 返回模型凭据明文。最终报告必须区分 **Engineering Verified / User Experience Verified / Operational 24h Pending|Verified** 三类,不得混为单一 PASS。MODEL-POLICY-00 冻结维持,MODEL-POLICY-01 不得提前实施。
 
+## WEB-UX-01(2026-11-12 用户大包第四阶段;主路径纠偏后=阶段C)
+
+**实施完成+独立 Reviewer PASS-WITH-FINDINGS(零 Major)**:pi-web(HEAD b96b28b,MIT 实测核验)仅作 UI/UX 参考,**零移植**(台账 docs/PI_WEB_REFERENCE.md 为空);§4.3 views.ts(1981 行)拆分为 src/server/views/ 八模块+纯再导出桶(行为不变,逐字节核验);§4.5 New Goal 项目绑定 P0(浏览器只提交受控 projectId,server 按 config/projects.json 注册表解析路径,Task allowed_scope 绑定项目目录,body.path 一律忽略,audit 落 resolvedPath);§4.4 AppShell(侧栏+手机抽屉)/§4.6 Goal 七阶段 Timeline(确定性推导)/§4.7 采用推荐按钮/§4.8 只读 Diff Viewer(/api/changesets/:id/diff,本地注册仓库 git diff,不可用如实)/§4.10 PWA 最小(自有图标)/§4.11 轮询 8s/30s 零 WebSocket/§4.12 手机 390×844。验证:typecheck+console 15/15+全量回归 51 文件+e2e 7/7(J1-J7;J6 手机无横向溢出零控制台错误;J7=绑定+反向可见+抽屉)。零 MODEL-POLICY-01/零 schema/零 Core/零 soak/零真模型。复核记录 `p0-mvp/REVIEW-webux-01.md`。下一阶段=VM80 Console 部署(systemd user/Linger/仅 LAN+VPN)。
+
 ## 运行环境事实(累计,接手必读)
 
 - **Node strip-types 子进程禁 TS 参数属性**;裸 `node src/xxx.ts` 直跑 .ts(cli/server/worker-entry 同模式;src/server/index.ts 曾因参数属性从未能启动——已修)。

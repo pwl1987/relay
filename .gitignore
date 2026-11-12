@@ -4,3 +4,4 @@
 test-evidence/
 node_modules/
 dist/
+.zcode/
