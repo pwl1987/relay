@@ -37,6 +37,7 @@ import {
   projectsView,
   modelsUsageView,
   systemView,
+  readProjectRegistry,
 } from "./views.ts";
 import { buildCapabilityRegistry } from "./capabilities.ts";
 import { redactSecrets, safeErrorMessage } from "./redact.ts";
@@ -295,6 +296,16 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const rawInput = str(req.body?.["rawInput"]).trim();
       if (!rawInput) return fail(400, "raw_input_required", "请填写一句目标描述");
       if (rawInput.length > 2000) return fail(400, "raw_input_too_long", "目标描述过长(上限 2000 字)");
+      // WEB-UX-01 §4.5:浏览器只提交受控 projectId/projectName;server 按项目注册表解析
+      // path/repo/branch/allowed scope。**绝不接受浏览器提交任意服务器绝对路径**(body 中的
+      // path 字段一律忽略;授权路径唯一来源 = config/projects.json / RELAY_PROJECTS_FILE)。
+      const projectId = typeof req.body?.["projectId"] === "string" ? str(req.body?.["projectId"]).trim() : "";
+      let boundProject: { name: string; path: string; repo: string | null; branch: string | null } | null = null;
+      if (projectId) {
+        const entry = readProjectRegistry().projects.find((p) => p.name === projectId);
+        if (!entry) return fail(400, "unknown_project", "未登记的项目:仅接受项目注册表内的 projectId(路径由服务端解析,不接受浏览器提交路径)");
+        boundProject = { name: entry.name, path: entry.path, repo: entry.repo ?? null, branch: entry.branch ?? null };
+      }
       const plan = deriveDefaultPlan(rawInput);
       const budgetModelCalls = deps.defaultGoalBudgetModelCalls;
       const created = await deps.db.transaction(async (tx) =>
@@ -303,7 +314,8 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           budget: { modelCalls: budgetModelCalls },
           tasks: plan.tasks.map((t) => ({
             goalText: t.goalText,
-            allowedScope: deps.defaultAllowedScope ?? t.allowedScope,
+            // §4.5:项目绑定 ⇒ Task allowed_scope 绑定注册表解析的项目目录;未绑定保持既有默认。
+            allowedScope: boundProject ? [boundProject.path] : deps.defaultAllowedScope ?? t.allowedScope,
             allowedCommands: t.allowedCommands,
             priority: t.priority,
             maxAttempts: t.maxAttempts,
@@ -311,8 +323,30 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           actor: session.role,
         }),
       );
-      await audit(deps, { actor: session.role, action: "WEB_GOAL_CREATED", taskId: created.taskIds[0], detail: { goalId: created.goalId } });
-      return ok({ goalId: created.goalId, taskIds: created.taskIds }, 201);
+      await audit(deps, {
+        actor: session.role,
+        action: "WEB_GOAL_CREATED",
+        taskId: created.taskIds[0],
+        detail: boundProject
+          ? {
+              goalId: created.goalId,
+              projectId: boundProject.name,
+              projectName: str(req.body?.["projectName"]) || boundProject.name,
+              resolvedPath: boundProject.path,
+              repo: boundProject.repo,
+              branch: boundProject.branch,
+              scopeSource: "registry",
+            }
+          : { goalId: created.goalId },
+      });
+      return ok(
+        {
+          goalId: created.goalId,
+          taskIds: created.taskIds,
+          project: boundProject ? { projectId: boundProject.name, path: boundProject.path, repo: boundProject.repo, branch: boundProject.branch } : null,
+        },
+        201,
+      );
     }
     const goalMatch = /^\/api\/goals\/([^/]+)$/.exec(path);
     if (goalMatch && method === "GET") {

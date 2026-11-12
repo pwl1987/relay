@@ -3,6 +3,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { join } from "node:path";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { createRelayServer } from "../../src/server/app.ts";
 import { Auth } from "../../src/server/auth.ts";
@@ -180,5 +182,70 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
     }
     const anonApi = await fetch(base + "/api/system", { headers: { accept: "application/json" } });
     expect(anonApi.status).toBe(401);
+  });
+
+  // WEB-UX-01 §4.5:New Goal 项目绑定(浏览器只提交受控 projectId;路径由服务端注册表解析)
+  it("POST /api/goals 项目绑定:projectId ⇒ scope=注册表路径+audit 记录;未知项目 400;浏览器 path 字段被忽略;未绑定保持默认", async () => {
+    const saved = process.env["RELAY_PROJECTS_FILE"];
+    const projDir = mkdtempSync(join(tmpdir(), "webux-pilot-"));
+    const registryFile = join(mkdtempSync(join(tmpdir(), "webux-registry-")), "projects.json");
+    writeFileSync(
+      registryFile,
+      JSON.stringify({ projects: [{ name: "pilot", path: projDir, repo: "example/pilot", branch: "main" }] }),
+      "utf8",
+    );
+    process.env["RELAY_PROJECTS_FILE"] = registryFile;
+    try {
+      // 1) 绑定创建:body 里塞恶意 path,应被忽略(scope 只来自注册表)
+      const created = await api("POST", "/api/goals", { rawInput: "给试点项目加一个健康检查接口", projectId: "pilot", projectName: "pilot", path: "/etc" });
+      expect(created.status).toBe(201);
+      const project = created.body["project"] as Record<string, unknown> | null;
+      expect(project?.["projectId"]).toBe("pilot");
+      expect(project?.["path"]).toBe(projDir);
+      const goalId = String(created.body["goalId"]);
+
+      // Task allowed_scope 绑定项目目录(注册表解析,非浏览器输入;jsonb 可能已由驱动解析)
+      const scope = await t.db.execute(sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${goalId} LIMIT 1`);
+      const scopeVal: unknown = scope.rows[0]!["allowed_scope"];
+      const scopeArr = Array.isArray(scopeVal) ? scopeVal : (JSON.parse(String(scopeVal)) as unknown[]);
+      expect(scopeArr).toEqual([projDir]);
+
+      // audit 记录选中 Project(含注册表解析路径)
+      const aud = await t.db.execute(sql`SELECT detail FROM audit_events WHERE action='WEB_GOAL_CREATED' ORDER BY seq DESC LIMIT 1`);
+      const detailRaw: unknown = aud.rows[0]!["detail"];
+      const detail = (typeof detailRaw === "object" && detailRaw !== null ? detailRaw : JSON.parse(String(detailRaw))) as Record<string, unknown>;
+      expect(detail["projectId"]).toBe("pilot");
+      expect(detail["resolvedPath"]).toBe(projDir);
+      expect(detail["scopeSource"]).toBe("registry");
+
+      // Project 页反向可见:projectsView 经 allowed_scope 前缀匹配关联到该 Goal
+      const pv = await api("GET", "/api/projects");
+      expect(pv.status).toBe(200);
+      const list = (pv.body["projects"] as Record<string, unknown>)["projects"] as Array<Record<string, unknown>>;
+      const pilot = list.find((x) => x["name"] === "pilot");
+      expect(pilot).toBeTruthy();
+      expect(Number(pilot!["goalCount"])).toBeGreaterThanOrEqual(1);
+      const recent = pilot!["recentGoals"] as Array<Record<string, unknown>>;
+      expect(recent.some((g) => g["id"] === goalId)).toBe(true);
+
+      // 2) 未登记 projectId ⇒ 400(不接受任意路径/名称)
+      const bad = await api("POST", "/api/goals", { rawInput: "越权路径测试", projectId: "not-registered", path: "/etc/passwd" });
+      expect(bad.status).toBe(400);
+      expect(bad.body["error"]).toBe("unknown_project");
+
+      // 3) 未绑定(兼容旧流):保持默认 /workspace
+      const legacy = await api("POST", "/api/goals", { rawInput: "未绑定项目的目标" });
+      expect(legacy.status).toBe(201);
+      expect(legacy.body["project"]).toBeNull();
+      const legacyScope = await t.db.execute(sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${String(legacy.body["goalId"])} LIMIT 1`);
+      const legacyVal: unknown = legacyScope.rows[0]!["allowed_scope"];
+      const legacyArr = Array.isArray(legacyVal) ? legacyVal : (JSON.parse(String(legacyVal)) as unknown[]);
+      expect(legacyArr).toEqual(["/workspace"]);
+    } finally {
+      if (saved !== undefined) process.env["RELAY_PROJECTS_FILE"] = saved;
+      else delete process.env["RELAY_PROJECTS_FILE"];
+      rmSync(projDir, { recursive: true, force: true });
+      rmSync(join(registryFile, ".."), { recursive: true, force: true });
+    }
   });
 });
