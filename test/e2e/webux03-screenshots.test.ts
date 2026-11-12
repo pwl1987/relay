@@ -270,8 +270,15 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03C §16 正式截图(双视口)", { tim
       }
       if (running) await page.waitForTimeout(1500); // 4s 轮询周期内刷出执行事件
       const dump = await page.evaluate((): string => {
-        const el = document.querySelector('[data-testid^="ws-msg-user"]') as Element | null;
-        const feed = document.getElementById("ws-feed") as HTMLElement | null;
+        type Rect = { x: number; y: number; width: number; height: number; top: number; right: number; bottom: number; left: number };
+        const doc = globalThis as unknown as {
+          document: {
+            querySelector(sel: string): { getBoundingClientRect(): Rect } | null;
+            getElementById(id: string): { getBoundingClientRect(): Rect; scrollTop: number; scrollHeight: number; clientHeight: number } | null;
+          };
+        };
+        const el = doc.document.querySelector('[data-testid^="ws-msg-user"]');
+        const feed = doc.document.getElementById("ws-feed");
         const r = el ? el.getBoundingClientRect() : null;
         const f = feed ? { top: feed.getBoundingClientRect().top, scrollTop: feed.scrollTop, scrollHeight: feed.scrollHeight, clientHeight: feed.clientHeight } : null;
         return JSON.stringify({ bubbleRect: r, feed: f });
