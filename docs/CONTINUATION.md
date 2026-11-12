@@ -31,6 +31,10 @@
 
 **实施完成+独立 Reviewer PASS-WITH-FINDINGS(零 Major)**:pi-web(HEAD b96b28b,MIT 实测核验)仅作 UI/UX 参考,**零移植**(台账 docs/PI_WEB_REFERENCE.md 为空);§4.3 views.ts(1981 行)拆分为 src/server/views/ 八模块+纯再导出桶(行为不变,逐字节核验);§4.5 New Goal 项目绑定 P0(浏览器只提交受控 projectId,server 按 config/projects.json 注册表解析路径,Task allowed_scope 绑定项目目录,body.path 一律忽略,audit 落 resolvedPath);§4.4 AppShell(侧栏+手机抽屉)/§4.6 Goal 七阶段 Timeline(确定性推导)/§4.7 采用推荐按钮/§4.8 只读 Diff Viewer(/api/changesets/:id/diff,本地注册仓库 git diff,不可用如实)/§4.10 PWA 最小(自有图标)/§4.11 轮询 8s/30s 零 WebSocket/§4.12 手机 390×844。验证:typecheck+console 15/15+全量回归 51 文件+e2e 7/7(J1-J7;J6 手机无横向溢出零控制台错误;J7=绑定+反向可见+抽屉)。零 MODEL-POLICY-01/零 schema/零 Core/零 soak/零真模型。复核记录 `p0-mvp/REVIEW-webux-01.md`。下一阶段=VM80 Console 部署(systemd user/Linger/仅 LAN+VPN)。
 
+## WEB-UX-02(2026-11-12 用户指令;WEB-UX-01 终裁 Engineering PASS / User Experience = REWORK)
+
+用户 Mac 实机验收反馈(视觉不足/大量英文/信息层级不清/首入不知如何开始/偏工程后台)⇒ UX=REWORK;**WEB-UX-02 ACCEPTED 前暂停:Mac LAN 正式验收、手机 VPN 正式验收、REAL-PILOT、UX VERIFIED**。安全先行已完成:部署口令曾在执行报告明文出现→已轮换(**Web Authentication = CONFIGURED**;新口令仅存 ~/.relay/credentials/web-password 0600;git 历史/工作区/journald 零泄漏;后续报告禁印凭据明文)。产品定位=**AI 软件开发工作台**:打开→选项目→输入自然语言→开始→看进度→做决定→看结果;全中文化(导航=工作台/项目/任务/待我决定/验收结果/AI 资源/系统状态;状态中文映射,API/DB 枚举不改);首页重做(今天想让 Relay 做什么?+项目+大输入框+开始处理;只留 正在处理/等待我决定/最近完成/有问题);AppShell(pi-web 式左侧导航+底部新建需求+状态 Badge);项目页/任务时间线/待我决定卡/验收结果页全面重做;最小 Design System;Mac 1440×900 优先+手机 390×844 简化。禁止:MODEL-POLICY-01/改 Core/改生命周期/改 Gate/新状态模型/第二后端/fork pi-web/Next.js 盲迁;继续 Vanilla JS。**验收五门**:工程∧视觉(截图独立 Review)∧中文∧新手(不读文档走通五步)∧**用户本人 Mac 实机认可才算 ACCEPTED,Agent 不得代宣布 UX PASS**。提交纪律:实现与 Evidence 分离。零模型/零 soak/零 schema/零 Core;CSP style-src 'self' 与 polling 8s/30s 保持。
+
 ## 运行环境事实(累计,接手必读)
 
 - **Node strip-types 子进程禁 TS 参数属性**;裸 `node src/xxx.ts` 直跑 .ts(cli/server/worker-entry 同模式;src/server/index.ts 曾因参数属性从未能启动——已修)。
