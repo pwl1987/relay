@@ -1,0 +1,35 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/integration/f1-ux-journey.test.ts (2 tests | 1 failed) 61997ms
+   × Fixture F1:模糊 UX 需求 → 真模型全链交付(Playwright 机判) > F1 全链:discovery → coder 修改 → Playwright 机判 Gate → Reviewer → 本地 bare DELIVERED 56001ms
+     → discovery 失败(如实):no_report:no_discovery_fence: expected false to be true // Object.is equality
+   ✓ Fixture F1(机制演示;stub coder 显式标注):机判 Gate 拒绝未改进/接受真改进 → 交付 → 独立复核 > stub coder 写入真实改进 → Playwright 机判通过 → Gate ACCEPTED → 本地 bare DELIVERED(报告全程显式标注 stub)  4869ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/f1-ux-journey.test.ts > Fixture F1:模糊 UX 需求 → 真模型全链交付(Playwright 机判) > F1 全链:discovery → coder 修改 → Playwright 机判 Gate → Reviewer → 本地 bare DELIVERED
+AssertionError: discovery 失败(如实):no_report:no_discovery_fence: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/integration/f1-ux-journey.test.ts:155:56
+    153|     });
+    154|     evidence("discovery.json", JSON.stringify({ ok: disc.ok, source: d…
+    155|     expect(disc.ok, `discovery 失败(如实):${disc.reason}`).toBe(true);
+       |                                                        ^
+    156|     expect(disc.report?.acceptanceCriteria.length).toBeGreaterThan(0);
+    157|     expect(disc.report?.recommendation.action.length).toBeGreaterThan(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  01:50:38
+   Duration  63.24s (transform 420ms, setup 0ms, collect 989ms, tests 62.00s, environment 0ms, prepare 75ms)
+
