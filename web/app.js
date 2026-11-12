@@ -262,13 +262,15 @@
   // ---------------- AppShell(WEB-UX-02 §7:左侧导航 + 分组 + Badge + 底部新建需求) ----------------
 
   const NAV_MAIN = [
-    { id: "dashboard", href: "/", label: "工作台" },
+    { id: "workspace", href: "/workspace", label: "工作区" },
     { id: "projects", href: "/projects.html", label: "项目" },
     { id: "goals", href: "/goal.html", label: "任务", badge: "running" },
     { id: "decisions", href: "/decisions.html", label: "待我决定", badge: "decisions" },
     { id: "changeset", href: "/changeset.html", label: "验收结果" },
   ];
+  // WEB-UX-03C §10:旧后台降级重定位(不删除);总览不再是默认首页(/ 302 → /workspace)。
   const NAV_SUB = [
+    { id: "legacy", href: "/index.html", label: "总览(旧)" },
     { id: "models", href: "/models.html", label: "AI 资源" },
     { id: "system", href: "/system.html", label: "系统状态" },
   ];
@@ -302,7 +304,7 @@
         h("span", { class: "brand-sub", text: "AI 软件开发工作台" })),
       nav,
       h("div", { class: "side-foot" },
-        h("a", { class: "btn btn-primary btn-new-goal", href: "/#new-goal", "data-testid": "btn-new-goal", text: "＋ 新建需求" }),
+        h("a", { class: "btn btn-primary btn-new-goal", href: "/workspace#new-task", "data-testid": "btn-new-goal", text: "＋ 新建任务" }),
         h("div", { class: "side-user" },
           h("span", { id: "whoami", class: "whoami", text: state.role ? "身份:" + state.role : "" }),
           h("button", { id: "btn-logout", class: "btn btn-ghost", type: "button", text: "退出登录" }),
@@ -486,8 +488,8 @@
     return { wrap: wrap, loadProjects: loadProjects, focus: function () { ta.focus(); }, select: sel };
   }
 
-  /** 页面骨架:未登录 ⇒ 跳登录页。 */
-  async function boot(page, main) {
+  /** 页面骨架:未登录 ⇒ 跳登录页。opts.bare = 不注入通用侧栏(工作区页自带三层骨架;WEB-UX-03C)。 */
+  async function boot(page, main, opts) {
     try {
       const sess = await getSession();
       if (!sess) {
@@ -498,7 +500,7 @@
       setConn("无法读取会话:" + ((err && err.message) || err));
       return;
     }
-    renderShell(page);
+    if (!(opts && opts.bare)) renderShell(page);
     setConn(null);
     updateStamp();
     await main();

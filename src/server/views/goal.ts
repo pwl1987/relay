@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import type { RelayDb } from "../../core/db.ts";
 import { TRANSITIONS, isLegalTransition, type TaskState } from "../../core/lifecycle.ts";
 import { ledgerSnapshot } from "../../core/budget.ts";
+import { readProjectRegistry } from "./projects.ts";
 import {
   iso,
   num,
@@ -729,11 +730,11 @@ export async function goalFeedView(db: RelayDb, goalId: string, after: number | 
   const status = await goalStatusView(db, goalId);
   if (!status) return null;
   const limit = 200;
-  const items: GoalFeedItem[] = after === null
-    ? []
-    : (await db.execute(sql`
+  // WEB-UX-03C 修正:after=null ⇒ 从头拉取(客户端首屏;游标语义 = "id > after",null 视为 0)。
+  const afterId = after === null ? 0 : after;
+  const items: GoalFeedItem[] = (await db.execute(sql`
         SELECT id, kind, actor, content, created_at FROM goal_messages
-        WHERE goal_id = ${goalId} AND id > ${after}
+        WHERE goal_id = ${goalId} AND id > ${afterId}
         ORDER BY id ASC
         LIMIT ${limit + 1}
       `)).rows.map((r) => ({
@@ -761,8 +762,8 @@ export async function goalFeedView(db: RelayDb, goalId: string, after: number | 
   }));
   return {
     goalId,
-    cursor: after,
-    nextCursor: page.length > 0 ? page[page.length - 1]!.id : after,
+    cursor: afterId,
+    nextCursor: page.length > 0 ? page[page.length - 1]!.id : afterId,
     hasMore,
     items: page,
     decisions,
@@ -783,4 +784,94 @@ export async function taskFollowUpMessagesView(
     ORDER BY gm.id ASC
   `);
   return res.rows.map((r) => ({ id: Number(r["id"]), content: String(r["content"]) }));
+}
+
+// ---------------- WEB-UX-03C §3:工作区左侧栏投影(项目分组任务列表;纯读) ----------------
+
+export interface WorkspaceSidebarGoal {
+  id: string;
+  title: string;
+  state: string;
+  updatedAt: string | null;
+  pendingDecisions: number;
+  /** 状态点(确定性推导):waiting_user(黄)/executing(蓝)/problem(红)/done(绿)/idle(灰) */
+  phase: "waiting_user" | "executing" | "problem" | "done" | "idle";
+}
+
+export interface WorkspaceSidebarView {
+  projects: Array<{ name: string; goals: WorkspaceSidebarGoal[] }>;
+  /** 未绑定注册表项目的 Goal(如实呈现,不伪装分组) */
+  ungrouped: WorkspaceSidebarGoal[];
+}
+
+/**
+ * 左侧栏单次投影:Goal 列表(按 updated_at)+ 每 Goal 未决决策数 + 任务状态派生 + 项目归组
+ * (归组规则与 projectsView 一致:Goal 最近 Task 的 allowed_scope 与注册表路径互为前缀;浏览器零路径)。
+ */
+export async function workspaceSidebarView(db: RelayDb): Promise<WorkspaceSidebarView> {
+  const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
+  const res = await exec.execute(sql`
+    SELECT g.id AS id, g.raw_input AS raw_input, g.state AS goal_state, g.updated_at AS updated_at,
+      (SELECT COUNT(*)::int FROM decisions d WHERE d.goal_id = g.id AND d.state = 'OPEN') AS pending_decisions,
+      (SELECT COALESCE(json_agg(t.state), '[]'::json) FROM
+         (SELECT state FROM tasks WHERE goal_id = g.id ORDER BY created_at DESC LIMIT 50) t) AS task_states,
+      (SELECT allowed_scope FROM tasks WHERE goal_id = g.id ORDER BY created_at DESC, id DESC LIMIT 1) AS last_scope
+    FROM goals g
+    ORDER BY g.updated_at DESC
+    LIMIT 200
+  `);
+  const registry = readProjectRegistry();
+  const byProject = new Map<string, WorkspaceSidebarGoal[]>();
+  const ungrouped: WorkspaceSidebarGoal[] = [];
+  for (const r of res.rows) {
+    const taskStates = Array.isArray(r["task_states"]) ? (r["task_states"] as string[]).map(String) : [];
+    const pending = Number(r["pending_decisions"]) || 0;
+    const goalState = str(r["goal_state"]);
+    const anyInFlight = taskStates.some((s) => (IN_FLIGHT_STATES as readonly string[]).includes(s));
+    const anyNeedUser = pending > 0 || taskStates.includes("NEEDS_DECISION");
+    const anyProblem = taskStates.some((s) => ["FAILED", "BLOCKED", "REWORK", "NEEDS_RECONCILE"].includes(s));
+    const allAccepted = taskStates.length > 0 && taskStates.every((s) => s === "ACCEPTED");
+    const phase: WorkspaceSidebarGoal["phase"] = anyNeedUser
+      ? "waiting_user"
+      : anyInFlight
+        ? "executing"
+        : anyProblem
+          ? "problem"
+          : goalState === "COMPLETED" || allAccepted
+            ? "done"
+            : "idle";
+    const goal: WorkspaceSidebarGoal = {
+      id: str(r["id"]),
+      title: str(r["raw_input"]),
+      state: goalState,
+      updatedAt: iso(r["updated_at"]),
+      pendingDecisions: pending,
+      phase,
+    };
+    // 项目归组:最近 Task 的 allowed_scope 与注册表路径互为前缀(同 projectsView 链接规则)。
+    const scope = Array.isArray(r["last_scope"]) ? (r["last_scope"] as string[]).map(String) : [];
+    let matched: string | null = null;
+    for (const s of scope) {
+      for (const entry of registry.projects) {
+        if (entry.path && (s === entry.path || s.startsWith(entry.path) || entry.path.startsWith(s))) {
+          matched = entry.name;
+          break;
+        }
+      }
+      if (matched) break;
+    }
+    if (matched) {
+      const list = byProject.get(matched) ?? [];
+      list.push(goal);
+      byProject.set(matched, list);
+    } else {
+      ungrouped.push(goal);
+    }
+  }
+  const projects: WorkspaceSidebarView["projects"] = [];
+  // 注册表顺序为栏内顺序(与项目页一致);无 Goal 的注册项目也列出(新建任务入口语境)。
+  for (const entry of registry.projects) {
+    projects.push({ name: entry.name, goals: byProject.get(entry.name) ?? [] });
+  }
+  return { projects, ungrouped };
 }

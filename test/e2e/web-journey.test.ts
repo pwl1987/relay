@@ -189,7 +189,7 @@ async function cookieHeader(page: Page): Promise<string> {
 
 
 async function createGoalViaUi(page: Page, base: string, rawInput: string): Promise<string> {
-  await page.goto(`${base}/`);
+  await page.goto(`${base}/index.html`);
   await page.fill('[data-testid="goal-input"]', rawInput);
   await page.click('[data-testid="btn-create-goal"]');
   await page.waitForURL(/\/goal\.html\?id=/);
@@ -352,7 +352,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       await shot(crash.page, "j3-crash-recovery.png");
 
       // UI:工作台「有问题」面板包含任务运行失败(WEB-UX-02:异常种类中文映射)
-      await crash.page.goto(`${crash.base}/`);
+      await crash.page.goto(`${crash.base}/index.html`);
       await crash.page.locator('[data-testid="anomalies-body"]', { hasText: "运行失败" }).waitFor({ timeout: 30000 });
       const anomalies = await textOf(crash.page, '[data-testid="anomalies-body"]');
       expect(anomalies).toContain("运行失败");
@@ -398,7 +398,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     expect(dbWorker).toContain("可用");
     expect(dbWorker).toContain("PostgreSQL");
     // 工作台首页(WEB-UX-02 §5/§6):主问句 Hero + 四区(正在处理/等待我决定/最近完成/有问题)
-    await page.goto(`${base}/`);
+    await page.goto(`${base}/index.html`);
     const hero = await textOf(page, ".hero-title");
     expect(hero).toContain("今天想让 Relay 做什么");
     await page.waitForSelector('[data-testid="active-body"]');
@@ -409,7 +409,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     expect(heroInput).toBe(1);
     // 手机视口(390×844):Dashboard/Decision 页 body 无横向溢出
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const p of ["/", "/decisions.html", "/system.html", "/projects.html", "/models.html", "/goal.html", "/changeset.html"]) {
+    for (const p of ["/index.html", "/decisions.html", "/system.html", "/projects.html", "/models.html", "/goal.html", "/changeset.html"]) {
       await page.goto(`${base}${p}`);
       await page.waitForSelector('[data-testid="data-stamp"]');
       const overflow = await page.evaluate((): number => {
@@ -436,7 +436,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     process.env["RELAY_PROJECTS_FILE"] = registryFile;
     try {
       // AppShell:桌面侧边栏 + + New Goal 突出按钮
-      await page.goto(`${base}/`);
+      await page.goto(`${base}/index.html`);
       await page.waitForSelector('[data-testid="side-nav"]');
       expect(await page.locator('[data-testid="btn-new-goal"]').count()).toBe(1);
 
@@ -463,7 +463,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
 
       // 手机视口:顶栏 + 汉堡抽屉打开导航;页面无横向溢出
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto(`${base}/`);
+      await page.goto(`${base}/index.html`);
       await page.waitForSelector('[data-testid="mobile-topbar"]');
       await page.click("#btn-burger");
       const opened = await page.locator("#app-sidebar.open").count();

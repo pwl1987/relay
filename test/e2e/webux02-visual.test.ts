@@ -287,7 +287,7 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     await page.waitForSelector('[data-testid="result-summary"], [data-testid="cs-picker"]');
     await shot(page, "p5-390-result.png");
     // 横向溢出兜底断言(§14)
-    for (const p of ["/", "/goal.html", "/decisions.html", "/changeset.html", "/projects.html", "/models.html", "/system.html"]) {
+    for (const p of ["/index.html", "/goal.html", "/decisions.html", "/changeset.html", "/projects.html", "/models.html", "/system.html"]) {
       await page.goto(`${base}${p}`);
       await page.waitForSelector('[data-testid="data-stamp"]');
       const overflow = await page.evaluate((): number => {

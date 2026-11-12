@@ -42,7 +42,10 @@ const MIME: Record<string, string> = {
 };
 
 /** 业务页面(需会话);其余静态资源公开。 */
-const PAGE_ROUTES = new Set(["/", "/goal.html", "/decisions.html", "/changeset.html", "/projects.html", "/models.html", "/system.html"]);
+const PAGE_ROUTES = new Set(["/", "/workspace", "/index.html", "/goal.html", "/decisions.html", "/changeset.html", "/projects.html", "/models.html", "/system.html"]);
+// WEB-UX-03C §2/§10:新增主入口 /workspace(会话式工作区);/ 默认进入工作区(旧页面全部保留可达:旧后台
+// 总览移至 /index.html,任务/待我决定/验收结果/项目等 URL 不变 — 只重定位不删除)。
+const PAGE_ALIASES: Record<string, string> = { "/workspace": "workspace.html", "/": "index.html" };
 
 /** G-1 绑定面拒绝(可辨识错误类型,入口层据此落审计)。 */
 export class BindRejectedError extends Error {
@@ -203,7 +206,14 @@ async function handleRequest(
     return;
   }
 
-  const rel = path === "/" ? "index.html" : path.replace(/^\/+/, "");
+  // WEB-UX-03C §2:/ 默认进入工作区(302;旧总览页仍在 /index.html 可达,不破坏旧 URL)。
+  if (path === "/" && session) {
+    res.writeHead(302, { location: "/workspace" });
+    res.end();
+    return;
+  }
+
+  const rel = PAGE_ALIASES[path] ?? (path.startsWith("/") ? path.replace(/^\/+/, "") : path);
   const target = resolve(join(staticDir, normalize(rel)));
   if (target !== staticDir && !target.startsWith(staticDir + sep)) {
     res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });

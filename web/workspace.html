@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay · 工作区</title>
+    <link rel="icon" href="data:," />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#f4f5f7" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="ws-body">
+    <div class="ws-layout" data-testid="ws-layout">
+      <!-- 左:项目/任务侧栏(WEB-UX-03C §3;JS 渲染) -->
+      <aside class="ws-sidebar" id="ws-sidebar" data-testid="ws-sidebar">
+        <div class="ws-brand">Relay<span class="ws-brand-sub">AI 软件开发工作台</span></div>
+        <button class="btn btn-primary ws-new-task" id="ws-new-task" type="button" data-testid="ws-new-task">＋ 新建任务</button>
+        <div class="ws-nav-list" id="ws-sidebar-body"><span class="empty">读取中…</span></div>
+        <div class="ws-side-foot">
+          <a class="ws-side-link" href="/decisions.html" data-testid="ws-link-decisions">待我决定<span class="nav-badge" id="ws-decision-badge" hidden data-testid="ws-decision-badge">0</span></a>
+          <div class="ws-side-divider"></div>
+          <a class="ws-side-link ws-side-dim" href="/projects.html">项目</a>
+          <a class="ws-side-link ws-side-dim" href="/index.html">总览(旧)</a>
+          <a class="ws-side-link ws-side-dim" href="/models.html">AI 资源</a>
+          <a class="ws-side-link ws-side-dim" href="/system.html">系统状态</a>
+          <button class="btn btn-ghost btn-sm ws-logout" id="ws-logout" type="button">退出登录</button>
+        </div>
+      </aside>
+
+      <!-- 中:会话区(Feed + Composer) -->
+      <main class="ws-main">
+        <div id="ws-conn" hidden data-testid="ws-conn"></div>
+        <header class="ws-topbar" id="ws-topbar" data-testid="ws-topbar">
+          <span class="ws-title" id="ws-title">工作区</span>
+          <span class="spacer"></span>
+          <span class="small dim" id="ws-stamp" data-testid="ws-stamp"></span>
+        </header>
+
+        <!-- 新建任务面板(3 步:选项目 → 一句话 → 开始;§6/C1) -->
+        <section class="ws-newtask" id="ws-newtask-panel" data-testid="ws-newtask-panel" hidden>
+          <h1 class="ws-hero-title">今天想让 Relay 做什么?</h1>
+          <p class="ws-hero-sub">选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。</p>
+          <label class="ws-label" for="ws-project">选择项目</label>
+          <select id="ws-project" data-testid="ws-project"></select>
+          <label class="ws-label" for="ws-goal-input">用一句话描述(说得不完整也没关系)</label>
+          <textarea id="ws-goal-input" rows="4" data-testid="ws-goal-input" placeholder="例如:这个登录页面不太好用,你自己检查一下并改好。"></textarea>
+          <div class="row mt8">
+            <button class="btn btn-primary btn-lg" id="ws-create" type="button" data-testid="ws-create">开始处理</button>
+            <span class="small dim" id="ws-create-msg" data-testid="ws-create-msg"></span>
+          </div>
+        </section>
+
+        <!-- 会话 Feed(§4;JS 渲染) -->
+        <div class="ws-feed" id="ws-feed" data-testid="ws-feed"><span class="empty">读取中…</span></div>
+
+        <!-- Composer(§6;始终可见) -->
+        <div class="ws-composer" id="ws-composer" data-testid="ws-composer">
+          <textarea id="ws-input" rows="1" placeholder="继续告诉 Relay……(Enter 发送,Shift+Enter 换行)" data-testid="ws-input"></textarea>
+          <button class="btn btn-primary" id="ws-send" type="button" data-testid="ws-send">发送</button>
+        </div>
+      </main>
+
+      <!-- 右:详情栏(§9;默认折叠,技术详情展开区) -->
+      <aside class="ws-detail" id="ws-detail" data-testid="ws-detail"></aside>
+    </div>
+    <script src="/app.js"></script>
+    <script src="/workspace.js"></script>
+  </body>
+</html>

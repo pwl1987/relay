@@ -12,6 +12,7 @@
 //   POST   /api/goals/:id/messages   follow-up 用户消息(WEB-UX-03C §0;追加+消费语义唯一入口 core.consumeGoalMessages)
 //   GET    /api/goals/:id/feed       Goal Feed 增量投影(游标=消息 id;决策卡+状态快照整体替换)
 //   GET    /api/goals/:id/status     Goal 状态轻量投影
+//   GET    /api/workspace/sidebar    工作区左侧栏投影(WEB-UX-03C §3;项目分组/状态点/待决数)
 //   POST   /api/goals/:id/discovery  模型驱动 Discovery(REWORK-1;operator 显式;预算账本)
 //   GET    /api/decisions          Decision Inbox
 //   POST   /api/decisions/:id/resolve  批准/拒绝(core.ops.resolveDecision)
@@ -38,6 +39,7 @@ import {
   goalDetailView,
   goalFeedView,
   goalStatusView,
+  workspaceSidebarView,
   decisionListView,
   changesetDetailView,
   changesetListView,
@@ -347,6 +349,19 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
             }
           : { goalId: created.goalId },
       });
+      // WEB-UX-03C §4/C1:创建需求即第一条会话消息(会话事实与 Feed 一致;确定性追加,零生命周期变更)。
+      // 该消息同时登记消费映射 → 绑定首 Task(它就是首 Task 的来源;防止 loop 首拍重复派生同义 Task)。
+      const firstMsg = await deps.db.execute(sql`
+        INSERT INTO goal_messages (goal_id, actor, kind, content)
+        VALUES (${created.goalId}, 'USER', 'USER_MESSAGE', ${plan.rawInput})
+        RETURNING id
+      `);
+      if (created.taskIds[0]) {
+        await deps.db.execute(sql`
+          INSERT INTO goal_message_consumptions (message_id, goal_id, task_id)
+          VALUES (${Number(firstMsg.rows[0]!["id"])}, ${created.goalId}, ${created.taskIds[0]})
+        `);
+      }
       return ok(
         {
           goalId: created.goalId,
@@ -421,6 +436,12 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const status = await goalStatusView(deps.db, goalId);
       if (!status) return fail(404, "goal_not_found", "Goal 不存在");
       return ok({ status });
+    }
+    // WEB-UX-03C §3:工作区左侧栏投影(项目分组任务列表;纯读)。
+    const workspaceSidebarMatch = /^\/api\/workspace\/sidebar$/.exec(path);
+    if (workspaceSidebarMatch && method === "GET") {
+      const sidebar = await workspaceSidebarView(deps.db);
+      return ok({ sidebar });
     }
     // P0-REWORK-1:模型驱动 Discovery(operator 显式调用;预算经账本 FAIL-CLOSED;失败降级不伪造)
     const discoveryMatch = /^\/api\/goals\/([^/]+)\/discovery$/.exec(path);
