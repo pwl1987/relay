@@ -1,0 +1,32 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/integration/f2-bug-fix.test.ts (2 tests | 1 failed) 120938ms
+   × Fixture F2:真实 Bug → 真模型修复全链(API 机判) > F2 全链:基线负对照已实证 → coder 修复 → API 机判 Gate → Reviewer → 本地 bare DELIVERED → 独立 HTTP 复核 116964ms
+     → gate.reason=no_verdict:no_gate_verdict_fence: expected 'NEEDS_DECISION' to be 'ACCEPTED' // Object.is equality
+   ✓ Fixture F2(机制演示;stub coder 显式标注):API 机判 Gate 拒绝未修复/接受真修复 → 交付 → 独立 HTTP 复核 > stub coder 写入真实修复 → API 机判四项通过 → Gate ACCEPTED → 本地 bare DELIVERED(全程显式标注 stub)  2882ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/f2-bug-fix.test.ts > Fixture F2:真实 Bug → 真模型修复全链(API 机判) > F2 全链:基线负对照已实证 → coder 修复 → API 机判 Gate → Reviewer → 本地 bare DELIVERED → 独立 HTTP 复核
+AssertionError: gate.reason=no_verdict:no_gate_verdict_fence: expected 'NEEDS_DECISION' to be 'ACCEPTED' // Object.is equality
+
+Expected: "ACCEPTED"
+Received: "NEEDS_DECISION"
+
+ ❯ test/integration/f2-bug-fix.test.ts:214:108
+    212|     expect(report.status, `F2 tick 失败(如实;run=${JSON.stringify(report.r…
+    213|     expect(report.run?.outcome, `run.reason=${report.run?.reason}`).to…
+    214|     expect(report.gate?.status, `gate.reason=${(report.gate as { reaso…
+       |                                                                                                            ^
+    215|     expect(report.delivery?.execute).toMatchObject({ state: "DELIVERED…
+    216| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  01:25:57
+   Duration  122.22s (transform 417ms, setup 0ms, collect 1.02s, tests 120.94s, environment 0ms, prepare 78ms)
+

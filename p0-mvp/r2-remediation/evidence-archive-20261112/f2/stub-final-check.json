@@ -1,0 +1,1 @@
+{"ok":true,"checks":[{"id":"A1-zero","ok":true,"note":"b=0 ⇒ 400 {\"error\":\"division_by_zero\"}(期望 400 division_by_zero;服务器存活=true)"},{"id":"A2-nan","ok":true,"note":"非数字 ⇒ 400 {\"error\":\"invalid_input\"}(期望 400 invalid_input)"},{"id":"A3-normal","ok":true,"note":"9/3 ⇒ 200 {\"result\":3}"},{"id":"A4-health","ok":true,"note":"health ⇒ 200 {\"ok\":true}"}]}

@@ -1,0 +1,68 @@
+{
+  "ok": true,
+  "source": "model",
+  "reason": null,
+  "report": {
+    "problemStatement": "用户反馈「新增任务的页面不好用」。经查证,new-task.html 是一个三字段(title/owner/due)的裸表单:输入框无 label、无占位符;提交不做任何校验(空标题也可保存);保存后无确认提示,页面停在原地,用户不知道是否成功,也不被引导回列表页。brief.txt 与 README.md 均确认这是已知问题。「不好用」具体指哪些方面尚待用户确认。",
+    "assumptions": [
+      {
+        "text": "「不好用」主要指表单可用性缺陷(无标签、无校验反馈、提交后无确认且不返回列表),而非要重做整个页面架构或改字段",
+        "confidence": "high",
+        "verifiableBy": "README.md 中『已知状态』逐条列出的缺陷;与用户访谈确认具体痛点"
+      },
+      {
+        "text": "需保持现有字段(title/owner/due)与 localStorage 中 tasks 数组的 JSON 结构不变",
+        "confidence": "high",
+        "verifiableBy": "brief.txt 明确要求『保持现有字段与 localStorage 结构』;index.html 依赖 t.title/t.due 渲染列表"
+      },
+      {
+        "text": "用户提的『页面不好用』是问题描述而非指定解决方案;真正的目标是让用户能顺利完成新增任务并获得清晰反馈",
+        "confidence": "medium",
+        "verifiableBy": "向用户确认期望的交互(例如提交后跳转回 index.html)"
+      }
+    ],
+    "risks": [
+      "如果直接按用户口头感受重构页面,可能破坏 index.html 依赖的 localStorage 数据结构(title/due 字段),导致列表页渲染异常",
+      "未做客户端校验会产生空 title 记录,列表页会渲染出只有『(截止:…)』的空条目",
+      "owner 字段当前在列表页完全未展示,新增 owner 的输入若被强化,用户可能误以为它会被显示",
+      "若用户实际指的是更大的方案问题(例如想要在列表页内联新增、或移动端布局问题),仅修表单可用性可能不解决根本痛点"
+    ],
+    "options": [
+      {
+        "name": "方案 A:修复 new-task.html 的可用性(推荐)",
+        "tradeoffs": "加 label/placeholder、必填校验与错误提示、提交成功提示并跳转回 index.html;改动小、风险低、符合 brief 约束;但不覆盖『用户其实想要别的交互形态』的可能"
+      },
+      {
+        "name": "方案 B:把新增任务改为列表页内联表单(单页方案)",
+        "tradeoffs": "免去页面跳转、体验更流畅;但改动面大,与 brief.txt『改进 new-task.html』的指示相悖,且需重构两个页面,风险更高"
+      },
+      {
+        "name": "方案 C:只加文案说明,不改交互",
+        "tradeoffs": "成本最低;但无校验、无反馈的根本问题仍在,大概率无法让用户满意"
+      }
+    ],
+    "recommendation": {
+      "action": "采用方案 A:在保持 title/owner/due 字段与 localStorage tasks 数组结构不变的前提下,为 new-task.html 补齐表单标签与占位符、title 必填的客户端校验(阻止提交并显示错误提示)、提交成功后的确认提示,并引导返回 index.html 列表页。",
+      "rationale": "README 的已知状态与代码实查逐项对应这些缺陷,属最小、可验证的修复;brief.txt 明确要求改进该页并保持数据结构,方案 A 完全契合且不引入回归风险。用户原始表述只是问题描述,本行动针对可证实的目标(顺利完成新增并获得反馈),而非照搬任何未经证实的方案。"
+    },
+    "acceptanceCriteria": [
+      "new-task.html 的每个输入框(title/owner/due)都有对应的可见 label(或等效的 aria-label),字段语义可被屏幕阅读器识别",
+      "title 为空或全空白时提交被阻止,并在表单附近显示明确的错误提示;合法数据可通过校验",
+      "成功保存后用户得到可见确认(提示或页面跳转),并被引导/跳转回 index.html 列表页,列表中能看到新任务条目",
+      "localStorage 中 tasks 的每条记录仍只含 title/owner/due 键,键名与结构改动前后一致(index.html 无需改动即可正常渲染)",
+      "不修改 index.html 的渲染逻辑与数据读取方式,回归验证列表页对新旧数据均可正常显示"
+    ],
+    "openQuestions": [
+      "「不好用」具体指哪几点:是缺少字段说明、提交无反馈、还是流程(跳转)问题?需用户确认优先级",
+      "owner 字段目前不会被列表页展示,是否需要(或未来需要)在 index.html 呈现?",
+      "新增任务成功后,期望的行为是自动跳转回列表页,还是停留在表单页并提示成功以便连续录入?",
+      "是否有移动端/键盘/无障碍方面的特定诉求(该表单当前为纯桌面式裸表单)?"
+    ],
+    "sources": [
+      "README.md",
+      "brief.txt",
+      "new-task.html",
+      "index.html"
+    ]
+  }
+}

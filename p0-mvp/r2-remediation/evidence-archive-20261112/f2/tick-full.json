@@ -1,0 +1,22 @@
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f2-bug",
+      "ownerId": "f2-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "taskId": "t-f2-bug",
+    "runId": "run-3703b895-b52a-4ff8-9e4a-5859344055f8",
+    "workspaceDir": "/tmp/relay-run-RGmMs5/ws",
+    "disposition": "task_blocked_by_budget"
+  },
+  "goalStates": []
+}

@@ -1,0 +1,71 @@
+[
+  {
+    "id": "run-9f2b66ba-1b01-4e0b-8f9b-59484c705c63",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "budget": {
+        "tokensIn": 20000,
+        "tokensOut": 4000,
+        "actualCalls": 1
+      },
+      "handoff": {
+        "status": "done",
+        "summary": "stub 完成"
+      },
+      "changeset": {
+        "id": "cs-8619e2d7-60e1-48a3-9f73-a56be702d1d3",
+        "diff": {
+          "added": [],
+          "removed": [],
+          "modified": [
+            "new-task.html"
+          ]
+        },
+        "baseSha": "f11c558a3ba9fd4f9744cce86079200611fc3ad71dc4019129a35aedf484dd6a",
+        "violations": [],
+        "candidateSha": "833e6303e63ba96dbdfa104e08abf15b6799531957ce8a26bc91f137e8927076",
+        "requirementSha": "08c5c62a61fd67483c89620e83b19ffe9c873dd54e3048f7ceddfa71a2237d5a"
+      },
+      "toolDenied": 0,
+      "toolEvents": [],
+      "toolAuditLines": 0,
+      "toolCallEvents": 0,
+      "candidateCommit": {
+        "treeSha": "7beab8a7dd0b737a049a4e3ee50a89be34d351c6",
+        "commitSha": "5199d7369be72c4c27ffdbb2fd43dda3d734d514",
+        "filesChanged": 1,
+        "stageRepoDir": "/tmp/d-f1s-stage-XwBU8e/relay-stage-cs-8619e2d7-60e1-48a3-9f73-a56be702d1d3-35e1cee9",
+        "treeVerified": true,
+        "baseCommitSha": "74fbaa9e05ee06b5662de645a80efc13104b6bab"
+      }
+    }
+  },
+  {
+    "id": "run-28825354-f0db-41a6-958d-bf7991ccb5d5",
+    "outcome": "SUCCEEDED",
+    "detail": {
+      "role": "reviewer",
+      "turns": 1,
+      "rawLen": 72,
+      "reason": "PASS",
+      "rawHead": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```",
+      "verdict": "PASS",
+      "toolAudit": {
+        "lines": 0,
+        "denied": 0,
+        "missing": true,
+        "reasons": []
+      },
+      "recordTypes": {
+        "response": 2,
+        "turn_end": 1,
+        "agent_end": 1,
+        "turn_start": 1,
+        "agent_start": 1,
+        "message_end": 1,
+        "agent_settled": 1,
+        "message_start": 1
+      }
+    }
+  }
+]
