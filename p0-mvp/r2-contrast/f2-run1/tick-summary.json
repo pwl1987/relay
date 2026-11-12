@@ -1,0 +1,9 @@
+{
+  "status": "PROGRESSED",
+  "run": {
+    "outcome": "BUDGET_EXHAUSTED",
+    "reason": null
+  },
+  "gate": null,
+  "delivery": null
+}

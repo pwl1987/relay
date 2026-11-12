@@ -1,0 +1,32 @@
+{
+  "status": "PROGRESSED",
+  "tick": {
+    "reclaimed": [],
+    "reconciled": [],
+    "reworkReleased": [],
+    "claimed": {
+      "taskId": "t-f1-ux",
+      "ownerId": "f1-worker",
+      "fencingToken": 1,
+      "attempt": 1
+    }
+  },
+  "run": {
+    "outcome": "SUCCEEDED",
+    "taskId": "t-f1-ux",
+    "runId": "run-b554570c-6066-4a16-8071-a606ec318fc0",
+    "workspaceDir": "/tmp/relay-run-c5PM1H/ws",
+    "disposition": "noop_succeeded"
+  },
+  "gate": {
+    "status": "FAILED",
+    "reason": "gate_record_rejected:evidence_invalid:ev-e5f58438-7c48-4077-93a6-0a2bd934b472:evidence_not_passed",
+    "changesetId": "cs-6d583cd4-0452-4153-990d-0c21cbd10b07",
+    "evidenceIds": [
+      "ev-e5f58438-7c48-4077-93a6-0a2bd934b472",
+      "ev-ecf54876-b18f-4fb9-ad0e-547d3614c85f"
+    ],
+    "violations": []
+  },
+  "goalStates": []
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "ev-5acb6dee-b317-4d74-85d2-42c2c5bef9a4",
+    "kind": "deterministic_test",
+    "passed": true,
+    "raw_output": "$ node /home/ubuntu/dev/relay/test/fixtures/f1-tasklist/check.mjs .\n{\"ok\":true,\"checks\":[{\"id\":\"C1-label\",\"ok\":true,\"note\":\"3/3 个 input 有关联 label\"},{\"id\":\"C2-empty-feedback\",\"ok\":true,\"note\":\"空提交出现可见错误提示\"},{\"id\":\"C3-success-feedback\",\"ok\":true,\"note\":\"提交后出现成功反馈\"},{\"id\":\"C4-list-shows\",\"ok\":true,\"note\":\"列表页显示新条目\"}]}"
+  },
+  {
+    "id": "ev-fb2c9e0c-7def-44b0-b52c-b5ae5d0e0634",
+    "kind": "reviewer_output",
+    "passed": true,
+    "raw_output": "审查完成。\n```relay-gate-verdict\nverdict: PASS\nfindings: stub 审查:候选实现机判通过\n```"
+  }
+]
