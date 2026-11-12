@@ -1,0 +1,104 @@
+{
+  "base": "http://10.30.5.80:8787",
+  "steps": [
+    {
+      "name": "desktop 登录→/workspace",
+      "ok": true,
+      "detail": "http://10.30.5.80:8787/workspace"
+    },
+    {
+      "name": "desktop workspace 标题=Relay · 工作区(03D)",
+      "ok": true,
+      "detail": "Relay · 工作区"
+    },
+    {
+      "name": "desktop 侧栏含验收演练 Goal",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop 会话含需求原文",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop BLOCKED Goal 失败工作块含「查看原因」",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 登录→/workspace",
+      "ok": true,
+      "detail": "http://10.30.5.80:8787/workspace"
+    },
+    {
+      "name": "mobile workspace 标题=Relay · 工作区(03D)",
+      "ok": true,
+      "detail": "Relay · 工作区"
+    },
+    {
+      "name": "mobile 顶栏菜单键可见",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 工程 stamp 隐藏",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 抽屉打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 抽屉关闭(回原上下文)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 选中 Goal 后抽屉已关",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 会话含需求原文",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 失败块「查看原因」→技术详情 sheet",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile sheet 关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile Composer 可键入(未发送)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 回到最新浮层元素在 DOM",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pageErrors": [],
+  "shots": [
+    "d-01-workspace-blank.png",
+    "d-02-conversation.png",
+    "d-03-result-blocked.png",
+    "d-04-tech-pane.png",
+    "m-01-topbar.png",
+    "m-02-drawer.png",
+    "m-03-conversation.png",
+    "m-04-tech-sheet.png",
+    "m-05-composer-typed.png"
+  ],
+  "pass": 17,
+  "fail": 0
+}
