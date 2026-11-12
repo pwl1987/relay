@@ -9,7 +9,7 @@
 //   GET    /api/goals              Goal 列表
 //   POST   /api/goals              创建 Goal(一句自然语言)
 //   GET    /api/goals/:id          Goal 详情(理解/建议/任务/证据)
-//   POST   /api/goals/:id/messages   follow-up 用户消息(WEB-UX-03 03B;goal_messages 追加;不在途 ⇒ 派生同 Goal 新 Task)
+//   POST   /api/goals/:id/messages   follow-up 用户消息(WEB-UX-03C §0;追加+消费语义唯一入口 core.consumeGoalMessages)
 //   GET    /api/goals/:id/feed       Goal Feed 增量投影(游标=消息 id;决策卡+状态快照整体替换)
 //   GET    /api/goals/:id/status     Goal 状态轻量投影
 //   POST   /api/goals/:id/discovery  模型驱动 Discovery(REWORK-1;operator 显式;预算账本)
@@ -23,7 +23,8 @@
 import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
 import type { RelayDb, Exec } from "../core/db.ts";
-import { planGoal, planFollowUpTask } from "../core/goals.ts";
+import { planGoal } from "../core/goals.ts";
+import { consumeGoalMessages } from "../core/consumption.ts";
 import { operatorAllowed, resolveDecision, resumeTask, pauseTask } from "../core/ops.ts";
 import { runGoalDiscovery } from "../core/discovery.ts";
 import { resolveVendoredPi } from "../runtime/pi-version.ts";
@@ -37,7 +38,6 @@ import {
   goalDetailView,
   goalFeedView,
   goalStatusView,
-  goalHasInFlightRun,
   decisionListView,
   changesetDetailView,
   changesetListView,
@@ -363,9 +363,11 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       if (!detail) return fail(404, "goal_not_found", "Goal 不存在");
       return ok({ goal: detail });
     }
-    // WEB-UX-03 03B:follow-up 用户消息。goal_messages 只追加;不在途(无 LEASED/RUNNING/SUBMITTED/VERIFYING)
-    // ⇒ 经 core.planFollowUpTask 派生同 Goal 新 Task(READY;allowed_scope/allowed_commands 继承该 Goal 最近 Task,
-    // 浏览器不提交任何 scope/路径);在途 ⇒ 只记录,消息经 Feed 呈现,不注入在途 Run(零 Core 生命周期变更)。
+    // WEB-UX-03C §0/§0.1(03B.1):follow-up 用户消息。goal_messages 只追加;
+    // 消费语义唯一入口 core.consumeGoalMessages:不在途 ⇒ 本调用内派生同 Goal follow-up Task
+    // (READY;scope 继承该 Goal 最近 Task,浏览器不提交任何 scope/路径)+ 消费映射(message→task,
+    // UNIQUE(message_id) at-most-once)+ 审计 + RELAY 确认;在途 ⇒ 只记录,等待执行边界后
+    // 由 goalLoopTick 前置消费步自动派生(零 Core 生命周期变更)。
     const msgMatch = /^\/api\/goals\/([^/]+)\/messages$/.exec(path);
     if (msgMatch && method === "POST") {
       const goalId = decodeURIComponent(msgMatch[1]!);
@@ -380,28 +382,12 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         RETURNING id
       `);
       const messageId = Number(inserted.rows[0]!["id"]);
-      const inFlight = await goalHasInFlightRun(deps.db, goalId);
-      let followUpTaskId: string | null = null;
-      if (!inFlight) {
-        const lastTask = await deps.db.execute(sql`
-          SELECT allowed_scope, allowed_commands FROM tasks
-          WHERE goal_id = ${goalId}
-          ORDER BY created_at DESC, id DESC
-          LIMIT 1
-        `);
-        const allowedScope = Array.isArray(lastTask.rows[0]?.["allowed_scope"]) ? (lastTask.rows[0]!["allowed_scope"] as string[]) : [];
-        const allowedCommands = Array.isArray(lastTask.rows[0]?.["allowed_commands"]) ? (lastTask.rows[0]!["allowed_commands"] as string[]) : [];
-        const derived = await deps.db.transaction(async (tx) =>
-          planFollowUpTask(tx as unknown as Exec, {
-            goalId,
-            goalText: content,
-            actor: session.role,
-            allowedScope,
-            allowedCommands,
-          }),
-        );
-        followUpTaskId = derived.taskId;
-      }
+      // WEB-UX-03C §0/§0.1(03B.1):消费语义唯一入口 core.consumeGoalMessages。
+      // 不在途 ⇒ 本调用内派生同 Goal follow-up Task + 消费映射(message→task,UNIQUE at-most-once)
+  //   + GOAL_MESSAGES_CONSUMED 审计 + RELAY 确认消息;在途 ⇒ 只记录(等待执行边界,loop 下一拍消费)。
+      const consumption = await consumeGoalMessages(deps.db, goalId, { actor: session.role });
+      const followUpTaskId = consumption.consumed ? (consumption.taskId ?? null) : null;
+      const inFlight = !consumption.consumed && consumption.reason === "in_flight";
       await audit(deps, {
         actor: session.role,
         action: "WEB_GOAL_MESSAGE",

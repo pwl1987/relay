@@ -16,6 +16,7 @@ import { snapshotManifest } from "../runtime/workspace-manifest.ts";
 import { cleanupSandbox, dockerAvailable, type ModelConfig, type SandboxSpec } from "../runtime/sandbox.ts";
 import type { EgressStatus } from "../runtime/egress.ts";
 import type { CheckSpec } from "../core/evidence.ts";
+import { taskFollowUpMessagesView } from "./views/goal.ts";
 
 export type WorkerMode = "live" | "stub" | "external";
 
@@ -147,6 +148,13 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
           const goalText = await goalTextFor(claim.taskId);
           // P0-ACCEPT 缺口 A:task 白名单完整传递(DB → spec → 沙箱 env;读取逻辑可单测)。
           const whitelist = await resolveTaskWhitelist(options.db, claim.taskId);
+          // WEB-UX-03C §0.2:本任务经消费映射绑定的 follow-up 用户消息注入 Run 上下文
+          // (经 buildRunPrompt extraInstructions;Goal 原始需求仍为 goal,补充为追加指令。
+          // 保证"UI 显示已收到"的下一 Run 真正看到该消息——C5/C6 硬门)。
+          const followups = await taskFollowUpMessagesView(options.db, claim.taskId);
+          const extraInstructions = followups.length > 0
+            ? `# 用户后续补充(Goal 会话中消费绑定到本任务;按序合并)\n${followups.map((m) => `- ${m.content}`).join("\n")}`
+            : undefined;
           const injection = options.stubInjection;
           const result = await executeRun(options.db, pi, {
             taskId: claim.taskId,
@@ -158,6 +166,7 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
             fencingToken: claim.fencingToken,
             model,
             sandbox,
+            ...(extraInstructions ? { extraInstructions } : {}),
             ...(options.egress ? { egress: options.egress } : {}),
             wallSeconds: options.wallSeconds ?? 120,
             heartbeatSeconds: options.heartbeatSeconds ?? 10,

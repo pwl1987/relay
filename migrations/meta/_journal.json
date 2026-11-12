@@ -50,6 +50,13 @@
       "when": 1794466105000,
       "tag": "0006_goal_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794470000000,
+      "tag": "0007_goal_message_consumptions",
+      "breakpoints": true
     }
   ]
 }

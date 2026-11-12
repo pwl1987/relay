@@ -769,3 +769,18 @@ export async function goalFeedView(db: RelayDb, goalId: string, after: number | 
     status,
   };
 }
+
+/** WEB-UX-03C §0.2:Task 关联的 follow-up 用户消息(经消费映射 goal_message_consumptions;Run 上下文注入用)。 */
+export async function taskFollowUpMessagesView(
+  db: RelayDb,
+  taskId: string,
+): Promise<Array<{ id: number; content: string }>> {
+  const res = await db.execute(sql`
+    SELECT gm.id AS id, gm.content AS content
+    FROM goal_message_consumptions c
+    JOIN goal_messages gm ON gm.id = c.message_id
+    WHERE c.task_id = ${taskId} AND gm.actor = 'USER'
+    ORDER BY gm.id ASC
+  `);
+  return res.rows.map((r) => ({ id: Number(r["id"]), content: String(r["content"]) }));
+}

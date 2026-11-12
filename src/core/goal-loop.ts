@@ -17,6 +17,7 @@ import { advanceTask, type AdvanceResult } from "./lease.ts";
 import { supervisorTick, releaseRework, type TickReport } from "./supervisor.ts";
 import { expireStaleDecisions } from "./decisions.ts";
 import { setGoalState } from "./goals.ts";
+import { consumeAllPendingGoals } from "./consumption.ts";
 import { startSafeLoop, type SafeLoopHandle } from "./loop-safety.ts";
 import { orchestrateGate, type GateOrchestrationOptions, type GateOrchestrationResult } from "./gate-orchestrator.ts";
 import {
@@ -69,6 +70,8 @@ export interface GoalLoopTickReport {
   run?: RunOutcomeDigest & { disposition?: string };
   gate?: GateOrchestrationResult;
   delivery?: { propose: { ok: boolean; reason?: string }; execute: DeliveryExecutionResult | { skipped: string } };
+  /** WEB-UX-03C §0.1 安全边界消费(03B.1):本拍派生的 follow-up 消费结果(未消费时含 reason) */
+  consumption?: { results: Array<{ consumed: boolean; reason?: string; taskId?: string }>; failedGoals: Array<{ goalId: string; error: string }> };
   goalStates?: Array<{ goalId: string; state: string }>;
   idleHintSeconds?: number;
 }
@@ -281,6 +284,16 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
   await db.transaction(async (tx) => expireStaleDecisions(tx as unknown as Exec, actor));
   await handleOpenDecisions(db, actor);
 
+  // WEB-UX-03C §0/§0.1(03B.1):安全边界消费——Run/Task 不在途时,把未处理 USER 消息
+  // 合并派生为同 Goal follow-up Task(READY),本拍 supervisorTick 即可领取。
+  // 在途 ⇒ 本步不动消息;Run 结束后的下一拍自动消费(at-most-once 由映射 UNIQUE 钉住)。
+  let consumption: Awaited<ReturnType<typeof consumeAllPendingGoals>> | undefined;
+  try {
+    consumption = await consumeAllPendingGoals(db, actor);
+  } catch {
+    /* 消费扫描失败不阻断本拍推进;下一拍重试(映射 UNIQUE 保证不重复派生) */
+  }
+
   const tick = await supervisorTick(db, {
     actor,
     workerId,
@@ -383,6 +396,7 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
     run,
     ...(gateReport ? { gate: gateReport } : {}),
     ...(deliveryReport ? { delivery: deliveryReport } : {}),
+    ...(consumption ? { consumption } : {}),
     goalStates,
     ...(status === "IDLE" ? { idleHintSeconds: options.idleSeconds ?? 30 } : {}),
   };
