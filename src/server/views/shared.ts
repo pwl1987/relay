@@ -162,13 +162,14 @@ export const TIMEOUT_BEHAVIOR: Record<string, string> = {
   D0: "作用域内自动执行(不产生决策行)",
   D1: "作用域内自动执行(不产生决策行)",
   D2: "仅按创建时已声明的 fallback 自动执行",
-  D3: "永不超时自动批准:超时仅标记 EXPIRED_STILL_BLOCKED,任务停留 NEEDS_DECISION 等待人",
+  D3: "永不自动批准:超时后任务保持等待,直到你亲自处理",
   D4: "禁止(创建即拒绝)",
 };
 
 export const IN_FLIGHT_STATES = ["LEASED", "RUNNING", "SUBMITTED", "VERIFYING"];
 
-/** P0-UI-4:决策支持五要素(全部由既有列确定性推导;不伪造系统未有的判断)。 */
+/** P0-UI-4:决策支持五要素(全部由既有列确定性推导;不伪造系统未有的判断)。
+ *  WEB-UX-02:文案改用户语言,不在给普通用户的解释里出现内部级别/枚举术语。 */
 export function decisionGuidance(input: {
   level: string;
   question: string;
@@ -179,14 +180,14 @@ export function decisionGuidance(input: {
   reversible: boolean;
 }): DecisionGuidance {
   const levelWhy: Record<string, string> = {
-    D2: "D2 级决策:仅当创建时已声明 fallback 才可由循环自动执行;当前行等待人工裁决或按已授权 fallback 处理。",
-    D3: "D3 级决策:涉及需人工批准的事项(Gate 消费 BLOCK、Review 有界失败或外部副作用),**永不超时自动批准**。",
-    D4: "D4 级:系统禁止此类决策(创建即拒绝)。",
+    D2: "这件事按任务创建时登记的预案处理;当前正在等待你确认,或按已登记预案执行。",
+    D3: "这件事需要你亲自决定(涉及结果验收、复核未通过或对外操作)。Relay 永远不会替你自动批准。",
+    D4: "该类操作被安全策略禁止(系统创建即拒绝)。",
   };
   const why =
-    (levelWhy[input.level] ?? "级别 " + input.level + " 需人工裁决。") +
-    (input.taskState ? " 任务当前 " + input.taskState + ",在裁决前不推进。" : "") +
-    (input.blockedReason ? " 阻塞原因:" + input.blockedReason : "");
+    (levelWhy[input.level] ?? "这件事需要人工确认后才能继续。") +
+    (input.taskState ? " 相关任务当前处于等待状态,在你处理前不会继续推进。" : "") +
+    (input.blockedReason ? " 原因:" + input.blockedReason : "");
   const fb = input.fallback ?? {};
   const recommendedRaw = fb["recommended"] ?? fb["action"] ?? null;
   const recommended =
@@ -203,13 +204,13 @@ export function decisionGuidance(input: {
     typeof riskRaw === "string" && riskRaw.trim()
       ? riskRaw
       : input.reversible
-        ? "未登记专用风险说明;该决策关联的操作按架构要求可回滚(交付绑定远端 SHA,本地 bare/真实远端均可核对)。"
-        : "未登记专用风险说明;请结合问题与受影响文件评估。";
+        ? "未登记专门的风险说明;相关操作按架构要求可回滚(交付绑定远端提交,可核对)。"
+        : "未登记专门的风险说明;请结合问题与受影响文件评估。";
   const impactOfNoAction =
-    (input.deadline ? "期限 " + input.deadline + ";逾期 " : "无期限;") +
+    (input.deadline ? "逾期后:" : "") +
     (input.level === "D3"
-      ? "仅标记 EXPIRED_STILL_BLOCKED,任务停留等待,**不会自动批准**;其他安全任务不受影响继续推进。"
-      : "按超时语义处理(见超时行为)。");
+      ? "任务会继续等你,其他工作不受影响,不会自动批准。"
+      : "将按超时规则处理;任务保持等待,不会自动通过。");
   return {
     why,
     recommended,

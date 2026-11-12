@@ -17,6 +17,10 @@ export interface ProjectView {
   gitHead: string | null;
   recentGoals: Array<{ id: string; rawInput: string; state: string; updatedAt: string }>;
   goalCount: number;
+  /** WEB-UX-02 §8:项目卡片用户面(运行中/已完成计数与最近更新时间;确定性推导,零新增状态) */
+  runningCount: number;
+  doneCount: number;
+  lastUpdatedAt: string | null;
 }
 
 export interface ProjectsView {
@@ -100,13 +104,21 @@ export async function projectsView(db: RelayDb): Promise<ProjectsView> {
     const seen = new Set<string>();
     const recentGoals: ProjectView["recentGoals"] = [];
     let goalCount = 0;
+    let runningCount = 0;
+    let doneCount = 0;
+    let lastUpdatedAt: string | null = null;
     for (const r of link.rows) {
       const gid = str(r["id"]);
       if (seen.has(gid)) continue;
       seen.add(gid);
       goalCount += 1;
+      const st = str(r["state"]);
+      // 运行中=尚在推进;已完成=到达成功终态(失败/取消不计入"已完成",如实)
+      if (["READY", "LEASED", "RUNNING", "SUBMITTED", "VERIFYING", "WAITING", "NEEDS_DECISION", "REWORK", "PAUSED", "NEEDS_RECONCILE", "BLOCKED", "PLANNED"].includes(st)) runningCount += 1;
+      if (["ACCEPTED", "SUCCEEDED", "COMPLETED"].includes(st)) doneCount += 1;
+      if (!lastUpdatedAt) lastUpdatedAt = iso(r["updated_at"]);
       if (recentGoals.length < 3) {
-        recentGoals.push({ id: gid, rawInput: str(r["raw_input"]), state: str(r["state"]), updatedAt: iso(r["updated_at"]) ?? "" });
+        recentGoals.push({ id: gid, rawInput: str(r["raw_input"]), state: st, updatedAt: iso(r["updated_at"]) ?? "" });
       }
     }
     projects.push({
@@ -120,6 +132,9 @@ export async function projectsView(db: RelayDb): Promise<ProjectsView> {
       gitHead: facts.gitHead,
       recentGoals,
       goalCount,
+      runningCount,
+      doneCount,
+      lastUpdatedAt,
     });
   }
   return { source: registry.source, configured: registry.projects.length > 0, note, projects };

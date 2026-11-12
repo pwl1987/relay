@@ -172,6 +172,15 @@ async function textOf(page: Page, sel: string): Promise<string> {
   return (await el.textContent()) ?? "";
 }
 
+// WEB-UX-02:技术细节默认折叠(新手验收)⇒ 需要技术断言时先展开对应 details。
+async function openTech(page: Page, id: string): Promise<void> {
+  await page.evaluate((elId: string) => {
+    const g = globalThis as unknown as { document: { getElementById: (i: string) => { open: boolean } | null } };
+    const d = g.document.getElementById(elId);
+    if (d) d.open = true;
+  }, id);
+}
+
 
 async function cookieHeader(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
@@ -221,6 +230,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     await loginViaUi(page, base);
     // 模糊需求:一句自然语言(UI 真实输入与点击)
     await createGoalViaUi(page, base, "感觉登录页不好用,想让登录更快更清楚");
+    await openTech(page, "goal-tech");
     await page.waitForSelector('[data-testid="goal-analysis"]');
     // 系统理解与可验证建议来自规则推导,且明确标注非模型
     const analysis = await textOf(page, '[data-testid="goal-analysis"]');
@@ -282,23 +292,26 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     expect(String(bRow.rows[0]!["state"])).toBe("ACCEPTED");
 
     // UI:Decision Inbox 展示 D3(OPEN)+ 三动作,无任何"自动批准"入口
+    // WEB-UX-02:面向用户的卡片是中文(级别/状态/建议);内部 D 代码与 OPEN 枚举不再直显
     await page.goto(`${base}/decisions.html`);
     await page.waitForSelector('[data-testid="decision-card-dec-e2e-d3"]');
     const card = await textOf(page, '[data-testid="decision-card-dec-e2e-d3"]');
-    expect(card).toContain("D3");
-    expect(card).toContain("OPEN");
-    expect(card).toContain("永不超时自动批准");
+    expect(card).toContain("需要你决定");
+    expect(card).toContain("待处理");
+    expect(card).toContain("不会自动批准");
     expect(await page.locator('[data-testid="approve-dec-e2e-d3"]').count()).toBe(1);
     expect(await page.locator('[data-testid="reject-dec-e2e-d3"]').count()).toBe(1);
     expect(await page.locator('[data-testid="defer-dec-e2e-d3"]').count()).toBe(1);
     const policy = await textOf(page, '[data-testid="d3-policy-notice"]');
-    expect(policy).toContain("永不超时自动批准");
+    expect(policy).toContain("永不自动批准");
     await shot(page, "j2-decision-inbox-d3.png");
 
-    // Goal A 页面显示阻塞原因与下一动作
+    // Goal A 页面显示阻塞原因与下一动作(技术详情内:任务状态中文映射 + 原始枚举并列)
     await page.goto(`${base}/goal.html?id=${goalA}`);
+    await openTech(page, "goal-tech");
     await page.waitForSelector('[data-testid="goal-tasks"]');
     const tasks = await textOf(page, '[data-testid="goal-tasks"]');
+    expect(tasks).toContain("等待你的决定");
     expect(tasks).toContain("NEEDS_DECISION");
     await shot(page, "j2-goal-a-blocked.png");
     s.log.log("J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略");
@@ -326,8 +339,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       expect(String(taskRow.rows[0]!["state"])).toBe("READY");
       expect(Number(taskRow.rows[0]!["attempt"])).toBe(1);
 
-      // UI:Goal 页显示失败原因与恢复状态(运行记录 + 任务状态)
+      // UI:Goal 页显示失败原因与恢复状态(运行记录 + 任务状态;技术详情内原始枚举并列)
       await crash.page.goto(`${crash.base}/goal.html?id=${goalC}`);
+      await openTech(crash.page, "goal-tech");
       await crash.page.waitForSelector('[data-testid="goal-runs"] tr');
       const runsText = await textOf(crash.page, '[data-testid="goal-runs"]');
       expect(runsText).toContain("FAILED");
@@ -336,11 +350,11 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       expect(tasksText).toContain("READY");
       await shot(crash.page, "j3-crash-recovery.png");
 
-      // UI:Dashboard 异常面板包含 run_failed
+      // UI:工作台「有问题」面板包含任务运行失败(WEB-UX-02:异常种类中文映射)
       await crash.page.goto(`${crash.base}/`);
-      await crash.page.locator('[data-testid="anomalies-body"]', { hasText: "run_failed" }).waitFor({ timeout: 30000 });
+      await crash.page.locator('[data-testid="anomalies-body"]', { hasText: "运行失败" }).waitFor({ timeout: 30000 });
       const anomalies = await textOf(crash.page, '[data-testid="anomalies-body"]');
-      expect(anomalies).toContain("run_failed");
+      expect(anomalies).toContain("运行失败");
       await shot(crash.page, "j3-dashboard-anomaly.png");
       crash.log.log("J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed");
     } finally {
@@ -354,10 +368,18 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     const { page, base } = s;
     const errBefore = s.errLog.lines.length;
     // Projects:空注册文件 ⇒ 引导说明而非报错
-    await page.goto(`${base}/projects.html`);
-    await page.waitForSelector('[data-testid="projects-body"]');
-    const projects = await textOf(page, '[data-testid="projects-body"]');
-    expect(projects).toContain("projects.json");
+    // WEB-UX-02 修正:显式指向不存在的注册文件,与部署实例的 config/projects.json 解耦
+    const savedReg = process.env["RELAY_PROJECTS_FILE"];
+    process.env["RELAY_PROJECTS_FILE"] = join(tmpdir(), "webux-j6-no-reg-" + Date.now() + ".json");
+    try {
+      await page.goto(`${base}/projects.html`);
+      await page.waitForSelector('[data-testid="projects-body"]');
+      const projects = await textOf(page, '[data-testid="projects-body"]');
+      expect(projects).toContain("projects.json");
+    } finally {
+      if (savedReg !== undefined) process.env["RELAY_PROJECTS_FILE"] = savedReg;
+      else delete process.env["RELAY_PROJECTS_FILE"];
+    }
     // Models:零探测徽章 + UNREGISTERED 分类如实
     await page.goto(`${base}/models.html`);
     await page.waitForSelector('[data-testid="provider-body"]');
@@ -374,12 +396,16 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     const dbWorker = await textOf(page, '[data-testid="db-worker-body"]');
     expect(dbWorker).toContain("可用");
     expect(dbWorker).toContain("PostgreSQL");
-    // Dashboard 总览条(P0-UI-1)
+    // 工作台首页(WEB-UX-02 §5/§6):主问句 Hero + 四区(正在处理/等待我决定/最近完成/有问题)
     await page.goto(`${base}/`);
-    await page.waitForSelector('[data-testid="overview-body"]');
-    const overview = await textOf(page, '[data-testid="overview-body"]');
-    expect(overview).toContain("Relay");
-    expect(overview).toContain("GitHub Delivery");
+    const hero = await textOf(page, ".hero-title");
+    expect(hero).toContain("今天想让 Relay 做什么");
+    await page.waitForSelector('[data-testid="active-body"]');
+    await page.waitForSelector('[data-testid="decisions-summary"]');
+    await page.waitForSelector('[data-testid="recent-body"]');
+    await page.waitForSelector('[data-testid="issues-body"]');
+    const heroInput = await page.locator('[data-testid="goal-input"]').count();
+    expect(heroInput).toBe(1);
     // 手机视口(390×844):Dashboard/Decision 页 body 无横向溢出
     await page.setViewportSize({ width: 390, height: 844 });
     for (const p of ["/", "/decisions.html", "/system.html", "/projects.html", "/models.html", "/goal.html", "/changeset.html"]) {
@@ -520,8 +546,15 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
     const remoteHead = execFileSync("git", ["-C", remote.dir, "rev-parse", "refs/heads/main"], { encoding: "utf8" }).trim();
     expect(remoteHead).toBe(String(csRow.rows[0]!["git_commit_sha"]));
 
-    // UI:ChangeSet/Evidence 页三 SHA 分列、Gate 已消费、交付状态 DELIVERED
+    // UI:验收结果页第一屏=摘要;三 SHA 在技术证据折叠区(WEB-UX-02 §11)
     await page.goto(`${base}/changeset.html?id=${encodeURIComponent(changesetId)}`);
+    const summaryTitle = await textOf(page, '[data-testid="result-title"]');
+    expect(summaryTitle).toBe("已完成");
+    const files = await textOf(page, '[data-testid="result-files"]');
+    expect(files).toContain("个文件");
+    const github = await textOf(page, '[data-testid="result-github"]');
+    expect(github).toContain("已提交到仓库");
+    await openTech(page, "cs-tech");
     await page.waitForSelector('[data-testid="sha-commit"]');
     const cand = await textOf(page, '[data-testid="sha-candidate"]');
     const tree = await textOf(page, '[data-testid="sha-tree"]');
@@ -540,8 +573,8 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
     const head = await textOf(page, '[data-testid="delivery-remote-head"]');
     expect(head.slice(0, 12)).toBe(commit.slice(0, 12));
     const caveat = await textOf(page, '[data-testid="delivery-caveat"]');
-    expect(caveat).toContain("NOT_VERIFIED");
     expect(caveat).toContain("GitHub");
+    expect(caveat).toContain("尚未接入");
     await shot(page, "j4-changeset-delivered.png");
     s.log.log(`J4 OK:全链 DELIVERED(远端 HEAD=${remoteHead.slice(0, 12)});UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED`);
     await dumpDbState(s, "J4 after delivery");
@@ -550,11 +583,13 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
   it("J5 刷新与断线重连:页面状态始终与 PostgreSQL 一致;断线时显示『连接中断』而非陈旧值冒充实时", async () => {
     const { page, base } = s;
     await page.goto(`${base}/changeset.html?id=${encodeURIComponent(changesetId)}`);
+    await openTech(page, "cs-tech");
     await page.waitForSelector('[data-testid="sha-commit"]');
     const before = await textOf(page, '[data-testid="sha-commit"]');
 
-    // 刷新:值不变(与 DB 一致)
+    // 刷新:值不变(与 DB 一致;刷新后技术折叠区默认关闭,先重新展开)
     await page.reload();
+    await openTech(page, "cs-tech");
     await page.waitForSelector('[data-testid="sha-commit"]');
     expect(await textOf(page, '[data-testid="sha-commit"]')).toBe(before);
 

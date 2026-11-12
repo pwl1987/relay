@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Relay 控制台 · ChangeSet / Evidence</title>
+    <title>Relay · 验收结果</title>
     <link rel="icon" href="data:," />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f1115" />
+    <meta name="theme-color" content="#f4f5f7" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -15,52 +15,63 @@
     <main>
       <div id="conn-banner" hidden data-testid="conn-banner"></div>
       <div class="toolbar">
-        <h1>ChangeSet / Evidence</h1>
+        <h1>验收结果</h1>
         <span class="spacer"></span>
         <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
-        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
       </div>
 
       <section class="card" id="picker-card">
-        <h2>选择变更集</h2>
+        <h2>全部结果</h2>
         <div id="cs-picker" data-testid="cs-picker"><span class="empty">读取中…</span></div>
       </section>
 
       <div id="cs-detail" data-testid="cs-detail" hidden>
-        <section class="card">
-          <h2>变更集与三 SHA</h2>
-          <div id="cs-header" data-testid="cs-header"></div>
+        <!-- WEB-UX-02 §11:第一屏=结果摘要,不堆日志 -->
+        <section class="card result-hero">
+          <h2 id="result-title" data-testid="result-title">结果</h2>
+          <div id="result-summary" data-testid="result-summary"></div>
+          <div class="row result-links mt8" id="result-links"></div>
         </section>
 
-        <section class="card mt14">
-          <h2>Diff 摘要</h2>
-          <div id="cs-diff" data-testid="cs-diff"></div>
-        </section>
+        <details class="tech-details mt14" id="cs-tech">
+          <summary class="dim">查看技术证据(Diff / 三 SHA / Gate / 运行记录)</summary>
 
-        <section class="card mt14">
-          <h2>Diff Viewer(只读)</h2>
-          <div id="cs-full-diff" data-testid="cs-full-diff"></div>
-        </section>
+          <section class="card mt14">
+            <h2>变更集与内容标识</h2>
+            <div id="cs-header" data-testid="cs-header"></div>
+          </section>
 
-        <section class="card mt14">
-          <h2>独立 Review 与 Gate</h2>
-          <div id="cs-gates" data-testid="cs-gates"></div>
-        </section>
+          <section class="card mt14">
+            <h2>修改了哪些文件</h2>
+            <div id="cs-diff" data-testid="cs-diff"></div>
+          </section>
 
-        <section class="card mt14">
-          <h2>真实测试证据</h2>
-          <div id="cs-evidence" data-testid="cs-evidence"></div>
-        </section>
+          <section class="card mt14">
+            <h2>完整 Diff(只读)</h2>
+            <div id="cs-full-diff" data-testid="cs-full-diff"></div>
+          </section>
 
-        <section class="card mt14">
-          <h2>交付状态</h2>
-          <div id="cs-delivery" data-testid="cs-delivery"></div>
-        </section>
+          <section class="card mt14">
+            <h2>独立复核与 Gate</h2>
+            <div id="cs-gates" data-testid="cs-gates"></div>
+          </section>
 
-        <section class="card mt14">
-          <h2>运行记录</h2>
-          <div id="cs-runs" data-testid="cs-runs"></div>
-        </section>
+          <section class="card mt14">
+            <h2>测试证据</h2>
+            <div id="cs-evidence" data-testid="cs-evidence"></div>
+          </section>
+
+          <section class="card mt14">
+            <h2>交付状态</h2>
+            <div id="cs-delivery" data-testid="cs-delivery"></div>
+          </section>
+
+          <section class="card mt14">
+            <h2>运行记录</h2>
+            <div id="cs-runs" data-testid="cs-runs"></div>
+          </section>
+        </details>
       </div>
     </main>
     <script src="/app.js"></script>

@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Relay 控制台 · Decision Inbox</title>
+    <title>Relay · 待我决定</title>
     <link rel="icon" href="data:," />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f1115" />
+    <meta name="theme-color" content="#f4f5f7" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -15,28 +15,28 @@
     <main>
       <div id="conn-banner" hidden data-testid="conn-banner"></div>
       <div class="toolbar">
-        <h1>Decision Inbox</h1>
+        <h1>待我决定</h1>
         <span class="spacer"></span>
         <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
-        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
       </div>
 
+      <!-- WEB-UX-02 §10:用户语言;铁律不变(永不自动批准/无批量批准入口) -->
       <div class="notice info" data-testid="d3-policy-notice">
-        <strong>D3 永不超时自动批准。</strong>
+        <strong>Relay 永不自动批准。</strong>
         <span
-          >本页没有、也不会有"超时自动通过"或"批量批准"入口:D3 超时只会把决策标记为
-          <code>EXPIRED_STILL_BLOCKED</code>,任务停留在 <code>NEEDS_DECISION</code> 等待人裁决。
-          推迟只延长截止时间,不改变决策状态,也不构成批准。</span
+          >这里列出的事都需要你亲自拍板:不会因为超时就自动通过,也没有"批量批准"入口。
+          每一项都会告诉你发生了什么、系统推荐怎么办、为什么、以及风险是什么。"稍后决定"只是延后提醒,不算批准。</span
         >
       </div>
 
-      <section class="card">
-        <h2>待裁决</h2>
+      <section class="card mt14">
+        <h2>等你处理</h2>
         <div id="decisions-open" data-testid="decisions-open"><span class="empty">读取中…</span></div>
       </section>
 
       <section class="card mt14">
-        <h2>已裁决(历史)</h2>
+        <h2>已处理</h2>
         <div id="decisions-history" data-testid="decisions-history"><span class="empty">读取中…</span></div>
       </section>
     </main>

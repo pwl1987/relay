@@ -104,8 +104,10 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
     const list = await decisionListView(t.db);
     const d = list.find((x) => x.id === "d-1");
     expect(d).toBeTruthy();
-    expect(d!.guidance.why).toContain("D3");
-    expect(d!.guidance.why).toContain("NEEDS_DECISION");
+    // WEB-UX-02:guidance 改用户语言 —— 不再把内部级别/枚举(D3/NEEDS_DECISION)直显给普通用户
+    expect(d!.guidance.why).toContain("需要你亲自决定");
+    expect(d!.guidance.why).not.toContain("D3");
+    expect(d!.guidance.why).not.toContain("NEEDS_DECISION");
     expect(d!.guidance.recommended).toBe("暂缓推送,先人工核对远端 HEAD");
     expect(d!.guidance.alternatives).toEqual(["放弃本次候选", "改走新分支"]);
     expect(d!.guidance.risk).toBe("覆盖远端历史且不可逆");

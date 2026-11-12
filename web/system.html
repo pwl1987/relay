@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Relay 控制台 · System</title>
+    <title>Relay · 系统状态</title>
     <link rel="icon" href="data:," />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f1115" />
+    <meta name="theme-color" content="#f4f5f7" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -15,10 +15,10 @@
     <main>
       <div id="conn-banner" hidden data-testid="conn-banner"></div>
       <div class="toolbar">
-        <h1>System</h1>
+        <h1>系统状态</h1>
         <span class="spacer"></span>
         <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
-        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
       </div>
 
       <div class="grid">
@@ -28,24 +28,40 @@
         </section>
 
         <section class="card">
-          <h2>PostgreSQL / Worker</h2>
+          <h2>数据库与执行器</h2>
           <div id="db-worker-body" data-testid="db-worker-body"><span class="empty">读取中…</span></div>
         </section>
 
         <section class="card">
-          <h2>GitHub / Provider</h2>
+          <h2>GitHub 与模型服务</h2>
           <div id="github-provider-body" data-testid="github-provider-body"><span class="empty">读取中…</span></div>
         </section>
       </div>
 
+      <!-- WEB-UX-02 §6:从首页迁入的技术面板 -->
       <section class="card mt14">
         <h2>最近异常</h2>
         <div id="errors-body" data-testid="errors-body"><span class="empty">读取中…</span></div>
       </section>
 
+      <section class="card mt14">
+        <h2>预算账本</h2>
+        <div id="system-budget" data-testid="system-budget"><span class="empty">读取中…</span></div>
+      </section>
+
+      <section class="card mt14">
+        <h2>能力登记表</h2>
+        <div id="capabilities-body" data-testid="capabilities-body"><span class="empty">读取中…</span></div>
+      </section>
+
+      <section class="card mt14">
+        <h2>最近审计事件</h2>
+        <div id="system-audit" data-testid="system-audit"><span class="empty">读取中…</span></div>
+      </section>
+
       <p class="small dim mt8">
-        本页全部为只读事实(OPERATOR-CONSOLE-00):HEAD 取自仓库 git(1h 缓存);DB 探活=SELECT version();
-        Provider 零探测;凭据零展示。网络边界:本控制台仅 LAN + VPN,禁止公网暴露。
+        本页全部为只读事实:HEAD 取自仓库 git(1h 缓存);DB 探活=SELECT version();模型服务零探测;凭据零展示。
+        网络边界:本工作台仅 LAN + VPN,禁止公网暴露。
       </p>
     </main>
     <script src="/app.js"></script>

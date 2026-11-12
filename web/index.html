@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Relay 控制台 · Dashboard</title>
+    <title>Relay · 工作台</title>
     <link rel="icon" href="data:," />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f1115" />
+    <meta name="theme-color" content="#f4f5f7" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -14,64 +14,44 @@
     <header class="app-header" id="app-header"></header>
     <main>
       <div id="conn-banner" hidden data-testid="conn-banner"></div>
-      <div class="toolbar">
-        <h1>Dashboard</h1>
-        <span class="spacer"></span>
+
+      <div class="toolbar toolbar-sub">
         <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
-        <button class="btn" id="btn-tick" type="button" data-testid="btn-tick">推进一拍(Worker)</button>
-        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+        <button class="btn btn-ghost btn-sm" id="btn-tick" type="button" data-testid="btn-tick">推进一拍</button>
       </div>
 
-      <div class="grid">
-        <section class="card wide" id="overview-card">
-          <h2>总览</h2>
-          <div id="overview-body" data-testid="overview-body"><span class="empty">读取中…</span></div>
+      <!-- WEB-UX-02 §5:首屏=一句话开始 -->
+      <section class="hero" id="new-goal">
+        <h1 class="hero-title">今天想让 Relay 做什么?</h1>
+        <p class="hero-sub">选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。</p>
+        <div id="new-goal-form"><span class="empty">正在准备…</span></div>
+      </section>
+
+      <!-- WEB-UX-02 §6:首页只保留用户真正关心的四区 -->
+      <section class="card mt14" id="sec-active">
+        <h2>正在处理</h2>
+        <div id="active-body" data-testid="active-body"><span class="empty">读取中…</span></div>
+      </section>
+
+      <div class="grid mt14">
+        <section class="card" id="sec-decisions">
+          <h2>等待我决定<span id="home-decision-count" class="count-chip" hidden></span></h2>
+          <div id="decisions-summary" data-testid="decisions-summary"><span class="empty">读取中…</span></div>
+          <p class="small mt8" id="decisions-more" hidden><a href="/decisions.html">全部待决定事项 →</a></p>
         </section>
 
-        <section class="card" id="health-card">
-          <h2>运行健康</h2>
-          <div id="health-body" data-testid="health-body"><span class="empty">读取中…</span></div>
-        </section>
-
-        <section class="card">
-          <h2>任务状态统计</h2>
-          <div id="task-counts" data-testid="task-counts"><span class="empty">读取中…</span></div>
-        </section>
-
-        <section class="card">
-          <h2>预算消耗</h2>
-          <div id="budget-body" data-testid="budget-body"><span class="empty">读取中…</span></div>
-        </section>
-
-        <section class="card">
-          <h2>阻塞与待裁决</h2>
-          <div id="blocked-body" data-testid="blocked-body"><span class="empty">读取中…</span></div>
-        </section>
-
-        <section class="card">
-          <h2>异常</h2>
-          <div id="anomalies-body" data-testid="anomalies-body"><span class="empty">读取中…</span></div>
-        </section>
-
-        <section class="card">
-          <h2>最新进展(审计)</h2>
-          <div id="audit-body" data-testid="audit-body"><span class="empty">读取中…</span></div>
+        <section class="card" id="sec-recent">
+          <h2>最近完成</h2>
+          <div id="recent-body" data-testid="recent-body"><span class="empty">读取中…</span></div>
         </section>
       </div>
 
-      <section class="card mt14">
-        <h2>Goal 状态</h2>
-        <div id="goals-body" data-testid="goals-body"><span class="empty">读取中…</span></div>
-      </section>
-
-      <section class="card mt14" id="new-goal">
-        <h2>新建 Goal</h2>
-        <div id="new-goal-form"><span class="empty">读取项目注册表…</span></div>
-      </section>
-
-      <section class="card mt14">
-        <h2>能力登记表</h2>
-        <div id="capabilities-body" data-testid="capabilities-body"><span class="empty">读取中…</span></div>
+      <section class="card mt14" id="sec-issues">
+        <h2>有问题</h2>
+        <div id="issues-body" data-testid="issues-body"><span class="empty">读取中…</span></div>
+        <div class="mt8" id="anomalies-wrap" data-testid="anomalies-body"></div>
       </section>
     </main>
     <script src="/app.js"></script>

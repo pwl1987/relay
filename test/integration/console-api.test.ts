@@ -112,7 +112,9 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
 
   it("GET /api/projects:未配置注册文件 ⇒ configured=false + 引导说明(P0-UI-2)", async () => {
     const saved = process.env["RELAY_PROJECTS_FILE"];
-    delete process.env["RELAY_PROJECTS_FILE"];
+    // WEB-UX-02 修正:不依赖"仓库恰无 config/projects.json"(部署实例会在运行时创建该文件),
+    // 显式指向一个确定不存在的路径,与机器状态解耦。
+    process.env["RELAY_PROJECTS_FILE"] = join(tmpdir(), "relay-test-no-registry-" + Date.now() + ".json");
     try {
       const res = await api("GET", "/api/projects");
       expect(res.status).toBe(200);
@@ -122,6 +124,7 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
       expect(String(p["note"])).toContain("projects.json");
     } finally {
       if (saved !== undefined) process.env["RELAY_PROJECTS_FILE"] = saved;
+      else delete process.env["RELAY_PROJECTS_FILE"];
     }
   });
 

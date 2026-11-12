@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Relay 控制台 · Projects</title>
+    <title>Relay · 项目</title>
     <link rel="icon" href="data:," />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f1115" />
+    <meta name="theme-color" content="#f4f5f7" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -15,19 +15,19 @@
     <main>
       <div id="conn-banner" hidden data-testid="conn-banner"></div>
       <div class="toolbar">
-        <h1>Projects</h1>
+        <h1>项目</h1>
         <span class="spacer"></span>
         <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
-        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
       </div>
 
       <section class="card">
-        <h2>已接入项目</h2>
         <div id="projects-body" data-testid="projects-body"><span class="empty">读取中…</span></div>
+        <!-- 共享新建表单:点项目卡片的「开始一个需求」移入对应卡片 -->
+        <div id="project-form-host" hidden></div>
         <p class="small dim mt8">
-          来源=<code>config/projects.json</code>(或环境变量 <code>RELAY_PROJECTS_FILE</code>),格式:
-          <code>{"projects":[{"name":"…","path":"/绝对路径","repo":"https://github.com/…","branch":"main"}]}</code>。
-          健康=本地目录/git 只读事实(零网络);Goal 关联经任务 allowed_scope 前缀匹配。本页仅观察,不做多仓调度。
+          项目来自注册文件 <code>config/projects.json</code>(或环境变量 <code>RELAY_PROJECTS_FILE</code>);
+          健康状态=本地目录与 git 的只读事实,零网络;任务与项目的关联按授权作用域匹配。本页不做多仓调度。
         </p>
       </section>
     </main>
