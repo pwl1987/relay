@@ -256,7 +256,26 @@
       worker.lastTick ? h("span", { class: "small dim", text: "最近 tick " + worker.lastTick.status }) : h("span", { class: "small dim", text: "独立进程推进" }),
       extras.lastWorkerHeartbeat ? h("span", { class: "small dim", text: "· 租约心跳 " + A.fmtTime(extras.lastWorkerHeartbeat) }) : null,
     );
-    return h("div", { class: "stack" }, left, curLine, deliveryLine, providerLine, workerLine);
+    // 最近完成任务(REVIEW F-1:合同要件;数据来自 extras.recentCompleted,空态如实)
+    const recent = extras.recentCompleted || [];
+    const recentLine = h(
+      "div",
+      { class: "row", "data-testid": "overview-recent-completed" },
+      h("span", { class: "dim small", text: "最近完成任务:" }),
+      recent.length
+        ? recent.map(function (r) {
+            return h(
+              "span",
+              { class: "row small", "data-testid": "overview-recent-" + r.taskId },
+              A.badge(r.deliveryState, A.stateKind(r.deliveryState)),
+              h("span", { class: "mono small", text: r.taskId }),
+              r.commitSha ? h("span", { class: "mono small dim", text: A.short(r.commitSha, 10) }) : null,
+              h("span", { class: "small dim", text: r.changedFiles + " 文件" + (r.deliveredAt ? " · " + A.fmtTime(r.deliveredAt) : "") }),
+            );
+          })
+        : h("span", { class: "small dim", text: "尚无交付记录" }),
+    );
+    return h("div", { class: "stack" }, left, curLine, deliveryLine, providerLine, workerLine, recentLine);
   }
 
   async function refresh() {

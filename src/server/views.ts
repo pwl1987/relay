@@ -1599,8 +1599,8 @@ function repoRootFromModule(): string {
 
 function readProjectRegistry(): { source: string | null; projects: Array<{ name: string; path: string; repo?: string; branch?: string }> } {
   const explicit = process.env.RELAY_PROJECTS_FILE;
-  const defau1t = join(repoRootFromModule(), "config", "projects.json");
-  const file = explicit && explicit.trim() ? explicit : defau1t;
+  const defaultRegistryPath = join(repoRootFromModule(), "config", "projects.json");
+  const file = explicit && explicit.trim() ? explicit : defaultRegistryPath;
   try {
     const raw = readFileSync(file, "utf8");
     const parsed = JSON.parse(raw) as { projects?: unknown };
@@ -1903,7 +1903,7 @@ export async function systemView(db: RelayDb, workerInfo: WorkerRuntimeInfo): Pr
     WHERE outcome IN ('FAILED','TIMEOUT','INTERRUPTED','CANCELLED') ORDER BY started_at DESC LIMIT 5
   `);
   const errDelivery = await exec.execute(sql`
-    SELECT id, delivery_state, task_id FROM candidate_changesets
+    SELECT id, delivery_state, task_id, created_at FROM candidate_changesets
     WHERE delivery_state IN ('CONFLICT','FAILED') ORDER BY created_at DESC LIMIT 3
   `);
   const errAudit = await exec.execute(sql`
@@ -1915,7 +1915,7 @@ export async function systemView(db: RelayDb, workerInfo: WorkerRuntimeInfo): Pr
     recentErrors.push({ kind: "run_" + str(r["outcome"]).toLowerCase(), subject: str(r["id"]), detail: str(r["reason"]) || "无原因记录", ts: iso(r["started_at"]) });
   }
   for (const r of errDelivery.rows) {
-    recentErrors.push({ kind: "delivery_" + str(r["delivery_state"]).toLowerCase(), subject: str(r["id"]), detail: "任务 " + str(r["task_id"]) + " 交付异常", ts: null });
+    recentErrors.push({ kind: "delivery_" + str(r["delivery_state"]).toLowerCase(), subject: str(r["id"]), detail: "任务 " + str(r["task_id"]) + " 交付异常", ts: iso(r["created_at"]) });
   }
   for (const r of errAudit.rows) {
     const detail = json<Record<string, unknown>>(r["detail"], {});

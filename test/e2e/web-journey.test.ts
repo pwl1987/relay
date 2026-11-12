@@ -382,7 +382,7 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     expect(overview).toContain("GitHub Delivery");
     // 手机视口(390×844):Dashboard/Decision 页 body 无横向溢出
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const p of ["/", "/decisions.html", "/system.html"]) {
+    for (const p of ["/", "/decisions.html", "/system.html", "/projects.html", "/models.html", "/goal.html", "/changeset.html"]) {
       await page.goto(`${base}${p}`);
       await page.waitForSelector('[data-testid="data-stamp"]');
       const overflow = await page.evaluate((): number => {

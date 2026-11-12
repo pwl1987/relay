@@ -78,6 +78,7 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
     const delivered = x.recentCompleted.find((r) => r.taskId === "t-done");
     expect(delivered?.commitSha).toBe("commit");
     expect(delivered?.changedFiles).toBe(1);
+    expect(delivered?.deliveredAt).toBeTruthy();
   });
 
   it("P0-UI-3 goalDetailView.progress:执行中/已交付/等待决策三态阶段推导正确", async () => {
