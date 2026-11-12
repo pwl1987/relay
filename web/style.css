@@ -179,7 +179,8 @@ h3.mt0 { margin-top: 0; }
 /* ---------------- 表格(仅技术详情区使用) ---------------- */
 
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 460px; } /* m9:防表头截断;窄容器横向滚动 */
+td a { white-space: nowrap; } /* m2:动作链接不再逐字竖排断行 */
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--muted); font-weight: 600; white-space: nowrap; background: var(--panel-2); }
 tbody tr:last-child td { border-bottom: none; }

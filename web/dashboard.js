@@ -1,5 +1,5 @@
 // 工作台(首页,WEB-UX-02 §5/§6):一句话开始 + 四区(正在处理/等待我决定/最近完成/有问题)。
-// 只读为主 + 两个写动作(开始处理 / 推进一拍);技术细节(Worker/PG/预算/审计)已移入「系统状态」页。
+// 只读为主 + 写动作(开始处理);运维动作「推进一拍」已按 Reviewer m4 移入「系统状态」页。
 (function () {
   "use strict";
   const A = window.RelayApp;
@@ -119,23 +119,26 @@
     return ul;
   }
 
-  // 有问题:被阻塞/失败的任务 + 系统异常(种类转中文,细节保留)
+  // 有问题:被阻塞(无待决策的)/失败的任务 + 系统异常;与"等待我决定"去重(m3),条目用原因与短标识(m7)
   function issuesBlock(d) {
     const ul = h("ul", { class: "plain item-list" });
-    (d.blocked || []).forEach(function (t) {
-      ul.appendChild(
-        h(
-          "li",
-          { "data-testid": "issue-task-" + t.taskId },
-          h("div", { class: "row item-row" },
-            h("span", { class: "row-title mono-sm", text: t.taskId }),
-            A.badge(A.zh(t.state), A.stateKind(t.state)),
-            t.openDecision ? h("a", { class: "small", href: "/decisions.html", text: "需要你决定 →" }) : null,
+    (d.blocked || [])
+      .filter(function (t) {
+        return !t.openDecision; // 有待决策的进"等待我决定",这里不重复列
+      })
+      .forEach(function (t) {
+        ul.appendChild(
+          h(
+            "li",
+            { "data-testid": "issue-task-" + t.taskId },
+            h("div", { class: "row item-row" },
+              h("span", { class: "row-title", text: t.blockedReason || "任务被阻塞" }),
+              A.badge(A.zh(t.state), A.stateKind(t.state)),
+            ),
+            h("div", { class: "small dim mono-sm", text: "任务 " + A.short(t.taskId, 12) + " · 尝试 " + t.attempt + "/" + t.maxAttempts }),
           ),
-          h("div", { class: "small dim", text: t.blockedReason || (t.openDecision ? t.openDecision.question : "") }),
-        ),
-      );
-    });
+        );
+      });
     (d.goals || [])
       .filter(function (g) {
         return DONE_BAD.indexOf(g.state) >= 0;
@@ -200,27 +203,11 @@
     }
   }
 
-  async function tick() {
-    const btn = document.getElementById("btn-tick");
-    btn.disabled = true;
-    const msg = document.getElementById("create-msg");
-    try {
-      const res = await A.apiPost("/api/worker/tick", {});
-      msg.textContent = "推进结果:" + (res.tick && res.tick.status ? A.zh(res.tick.status) : JSON.stringify(res).slice(0, 120));
-    } catch (e) {
-      msg.textContent = "推进失败:" + ((e && e.message) || e);
-    } finally {
-      btn.disabled = false;
-      await refresh();
-    }
-  }
-
   A.boot("dashboard", async function () {
     const form = A.renderGoalForm({});
     const host = document.getElementById("new-goal-form");
     host.textContent = "";
     host.appendChild(form.wrap);
-    document.getElementById("btn-tick").addEventListener("click", tick);
     document.getElementById("btn-refresh").addEventListener("click", refresh);
     await refresh();
     A.poll(refresh);

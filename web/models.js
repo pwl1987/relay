@@ -108,7 +108,7 @@
   }
 
   function discoveriesBlock(v) {
-    if (!v.recentDiscoveries.length) return h("p", { class: "empty", text: "尚无 Discovery 记录" });
+    if (!v.recentDiscoveries.length) return h("p", { class: "empty", text: "尚无需求分析记录" });
     const ul = h("ul", { class: "plain" });
     v.recentDiscoveries.forEach(function (d) {
       ul.appendChild(

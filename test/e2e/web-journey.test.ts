@@ -271,11 +271,12 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     const taskB = String(taskBRow.rows[0]!["id"]);
 
     // 通过 UI 推进若干拍(每拍只领一个任务;队列里还有 J1 遗留的 READY 任务,
-    // 所以循环推进直到目标 B 到达终态 —— 期间 A 被 D3 卡住,绝不越权推进)
+    // 所以循环推进直到目标 B 到达终态 —— 期间 A 被 D3 卡住,绝不越权推进。
+    // WEB-UX-02 m4:推进一拍为运维动作,已移至系统状态页)
     for (let i = 0; i < 5; i++) {
-      await page.goto(`${base}/`);
+      await page.goto(`${base}/system.html`);
       await page.click('[data-testid="btn-tick"]');
-      await page.locator("#create-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
+      await page.locator("#tick-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
       const b = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskB}`);
       if (["ACCEPTED", "FAILED", "CANCELLED"].includes(String(b.rows[0]!["state"]))) break;
     }
@@ -328,9 +329,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       await loginViaUi(crash.page, crash.base);
       const goalC = await createGoalViaUi(crash.page, crash.base, "目标C:Worker 中途崩溃的任务");
       expect(goalC).toBeTruthy();
-      await crash.page.goto(`${crash.base}/`);
+      await crash.page.goto(`${crash.base}/system.html`);
       await crash.page.click('[data-testid="btn-tick"]');
-      await crash.page.locator("#create-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
+      await crash.page.locator("#tick-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
 
       // DB 事实:Run FAILED(rpc_disconnect/进程退出),任务回到 READY(有界重试,attempt+1)
       const runRow = await crash.t.db.execute(sql`SELECT outcome, detail->>'reason' AS reason FROM runs ORDER BY started_at DESC LIMIT 1`);
@@ -532,9 +533,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
     const taskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${goalD}`);
     const taskD = String(taskRow.rows[0]!["id"]);
 
-    await page.goto(`${base}/`);
+    await page.goto(`${base}/system.html`);
     await page.click('[data-testid="btn-tick"]');
-    await page.locator("#create-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
+    await page.locator("#tick-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
 
     // DB 事实:全链 DELIVERED
     const csRow = await t.db.execute(sql`

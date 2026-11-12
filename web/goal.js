@@ -87,11 +87,11 @@
     else if (cs.some(function (x) { return x.deliveryState === "DELIVERING"; })) push("正在交付", "running", "正在交付");
     else if (cs.some(function (x) { return x.deliveryState === "CONFLICT" || x.deliveryState === "FAILED"; })) push("正在交付", "failed", "交付遇到问题,需要处理");
     else push("正在交付", "waiting", "通过复核后自动交付");
-    // 8 完成
+    // 8 完成(m5:注记消除"完成/等待中/进行中"语义矛盾)
     if (cs.some(function (x) { return x.deliveryState === "DELIVERED"; })) push("完成", "passed", "全部完成,可到「验收结果」查看");
     else if (DONE_OK.indexOf(g.goal.state) >= 0) push("完成", "passed", "任务已完成");
     else if (DONE_BAD.indexOf(g.goal.state) >= 0) push("完成", "failed", "任务未能完成");
-    else push("完成", "waiting", "进行中");
+    else push("完成", "waiting", "前面的步骤完成后,这里会变为已完成");
 
     const cls = { passed: "tl-passed", running: "tl-running", failed: "tl-failed", rework: "tl-rework", waiting: "" };
     const chip = { passed: ["已完成", "ok"], running: ["进行中", "info"], failed: ["有问题", "bad"], rework: ["正在返工", "warn"], waiting: ["等待中", "default"] };

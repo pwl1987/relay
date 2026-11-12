@@ -174,9 +174,10 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     goalDone = await createGoal(page, base, "生成 delivered.txt 内容为 ok(视觉旅程)");
     const bRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${goalDone} LIMIT 1`);
     const taskB = String(bRow.rows[0]!["id"]);
-    await page.goto(`${base}/`);
+    await page.goto(`${base}/system.html`);
+    await page.waitForSelector('[data-testid="btn-tick"]');
     await page.click('[data-testid="btn-tick"]');
-    await page.locator("#create-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
+    await page.locator("#tick-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
     const csRow = await t.db.execute(sql`
       SELECT id FROM candidate_changesets WHERE task_id = ${taskB} ORDER BY created_at DESC LIMIT 1
     `);
@@ -226,6 +227,12 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     await shot(page, "d6-1440-projects.png");
     await page.click('[data-testid="project-ask-试点项目"]');
     await page.waitForSelector('[data-testid="goal-input"]');
+    // m10:等待项目被预选(而非停留在"请选择一个项目")
+    await page.waitForFunction(() => {
+      const g = globalThis as unknown as { document: { querySelector: (s: string) => { value: string } | null } };
+      const sel = g.document.querySelector('[data-testid="goal-project"]');
+      return !!sel && sel.value === "试点项目";
+    }, undefined, { timeout: 15000 });
     await shot(page, "d6b-1440-project-form.png");
     // 7 AI 资源 / 系统状态
     await page.goto(`${base}/models.html`);
@@ -261,9 +268,10 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     await page.waitForSelector('[data-testid="mobile-topbar"]');
     await page.waitForSelector('[data-testid="goal-input"]');
     await shot(page, "p1-390-workbench.png");
-    // 抽屉打开
+    // 抽屉打开(m1:等滑入动画结束再截,截图须能证明抽屉完整可用)
     await page.click("#btn-burger");
     await page.waitForSelector("#app-sidebar.open");
+    await page.waitForTimeout(350);
     await shot(page, "p2-390-drawer.png");
     await page.click("#btn-burger");
     // 任务详情(时间线 + 需要你决定提示)

@@ -14,7 +14,7 @@
     const gatePass = d.gates.some(function (x) { return x.verdict === "PASS"; });
     const gateBlock = d.gates.some(function (x) { return x.verdict === "BLOCK" || x.verdict === "REWORK"; });
 
-    const deliveryLabel = { DELIVERED: "已提交到仓库", DELIVERING: "正在提交", SUBMITTED: "待提交", VERIFIED: "已核实", NOT_VERIFIED: "未核实", CONFLICT: "有冲突,需要处理", FAILED: "提交失败", BLOCKED: "已阻止", REWORK: "正在返工", UNKNOWN: "状态未知" };
+    const deliveryLabel = { DELIVERED: "已提交到仓库", DELIVERING: "正在提交", SUBMITTED: "待提交", VERIFIED: "已核实", NOT_VERIFIED: "未核实", NONE: "尚未交付", CONFLICT: "有冲突,需要处理", FAILED: "提交失败", BLOCKED: "已阻止", REWORK: "正在返工", UNKNOWN: "状态未知" };
     const deliveryText = deliveryLabel[c.deliveryState] || A.zh(c.deliveryState);
 
     const items = [];

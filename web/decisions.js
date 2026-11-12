@@ -25,10 +25,11 @@
         h("div", { class: "q-text", "data-testid": "decision-impact-" + d.id, text: g.impactOfNoAction || d.timeoutBehavior })),
     );
 
-    // 其他方案(展开):备选 + 影响面 + 可逆性 + 拒绝入口
+    // 其他方案(展开):备选 + 影响面 + 可逆性 + 拒绝入口(m6:折叠标题明示拒绝选项;m7:内部标识移入此处)
     const alt = h(
       "div",
       { class: "alt-panel", "data-testid": "decision-alternatives-" + d.id },
+      h("p", { class: "mono-sm dim", text: "事项编号 " + d.id }),
       h("h3", { text: "其他方案" }),
       g.alternatives && g.alternatives.length
         ? h("ul", { class: "plain" }, g.alternatives.map(function (x) { return h("li", { text: x }); }))
@@ -60,7 +61,7 @@
       A.badge(A.zh(d.level), d.level === "D3" ? "warn" : "info"),
       pending ? A.badge("待处理", "warn") : A.badge(A.zh(d.state), A.stateKind(d.state)),
       h("span", { class: "small dim", text: "提出于 " + A.fmtTime(d.createdAt) + (d.deadline ? " · 建议在 " + A.fmtTime(d.deadline) + " 前处理" : "") }),
-      h("span", { class: "mono-sm dim spacer-r", text: d.id }),
+      // m7:内部标识不再出现在用户主视图,移入折叠区
     );
 
     return h(
@@ -70,7 +71,7 @@
       h("div", { class: "decision-question", text: d.question }),
       h("div", { class: "stack" }, body),
       h("details", { class: "tech-details" },
-        h("summary", { class: "dim", text: "查看其他方案与影响范围" }),
+        h("summary", { class: "dim", text: pending ? "查看其他方案、影响范围与拒绝选项" : "查看其他方案与影响范围" }),
         h("div", { class: "mt8" }, alt),
         pending
           ? h("div", { class: "row mt8" },

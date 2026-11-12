@@ -56,7 +56,8 @@
     if (!v) return "—";
     const d = new Date(v);
     if (isNaN(d.getTime())) return String(v);
-    return d.toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
+    // WEB-UX-02 m8:本地时区 + 中文格式,不再直出 UTC "Z" 后缀(技术详情区如需原始值见 API)
+    return d.toLocaleString("zh-CN", { hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
   }
 
   /** 秒 ⇒ 人读时长(Goal elapsed 用)。 */
@@ -115,6 +116,7 @@
     DELIVERING: "交付中",
     VERIFIED: "已核实",
     NOT_VERIFIED: "未核实",
+    NONE: "尚未交付",
     UNKNOWN: "未知",
     // Gate 裁决
     PASS: "已通过",

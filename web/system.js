@@ -204,8 +204,25 @@
     }
   }
 
+  // 运维动作:推进一拍(Reviewer m4:从工作台迁入系统状态页;零模型门禁语义不变)
+  async function tick() {
+    const btn = document.getElementById("btn-tick");
+    const msg = document.getElementById("tick-msg");
+    btn.disabled = true;
+    try {
+      const res = await A.apiPost("/api/worker/tick", {});
+      msg.textContent = "推进结果:" + (res.tick && res.tick.status ? A.zh(res.tick.status) : JSON.stringify(res).slice(0, 120));
+    } catch (e) {
+      msg.textContent = "推进失败:" + ((e && e.message) || e);
+    } finally {
+      btn.disabled = false;
+      await refresh();
+    }
+  }
+
   A.boot("system", async function () {
     document.getElementById("btn-refresh").addEventListener("click", refresh);
+    document.getElementById("btn-tick").addEventListener("click", tick);
     await refresh();
     A.poll(refresh);
   });

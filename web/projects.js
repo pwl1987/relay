@@ -18,25 +18,21 @@
     return sharedForm;
   }
 
-  /** 把共享表单移进项目卡片并预选该项目。 */
-  function startInProject(p, slot) {
+  /** 把共享表单移进项目卡片并预选该项目(m10:显式等列表加载完成后再选中)。 */
+  async function startInProject(p, slot) {
     const form = ensureForm();
+    await form.loadProjects();
     slot.textContent = "";
     slot.appendChild(form.wrap);
     formHost.hidden = false;
     if (form.select) {
-      const trySet = function () {
-        const opt = Array.prototype.find.call(form.select.options || [], function (o) {
-          return o.value === p.name;
-        });
-        if (opt) {
-          form.select.value = p.name;
-          form.focus();
-        } else {
-          setTimeout(trySet, 300);
-        }
-      };
-      trySet();
+      const opt = Array.prototype.find.call(form.select.options || [], function (o) {
+        return o.value === p.name;
+      });
+      if (opt) {
+        form.select.value = p.name;
+      }
+      form.focus();
     }
   }
 
@@ -60,8 +56,11 @@
     const formSlot = h("div", { class: "project-form-slot mt8" });
     const askBtn = h("button", { class: "btn btn-primary btn-sm", type: "button", "data-testid": "project-ask-" + p.name, text: "让 Relay 在这个项目里做什么?" });
     askBtn.addEventListener("click", function () {
-      startInProject(p, formSlot);
-      askBtn.hidden = true;
+      askBtn.disabled = true;
+      startInProject(p, formSlot).then(function () {
+        askBtn.hidden = true;
+        askBtn.disabled = false;
+      });
     });
 
     const detail = h(
