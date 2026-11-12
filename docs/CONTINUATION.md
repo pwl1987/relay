@@ -23,6 +23,10 @@
 
 **只做设计冻结,零模型消耗**:中文设计文档 `docs/MODEL_POLICY.md` + `ADR/0009-model-policy.md`(Provider 四层分层/QuotaPool 统一 glm_weekly/Scarcity/RunModelDecision 持久化/Run 边界切换/异构 Reviewer/DEGRADED_LOCAL/评价指标)。**禁止**:改 R-2 模型与实验变量、消耗新额度、删 Magpie、改 Pi Runtime/生产 Worker、启动动态路由、干扰 soak。MVP 最终 ACCEPTED 后才激活 MODEL-POLICY-01 实施(四通道真实验证+可回放 Evidence)。冻结执行顺序不变:第一包收口→F2→F1→R-3B→MVP 最终裁决。
 
+## 可用 MVP 最终收口大包(2026-11-12 用户指令;口径裁决=ADR-0010)
+
+**MVP 验收口径正式调整**:连续 24h(及 72h/业务长稳)不再作为 Usable MVP ACCEPTED 硬阻断,重定位为 **Operational/Pilot Readiness Gate**;原 R-3 结论保持 PARTIAL(历史事实,不改 PASS、不重启);**原第二包 R-3B 暂缓**(`p0-mvp/soak-r3b/` 预置产物保持未跟踪、不启动),24h 移至 MVP 后 **PILOT-24H** 在真实使用中完成(真实任务/空闲/模型调用/GitHub/DB/Web/Decision/自然 Restart,无未解释退出/无重复副作用/无状态丢失 ⇒ Operational Readiness=VERIFIED)。执行顺序取代五包中 R-3B 位置:**阶段A 旧 R-3 收口(17:32:52+0800 Runner 唯一快照后;受控停止/冻结证据/解除 skip-worktree/更新 CURRENT+CONTINUATION+matrix/独立 Reviewer/CI/快进推送)→ 阶段B R-2 F2→失败归因→F1(授权四参数不变,F2 失败先归因禁自动重跑)→ 阶段C Operator Console(复用现有 Web/API/Core 禁大型重构;信息架构:Dashboard/Projects/New Goal/Goal Detail/Decisions/Review·Result/Models·Usage(仅可观察性)/System)→ 阶段D Mac LAN+手机 VPN 真实验收 → 阶段E 真实项目 Pilot(≥1 完整任务,自然语言需求禁理想化 Prompt;采集 first_pass_rate/accepted_rate/rework_rate/model_calls/wall_time/tool_failure_rate/reviewer_reject_rate/人工介入/Decision 数/Delivery 成功率)→ MVP 最终裁决(必需项清单见 ADR-0010)**。安全边界:Web 第一阶段仅 LAN+VPN,禁公网裸端口/自动公网域名/Cloudflare Tunnel/浏览器保存 Provider Key/Web 返回模型凭据明文。最终报告必须区分 **Engineering Verified / User Experience Verified / Operational 24h Pending|Verified** 三类,不得混为单一 PASS。MODEL-POLICY-00 冻结维持,MODEL-POLICY-01 不得提前实施。
+
 ## 运行环境事实(累计,接手必读)
 
 - **Node strip-types 子进程禁 TS 参数属性**;裸 `node src/xxx.ts` 直跑 .ts(cli/server/worker-entry 同模式;src/server/index.ts 曾因参数属性从未能启动——已修)。

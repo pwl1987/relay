@@ -1,6 +1,6 @@
 # Relay 当前执行契约
 
-- 状态:**MVP 最后两项阻断收敛·总执行包 ACTIVE**(用户指令 2026-11-12 五包:第一包=现有最终收口轮;第二包=R-3B 连续长稳补验;第三包=R-2 模型路由与编码能力复核;第四包=测试与治理小缺口;第五包=MVP 最终裁决。**允许在治理/安全/预算边界内连续完成独立子包;不得因用户未即时回复而停止其他安全任务**;不得提前等待在聊天会话——期满验收由已运行的独立 Runner 执行)。**另加 MODEL-POLICY-00 设计冻结包(用户指令 2026-11-12):只做设计文档,零模型消耗,不改变 R-2/R-3B 及冻结执行顺序(第一包收口→F2→F1→R-3B→MVP 最终裁决)。**
+- 状态:**MVP 最后两项阻断收敛·总执行包 ACTIVE**(用户指令 2026-11-12 五包:第一包=现有最终收口轮;第二包=R-3B 连续长稳补验;第三包=R-2 模型路由与编码能力复核;第四包=测试与治理小缺口;第五包=MVP 最终裁决。**允许在治理/安全/预算边界内连续完成独立子包;不得因用户未即时回复而停止其他安全任务**;不得提前等待在聊天会话——期满验收由已运行的独立 Runner 执行)。**另加 MODEL-POLICY-00 设计冻结包(用户指令 2026-11-12):只做设计文档,零模型消耗,不改变 R-2/R-3B 及冻结执行顺序(第一包收口→F2→F1→R-3B→MVP 最终裁决)。** **再叠加【可用 MVP 最终收口大包】ACTIVE(用户指令 2026-11-12):MVP 验收口径正式调整——连续 24h 不再是 Usable MVP ACCEPTED 硬阻断,重定位为 Operational/Pilot Readiness Gate(裁决记录=ADR-0010,不得静默改历史标准);原 R-3 结论保持 PARTIAL(历史事实,不改 PASS,不重启);原第二包 R-3B 独立空闲 24h 暂缓(soak-r3b/ 预置产物保持未跟踪、不启动),24h 移至 MVP 后 PILOT-24H 在真实使用中完成;执行顺序调整为:阶段A 旧 R-3 收口(期满 17:32:52+0800 Runner 唯一快照后)→ 阶段B R-2 F2→失败归因→F1(授权四参数不变)→ 阶段C Operator Console 可用性收敛(复用现有 Web/API/Core,禁大型前端重构;第一阶段仅 LAN+VPN)→ 阶段D Mac LAN+手机 VPN 真实验收 → 阶段E 真实项目 Pilot(≥1 个自然语言需求到 GitHub Delivery 完整任务,争取 3)→ MVP 最终裁决(新口径必需项清单以 ADR-0010 为准);最终报告必须区分 Engineering Verified / User Experience Verified / Operational 24h Pending|Verified,不得混为单一 PASS;MODEL-POLICY-00 冻结维持,不得提前实施 MODEL-POLICY-01(Models/Usage 页仅可观察性)。**
 - 写者:本窗口唯一 Writer(main-only;禁强推;不重跑 R-1;不修改 PAT;不重置采样起点;不删除日志;不生产部署;不 RSI;无模型授权不消耗新预算)。
 - 基线:总包启动时 HEAD `b373726` == live origin/main(CI 绿;唯一 Writer 确认 origin/main 未被他人推进);此后各包快进推进(最新见 `git log`;MODEL-POLICY-00 两提交:254ec5b 合同登记 + 设计交付物,推送随 CI 执行);工作区未跟踪仅 soak 产物(`soak-24h/final-runner.log`、`soak-r3b/` 预置六文件——边界:保持未跟踪,不混入任何提交)。
 - 运行态:**保留 Worker 810994 / Sampler 811916 / Final Runner 859915**(PPID=systemd --user;setsid 脱离会话);365s 中断缝与 2 次 PG 采样异常**全部保留**。
@@ -18,6 +18,7 @@
 | 第三包 R-2 **已授权定案**(用户指令 2026-11-12 07:50) | 四参数确认:①`zcode/GLM-5.3`(须记录实际 model_ref+Magpie 路由日志证真实上游,不得只记组名)②Coder≤12/Reviewer≤4/Goal≤30(禁绕过;测试次数与模型请求次数分别统计,ledger+Magpie 双重对账)③每实验 wall=600s(超时/耗尽/失败如实结束,禁放宽禁无限重试)④现有 Magpie 凭据(零新增/修改/读取/打印/入库 Key) | **执行顺序硬约束:第一包收口完成 → F2 → F1 → R-3B**;不得为提前跑 R-2 干扰三进程。夹具核对(只读):F1=12/4/1/600/goal30 **与授权逐项一致**;F2=6/4/1/420/goal10 全部 ≤上限,**零测试修改**;F2 一次正式尝试失败先分析不得自动加预算重跑。VERIFIED 仅当:真实修改+机判全过+独立 Reviewer PASS+Gate ACCEPTED+三 SHA 绑定+交付成功+无 Stub+调用数/Token/wall/工具/实际模型 ID 全落证;双过⇒VERIFIED,单过⇒PARTIAL,双败⇒PARTIAL+归因。**不预设通过**;授权不含:加预算/换模型/改 PAT/生产部署/RSI/放宽 Gate·Reviewer·机判 |
 | 第五包 MVP 最终裁决 | 待 R-2/R-3 完整证据 | 重生成 US/V/G/F 矩阵;R-1 只读复核(不为绿重复制造远端提交);F1/F2 实际验证;连续运行日志独立审核;D3 无自动批准/预算无突破/无重复副作用;独立 Reviewer 给 ACCEPTED/REWORK/BLOCKED;**全部 P0 必需门通过才 ACCEPTED** |
 | MODEL-POLICY-00 设计冻结包(用户指令 2026-11-12) | ✅ **完成**(254ec5b 合同→5fb4766 交付物+独立 Reviewer PASS-WITH-FINDINGS 零 Major·F-1~F-6 全消化+CI 绿;零代码改动零模型消耗,soak 产物零触碰) | 交付:`docs/MODEL_POLICY.md` v0.1 + `ADR/0009-model-policy.md` + `docs/MODEL_POLICY_REVIEW.md`;设计冻结(实现 OPEN),激活前置=MVP 最终 ACCEPTED 后 MODEL-POLICY-01(四通道真实验证+可回放证据);禁止项全程未违反 |
+| 可用 MVP 最终收口大包(用户指令 2026-11-12) | **ACTIVE**(阶段0 验收口径 ADR-0010 落盘中;阶段A 待 17:32:52+0800 Runner 唯一快照后收口) | 验收口径:24h→Operational/Pilot Readiness Gate,**ADR-0010 为唯一裁决记录**;R-3B 暂缓不启动(soak-r3b/ 保持未跟踪);阶段B F2 正式尝试失败先归因禁自动重跑,授权四参数(zcode/GLM-5.3·Coder≤12/Reviewer≤4/Goal≤30·wall≤600s·现有 Magpie 凭据)不变;阶段C 复用现有 Web/API/Core 禁大型前端重构;阶段D 真实浏览器+手机 VPN 验收留痕;阶段E 真实项目自然语言需求禁人为理想化 Prompt;**安全边界:Web 第一阶段仅 LAN+VPN,禁公网裸端口/自动公网域名/Cloudflare Tunnel/浏览器保存 Provider Key/Web 返回模型凭据明文**;期满前零触碰 soak 三进程与未跟踪产物;MVP 后进 PILOT-24H 才可判 Operational Readiness=VERIFIED |
 
 ## 治理纪律(总包)
 
@@ -25,4 +26,4 @@ main-only;单 Writer;每包 ACTIVE 合同先于实现提交;每包独立测试/�
 
 ## 基线终账(不变)
 
-MVP=REWORK 维持(矩阵权威 `p0-mvp/final-coverage-matrix.md`);R-1 已解除 VERIFIED;R-2 PARTIAL(待授权);R-3 PARTIAL(缝在,期满终验进行中)。
+MVP=REWORK 维持(矩阵权威 `p0-mvp/final-coverage-matrix.md`;**验收口径已调整:连续 24h 不再是 MVP 硬阻断,重定位 Operational/Pilot Readiness Gate,裁决记录 ADR-0010——最终裁决包按新必需项清单重生成矩阵,历史行不回改**);R-1 已解除 VERIFIED;R-2 PARTIAL(授权已定案,待阶段B 执行);R-3 PARTIAL(缝在,期满终验=阶段A 收口)。
