@@ -1,0 +1,11 @@
+RUNNER start 2026-11-12T06:37:25+08:00 target_epoch=1794476100 (期满=1794475972=2026-11-12T17:32:52+08:00)
+RUNNER fire 2026-11-12T17:35:28+08:00 ts=20261112T1735+0800
+RUNNER verify exit=1 ts=20261112T1735+0800(缝在⇒硬异常 sampling_gaps:1⇒exit 1 为预期;判定权在 REVIEW)
+--- fire-time state 2026-11-12T17:35:28+08:00
+soak-final.json: present
+worker 810994 / sampler 811916 进程状态:
+    PID STAT     ELAPSED
+ 810994 Ssl     11:25:24
+last csv row: 1794476004,86432,115024,0.0,yes,3,IDLE_PROVIDER_DOWN
+csv lines: 1436
+RUNNER done 2026-11-12T17:35:28+08:00

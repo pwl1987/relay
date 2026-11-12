@@ -1,0 +1,12 @@
+{
+  "startEpoch": 1794389572,
+  "endEpoch": "1794476004",
+  "elapsedSeconds": 86432,
+  "targetSeconds": 86400,
+  "completed": true,
+  "workerAliveAtEnd": true,
+  "samples": 1435,
+  "rssPeakKb": 312936,
+  "thresholdRssKb": 400000,
+  "verdict": "观察期已满——判定交由 REVIEW"
+}
