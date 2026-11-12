@@ -69,3 +69,52 @@ J7 OK:projectId=pilot ⇒ allowed_scope=/tmp/webux-e2e-proj-lrkqMA;Project 页�
 # stack journey-deliver @ http://127.0.0.1:33147(stub worker;非真实模型)
 J4 OK:全链 DELIVERED(远端 HEAD=5d61ea5db7d9);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
 J5 OK:刷新/断线/重连三态下,渲染值 == PostgreSQL 事实;断线期间明确显示『连接中断,不代表实时状态』
+# stack journey-crash @ http://127.0.0.1:41207(stub worker;非真实模型)
+J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed
+# stack journey-abc @ http://127.0.0.1:36899(stub worker;非真实模型)
+J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 2 条(含依据/验证方式)
+J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略
+J6 OK:Projects/Models/System/总览条渲染正常;手机视口无横向溢出;零控制台错误
+J7 OK:projectId=pilot ⇒ allowed_scope=/tmp/webux-e2e-proj-1rYHcI;Project 页反向可见;AppShell 侧边栏/手机抽屉正常
+# stack journey-deliver @ http://127.0.0.1:39753(stub worker;非真实模型)
+J4 OK:全链 DELIVERED(远端 HEAD=6187b1f25089);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
+J5 OK:刷新/断线/重连三态下,渲染值 == PostgreSQL 事实;断线期间明确显示『连接中断,不代表实时状态』
+# stack journey-crash @ http://127.0.0.1:40403(stub worker;非真实模型)
+J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed
+# stack journey-abc @ http://127.0.0.1:38841(stub worker;非真实模型)
+J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 2 条(含依据/验证方式)
+J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略
+J7 OK:projectId=pilot ⇒ allowed_scope=/tmp/webux-e2e-proj-2Y1naW;Project 页反向可见;AppShell 侧边栏/手机抽屉正常
+# stack journey-deliver @ http://127.0.0.1:34939(stub worker;非真实模型)
+J4 OK:全链 DELIVERED(远端 HEAD=bf066ad39fee);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
+J5 OK:刷新/断线/重连三态下,渲染值 == PostgreSQL 事实;断线期间明确显示『连接中断,不代表实时状态』
+# stack journey-crash @ http://127.0.0.1:46431(stub worker;非真实模型)
+J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed
+# stack journey-abc @ http://127.0.0.1:34975(stub worker;非真实模型)
+J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 2 条(含依据/验证方式)
+J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略
+J6 OK:Projects/Models/System/总览条渲染正常;手机视口无横向溢出;零控制台错误
+J7 OK:projectId=pilot ⇒ allowed_scope=/tmp/webux-e2e-proj-E5ESjv;Project 页反向可见;AppShell 侧边栏/手机抽屉正常
+# stack journey-deliver @ http://127.0.0.1:40819(stub worker;非真实模型)
+J4 OK:全链 DELIVERED(远端 HEAD=05be841bbeef);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
+J5 OK:刷新/断线/重连三态下,渲染值 == PostgreSQL 事实;断线期间明确显示『连接中断,不代表实时状态』
+# stack journey-crash @ http://127.0.0.1:43871(stub worker;非真实模型)
+J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed
+# stack journey-abc @ http://127.0.0.1:36265(stub worker;非真实模型)
+J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 2 条(含依据/验证方式)
+J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略
+J6 OK:Projects/Models/System/总览条渲染正常;手机视口无横向溢出;零控制台错误
+J7 OK:projectId=pilot ⇒ allowed_scope=/tmp/webux-e2e-proj-vDmWzz;Project 页反向可见;AppShell 侧边栏/手机抽屉正常
+# stack journey-deliver @ http://127.0.0.1:41939(stub worker;非真实模型)
+J4 OK:全链 DELIVERED(远端 HEAD=b231bb6a00fa);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
+J5 OK:刷新/断线/重连三态下,渲染值 == PostgreSQL 事实;断线期间明确显示『连接中断,不代表实时状态』
+# stack journey-crash @ http://127.0.0.1:39137(stub worker;非真实模型)
+J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed
+# stack journey-abc @ http://127.0.0.1:43971(stub worker;非真实模型)
+J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 2 条(含依据/验证方式)
+J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略
+J6 OK:Projects/Models/System/总览条渲染正常;手机视口无横向溢出;零控制台错误
+J7 OK:projectId=pilot ⇒ allowed_scope=/tmp/webux-e2e-proj-xXAyb8;Project 页反向可见;AppShell 侧边栏/手机抽屉正常
+# stack journey-deliver @ http://127.0.0.1:39775(stub worker;非真实模型)
+J4 OK:全链 DELIVERED(远端 HEAD=bfdcef2c5297);UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED
+J5 OK:刷新/断线/重连三态下,渲染值 == PostgreSQL 事实;断线期间明确显示『连接中断,不代表实时状态』

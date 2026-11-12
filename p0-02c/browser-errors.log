@@ -124,3 +124,73 @@
     at http://127.0.0.1:33147/changeset.js:219:18
     at Object.guarded (http://127.0.0.1:33147/app.js:178:26)
     at HTMLButtonElement.refresh (http://127.0.0.1:33147/changeset.js:218:27)
+
+
+2026-11-12T04:06:41.250Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:06:41.251Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:39753/app.js:101:23)
+    at http://127.0.0.1:39753/changeset.js:205:18
+    at Object.guarded (http://127.0.0.1:39753/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:39753/changeset.js:204:27)
+2026-11-12T04:06:41.251Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T04:06:41.251Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:39753/app.js:101:23)
+    at http://127.0.0.1:39753/changeset.js:219:18
+    at Object.guarded (http://127.0.0.1:39753/app.js:178:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:39753/changeset.js:218:27)
+
+
+2026-11-12T05:00:25.655Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:00:25.656Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:34939/app.js:169:23)
+    at http://127.0.0.1:34939/changeset.js:266:18
+    at Object.guarded (http://127.0.0.1:34939/app.js:245:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:34939/changeset.js:265:27)
+2026-11-12T05:00:25.656Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:00:25.656Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:34939/app.js:169:23)
+    at http://127.0.0.1:34939/changeset.js:280:18
+    at Object.guarded (http://127.0.0.1:34939/app.js:245:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:34939/changeset.js:279:27)
+
+
+2026-11-12T05:01:11.319Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:01:11.320Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:40819/app.js:169:23)
+    at http://127.0.0.1:40819/changeset.js:266:18
+    at Object.guarded (http://127.0.0.1:40819/app.js:245:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:40819/changeset.js:265:27)
+2026-11-12T05:01:11.320Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:01:11.320Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:40819/app.js:169:23)
+    at http://127.0.0.1:40819/changeset.js:280:18
+    at Object.guarded (http://127.0.0.1:40819/app.js:245:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:40819/changeset.js:279:27)
+
+
+2026-11-12T05:08:51.768Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:08:51.769Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:41939/app.js:172:23)
+    at http://127.0.0.1:41939/changeset.js:266:18
+    at Object.guarded (http://127.0.0.1:41939/app.js:248:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:41939/changeset.js:265:27)
+2026-11-12T05:08:51.769Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:08:51.769Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:41939/app.js:172:23)
+    at http://127.0.0.1:41939/changeset.js:280:18
+    at Object.guarded (http://127.0.0.1:41939/app.js:248:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:41939/changeset.js:279:27)
+
+
+2026-11-12T05:22:30.618Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:22:30.619Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:39775/app.js:174:23)
+    at http://127.0.0.1:39775/changeset.js:266:18
+    at Object.guarded (http://127.0.0.1:39775/app.js:250:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:39775/changeset.js:265:27)
+2026-11-12T05:22:30.620Z console.error Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+2026-11-12T05:22:30.621Z console.error render-failed TypeError: Failed to fetch
+    at Object.apiGet (http://127.0.0.1:39775/app.js:174:23)
+    at http://127.0.0.1:39775/changeset.js:280:18
+    at Object.guarded (http://127.0.0.1:39775/app.js:250:26)
+    at HTMLButtonElement.refresh (http://127.0.0.1:39775/changeset.js:279:27)
