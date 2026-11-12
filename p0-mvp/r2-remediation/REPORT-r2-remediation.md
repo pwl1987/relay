@@ -47,9 +47,11 @@
   「ledger 消耗 ≠ 真实上游 token」再次实证(与 CONTINUATION 对账注记同源),对账纪律候选包。
 - 结论:**本次尝试消耗(合同:失败不得自动重跑);失败归因=上游 502 硬故障,
   不是 maxOutputTokens 变量的能力结论,也不是 8192 钳制复现**。
-- 证据缺口(如实):本次运行的 `runs.budget` jsonb(含 maxOutputTokens 运行时采用值)未被测试证据捕获
-  (F2 夹具当时只导出 `detail` 列);**已补**——F1/F2 夹具证据查询增列 `budget`,F1-R 起运行时采用值入证。
-  透传正确性由 unit 7/7(models.json 实读断言)与 env 导出事实保证。
+- 证据缺口(如实,经 Reviewer F-1 修正):本次运行的 `runs.budget` jsonb(含 maxOutputTokens 运行时采用值)
+  未被测试证据捕获(F2 夹具当时只导出 `detail` 列);已补 F1/F2 夹具证据查询增列 `budget`——
+  **但 F1-R 在 discovery 首步即断,runs-detail 导出从未执行,故 32768 的运行时采用值在两次尝试中
+  均未实际入证**;透传正确性由 unit 7/7(models.json 实读断言)与 env 导出事实保证(Reviewer F-2:
+  runs-detail 导出缺 `runtime`/`model_ref` 列的自足性缺口已随 digest 补列,供后续窗口使用)。
 
 ## 4. F1-R:一次正式尝试 = **FAILED(归因:上游 502 硬故障;能力结论不可用)**
 

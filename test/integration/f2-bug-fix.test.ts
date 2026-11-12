@@ -204,7 +204,7 @@ describe.skipIf(!gated || envModel() === null)("Fixture F2:真实 Bug → 真模
     }, null, 2));
     evidence("tick-full.json", JSON.stringify(report, null, 2));
     try {
-      const dbg = await t.db.execute(sql`SELECT id, outcome, detail, budget FROM runs WHERE task_id='t-f2-bug' ORDER BY started_at`);
+      const dbg = await t.db.execute(sql`SELECT id, runtime, model_ref, outcome, detail, budget FROM runs WHERE task_id='t-f2-bug' ORDER BY started_at`);
       evidence("runs-detail.json", JSON.stringify(dbg.rows, null, 2));
       const evs = await t.db.execute(sql`SELECT id, kind, passed, raw_output FROM gate_evidence WHERE task_id='t-f2-bug' ORDER BY created_at`);
       evidence("gate-evidence.json", JSON.stringify(evs.rows, null, 2));

@@ -221,7 +221,7 @@ describe.skipIf(!gated || envModel() === null)("Fixture F1:模糊 UX 需求 → 
     evidence("tick-full.json", JSON.stringify(report, null, 2));
     // 诊断全量:runs.detail(turns/recordTypes/stderrTail/toolAudit)
     try {
-      const dbg = await t.db.execute(sql`SELECT id, outcome, detail, budget FROM runs WHERE task_id='t-f1-ux' ORDER BY started_at  -- R2-REMEDIATION-01:budget jsonb 含 maxOutputTokens/Source(运行时采用值证据)`);
+      const dbg = await t.db.execute(sql`SELECT id, runtime, model_ref, outcome, detail, budget FROM runs WHERE task_id='t-f1-ux' ORDER BY started_at  -- R2-REMEDIATION-01:budget jsonb 含 maxOutputTokens/Source(运行时采用值证据)`);
       evidence("runs-detail.json", JSON.stringify(dbg.rows, null, 2));
       const evs = await t.db.execute(sql`SELECT id, kind, passed, raw_output FROM gate_evidence WHERE task_id='t-f1-ux' ORDER BY created_at`);
       evidence("gate-evidence.json", JSON.stringify(evs.rows, null, 2));

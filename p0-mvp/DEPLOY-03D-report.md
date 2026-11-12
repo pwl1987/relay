@@ -2,8 +2,12 @@
 
 - 包合同:用户指令 2026-11-13(下一阶段完整执行大包第①项)
 - **部署 SHA:`2a37a41`**(WEB-UX-03D 证据+复核入库提交;CI 43260446683 = success,e2e+test 双绿)
-- 部署时间:2026-11-13 01:36(restart)与 01:47(restart recovery 复验)
-- 结论:**部署完成;32/32 HTTP 验证 PASS;发现并修复一个关键部署缺口(relay_console 缺 0006/0007 迁移)**
+  → **main 同步:`67c89f2`**(大包合同+R2-REMEDIATION 实现+证据;CI 43274670524 = success,
+  test+e2e 双绿;2026-11-13 02:00 重启完成,32/32 复验 PASS;worker 横幅实证
+  `maxOutputTokens=8192(默认)`=R2 代码上线且行为兼容默认)
+- 部署时间:2026-11-13 01:36(初次 restart)→ 01:47(restart recovery 复验)→ 02:00(main 同步)
+- 结论:**部署完成且已同步至最新 CI 绿 main;32/32 HTTP 验证 PASS×2;发现并修复一个关键部署缺口
+  (relay_console 缺 0006/0007 迁移)**
 
 ## 1. 部署事实
 
@@ -11,10 +15,16 @@
   不存在独立部署副本 ⇒ 部署 = 工作树处于目标 SHA + `systemctl --user restart`)。
 - 本次部署采用 **临时 detached checkout 到 CI 绿的 `2a37a41`**(实现窗口的 R2 本地提交未过 CI,
   不满足"部署最新通过 CI 的 03D"要求;deploy 后已切回 main,R2 随推送+CI 后再做 main 同步重启)。
-- 服务:relay-web(PID 3195546→3218406)/relay-worker(PID 3195547→3218406),均 active,
-  Linger=yes,`listening on http://10.30.5.80:8787 (worker=external;仅本地)`——LAN/VPN only 保持,
-  未改 0.0.0.0,未动凭据(口令文件 0600 引用,全程零打印),schema=relay_console(不与 soak 混用),
-  零第二实例。
+- 服务:relay-web(PID 3195546→3218405[01:47]→3242781[02:00])/relay-worker(PID 3195547→
+  3218406[01:47]→3242782[02:00]),均 active,Linger=yes,`listening on http://10.30.5.80:8787
+  (worker=external;仅本地)`——LAN/VPN only 保持,未改 0.0.0.0,未动凭据(口令文件 0600 引用,
+  全程零打印),schema=relay_console(不与 soak 混用),零第二实例。
+- **main 同步重启(02:00:08)授权时间线(Reviewer Major-1 消化补记)**:`git push`(01:56,
+  2a37a41..67c89f2 快进)→ CI 43274670524 = **success**(test 2m54s + e2e 2m16s,完成于重启之前,
+  本窗口在重启前经 `gh run view` 确认双绿)→ `systemctl --user restart` 02:00:08 → 32/32 复验 PASS。
+  Reviewer 指出的"报告滞后记录"成立:本报告的 main 同步段在其复核期间才补入(时序瑕疵,如实落账);
+  但"重启时 67c89f2 未推送/未过 CI"的前提与上述时间线不符——推送与 CI 双绿均先于重启,
+  WORKER_STARTED 横幅的 maxOutputTokens 字段正是 67c89f2(已过 CI)代码的预期指纹。
 
 ## 2. 关键发现与修复:relay_console 缺 03B 迁移(0006/0007)
 
@@ -27,7 +37,7 @@
   `goal_message_consumptions` 两表就位)。applyMigrations 本体无 DB 端跟踪表(重放会在 0001 崩),
   故未整体重放——**此限制如实落账,迁移自动化列为后续候选包**。
 
-## 3. 部署后验证(合同 12 项清单)
+## 3. 部署后验证(合同 12 项清单;清单原文=用户指令 2026-11-13 §三,仓库内无独立登记文件)
 
 自动脚本 `deploy/verify-web-03d.sh`(32 项断言)**32/32 PASS**:/ 未登录 302→login、登录 200、
 已登录 / 302→/workspace、workspace 200+03D 移动标记(菜单键/状态点/详情 sheet/回到最新/
@@ -55,8 +65,11 @@ manifest-src 'self'、图标 192/512 200、workspace.js 行为(visualViewport/co
 - 冒烟 Goal #1(goal-1332f8d7):创建于迁移前 ⇒ user message 落库失败(internal_error,Goal/Task 行已建);
   任务被 Worker 领取(15s 拍)后因消费预步查缺表异常 → 租约过期回收 → **NEEDS_RECONCILE**;
   迁移后经 Owner resume API 恢复 READY → 立即被领取真实执行 → Run **BUDGET_EXHAUSTED**(上游可服务
-  但烧尽调用储备;**生产 Worker 此时仍为未修复的 8192 默认配置,等价于在生产复现历史 F2 签名**)
+  但烧尽调用储备;**生产 Worker 此时仍为未修复的 8192 默认配置;同因同配置下与历史 F2 BUDGET_EXHAUSTED
+  签名一致——推断级表述,生产侧无逐 turn 工具事件直证)**
   → 任务 BLOCKED(保留作失败 UX 真证据,不再 resume 以免再消耗)。模型消耗=单 Run 储备(≤8 calls)。
+  迁移前我曾尝试暂停(READY→PAUSED)被拒(audit seq 28 TASK_PAUSED_REJECTED,「仅 READY 可置入」
+  语义,任务当时处于 NEEDS_RECONCILE)——该拒绝即 pauseTask 语义边界的正确行为。
 - 冒烟 Goal #2(goal-73d01da0):迁移后创建,消息落库成功,任务立即 PAUSED——留作用户验收演练场
   (brief 已注明"由用户自行恢复")。
 
