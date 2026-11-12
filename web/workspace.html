@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body class="ws-body">
-    <div class="ws-layout" data-testid="ws-layout">
+    <div class="ws-layout" id="ws-layout" data-testid="ws-layout">
       <!-- 左:项目/任务侧栏(WEB-UX-03C §3;JS 渲染) -->
       <aside class="ws-sidebar" id="ws-sidebar" data-testid="ws-sidebar">
         <div class="ws-brand">Relay<span class="ws-brand-sub">AI 软件开发工作台</span></div>
@@ -28,40 +28,41 @@
         </div>
       </aside>
 
-      <!-- 中:会话区(Feed + Composer) -->
+      <!-- 中:会话区(Feed + Composer)。
+           WEB-UX-03C.1 P0-1:整页唯一主要自然语言输入 = 底部 Composer
+           (空白态=项目选择+「开始」;任务态=「发送」);不再另设新任务表单。 -->
       <main class="ws-main">
         <div id="ws-conn" hidden data-testid="ws-conn"></div>
         <header class="ws-topbar" id="ws-topbar" data-testid="ws-topbar">
           <span class="ws-title" id="ws-title">工作区</span>
           <span class="spacer"></span>
           <span class="small dim" id="ws-stamp" data-testid="ws-stamp"></span>
+          <button class="btn btn-ghost btn-sm" id="ws-pane-toggle" type="button" data-testid="ws-pane-toggle">收起详情</button>
         </header>
 
-        <!-- 新建任务面板(3 步:选项目 → 一句话 → 开始;§6/C1) -->
-        <section class="ws-newtask" id="ws-newtask-panel" data-testid="ws-newtask-panel" hidden>
-          <h1 class="ws-hero-title">今天想让 Relay 做什么?</h1>
-          <p class="ws-hero-sub">选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。</p>
-          <label class="ws-label" for="ws-project">选择项目</label>
-          <select id="ws-project" data-testid="ws-project"></select>
-          <label class="ws-label" for="ws-goal-input">用一句话描述(说得不完整也没关系)</label>
-          <textarea id="ws-goal-input" rows="4" data-testid="ws-goal-input" placeholder="例如:这个登录页面不太好用,你自己检查一下并改好。"></textarea>
-          <div class="row mt8">
-            <button class="btn btn-primary btn-lg" id="ws-create" type="button" data-testid="ws-create">开始处理</button>
-            <span class="small dim" id="ws-create-msg" data-testid="ws-create-msg"></span>
-          </div>
-        </section>
-
-        <!-- 会话 Feed(§4;JS 渲染) -->
+        <!-- 会话 Feed(§4;JS 渲染;内层定宽阅读列,短会话贴 Composer) -->
         <div class="ws-feed" id="ws-feed" data-testid="ws-feed"><span class="empty">读取中…</span></div>
 
-        <!-- Composer(§6;始终可见) -->
+        <!-- Composer(§6 + 03C.1 P0-1:唯一输入;始终可见) -->
         <div class="ws-composer" id="ws-composer" data-testid="ws-composer">
-          <textarea id="ws-input" rows="1" placeholder="继续告诉 Relay……(Enter 发送,Shift+Enter 换行)" data-testid="ws-input"></textarea>
-          <button class="btn btn-primary" id="ws-send" type="button" data-testid="ws-send">发送</button>
+          <div class="ws-composer-inner">
+            <div class="ws-composer-project" id="ws-composer-project" data-testid="ws-composer-project">
+              <label class="ws-label" for="ws-project">项目</label>
+              <select id="ws-project" data-testid="ws-project"></select>
+            </div>
+            <div class="ws-composer-row">
+              <textarea id="ws-input" rows="1" placeholder="告诉 Relay 你想做什么……" data-testid="ws-input"></textarea>
+              <button class="btn btn-primary" id="ws-send" type="button" data-testid="ws-send">开始</button>
+            </div>
+            <div class="ws-composer-foot">
+              <span class="small dim" id="ws-composer-msg" data-testid="ws-composer-msg"></span>
+              <span class="small dim">Enter 发送,Shift+Enter 换行</span>
+            </div>
+          </div>
         </div>
       </main>
 
-      <!-- 右:详情栏(§9;默认折叠,技术详情展开区) -->
+      <!-- 右:详情栏(§9 + 03C.1 P0-6:默认摘要四项;技术详情折叠;整栏可收起) -->
       <aside class="ws-detail" id="ws-detail" data-testid="ws-detail"></aside>
     </div>
     <script src="/app.js"></script>

@@ -451,7 +451,8 @@
         configured = false;
       }
       if (!projects.length) {
-        sel.appendChild(h("option", { value: "", text: configured ? "暂无项目 — 可直接开始(默认工作区)" : "尚未配置项目 — 可直接开始(默认工作区)" }));
+        // 03C.1 P0-2:不再用"默认工作区"掩盖未绑定状态;创建后 Goal 未绑注册表项目时如实显示"项目未绑定"
+        sel.appendChild(h("option", { value: "", text: configured ? "暂无项目 — 可直接开始(创建后可在项目页绑定)" : "尚未配置项目 — 可直接开始" }));
       } else {
         sel.appendChild(h("option", { value: "", text: "请选择一个项目" }));
         projects.forEach(function (p) {

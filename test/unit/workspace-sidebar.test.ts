@@ -1,12 +1,13 @@
 // WEB-UX-03C §3 单元测试:工作区左侧栏投影 workspaceSidebarView(纯读;项目归组/状态点/待决数)。
 // 归组规则与 projectsView 一致(最近 Task allowed_scope 与注册表路径互为前缀);零模型、零 egress。
+// WEB-UX-03C.1 P0-2:goalStatusView.projectName 与侧栏归组必须同源(matchProjectByScope 唯一规则)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
-import { workspaceSidebarView } from "../../src/server/views/goal.ts";
+import { goalStatusView, matchProjectByScope, workspaceSidebarView } from "../../src/server/views/goal.ts";
 
 const PROJ_ENV = "RELAY_PROJECTS_FILE";
 
@@ -67,5 +68,22 @@ describe("WEB-UX-03C §3:workspaceSidebarView(零模型)", () => {
     expect(v.ungrouped.every((g) => g.phase === "idle")).toBe(true);
     // 标题=raw_input 原文(截断由客户端负责);状态点数据不含 UUID/Run/model/SHA
     expect(lamExec.title).toBe("给系统加 Excel 导出");
+  });
+
+  it("03C.1 P0-2:goalStatusView.projectName 与侧栏归组同源;未识别 ⇒ null(禁默认工作区兜底)", async () => {
+    // 绑定:最近 Task allowed_scope 命中注册表(与 workspaceSidebarView 同一 matchProjectByScope)
+    const bound = await goalStatusView(t.db, "g-exec");
+    expect(bound).toBeTruthy();
+    expect(bound!.projectName).toBe("LAMICE");
+    expect((await workspaceSidebarView(t.db)).projects[0]!.goals.some((g) => g.id === "g-exec")).toBe(true);
+    // 未识别 scope / 无任务 ⇒ null(客户端如实显示「项目未绑定」)
+    expect((await goalStatusView(t.db, "g-un"))!.projectName).toBeNull();
+    expect((await goalStatusView(t.db, "g-notask"))!.projectName).toBeNull();
+    // 唯一规则直测:前缀双向;无匹配 ⇒ null
+    const reg = { projects: [{ name: "A", path: "/repos/a" }, { name: "B", path: "/repos/b" }] };
+    expect(matchProjectByScope(["/repos/a/src"], reg)).toBe("A");
+    expect(matchProjectByScope(["/repos/a"], reg)).toBe("A");
+    expect(matchProjectByScope(["/elsewhere"], reg)).toBeNull();
+    expect(matchProjectByScope([], reg)).toBeNull();
   });
 });

@@ -1,11 +1,12 @@
 // WEB-UX-03C §15 桌面 Journey(C1-C6):真实浏览器 + 真 PG + stub worker(确定性桩;非真实模型)。
 // 门:RELAY_E2E=1 才跑(常规 vitest 全量自动 skip,不假装)。
-//   C1 新任务:选项目(或默认工作区)→ 一句话 → 创建 → 自动进入 Conversation → 首条 USER_MESSAGE 可见
-//   C2 执行状态:Feed 连续展示 需求→分析→编码→测试(不跳页;事件=明细快照确定性推导)
+//   C1 新任务:空白态唯一 Composer(P0-1/UX1/UX2)→ 一句话 → 开始 → 自动进入 Conversation → 首条 USER_MESSAGE 可见
+//   C2 执行状态:完成后工作状态块聚合展示 需求→修改→测试→复核→交付(不跳页;同阶段不重复渲染 UX4/UX5)
 //   C3 Decision:Decision Card 内联于当前 Conversation;批准 → 状态更新 + 执行继续(复用现有 resolve 语义)
-//   C4 Result:Result Card 出现在同一 Feed(修改文件/验证/复核/交付)
+//   C4 Result:Result 卡出现在同一 Feed(阶段汇总:修改文件/验证/复核/交付;可展开技术详情)
 //   C5 Follow-up:完成后继续说 → USER_MESSAGE 持久化 + 派生同 Goal follow-up Task(消费映射绑定;新结果仍在同一 Conversation)
 //   C6 运行中 Follow-up(硬门):执行中发送 ⇒ 消息不丢/不重复派生/不建匿名会话;到安全边界(下一拍)消费 → 上下文含该消息
+//   UX3 项目上下文一致:绑定项目 Sidebar/Header/右栏同源一致;未绑定如实"项目未绑定",全页无"默认工作区"(P0-2)
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
@@ -125,14 +126,18 @@ async function login(page: Page, base: string): Promise<void> {
   await page.waitForSelector('[data-testid="ws-sidebar"]');
 }
 
-/** 工作区新建任务面板(C1:选项目[可空=默认工作区] → 一句话 → 开始;已选中任务时点 ＋新建任务 打开)。
+/** 工作区新建任务(03C.1 P0-1 单 Composer:空白态=项目选择+一句话+「开始」;已选中任务时点 ＋新建任务 回空白态)。
  *  等待 URL 中 goal 参数真正"变化"(页面可能已处于某个 ?goal= 上,waitForURL 会立即命中旧 URL)。 */
 async function createGoalViaWorkspace(page: Page, rawInput: string): Promise<string> {
   const prev = new URL(page.url()).searchParams.get("goal");
-  await page.click('[data-testid="ws-new-task"]');
-  await page.waitForSelector('[data-testid="ws-newtask-panel"]:not([hidden])');
-  await page.fill('[data-testid="ws-goal-input"]', rawInput);
-  await page.click('[data-testid="ws-create"]');
+  if (prev !== null) {
+    // 已在任务页:回空白工作区(唯一 Composer 承载创建)
+    await page.click('[data-testid="ws-new-task"]');
+    await page.waitForURL(/\/workspace$/);
+  }
+  await page.waitForSelector('[data-testid="ws-input"]');
+  await page.fill('[data-testid="ws-input"]', rawInput);
+  await page.click('[data-testid="ws-send"]');
   await page.waitForFunction(
     (p: string | null) => {
       const doc = (globalThis as unknown as { document: { location: { search: string } } }).document;
@@ -169,13 +174,26 @@ function tickInBackground(page: Page): void {
 
 describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈)", { timeout: 240_000 }, () => {
   let s: Stack;
-  let remote: BareRemoteFixture;
   let desktopGoal = ""; // C1 创建的主 Goal(C2/C4/C5 沿用)
 
   beforeAll(async () => {
-    remote = makeBareRemote(mkdtempSync(join(tmpdir(), "webux03c-remote-")));
+    // 每任务独立 bare 远端(03C.1 夹具修正):run 工作区每 Run 全新种子提交,若共享同一远端,
+    // 后续交付(任意 Goal 的第二轮/其他 Goal)push 必非快进被拒 → D3 delivery_propose_failed
+    // (旧 UI 不在主 Feed 显示未决决策而掩盖;03C.1 工作状态块如实呈现后必须在夹具层修复)。
+    // 每任务远端保留「远端 HEAD 基线」语义:propose 先推 base,交付推进 payloadSha(快进)。
+    const remoteBase = mkdtempSync(join(tmpdir(), "webux03c-remote-"));
+    const remotes = new Map<string, BareRemoteFixture>();
+    const remoteFor = (taskId: string): BareRemoteFixture => {
+      let r = remotes.get(taskId);
+      if (!r) {
+        r = makeBareRemote(remoteBase);
+        remotes.set(taskId, r);
+      }
+      return r;
+    };
     const delivery: DeliveryFactory = {
       propose: async (c) => {
+        const remote = remoteFor(c.taskId);
         remote.pushHead(c.stageRepoDir, c.baseCommitSha);
         return {
           taskId: c.taskId,
@@ -193,29 +211,46 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
         executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
         verifyRemoteContent: async (commitSha: string) => {
           const scratch = mkdtempSync(join(tmpdir(), "webux03c-verify-"));
-          const r = await verifyRemoteCommitContent({ target: remote.url, commitSha, manifest: c.manifest, scratchDir: scratch });
+          const r = await verifyRemoteCommitContent({ target: remoteFor(c.taskId).url, commitSha, manifest: c.manifest, scratchDir: scratch });
           return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
         },
         manifest: c.manifest,
       }),
     };
     s = await startStack("journey-desktop", { delivery });
+    // UX3 项目上下文:注册表(LAMICE)——绑定 Goal 经 API 携带 projectId;readProjectRegistry 按请求读取,启动后设置即生效
+    const reg = join(mkdtempSync(join(tmpdir(), "webux03c-reg-")), "projects.json");
+    writeFileSync(reg, JSON.stringify({ projects: [{ name: "LAMICE", path: "/tmp/proj-lamice" }] }));
+    process.env["RELAY_PROJECTS_FILE"] = reg;
   });
   afterAll(async () => {
     await stopStack(s);
   });
 
-  it("C1 新任务:登录默认进工作区;3 步创建 → 自动进入 Conversation → 首条 USER_MESSAGE 可见", async () => {
+  it("C1 新任务:登录默认进工作区;空白态唯一 Composer(UX1/UX2)→ 开始 → 自动进入 Conversation → 首条 USER_MESSAGE 可见", async () => {
     const { page, base, t } = s;
     await login(page, base);
     // / 默认进工作区(302)
     const res = await page.context().request.get(`${base}/`, { maxRedirects: 0 });
     expect(res.status()).toBe(302);
     expect(res.headers()["location"]).toBe("/workspace");
-    // 三步:选项目(未配置注册表 ⇒ 默认工作区选项)+ 一句话 + 开始
+    // UX1 空白态:唯一主要文本输入控件(旧第二表单已删除)
+    await page.waitForSelector('[data-testid="ws-composer"]');
+    expect(await page.locator("#ws-layout textarea").count()).toBe(1);
+    expect(await page.locator('[data-testid="ws-goal-input"]').count()).toBe(0);
+    expect(await page.locator('[data-testid="ws-newtask-panel"]').count()).toBe(0);
+    // UX2 创建前:占位与按钮 =「告诉 Relay 你想做什么……」/「开始」;项目选择可见
+    expect(await page.getAttribute('[data-testid="ws-input"]', "placeholder")).toBe("告诉 Relay 你想做什么……");
+    expect(await page.textContent('[data-testid="ws-send"]')).toBe("开始");
+    expect(await page.locator('[data-testid="ws-composer-project"]:not([hidden])').count()).toBe(1);
+    // 一句话 + 开始(单 Composer 创建)
     const goalId = await createGoalViaWorkspace(page, "感觉登录页不好用,想让登录更快更清楚");
     expect(goalId).toBeTruthy();
     desktopGoal = goalId;
+    // UX2 创建后:同一 Composer 切换 =「继续告诉 Relay……」/「发送」;项目选择隐藏
+    expect(await page.getAttribute('[data-testid="ws-input"]', "placeholder")).toBe("继续告诉 Relay……");
+    expect(await page.textContent('[data-testid="ws-send"]')).toBe("发送");
+    expect(await page.locator('[data-testid="ws-composer-project"][hidden]').count()).toBe(1);
     // 首条 USER_MESSAGE 在 Feed 可见(会话事实落库:POST /api/goals 追加 + 消费映射绑定首 Task)
     await page.waitForSelector('[data-testid="ws-feed"] [data-testid^="ws-msg-user"]');
     const bubble = await page.textContent('[data-testid="ws-feed"] [data-testid^="ws-msg-user"]');
@@ -228,7 +263,7 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     s.errors.length = 0;
   });
 
-  it("C2 执行状态:Feed 连续展示 需求→分析→编码→测试(同一页面,不跳转)", async () => {
+  it("C2 执行状态:完成后工作状态块聚合(需求→修改→测试→复核→交付;同阶段不重复 UX4/UX5;P1-1 无内部码)", async () => {
     const { page, base, t } = s;
     const goalId = desktopGoal;
     const taskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC LIMIT 1`);
@@ -236,29 +271,53 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await tickOnce(page, base); // 一拍内:领取→Run(桩)→验证→Gate→交付
     const final = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskId}`);
     expect(String(final.rows[0]!["state"])).toBe("ACCEPTED");
-    // 回到工作区(不跳详情页):Feed 出现系统事件(执行/验证/复核/交付);用户消息仍在同一 Feed
+    // 回到工作区(不跳详情页):工作状态块聚合展示本轮各阶段;用户消息仍在同一 Feed
     await page.goto(`${base}/workspace?goal=${goalId}`);
-    await page.waitForSelector('[data-testid^="ws-event-"]');
+    await page.waitForSelector('[data-testid="ws-result-card"]');
     const feed = await page.textContent('[data-testid="ws-feed"]');
     expect(feed).toContain("登录页不好用"); // 会话连续性:首条需求仍在
-    expect(feed).toContain("代码修改完成"); // 编码(Run 事实;完成后历史事件仍留在 Feed)
+    expect(feed).toContain("代码修改"); // 修改阶段(完成后聚合块;原始逐条事件只在技术详情)
     expect(feed).toContain("独立复核通过");
-    expect(feed).toContain("修改已提交仓库");
+    expect(feed).toContain("已提交 GitHub");
+    // UX4 同阶段不重复渲染:聚合块内每阶段文本唯一
+    expect((feed!.match(/代码修改/g) || []).length).toBe(1);
+    expect((feed!.match(/独立复核通过/g) || []).length).toBe(1);
+    expect(feed).not.toContain("正在修改代码"); // 完成态不再显示进行时文案
+    // UX5 完成后 = 单一 Result 块原位更新(不再追加重复日志)
+    expect(await page.locator('[data-testid="ws-work-block"]').count()).toBe(0);
+    expect(await page.locator('[data-testid="ws-result-card"]').count()).toBe(1);
+    // P1-1 主 Feed 无内部错误码/路径
+    expect(feed).not.toContain("propose_failed");
+    expect(feed).not.toContain("/tmp/");
+    // 原始事件保留在技术详情(审计事实不删)
+    await page.click('[data-testid="ws-detail-toggle"]');
+    await page.waitForSelector('[data-testid="ws-tech-events"]');
+    const raw = await page.textContent('[data-testid="ws-tech-events"]');
+    expect(raw).toContain("代码修改完成"); // 原始事件层保留
     await shot(page, "c2-execution-events.png");
     s.errors.length = 0;
   });
 
-  it("C4 Result:Result Card 出现在同一 Feed(文件数/验证/复核/交付;可展开技术详情)", async () => {
+  it("C4 Result:Result 卡出现在同一 Feed(阶段汇总:文件数/验证/复核/交付;技术详情默认关闭可展开)", async () => {
     const { page, base } = s;
     const goalId = desktopGoal;
     await page.goto(`${base}/workspace?goal=${goalId}`);
     await page.waitForSelector('[data-testid="ws-result-card"]');
     const card = await page.textContent('[data-testid="ws-result-card"]');
-    expect(card).toContain("本轮工作完成");
+    expect(card).toContain("已完成本轮工作");
     expect(card).toContain("已提交 GitHub");
     expect(card).toContain("独立复核通过");
     const files = await page.textContent('[data-testid="ws-result-files"]');
     expect(files).toContain("个文件");
+    // P0-6:技术详情默认关闭(右栏默认只显示摘要四项);elapsed 有实际运行时长 ⇒ 显示
+    expect(await page.locator('[data-testid="ws-detail-tech"]').count()).toBe(0);
+    expect(await page.locator('[data-testid="ws-detail-elapsed"]').count()).toBe(1);
+    // P0-6:右栏整栏可折叠(收起 ⇄ 展开)
+    await page.click('[data-testid="ws-pane-toggle"]');
+    await page.waitForSelector('[data-testid="ws-detail"]', { state: "hidden" });
+    expect(await page.textContent('[data-testid="ws-pane-toggle"]')).toBe("查看详情");
+    await page.click('[data-testid="ws-pane-toggle"]');
+    await page.waitForSelector('[data-testid="ws-detail"]', { state: "visible" });
     // 技术详情展开(右栏;默认弱化)
     await page.click('[data-testid="ws-detail-toggle"]');
     await page.waitForSelector('[data-testid="ws-detail-tech"]');
@@ -346,8 +405,75 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await page.waitForSelector('[data-testid="ws-result-card"]');
     const feed = await page.textContent('[data-testid="ws-feed"]');
     expect(feed).toContain("按钮还是太浅");
-    expect(feed).toContain("本轮工作完成");
+    expect(feed).toContain("已完成本轮工作");
     await shot(page, "c5-follow-up-same-conversation.png");
+    s.errors.length = 0;
+  });
+
+  it("UX3 项目上下文一致:绑定项目 Sidebar/Header/右栏同源;未绑定如实显示(全页无「默认工作区」)", async () => {
+    const { page, base } = s;
+    // 第四处:空白态 Composer Project Selector 选项=同一注册表(P0-2)
+    await page.goto(`${base}/workspace`);
+    await page.waitForSelector('[data-testid="ws-composer-project"]:not([hidden])');
+    const selText = await page.textContent('[data-testid="ws-project"]');
+    expect(selText).toContain("LAMICE");
+    expect(selText).not.toContain("默认工作区");
+    // 绑定项目 Goal(经 API 携带 projectId=LAMICE;与侧栏归组同一注册表规则)
+    const csrf = await page.evaluate((): string => (globalThis as unknown as { RelayApp: { state: { csrf: string } } }).RelayApp.state.csrf || "");
+    const created = await page.evaluate(async ({ raw, csrf }: { raw: string; csrf: string }) => {
+      const r = await fetch("/api/goals", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json", "x-relay-csrf": csrf },
+        body: JSON.stringify({ rawInput: raw, projectId: "LAMICE" }),
+      });
+      const b = (await r.json()) as { goalId?: string };
+      return b.goalId ?? "";
+    }, { raw: "UX3 绑定项目的上下文一致性检查", csrf });
+    expect(created).toBeTruthy();
+    await page.goto(`${base}/workspace?goal=${created}`);
+    await page.waitForSelector('[data-testid="ws-detail-project"]');
+    // 三处同源一致(同一 status.projectName / 同一归组规则):
+    // (CI tsconfig 无 DOM lib:evaluate/waitForFunction 回调内经 globalThis 结构化类型访问 DOM——073589d 教训)
+    await page.waitForFunction(
+      () => {
+        const doc = (globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }).document;
+        const el = doc.querySelector('[data-testid="ws-detail-project"]');
+        return el !== null && el.textContent === "LAMICE";
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    expect(await page.textContent('[data-testid="ws-detail-project"]')).toBe("LAMICE");
+    expect((await page.textContent("#ws-title"))!.startsWith("LAMICE ·")).toBe(true); // Header
+    const sidebarRow = page.locator(`[data-testid="ws-goal-row-${created}"]`);
+    await sidebarRow.waitFor({ timeout: 10000 });
+    // 侧栏行位于 LAMICE 分组下(向前找最近的分组名)
+    const groupName = await page.evaluate((gid: string): string | null => {
+      type WsNode = { classList: { contains(c: string): boolean }; previousElementSibling: WsNode | null; textContent: string | null };
+      const doc = (globalThis as unknown as { document: { querySelector(sel: string): WsNode | null } }).document;
+      let p: WsNode | null = doc.querySelector('[data-testid="ws-goal-row-' + gid + '"]');
+      if (!p) return null;
+      p = p.previousElementSibling;
+      while (p && !p.classList.contains("ws-group-name")) p = p.previousElementSibling;
+      return p ? p.textContent : null;
+    }, created);
+    expect(groupName).toBe("LAMICE");
+    // 未绑定 Goal(desktopGoal 无 projectId)⇒ 三处如实「项目未绑定」
+    await page.goto(`${base}/workspace?goal=${desktopGoal}`);
+    await page.waitForSelector('[data-testid="ws-detail-project"]');
+    await page.waitForFunction(
+      () => {
+        const doc = (globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }).document;
+        const el = doc.querySelector('[data-testid="ws-detail-project"]');
+        return el !== null && el.textContent === "项目未绑定";
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    expect((await page.textContent("#ws-title"))!.startsWith("项目未绑定 ·")).toBe(true);
+    const body = await page.textContent("body");
+    expect(body).not.toContain("默认工作区"); // 禁模糊兜底掩盖未知状态
     s.errors.length = 0;
   });
 
@@ -390,8 +516,12 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     await page.fill('[data-testid="ws-input"]', "顺便把错误提示文字也调整一下。");
     await page.click('[data-testid="ws-send"]');
     await page.waitForSelector('[data-testid^="ws-msg-user"]');
-    // C2 精神:执行中的 Feed 显示正在进行的事件(同页可见,不跳转)
-    await page.waitForSelector('[data-testid="ws-feed"]');
+    // C2 精神:执行中的 Feed 显示工作状态块(同页可见,不跳转)
+    await page.waitForSelector('[data-testid="ws-work-block"]');
+    // UX4:运行中同阶段不得重复渲染(旧实现 LEASED/RUNNING/Run 三源叠加出现两条「正在修改代码」)
+    const runningFeed = await page.textContent('[data-testid="ws-feed"]');
+    expect((runningFeed!.match(/正在修改代码/g) || []).length).toBeLessThanOrEqual(1);
+    expect(await page.locator('[data-testid="ws-work-block"]').count()).toBeLessThanOrEqual(1);
 
     // 在途 ⇒ 只记录:消息持久化;此刻不得派生 follow-up(无新 Task)
     await page.waitForTimeout(400);

@@ -1,28 +1,43 @@
-// Relay 会话式工作区(WEB-UX-03C:主交互入口;§2 三层结构)。
+// Relay 会话式工作区(WEB-UX-03C;03C.1 桌面 UX 收口 P0-1~P0-6/P1-1)。
 // 约束(沿 app.js 铁律):零构建/CSP 'self';DOM API + textContent,**不用 innerHTML**;
 //  前端不持有业务状态——Feed=服务端投影(goal_messages 会话事实)+ 明细快照确定性推导(§5 不伪造 AI 对话);
 //  轮询 4s 可见 / 30s 后台 / 发送与 Decision 后立即刷新(§14;无 WebSocket)。
-//  Composer 始终可用(§6);发送失败显式显示,不假成功。
+//  03C.1:单 Composer 模型(P0-1:空白态=项目+开始,任务态=继续对话;整页唯一主要文本输入)/
+//  项目上下文唯一来源(P0-2:status.projectName=侧栏同规则;未绑定如实显示,禁"默认工作区"兜底)/
+//  执行事件聚合为工作状态块(P0-3/P0-4:每轮一个块,阶段确定性去重,完成原位更新;原始事件入技术详情)/
+//  会话布局收敛(P0-5:定宽阅读列,短会话贴 Composer)/ 右栏降噪可折叠(P0-6)/ 用户文案不直出内部错误(P1-1)。
 (function () {
   "use strict";
   const A = window.RelayApp;
   const h = A.h;
   const $ = A.$;
 
+  const UNBOUND = "项目未绑定"; // P0-2:无法识别项目时的唯一如实文案(禁"默认工作区")
+  // 与服务端 src/server/views/shared.ts IN_FLIGHT_STATES 对齐(展示层投影只读快照;Core 状态集变更需同步此处)
+  const IN_FLIGHT = ["LEASED", "RUNNING", "SUBMITTED", "VERIFYING"];
+  const TERMINAL_BAD = ["FAILED", "CANCELLED", "BLOCKED", "BUDGET_EXHAUSTED", "TIMEOUT"];
+
   const state = {
     goalId: null,
     cursor: 0,          // 已消费的最大消息 id(0=从头拉 200)
     messages: [],       // 服务端会话事实(USER_MESSAGE/RELAY_MESSAGE)
     decisions: [],      // 未决决策卡(feed.decisions 整体替换)
-    status: null,       // goalStatusView 快照
-    detail: null,       // goalDetailView(STATUS/RESULT/FAILURE 确定性推导源)
+    status: null,       // goalStatusView 快照(projectName=项目上下文唯一来源)
+    detail: null,       // goalDetailView(工作状态块/技术详情确定性推导源)
     sidebar: null,
-    projectOf: {},      // goalId → 项目名(侧栏归组)
     firstLoad: true,
     pendingLocal: [],   // 发送中尚未落库确认的本地回显(失败即移除)
     notices: [],        // 本会话内操作回执(批准/拒绝/失败;renderFeed 持久渲染,避免被刷新抹掉)
-    lastEventKeys: {},  // STATUS 事件去重
+    lastEventKeys: {},  // 原始事件去重(技术详情层)
+    paneOpen: true,     // P0-6:右栏整栏折叠
   };
+
+  // ---------------- 项目上下文(P0-2:唯一来源 = feed.status.projectName,服务端与侧栏同规则) ----------------
+
+  function projectDisplay() {
+    const p = state.status && state.status.projectName;
+    return p ? String(p) : UNBOUND;
+  }
 
   // ---------------- 侧栏(§3:项目分组;行=标题+状态点+待决;不显示 UUID/Run/model/SHA) ----------------
 
@@ -54,9 +69,9 @@
     }
     let decisionTotal = 0;
     groups.forEach(function (grp) {
-      host.appendChild(h("div", { class: "ws-group-name", text: grp.name }));
+      // P0-2:未绑定注册表项目的 Goal 如实显示"项目未绑定"(与右栏/Header 同文案)
+      host.appendChild(h("div", { class: "ws-group-name", text: grp.name === "未分组" ? UNBOUND : grp.name }));
       grp.goals.forEach(function (g) {
-        state.projectOf[g.id] = grp.name === "未分组" ? null : grp.name;
         decisionTotal += Number(g.pendingDecisions) || 0;
         const dot = PHASE_DOT[g.phase] || PHASE_DOT.idle;
         const link = h(
@@ -76,7 +91,137 @@
     }
   }
 
-  // ---------------- Feed:会话事实 + 系统事件 + Decision/Result 卡(§4/§7/§8/§11) ----------------
+  // ---------------- 工作状态块(P0-3/P0-4:执行事件聚合;每 Goal 一个块,原位更新) ----------------
+
+  const STAGE_MARK = { ok: "✓", run: "●", idle: "○", bad: "✗", warn: "⚠" };
+  const MODE_TITLE = {
+    running: "Relay 正在处理",
+    queued: "已纳入执行队列,即将开始",
+    waiting: "等待你的决定",
+    done: "Relay 已完成本轮工作",
+    failed: "本轮工作未完成,需要处理",
+  };
+
+  /**
+   * 明细快照 → 单一工作状态块(确定性推导,不伪造;Core 事实源不变,仅 UI 投影)。
+   * 主 Feed 不再逐条渲染执行事件(P0-3:同阶段只出现一次);原始事件见技术详情(P0-4/P1-1)。
+   */
+  function deriveWork(g) {
+    if (!g) return null;
+    const tasks = (g.tasks || []).slice().sort(function (a, b) {
+      return String(a.createdAt || "").localeCompare(String(b.createdAt || "")) || String(a.id).localeCompare(String(b.id));
+    });
+    const latest = tasks[tasks.length - 1];
+    if (!latest) return null;
+    const pending = state.status ? Number(state.status.pendingDecisions) || 0 : 0;
+    const csList = g.changesets || [];
+    // 交付判定以「最新变更集」为准(ORDER BY created_at DESC ⇒ csList[0] 最新;旧轮 DELIVERED 不代表本轮交付成功——Reviewer Minor-2)
+    const newestCs = csList[0] || null;
+    const delivering = newestCs !== null && newestCs.deliveryState === "DELIVERING";
+    const delivered = newestCs !== null && newestCs.deliveryState === "DELIVERED" ? newestCs : null;
+    const undelivered = newestCs !== null && newestCs.deliveryState === "NONE"; // 候选已建但交付未完成(如 propose 失败挂 D3)
+    const failedCs = newestCs !== null && ["FAILED", "CONFLICT"].indexOf(newestCs.deliveryState) >= 0 ? newestCs : null;
+    const coderRuns = (g.runs || []).filter(function (r) { return (r.role || "coder") === "coder"; });
+    const coderRunning = coderRuns.some(function (r) { return r.outcome === "RUNNING"; });
+    // role=null ⇒ coder run(runs 表无 role 列;仅 reviewer 在 detail.role 锚定)——禁止 fallback 到 reviewer
+    const reviewerRunning = (g.runs || []).some(function (r) { return r.role === "reviewer" && r.outcome === "RUNNING"; });
+    const inFlight = tasks.some(function (t) { return IN_FLIGHT.indexOf(t.state) >= 0; }) || coderRunning || reviewerRunning || delivering;
+    const latestBad = TERMINAL_BAD.indexOf(latest.state) >= 0;
+
+    let mode;
+    if (pending > 0 || latest.state === "NEEDS_DECISION") mode = "waiting";
+    else if (inFlight) mode = "running";
+    else if (latestBad) mode = "failed";
+    else if (["READY", "PLANNED", "REWORK", "WAITING"].indexOf(latest.state) >= 0) mode = "queued";
+    else if (tasks.some(function (t) { return t.state === "ACCEPTED"; }) || delivered) mode = "done";
+    else return null;
+
+    const evRows = g.evidence || [];
+    const evPass = evRows.filter(function (e) { return e.passed; }).length;
+    const evFail = evRows.length - evPass;
+    const gate = (g.gates || [])[0] || null; // gates 新在前(ORDER BY created_at DESC,与 buildGoalProgress 口径一致)
+    const disc = g.discovery && g.discovery.latest;
+    const active = mode === "running" || mode === "queued" || mode === "waiting"; // 未完成轮次:未到阶段显示 ○
+
+    const stages = [];
+    if (disc) {
+      stages.push(disc.outcome === "SUCCEEDED"
+        ? { key: "analyze", cls: "ok", label: active ? "已分析项目" : "项目分析" }
+        : { key: "analyze", cls: "warn", label: "自动分析未成功,按规则继续" });
+    } else if (active) {
+      stages.push({ key: "analyze", cls: "idle", label: "项目分析" });
+    }
+    const newestCoder = coderRuns[0] || null;
+    if (coderRunning) stages.push({ key: "code", cls: "run", label: "正在修改代码" });
+    else if (newestCoder && newestCoder.outcome === "SUCCEEDED") stages.push({ key: "code", cls: "ok", label: "代码修改" });
+    else if (newestCoder && ["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(newestCoder.outcome) >= 0) stages.push({ key: "code", cls: "bad", label: "代码修改未完成" });
+    else if (mode === "done") stages.push({ key: "code", cls: "ok", label: "代码修改" });
+    else stages.push({ key: "code", cls: "idle", label: "代码修改" });
+    if (inFlight && latest.state === "VERIFYING") stages.push({ key: "test", cls: "run", label: "正在测试" });
+    else if (evRows.length) stages.push({ key: "test", cls: evFail ? (evPass ? "warn" : "bad") : "ok", label: evPass + " 项测试" + (evFail ? "(" + evFail + " 项未通过)" : ""), testid: "ws-result-tests" });
+    else if (active) stages.push({ key: "test", cls: "idle", label: "自动测试" });
+    if (reviewerRunning) stages.push({ key: "review", cls: "run", label: "正在复核" });
+    else if (gate && gate.verdict === "PASS") stages.push({ key: "review", cls: "ok", label: "独立复核通过", testid: "ws-result-review" });
+    else if (gate && gate.verdict === "BLOCK") stages.push({ key: "review", cls: "bad", label: "复核发现问题,需要处理" });
+    else if (gate && gate.verdict === "REWORK") stages.push({ key: "review", cls: "warn", label: "复核要求返工" });
+    else if (active) stages.push({ key: "review", cls: "idle", label: "独立复核" });
+    if (delivering) stages.push({ key: "deliver", cls: "run", label: "正在交付" });
+    else if (delivered) {
+      const n = delivered.changedFiles.added.length + delivered.changedFiles.modified.length + delivered.changedFiles.removed.length;
+      stages.push({ key: "deliver", cls: "ok", label: "已提交 GitHub", testid: "ws-result-delivery", extra: h("span", { class: "dim", "data-testid": "ws-result-files", text: n + " 个文件" }) });
+    } else if (failedCs) stages.push({ key: "deliver", cls: "bad", label: "GitHub 交付未成功,需要处理。" }); // P1-1:用户文案,内部原因见技术详情
+    else if (undelivered && !active) stages.push({ key: "deliver", cls: "warn", label: "交付未完成,需要处理" }); // 本轮候选未交付(如实;不冒充旧轮已提交)
+    else if (active) stages.push({ key: "deliver", cls: "idle", label: "交付" });
+
+    return {
+      mode: mode,
+      stages: stages,
+      rawInput: (g.goal && g.goal.rawInput) || "",
+      changesetId: delivered ? delivered.id : (csList[0] ? csList[0].id : null),
+    };
+  }
+
+  function stageRow(s) {
+    return h(
+      "div",
+      { class: "ws-stage st-" + s.cls, "data-testid": s.testid || "ws-stage-" + s.key },
+      h("span", { class: "ws-stage-mark", text: STAGE_MARK[s.cls] || "○" }),
+      h("span", { class: "ws-stage-text", text: s.label }),
+      s.extra || null,
+    );
+  }
+
+  function workBlock(w) {
+    const isDone = w.mode === "done";
+    const cls = isDone ? "ws-block-done" : w.mode === "failed" ? "ws-block-bad" : w.mode === "waiting" ? "ws-block-wait" : "ws-block-run";
+    const titleCls = isDone ? "ws-ok-text" : w.mode === "failed" ? "ws-bad-text" : w.mode === "waiting" ? "ws-warn-text" : "ws-run-text";
+    const block = h(
+      "div",
+      { class: "ws-block " + cls, "data-testid": isDone ? "ws-result-card" : "ws-work-block" },
+      h("div", { class: "ws-block-title " + titleCls, text: (isDone ? "✓ " : w.mode === "failed" ? "✗ " : "") + MODE_TITLE[w.mode] }),
+    );
+    if (isDone && w.rawInput) {
+      block.appendChild(h("div", { class: "ws-card-question", text: w.rawInput.length > 120 ? w.rawInput.slice(0, 120) + "…" : w.rawInput }));
+    }
+    const rows = h("div", { class: "ws-stage-rows" });
+    w.stages.forEach(function (s) { rows.appendChild(stageRow(s)); });
+    block.appendChild(rows);
+    if (w.mode === "failed") {
+      // P1-1:失败只给用户文案 + 「查看原因」;内部错误码/路径/堆栈只在技术详情
+      block.appendChild(h("div", { class: "row mt8" }, h("button", { class: "btn btn-sm", type: "button", "data-testid": "ws-fail-reason", text: "查看原因", onclick: function () { toggleTech(true); } })));
+    }
+    if (isDone) {
+      const row = h("div", { class: "row mt8" });
+      if (w.changesetId) {
+        row.appendChild(h("a", { class: "btn btn-sm", href: "/changeset.html?id=" + encodeURIComponent(w.changesetId), "data-testid": "ws-result-view", text: "查看修改" }));
+      }
+      row.appendChild(h("button", { class: "btn btn-sm", type: "button", "data-testid": "ws-result-tech", text: "技术详情", onclick: function () { toggleTech(); } }));
+      block.appendChild(row);
+    }
+    return block;
+  }
+
+  // ---------------- 原始执行事件(仅技术详情层展示;审计事实不删,只换层 P0-4/P1-1) ----------------
 
   /** STATUS/RESULT/FAILURE 事件 = goalDetail 确定性推导(与 goal.js 时间线同规则;键去重,带时间戳)。 */
   function deriveEvents(g) {
@@ -95,7 +240,7 @@
       else if (s === "VERIFYING") push("task-ver-" + t.id, ts, "st-run", "正在验证");
       else if (s === "ACCEPTED") push("task-acc-" + t.id, ts, "st-ok", "本轮执行完成,复核通过");
       else if (s === "REWORK") push("task-rw-" + t.id + "-" + t.attempt, ts, "st-warn", "正在返工");
-      else if (["FAILED", "CANCELLED", "BLOCKED", "BUDGET_EXHAUSTED", "TIMEOUT"].indexOf(s) >= 0) push("task-fail-" + t.id + "-" + s, ts, "st-bad", "本轮执行未成功" + (t.blockedReason ? ":" + t.blockedReason : ""));
+      else if (TERMINAL_BAD.indexOf(s) >= 0) push("task-fail-" + t.id + "-" + s, ts, "st-bad", "本轮执行未成功" + (t.blockedReason ? ":" + t.blockedReason : ""));
       else if (s === "NEEDS_DECISION") push("task-dec-" + t.id, ts, "st-warn", "等待你的决定");
     });
     const evRows = (g.evidence || []).slice(0, 50);
@@ -109,7 +254,7 @@
       if (role === "coder") {
         if (r.outcome === "SUCCEEDED") push("run-ok-" + r.id, ts, "st-ok", "代码修改完成");
         else if (r.outcome === "RUNNING") push("run-go-" + r.id, ts, "st-run", "正在修改代码");
-        else if (["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(r.outcome) >= 0) push("run-bad-" + r.id + "-" + r.outcome, ts, "st-bad", "修改遇到问题,系统会按规则重试(原因见技术详情)"); // Reviewer F-2:内部错误码不直出
+        else if (["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(r.outcome) >= 0) push("run-bad-" + r.id + "-" + r.outcome, ts, "st-bad", "修改未成功" + (r.reason ? ":" + r.reason : ""));
       } else if (role === "reviewer" && r.outcome === "RUNNING") {
         push("rev-go-" + r.id, ts, "st-run", "独立复核进行中");
       }
@@ -123,7 +268,7 @@
       const n = (c.changedFiles.added.length + c.changedFiles.modified.length + c.changedFiles.removed.length);
       if (c.deliveryState === "DELIVERED") push("cs-ok-" + c.id + "-" + c.deliveryState, null, "st-ok", "修改已提交仓库(" + n + " 个文件)");
       else if (c.deliveryState === "DELIVERING") push("cs-go-" + c.id + "-" + c.deliveryState, null, "st-run", "正在交付");
-      else if (["CONFLICT", "FAILED"].indexOf(c.deliveryState) >= 0) push("cs-bad-" + c.id + "-" + c.deliveryState, null, "st-bad", "交付遇到问题,需要处理");
+      else if (["CONFLICT", "FAILED"].indexOf(c.deliveryState) >= 0) push("cs-bad-" + c.id + "-" + c.deliveryState, null, "st-bad", "交付未成功" + (c.failReason ? ":" + c.failReason : ""));
     });
     const disc = g.discovery && g.discovery.latest;
     if (disc && disc.outcome === "SUCCEEDED") push("disc-ok", null, "st-ok", "项目分析完成");
@@ -141,6 +286,8 @@
       e.ts ? h("span", { class: "ws-event-ts", text: A.fmtTime(e.ts) }) : null,
     );
   }
+
+  // ---------------- 会话消息与卡(§4/§7/§8;UX6:Decision/Result/Follow-up 不回归) ----------------
 
   function userBubble(m) {
     return h(
@@ -163,11 +310,18 @@
   /** Decision 卡(§7:内联;三按钮映射现有 resolve/defer 语义;不向用户暴露版本号)。 */
   function decisionCard(d) {
     const fb = d.fallback || {};
+    // P1-1(Reviewer Major-1):交付装配失败的 D3 question 直含 propose_failed/git 原始报错——
+    // 主 Feed 一律换用户文案;完整原始 question 保留于「待我决定」页(decisions.html 直出全文)与 API。
+    const q = String(d.question || "");
+    const isDeliveryFail = q.indexOf("delivery_propose_failed") === 0;
+    const qShown = isDeliveryFail
+      ? "GitHub 交付未成功,需要处理。"
+      : q.length > 200 ? q.slice(0, 200) + "…(完整内容见「待我决定」页)" : q || "(系统未提供问题描述)";
     const card = h(
       "div",
       { class: "ws-card ws-card-decision", "data-testid": "ws-decision-card-" + d.id },
       h("div", { class: "ws-card-title ws-warn-text", text: "⚠ 需要你的决定" }),
-      h("div", { class: "ws-card-question", "data-testid": "ws-decision-question", text: (function () { const q = d.question || "(系统未提供问题描述)"; return q.length > 200 ? q.slice(0, 200) + "…(完整内容见技术详情)" : q; })() }), // Reviewer F-2:内部错误细节截断,完整内容走技术详情
+      h("div", { class: "ws-card-question", "data-testid": "ws-decision-question", text: qShown }),
       fb.recommended ? h("div", { class: "ws-card-sub", text: "建议:" + String(fb.recommended) }) : null,
       fb.risk ? h("div", { class: "ws-card-sub dim", text: "风险:" + String(fb.risk) }) : null,
       d.deadline ? h("div", { class: "ws-card-sub dim", text: "截止:" + A.fmtTime(d.deadline) }) : null,
@@ -177,8 +331,8 @@
       const b = h("button", { class: "btn btn-sm", type: "button", "data-testid": testid, text: label });
       b.addEventListener("click", function () {
         disableRow();
-        fn().catch(function (err) {
-          feedNotice("操作失败,请稍后重试(详见技术详情)", "st-bad"); // Reviewer F-2:内部异常文案不直出
+        fn().catch(function () {
+          feedNotice("操作失败,请稍后重试(详见技术详情)", "st-bad"); // P1-1:内部异常文案不直出
           disableRow(false);
         });
       });
@@ -221,50 +375,28 @@
     return t.stateVersion;
   }
 
-  /** Result 卡(§8:完成后内联;数据=明细快照确定性统计)。 */
-  function resultCard(g) {
-    const cs = (g.changesets || []).find(function (c) { return c.deliveryState === "DELIVERED"; });
-    const evRows = g.evidence || [];
-    const evPass = evRows.filter(function (e) { return e.passed; }).length;
-    const gatePass = (g.gates || []).some(function (x) { return x.verdict === "PASS"; });
-    const accepted = (g.tasks || []).some(function (t) { return t.state === "ACCEPTED"; });
-    if (!accepted && !cs) return null;
-    const nFiles = cs ? cs.changedFiles.added.length + cs.changedFiles.modified.length + cs.changedFiles.removed.length : 0;
-    const card = h(
-      "div",
-      { class: "ws-card ws-card-result", "data-testid": "ws-result-card" },
-      h("div", { class: "ws-card-title ws-ok-text", text: "✓ 本轮工作完成" }),
-      h("div", { class: "ws-card-question", text: (g.goal.rawInput || "").length > 120 ? g.goal.rawInput.slice(0, 120) + "…" : g.goal.rawInput || "" }),
-    );
-    const rows = h("div", { class: "ws-result-rows" });
-    if (cs) rows.appendChild(h("div", { class: "ws-card-sub" }, h("span", { class: "dim" }, "修改 "), h("span", { "data-testid": "ws-result-files", text: nFiles + " 个文件" })));
-    rows.appendChild(h("div", { class: "ws-card-sub" }, h("span", { class: "dim" }, "验证 "), h("span", { "data-testid": "ws-result-tests", text: evRows.length ? "✓ " + evPass + " 项通过" + (evPass < evRows.length ? "(" + (evRows.length - evPass) + " 项未通过)" : "") : "—未运行" })));
-    rows.appendChild(h("div", { class: "ws-card-sub" }, h("span", { class: "dim" }, "复核 "), h("span", { "data-testid": "ws-result-review", text: gatePass ? "✓ 独立复核通过" : "—" })));
-    rows.appendChild(h("div", { class: "ws-card-sub" }, h("span", { class: "dim" }, "交付 "), h("span", { "data-testid": "ws-result-delivery", text: cs ? "✓ 已提交 GitHub" : "尚未交付" })));
-    card.appendChild(rows);
-    const row = h("div", { class: "row mt8" });
-    if (cs) {
-      row.appendChild(h("a", { class: "btn btn-sm", href: "/changeset.html?id=" + encodeURIComponent(cs.id), "data-testid": "ws-result-view", text: "查看修改" }));
-    }
-    row.appendChild(h("button", { class: "btn btn-sm", type: "button", "data-testid": "ws-result-tech", text: "技术详情", onclick: function () { toggleTech(); } }));
-    card.appendChild(row);
-    return card;
-  }
-
   function feedNotice(text, cls) {
     // §7:操作结果插入 Feed;保留最近 3 条,刷新重渲染时不丢(客户端会话回执,非服务端事实)。
     state.notices.push({ text: text, cls: cls || "st-warn" });
     if (state.notices.length > 3) state.notices.shift();
-    renderFeed();
+    renderFeed(true);
   }
 
-  /** Feed 整体渲染:消息(按 id 序)∪ 派生事件(按时间)→ Decision 卡 → Result 卡 →(Composer 常驻)。 */
-  function renderFeed() {
+  /** Feed 整体渲染(P0-5:定宽阅读列;短会话贴 Composer;长会话正常滚动):
+   *  消息(按 id 序)→ 工作状态块(单块原位更新 P0-3/P0-4)→ Decision 卡 → 操作回执。 */
+  function renderFeed(immediate) {
     const feed = $("#ws-feed");
     if (!feed) return;
+    const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 140;
     feed.textContent = "";
+    const col = h("div", { class: "ws-feed-col" + (state.goalId ? "" : " ws-feed-empty") });
+    feed.appendChild(col);
     if (!state.goalId) {
-      feed.appendChild(h("div", { class: "ws-empty-feed" }, "选择左侧任务,或新建一个任务开始对话。"));
+      // 空白态(P0-1/P0-5):引导语居中;唯一输入 = 下方 Composer(项目选择+开始)
+      col.appendChild(h("div", { class: "ws-empty-hero" },
+        h("h1", { class: "ws-hero-title", text: "今天想让 Relay 做什么?" }),
+        h("p", { class: "ws-hero-sub", text: "在下方选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。" }),
+      ));
       return;
     }
     const items = [];
@@ -274,30 +406,26 @@
     state.pendingLocal.forEach(function (m) {
       items.push({ sort: Number.MAX_SAFE_INTEGER, node: userBubble({ id: "local-" + m.n, content: m.content }) });
     });
-    deriveEvents(state.detail).forEach(function (e) {
-      const ts = e.ts ? Date.parse(e.ts) : 0;
-      items.push({ sort: ts || 0.5, node: eventLine(e), ts: ts || null });
-    });
-    // 排序:消息按 id 权威;事件按时间戳落在消息间(无时间戳事件贴在现有内容后)。
     items.sort(function (a, b) { return a.sort - b.sort; });
-    items.forEach(function (it) { feed.appendChild(it.node); });
+    items.forEach(function (it) { col.appendChild(it.node); });
+    // 工作状态块(每 Goal 一个;随明细快照原位更新,不逐条追加日志)
+    const w = deriveWork(state.detail);
+    if (w) col.appendChild(workBlock(w));
     // Decision 卡(未决;内联于 Feed 末尾、Composer 之前)
-    (state.decisions || []).forEach(function (d) { feed.appendChild(decisionCard(d)); });
+    (state.decisions || []).forEach(function (d) { col.appendChild(decisionCard(d)); });
     // 本会话操作回执(批准/拒绝/失败提示;客户端回执,排在决策卡后)
-    state.notices.forEach(function (n, i) {
-      feed.appendChild(h("div", { class: "ws-event " + n.cls, "data-testid": "ws-notice", text: n.text }));
+    state.notices.forEach(function (n) {
+      col.appendChild(h("div", { class: "ws-event " + n.cls, "data-testid": "ws-notice", text: n.text }));
     });
-    // Result 卡(完成后内联;detail 未返回时跳过,下一拍补齐——Reviewer F-1)
-    const rc = state.detail ? resultCard(state.detail) : null;
-    if (rc) feed.appendChild(rc);
-    feed.scrollTop = feed.scrollHeight;
+    if (immediate || nearBottom) feed.scrollTop = feed.scrollHeight;
   }
 
-  // ---------------- 右侧详情栏(§9:默认摘要;技术详情折叠) ----------------
+  // ---------------- 右侧详情栏(§9 + P0-6:默认四项;elapsed 按需;技术详情折叠;整栏可收起) ----------------
 
   let techOpen = false;
-  function toggleTech() {
-    techOpen = !techOpen;
+  function toggleTech(force) {
+    techOpen = force === undefined ? !techOpen : !!force;
+    if (techOpen && !state.paneOpen) { state.paneOpen = true; applyPane(); }
     renderDetail();
   }
 
@@ -310,11 +438,16 @@
     if (!state.goalId) { host.appendChild(h("div", { class: "empty" }, "未选择任务")); return; }
     const ph = st && st.inFlight ? "正在处理" : st && st.pendingDecisions > 0 ? "等待你决定" : g && (g.progress || {}).phase ? A.zh((g.progress || {}).phase) : "—";
     host.appendChild(h("div", { class: "ws-detail-head", text: "任务信息" }));
-    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "当前项目"), h("span", { "data-testid": "ws-detail-project", text: state.projectOf[state.goalId] || "默认工作区" })));
+    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "项目"), h("span", { "data-testid": "ws-detail-project", text: projectDisplay() })));
+    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "状态"), h("span", { "data-testid": "ws-detail-state", text: st ? A.zh(st.goalState) : "—" })));
     host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "当前阶段"), h("span", { "data-testid": "ws-detail-phase", text: ph })));
-    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "已运行时间"), h("span", { "data-testid": "ws-detail-elapsed", text: g && g.progress && g.progress.elapsedSeconds !== null && g.progress.elapsedSeconds !== undefined ? A.fmtDuration(g.progress.elapsedSeconds) : "—" })));
     host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "是否等待用户"), h("span", { "data-testid": "ws-detail-waiting", text: st && st.pendingDecisions > 0 ? "是(需要你决定)" : "否" })));
-    host.appendChild(h("button", { class: "btn btn-sm ws-tech-toggle", type: "button", "data-testid": "ws-detail-toggle", text: techOpen ? "收起技术详情" : "技术详情", onclick: toggleTech }));
+    const elapsed = g && g.progress && g.progress.elapsedSeconds;
+    if (elapsed !== null && elapsed !== undefined && Number(elapsed) > 0) {
+      // P0-6:已运行时间只在有意义时显示(有实际运行时长)
+      host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "已运行时间"), h("span", { "data-testid": "ws-detail-elapsed", text: A.fmtDuration(elapsed) })));
+    }
+    host.appendChild(h("button", { class: "btn btn-sm ws-tech-toggle", type: "button", "data-testid": "ws-detail-toggle", text: techOpen ? "收起技术详情" : "技术详情", onclick: function () { toggleTech(); } }));
     if (techOpen && g) {
       const box = h("div", { class: "ws-tech", "data-testid": "ws-detail-tech" });
       const rows = [];
@@ -331,11 +464,41 @@
       rows.push(h("dt", { text: "交付 / SHA" }), h("dd", { class: "mono-sm", text: cs ? (cs.deliveryState + " · " + A.short(cs.gitCommitSha || cs.candidateSha)) : "—" }));
       rows.push(h("dt", { text: "作用域" }), h("dd", { class: "small", text: (g.tasks[0] && g.tasks[0].allowedScope.join(", ")) || "—" }));
       box.appendChild(h("dl", { class: "kv" }, rows));
+      // P0-4:完整原始执行事件保留在技术详情(审计事实不删;P1-1:内部码/路径只在此层)
+      box.appendChild(h("div", { class: "ws-tech-events", "data-testid": "ws-tech-events" },
+        h("div", { class: "ws-detail-head", text: "执行事件(原始)" }),
+        deriveEvents(g).map(eventLine).concat([h("div", { class: "ws-event dim", text: "更早事件与完整审计见系统状态/技术证据。" })]),
+      ));
       host.appendChild(box);
     }
   }
 
-  // ---------------- Composer(§6:始终可见;Enter 发送;失败显式) ----------------
+  // ---------------- 右栏整栏折叠(P0-6) ----------------
+
+  function applyPane() {
+    const layout = $("#ws-layout");
+    if (layout) layout.classList.toggle("ws-pane-closed", !state.paneOpen);
+    const btn = $("#ws-pane-toggle");
+    if (btn) btn.textContent = state.paneOpen ? "收起详情" : "查看详情";
+  }
+
+  // ---------------- Composer(P0-1:唯一输入;空白态=项目+开始 / 任务态=继续对话;Enter 发送;失败显式) ----------------
+
+  function renderComposer() {
+    const input = $("#ws-input");
+    const btn = $("#ws-send");
+    const projRow = $("#ws-composer-project");
+    if (!input || !btn) return;
+    if (!state.goalId) {
+      input.placeholder = "告诉 Relay 你想做什么……";
+      btn.textContent = "开始";
+      if (projRow) projRow.hidden = false;
+    } else {
+      input.placeholder = "继续告诉 Relay……";
+      btn.textContent = "发送";
+      if (projRow) projRow.hidden = true;
+    }
+  }
 
   async function sendMessage() {
     const input = $("#ws-input");
@@ -347,7 +510,7 @@
     input.value = "";
     const localN = state.pendingLocal.length;
     state.pendingLocal.push({ n: localN, content: content });
-    renderFeed(); // §6:发送后立即在 Feed 显示 USER_MESSAGE(本地回显)
+    renderFeed(true); // §6:发送后立即在 Feed 显示 USER_MESSAGE(本地回显)
     btn.disabled = true;
     try {
       await A.apiPost("/api/goals/" + encodeURIComponent(state.goalId) + "/messages", { content: content });
@@ -356,72 +519,81 @@
     } catch (err) {
       state.pendingLocal = state.pendingLocal.filter(function (m) { return m.content !== content; });
       input.value = content; // 失败还原文稿;显式报错,不假成功
-      feedNotice("发送失败:" + ((err && err.message) || err), "st-bad");
+      feedNotice("发送失败,请稍后重试", "st-bad"); // P1-1:内部异常文案不直出
     } finally {
       btn.disabled = false;
       input.focus();
     }
   }
 
+  async function createFromComposer() {
+    const input = $("#ws-input");
+    const btn = $("#ws-send");
+    const msg = $("#ws-composer-msg");
+    const sel = $("#ws-project");
+    if (!input || !btn) return;
+    const raw = input.value.trim();
+    if (msg) msg.textContent = "";
+    if (!raw) { if (msg) msg.textContent = "先写一句你想让 Relay 做的事"; return; }
+    if (raw.length > 2000) { if (msg) msg.textContent = "内容过长(上限 2000 字)"; return; }
+    btn.disabled = true;
+    try {
+      const payload = { rawInput: raw };
+      if (sel && sel.value) payload.projectId = sel.value;
+      const res = await A.apiPost("/api/goals", payload);
+      window.location.href = "/workspace?goal=" + encodeURIComponent(res.goalId);
+    } catch (e) {
+      if (msg) msg.textContent = "创建失败,请稍后重试"; // P1-1:内部错误不直出
+      btn.disabled = false;
+    }
+  }
+
+  function composerSubmit() {
+    if (state.goalId) return sendMessage();
+    return createFromComposer();
+  }
+
   function wireComposer() {
     const input = $("#ws-input");
     const btn = $("#ws-send");
-    if (btn) btn.addEventListener("click", sendMessage);
+    if (btn) btn.addEventListener("click", composerSubmit);
     if (input) {
       input.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
-          sendMessage();
+          composerSubmit();
         }
       });
     }
   }
 
-  // ---------------- 新建任务面板(C1:选项目 → 一句话 → 开始) ----------------
-
-  function wireNewTask() {
-    const btn = $("#ws-new-task");
-    const panel = $("#ws-newtask-panel");
-    const close = function () { panel.hidden = true; };
-    if (btn) btn.addEventListener("click", function () { panel.hidden = false; $("#ws-goal-input").focus(); });
-    window.addEventListener("hashchange", function () {
-      if (window.location.hash === "#new-task") { panel.hidden = false; }
-    });
-    if (window.location.hash === "#new-task") panel.hidden = false;
+  function populateProjectSelect() {
     const sel = $("#ws-project");
-    const ta = $("#ws-goal-input");
-    const create = $("#ws-create");
-    const msg = $("#ws-create-msg");
+    if (!sel) return;
     A.apiGet("/api/projects").then(function (res) {
       const v = res.projects || {};
       const list = (v.projects || []).filter(function (p) { return p && p.name && p.path; });
       sel.textContent = "";
       if (!list.length) {
-        sel.appendChild(h("option", { value: "", text: v.configured ? "暂无项目 — 直接开始(默认工作区)" : "尚未配置项目 — 直接开始(默认工作区)" }));
+        sel.appendChild(h("option", { value: "", text: v.configured ? "暂无项目 — 直接开始" : "尚未配置项目 — 直接开始" }));
       } else {
         sel.appendChild(h("option", { value: "", text: "请选择一个项目" }));
         list.forEach(function (p) { sel.appendChild(h("option", { value: p.name, text: p.name })); });
       }
     }).catch(function () { sel.appendChild(h("option", { value: "", text: "项目列表读取失败,可直接开始" })); });
-    create.addEventListener("click", async function () {
-      const raw = ta.value.trim();
-      msg.textContent = "";
-      if (!raw) { msg.textContent = "先写一句你想让 Relay 做的事"; return; }
-      create.disabled = true;
-      try {
-        const payload = { rawInput: raw };
-        if (sel.value) payload.projectId = sel.value;
-        const res = await A.apiPost("/api/goals", payload);
-        window.location.href = "/workspace?goal=" + encodeURIComponent(res.goalId);
-      } catch (e) {
-        msg.textContent = "创建失败:" + ((e && e.message) || e);
-        create.disabled = false;
-      }
-    });
-    void close;
   }
 
-  // ---------------- 数据刷新(§14:Feed 增量 + 明细/侧栏整体替换;4s 可见 / 30s 后台) ----------------
+  // ---------------- 顶栏 / 数据刷新(§14:Feed 增量 + 明细/侧栏整体替换;4s 可见 / 30s 后台) ----------------
+
+  function renderHeader() {
+    const title = $("#ws-title");
+    const g = state.detail;
+    if (!state.goalId) { title.textContent = "工作区"; return; }
+    // P0-2:Header 项目 = status.projectName(与侧栏/右栏同源);未绑定如实显示
+    title.textContent = projectDisplay() + " · " + goalTitle(g && g.goal ? g.goal.rawInput : "");
+    const stamp = $("#ws-stamp");
+    if (stamp) stamp.textContent = "数据读取时间:" + A.fmtTime(new Date().toISOString());
+  }
 
   async function refreshFeed(immediate) {
     if (!state.goalId) return;
@@ -438,7 +610,7 @@
     }
     state.decisions = f.decisions || [];
     state.status = f.status || state.status;
-    if (immediate) renderFeed();
+    if (immediate) renderFeed(true);
   }
 
   async function refreshDetail() {
@@ -453,22 +625,15 @@
     renderSidebar();
   }
 
-  function renderHeader() {
-    const title = $("#ws-title");
-    const g = state.detail;
-    if (!state.goalId) { title.textContent = "工作区"; return; }
-    const proj = state.projectOf[state.goalId];
-    title.textContent = (proj ? proj + " · " : "") + goalTitle(g && g.goal ? g.goal.rawInput : "");
-    const stamp = $("#ws-stamp");
-    if (stamp) stamp.textContent = "数据读取时间:" + A.fmtTime(new Date().toISOString());
-  }
-
   async function refreshAll(immediate) {
     try {
       if (state.goalId) {
         await Promise.all([refreshFeed(immediate), refreshDetail()]);
-        renderFeed();
-        renderDetail();
+      }
+      renderFeed(immediate); // 空白态=引导语;任务态=消息+工作块
+      renderComposer();       // P0-1:模式随 goal 选择切换(占位/按钮/项目选择)
+      renderDetail();         // 空白态右栏=「未选择任务」(不留整列空白——Reviewer Minor-6)
+      if (state.goalId) {
         renderHeader();
       }
       await refreshSidebar();
@@ -512,15 +677,22 @@
         window.location.href = "/login.html";
       });
     }
-    wireComposer();
-    wireNewTask();
-    if (!state.goalId) {
-      const panel = $("#ws-newtask-panel");
-      if (panel && window.location.hash !== "#new-task") panel.hidden = false; // 无选中任务时默认引导新建
-      $("#ws-feed").textContent = "";
-      $("#ws-feed").appendChild(h("div", { class: "ws-empty-feed" }, "在下方选择项目并说出需求,Relay 会在这里持续汇报进展。"));
+    const newTask = $("#ws-new-task");
+    if (newTask) {
+      newTask.addEventListener("click", function () {
+        // P0-1:新建任务 = 回空白工作区(唯一 Composer 承载创建),不再有第二表单
+        if (state.goalId || window.location.search) window.location.href = "/workspace";
+        else { const input = $("#ws-input"); if (input) input.focus(); }
+      });
     }
+    const paneToggle = $("#ws-pane-toggle");
+    if (paneToggle) paneToggle.addEventListener("click", function () { state.paneOpen = !state.paneOpen; applyPane(); });
+    applyPane();
+    wireComposer();
+    if (window.location.hash === "#new-task") { const input = $("#ws-input"); if (input) input.focus(); } // 旧锚点兼容:聚焦唯一 Composer
+    if (!state.goalId) populateProjectSelect();
     await refreshAll(true);
+    if (!state.goalId) { const input = $("#ws-input"); if (input) input.focus(); }
     scheduleLoop();
   }, { bare: true });
 })();

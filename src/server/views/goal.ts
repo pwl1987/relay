@@ -675,6 +675,8 @@ export interface GoalStatusView {
   inFlight: boolean;
   tasks: Array<{ id: string; state: string; priority: number; updatedAt: string | null }>;
   pendingDecisions: number;
+  /** WEB-UX-03C.1 P0-2:项目上下文唯一来源(与侧栏归组同规则);null=未绑定注册表项目(显示"项目未绑定") */
+  projectName: string | null;
 }
 
 /** Goal 是否有在途执行(LEASED/RUNNING/SUBMITTED/VERIFYING)。follow-up 派生的前置检查。 */
@@ -711,6 +713,16 @@ export async function goalStatusView(db: RelayDb, goalId: string): Promise<GoalS
     updatedAt: iso(r["updated_at"]),
   }));
   const pendingDecisions = num(decRows.rows[0]?.["n"]);
+  // WEB-UX-03C.1 P0-2:项目上下文唯一来源(与侧栏归组同一规则:最近 Task allowed_scope ↔ 注册表路径;
+  // 无法识别 ⇒ null,客户端如实显示"项目未绑定",禁用"默认工作区"模糊兜底)。
+  const scopeRows = await db.execute(sql`
+    SELECT allowed_scope FROM tasks WHERE goal_id = ${goalId}
+    ORDER BY created_at DESC, id DESC LIMIT 1
+  `);
+  const scope = Array.isArray(scopeRows.rows[0]?.["allowed_scope"])
+    ? (scopeRows.rows[0]!["allowed_scope"] as unknown[]).map(String)
+    : [];
+  const projectName = matchProjectByScope(scope, readProjectRegistry());
   return {
     goalId: str(g["id"]),
     goalState: str(g["state"]),
@@ -718,7 +730,26 @@ export async function goalStatusView(db: RelayDb, goalId: string): Promise<GoalS
     inFlight: tasks.some((t) => (IN_FLIGHT_STATES as readonly string[]).includes(t.state)),
     tasks,
     pendingDecisions,
+    projectName,
   };
+}
+
+/**
+ * 项目归组唯一规则(WEB-UX-03C.1 P0-2:sidebar 与 goalStatus 同源):最近 Task 的 allowed_scope
+ * 与注册表路径互为前缀即视为同一项目(与 projectsView 链接规则一致);无匹配 ⇒ null。
+ */
+export function matchProjectByScope(
+  scope: string[],
+  registry: { projects: Array<{ name: string; path: string | null }> },
+): string | null {
+  for (const s of scope) {
+    for (const entry of registry.projects) {
+      if (entry.path && (s === entry.path || s.startsWith(entry.path) || entry.path.startsWith(s))) {
+        return entry.name;
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -848,18 +879,9 @@ export async function workspaceSidebarView(db: RelayDb): Promise<WorkspaceSideba
       pendingDecisions: pending,
       phase,
     };
-    // 项目归组:最近 Task 的 allowed_scope 与注册表路径互为前缀(同 projectsView 链接规则)。
+    // 项目归组:与 goalStatusView.projectName 同一规则(最近 Task allowed_scope ↔ 注册表路径互为前缀)。
     const scope = Array.isArray(r["last_scope"]) ? (r["last_scope"] as string[]).map(String) : [];
-    let matched: string | null = null;
-    for (const s of scope) {
-      for (const entry of registry.projects) {
-        if (entry.path && (s === entry.path || s.startsWith(entry.path) || entry.path.startsWith(s))) {
-          matched = entry.name;
-          break;
-        }
-      }
-      if (matched) break;
-    }
+    const matched = matchProjectByScope(scope, registry);
     if (matched) {
       const list = byProject.get(matched) ?? [];
       list.push(goal);

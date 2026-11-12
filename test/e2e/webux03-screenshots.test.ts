@@ -36,9 +36,8 @@ let s: {
   context: BrowserContext;
   page: Page;
 };
-let remote: BareRemoteFixture;
 
-async function startStack(): Promise<void> {
+async function startStack(delivery: DeliveryFactory): Promise<void> {
   const t = await createTestDb("webux03c-shots");
   const auth = new Auth({
     password: PASSWORD,
@@ -75,31 +74,7 @@ async function startStack(): Promise<void> {
     evidenceChecks: [
       { kind: "deterministic_test", command: ["cat", "delivered.txt"], cwdWorkspace: true, expectOutputContains: "ok" },
     ],
-    delivery: {
-      propose: async (c) => {
-        remote.pushHead(c.stageRepoDir, c.baseCommitSha);
-        return {
-          taskId: c.taskId,
-          attempt: c.attempt,
-          target: remote.url,
-          branch: "main",
-          expectedRemoteSha: c.baseCommitSha,
-          policy: { ...DEFAULT_DELIVERY_POLICY, allowedRepos: [remote.url.toLowerCase()] },
-          credentialPresent: true,
-          verifyCommitBinding: makeCommitBindingVerifier(() => c.stageRepoDir),
-          actor: "shots",
-        };
-      },
-      io: async (c) => ({
-        executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
-        verifyRemoteContent: async (commitSha: string) => {
-          const scratch = mkdtempSync(join(tmpdir(), "webux03c-shots-verify-"));
-          const r = await verifyRemoteCommitContent({ target: remote.url, commitSha, manifest: c.manifest, scratchDir: scratch });
-          return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
-        },
-        manifest: c.manifest,
-      }),
-    },
+    delivery,
     stageBaseDir: mkdtempSync(join(tmpdir(), "webux03c-shots-stage-")),
   });
   const handle = createRelayServer({
@@ -150,13 +125,17 @@ function tickInBackground(page: Page): void {
 }
 
 async function createGoal(page: Page, raw: string): Promise<string> {
-  // 可能刚从 system 页推进一拍回来:先回工作区(新建面板所在页)
+  // 可能刚从 system 页推进一拍回来:先回工作区(空白态 Composer 所在页)
   if (!page.url().includes("/workspace")) await page.goto(`${s.base}/workspace`, { waitUntil: "load" });
   const prev = new URL(page.url()).searchParams.get("goal");
-  await page.click('[data-testid="ws-new-task"]', { timeout: 15000 });
-  await page.waitForSelector('[data-testid="ws-newtask-panel"]:not([hidden])');
-  await page.fill('[data-testid="ws-goal-input"]', raw);
-  await page.click('[data-testid="ws-create"]');
+  if (prev !== null) {
+    await page.click('[data-testid="ws-new-task"]');
+    await page.waitForURL(/\/workspace$/);
+  }
+  // 03C.1 P0-1 单 Composer:空白态输入一句话 → 「开始」
+  await page.waitForSelector('[data-testid="ws-input"]');
+  await page.fill('[data-testid="ws-input"]', raw);
+  await page.click('[data-testid="ws-send"]');
   await page.waitForFunction(
     (p: string | null) => {
       const doc = (globalThis as unknown as { document: { location: { search: string } } }).document;
@@ -182,9 +161,46 @@ const VIEWPORTS: Array<{ w: number; h: number }> = [
 ];
 
 describe.skipIf(!E2E || !SHOTS)("WEB-UX-03C §16 正式截图(双视口)", { timeout: 300_000 }, () => {
-  beforeAll(async () => {
-    remote = makeBareRemote(mkdtempSync(join(tmpdir(), "webux03c-shots-remote-")));
-    await startStack();
+beforeAll(async () => {
+  // 每任务独立 bare 远端(03C.1 夹具修正,同 webux03-workspace):共享远端 + 每 Run 全新种子提交
+  // ⇒ 后续交付 push 非快进被拒 → D3 delivery_propose_failed(工作状态块如实呈现,夹具须修复)。
+  const remoteBase = mkdtempSync(join(tmpdir(), "webux03c-shots-remote-"));
+  const remotes = new Map<string, BareRemoteFixture>();
+  const remoteFor = (taskId: string): BareRemoteFixture => {
+    let r = remotes.get(taskId);
+    if (!r) {
+      r = makeBareRemote(remoteBase);
+      remotes.set(taskId, r);
+    }
+    return r;
+  };
+  const delivery: DeliveryFactory = {
+    propose: async (c) => {
+      const remote = remoteFor(c.taskId);
+      remote.pushHead(c.stageRepoDir, c.baseCommitSha);
+      return {
+        taskId: c.taskId,
+        attempt: c.attempt,
+        target: remote.url,
+        branch: "main",
+        expectedRemoteSha: c.baseCommitSha,
+        policy: { ...DEFAULT_DELIVERY_POLICY, allowedRepos: [remote.url.toLowerCase()] },
+        credentialPresent: true,
+        verifyCommitBinding: makeCommitBindingVerifier(() => c.stageRepoDir),
+        actor: "shots",
+      };
+    },
+    io: async (c) => ({
+      executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
+      verifyRemoteContent: async (commitSha: string) => {
+        const scratch = mkdtempSync(join(tmpdir(), "webux03c-shots-verify-"));
+        const r = await verifyRemoteCommitContent({ target: remoteFor(c.taskId).url, commitSha, manifest: c.manifest, scratchDir: scratch });
+        return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
+      },
+      manifest: c.manifest,
+    }),
+  };
+  await startStack(delivery);
     // 项目注册表(LAMICE/WPS 插件):侧栏项目分组需要;路径仅用于归组匹配,不要求目录存在
     const reg = join(mkdtempSync(join(tmpdir(), "webux03c-shots-reg-")), "projects.json");
     writeFileSync(reg, JSON.stringify({ projects: [{ name: "LAMICE", path: "/tmp/proj-lamice" }, { name: "WPS 插件", path: "/tmp/proj-wps" }] }));
@@ -247,9 +263,10 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03C §16 正式截图(双视口)", { tim
     for (const vp of VIEWPORTS) {
       await page.setViewportSize({ width: vp.w, height: vp.h });
       const tag = `${vp.w}x${vp.h}`;
-      // 01 空白工作区/新建任务
-      await page.goto(`${s.base}/workspace#new-task`);
-      await page.waitForSelector('[data-testid="ws-newtask-panel"]:not([hidden])');
+      // 01 空白工作区/新建任务(03C.1:空白态 = 居中引导语 + 底部唯一 Composer(项目+开始))
+      await page.goto(`${s.base}/workspace`);
+      await page.waitForSelector('[data-testid="ws-composer"]');
+      await page.waitForSelector(".ws-empty-hero");
       await page.waitForTimeout(600);
       await shot(page, `ws16-01-blank-newtask-${tag}.png`);
       // 02 执行中会话(后台一拍进行时;侧栏多项目;每视口新建一个执行中 Goal)
@@ -268,7 +285,20 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03C §16 正式截图(双视口)", { tim
         if (String(r.rows[0]!["state"]) === "RUNNING") { running = true; break; }
         await page.waitForTimeout(200);
       }
-      if (running) await page.waitForTimeout(1500); // 4s 轮询周期内刷出执行事件
+      if (running) {
+        // 等 Feed(4s 轮询)刷出工作状态块(03C.1 P0-4:运行中 = 单一聚合块)
+        await page.waitForSelector('[data-testid="ws-work-block"]', { timeout: 10000 });
+        await page.waitForFunction(
+          () => {
+            const doc = (globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }).document;
+            const el = doc.querySelector('[data-testid="ws-work-block"]');
+            return el !== null && el.textContent !== null && el.textContent.indexOf("正在修改代码") >= 0;
+          },
+          undefined,
+          { timeout: 10000 },
+        );
+      }
+      await page.waitForTimeout(400); // 版式稳定
       const dump = await page.evaluate((): string => {
         type Rect = { x: number; y: number; width: number; height: number; top: number; right: number; bottom: number; left: number };
         const doc = globalThis as unknown as {
