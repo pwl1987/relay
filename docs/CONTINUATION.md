@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接(以最新 live main 为准)
 
-状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09~11 完成 P0-00..P0-02C 与 P0-ACCEPT;2026-11-11 完成总授权执行包六阶段 + 收口包;2026-11-12 R-1 闭环解除(US-08/G6 VERIFIED)+ R-2/R-3 收口轮。**MVP 终判:REWORK 维持。R-2/R-3 现状:R-2 授权参数缺失 ⇒ 待授权清单已发出(`p0-mvp/r2-pending-authorization.md`,零真模型运行);R-3 采集于 06:05+0800@12.53h 被会话解体 SIGTERM 波及(缝 365s 落账),06:10 已按原始口径 setsid detached 续采(起点不重置;worker/sampler pid 文件已更新),期满 2026-11-12 17:32:52+0800 用 `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验——存在中断缝 ⇒ 终验口径 PARTIAL。勿动 `p0-mvp/soak-24h/` 两进程(现已脱离会话进程组);samples.csv/worker.log 保持 skip-worktree,终验后显式解除入库。明示:每次全量 vitest 触发 1 次真模型 A-4 实验(magpie,limit=8)。**
+状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09~11 完成 P0-00..P0-02C 与 P0-ACCEPT;2026-11-11 完成总授权执行包六阶段 + 收口包;2026-11-12 R-1 闭环解除(US-08/G6 VERIFIED)+ R-2/R-3 收口轮。**MVP 终判:REWORK 维持。R-2/R-3 现状:R-2 授权参数缺失 ⇒ 待授权清单已发出(`p0-mvp/r2-pending-authorization.md`,零真模型运行);R-3 采集于 06:05+0800@12.53h 被会话解体 SIGTERM 波及(缝 365s 落账),06:10 已按原始口径 setsid detached 续采(起点不重置;worker/sampler pid 文件已更新),期满 2026-11-12 17:32:52+0800 用 `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验——存在中断缝 ⇒ 终验口径 PARTIAL。勿动 `p0-mvp/soak-24h/` 两进程(现已脱离会话进程组);samples.csv/worker.log 保持 skip-worktree,终验后显式解除入库。明示:每次全量 vitest 触发 1 次真模型 A-4 实验(magpie,limit=8)。**(**2026-11-12 17:5x 收口注:R-3 终验已完成=PARTIAL 定格,三进程受控退出,证据已解除 skip-worktree 入库——见本文"三个 REWORK 解除项"§3 与 CURRENT.md 第一包行;本段前文为历史记录;R-2 亦已执行完毕=PARTIAL 双败+归因,见 §2 再注**)
 
 ## 唯一事实源及阅读
 
@@ -16,7 +16,7 @@
 
 1. ~~R-1~~ **已解除**(2026-11-12 用户补权;`p0-mvp/r1-closure.md`+`REVIEW-r1-closure.md`:US-08/G6 VERIFIED)。
 2. **R-2(用户授权模型)**:业务修改需非 magpie 模型(Discovery 已 VERIFIED;F1/F2 门控链路就绪)——**2026-11-12 授权参数(替代模型/预算/超时/凭据)缺失,精确待授权清单已发出:`p0-mvp/r2-pending-authorization.md`;授权到位即按 `r2-failure-analysis.md` §3 跑对照实验**(**注:此句已过时——2026-11-12 07:50 授权已定案 zcode/GLM-5.3 四参数,见 CURRENT.md 第三包"已授权定案"行,`r2-pending-authorization.md` 已关闭留档;执行排期见 ADR-0010 阶段B**)(**再注 2026-11-12 11:10:阶段B 已执行——F2/F1 各一次正式尝试双败,R-2=PARTIAL+归因:F2 BUDGET_EXHAUSTED@6(7×200 零上游故障,止损正常);F1 run SUCCEEDED 但零编辑空提交,机判 1/4 拒+Reviewer BLOCK,根因=`src/runtime/sandbox.ts:131` maxTokens:8192 输出钳制截断(模型自身上限 128000;修复属新变量待用户授权,未实施);model_ref=zcode/GLM-5.3 路由日志逐行实证;零重跑零加预算零换模型零变量调整;报告=`p0-mvp/r2-contrast/REPORT-r2-contrast.md`**)。
-3. **R-3(时间+中断)**:**06:05+0800@12.53h 会话解体 SIGTERM 波及两采集进程(缝 365s 落账),06:10 已按原始口径 setsid detached 续采、起点不重置**;期满(17:32:52+0800)→ `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验 → REVIEW 确认;**存在中断缝 ⇒ 终验口径 PARTIAL(收口指令:缺失样本或中断时保持 PARTIAL);soak-final.json 由采样器自动写,仅初步报告,判定权在验证器+REVIEW**。
+3. **R-3(时间+中断)——✅ 终验收口完成(2026-11-12 17:35~17:37;PARTIAL 定格)**:独立 Runner 唯一快照 `p0-mvp/soak-24h/verify-final-20261112T1735+0800.json`(elapsed 86432≥86400;缝 45100→45465=365s 如实保留;PG 采样异常 2 保留;RSS 峰 312936<400000;零领取 5748 拍 IDLE_PROVIDER_DOWN;硬异常=sampling_gaps:1+pg_sampling_failed_rows:2 ⇒ **PARTIAL,不得 PASS**);17:37 Worker 810994 SIGTERM 受控停止(优雅停机铁证 worker.log),三进程全部退出;**证据冻结入库,skip-worktree 已解除**;收尾报告 `p0-mvp/r3-final-closeout.md`(含并行窗口注记:后半段与 R-2/开发活动并行,仅历史稳定性观察,不作 Operational Readiness 认证证据);**按 ADR-0010 不再阻断 Usable MVP**,连续 24h 义务移至 MVP 后 PILOT-24H。
 全部解除 → 重生成终版矩阵+独立 Reviewer → 方可 ACCEPTED(不得以 CI 绿代替)。
 
 ## MODEL-POLICY-00 设计冻结包(2026-11-12 用户指令;与五包顺序并行)

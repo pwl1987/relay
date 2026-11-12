@@ -12,7 +12,7 @@
 | US-02 质疑与调研(P0 最小) | NOT_IMPLEMENTED | **VERIFIED(P0 最小)/公网 P1 NOT_IMPLEMENTED** | 本地项目只读调查一次+记录可回放 ✓(阶段 B);不合理方案可核查反驳 ✓(真模型:eval/同步阻塞/安全面,`discovery.test.ts` 真模型例 2);不可用调研能力显式说明 ✓(能力表+视图徽章);**公网 Search/Crawler 仍 NOT_IMPLEMENTED(P1,如实)** |
 | US-04 控制(P0) | PARTIAL | **VERIFIED** | CLI 全量补齐:`src/cli.ts`+bin(七组命令;13 例测试)+ `relay pause` 置入入口(READY 状态门)+ 确定性退出码 + doctor;**V03 全程真实 CLI 演练**(零浏览器零 ChatGPT,`p0-rework2/v03-cli-journey.log`);三入口同 Core(REVIEW 亲验零第二状态机) |
 | US-08 GitHub 集成(P0) | BLOCKED(403) | **VERIFIED(R-1 闭环;2026-11-12)** | 用户补权后 `github-real.test.ts` 全套通过:真实 main 写入 DELIVERED+远端/树/内容三重核对+漂移拒绝(外部写者快进被拒/历史只增不减/非 force)+独立 API 复核(`p0-mvp/r1-closure.md`;日志 `github-real-closure.log`;代理净化环境教训如实登记) |
-| US-09 持续运行与预算(P0) | VERIFIED | **VERIFIED(长稳观察项单独列)** | 预算纪律全程(阶段 B/D 每轮事前声明,账本 reserve/settle 精确核算——REVIEW 亲验 5 轮 6/6);长稳 24h 观察进行中(见 §5) |
+| US-09 持续运行与预算(P0) | VERIFIED | **VERIFIED(长稳观察项单独列)** | 预算纪律全程(阶段 B/D 每轮事前声明,账本 reserve/settle 精确核算——REVIEW 亲验 5 轮 6/6);长稳 24h 观察终验完成=PARTIAL 定格(2026-11-12 17:35,见 §5) |
 | US-03/05/06/07/10 | VERIFIED | **VERIFIED(复验+增量)** | US-03:+F1 采纳装配(discovery 验收条件 → 有界任务文本);US-05:+E1 真实进程 SIGKILL/重启复验(3/3);US-07:+F1 机判 Gate 拒绝零编辑候选+Reviewer 正确 REWORK 实锤;US-10:+Goal 页 Discovery 区块来源徽章(E2E J1 口径更新) |
 
 ## §2 验证矩阵变化(V01~V20)
@@ -32,7 +32,7 @@
 | --- | --- | --- | --- |
 | G0 Requirement | PARTIAL | **VERIFIED** | 模型 Discovery 提供可判定验收(真模型) |
 | G6 Release | BLOCKED | **VERIFIED(R-1 闭环)** | 真实 GitHub 发布面全链:授权→候选→Gate→Intent→Executor→Observation→DELIVERED(独立 API 复核;漂移拒绝+历史保全) |
-| G7 Runtime | PARTIAL | **PARTIAL(24h 观察:中断已续采,期满待终验)** | E1 worker 入口/编排 VERIFIED;24h 空闲采集 06:05+0800@12.53h 被会话解体 SIGTERM 波及(graceful stop 铁证/无 OOM)⇒ 同日 06:10 按原始口径 detached 续采(起点不重置;缝 365s 如实落账);期满 17:32:52+0800 终验,**中断缝 ⇒ PARTIAL 口径**;工作模式长稳受模型能力面约束(如实) |
+| G7 Runtime | PARTIAL | **PARTIAL(24h 观察终验完成:PARTIAL 定格,2026-11-12 17:35)** | E1 worker 入口/编排 VERIFIED;24h 空闲采集 06:05+0800@12.53h 被会话解体 SIGTERM 波及(graceful stop 铁证/无 OOM)⇒ 同日 06:10 按原始口径 detached 续采(起点不重置;缝 365s 如实落账);**期满终验完成**:独立 Runner 唯一快照 verify-final-20261112T1735+0800.json(elapsed 86432≥86400/1433 样本/RSS 峰 312936<400000/零领取 5748 拍 IDLE/缝 365s+PG 采样异常 2 保留 ⇒ 硬异常在,**PARTIAL 定格不得 PASS**);17:37 三进程受控退出+优雅停机铁证;证据冻结入库(收尾报告 p0-mvp/r3-final-closeout.md;按 ADR-0010 不再阻断 Usable MVP,24h 义务移 PILOT-24H);工作模式长稳受模型能力面约束(如实) |
 | F1 模糊 UX | PARTIAL | **PARTIAL(机制 VERIFIED/真模型交付 PARTIAL)** | 机制全链(stub 显式标注):机判 4/4→DELIVERED→独立复核 ✓;真模型:Discovery 高质量 ✓、coder 方差(零编辑/烧回合/不完整修复)未过机判——诚实 PARTIAL,全部失败落账 |
 | F2 明确 Bug | VERIFIED(等价面) | **PARTIAL(机制 VERIFIED/真模型交付 PARTIAL)** | 同 F1 模式:stub 机制链一次过(独立 HTTP 复核 4/4);真模型 coder 一轮 SUCCEEDED 修复不完整/一轮 BUDGET_EXHAUSTED |
 | F3 故障注入越权 | VERIFIED | **VERIFIED(+T01 语料化)** | `p0-mvp/f3-matrix.md` 八项映射 + 真模型注入语料化 |
@@ -48,7 +48,7 @@
 | 数据/Artifact 恢复 | **VERIFIED** | E3(见 V19) |
 | 清理安全 | **VERIFIED** | D4(见 §3) |
 | 预算纪律 | **VERIFIED** | 全程先声明后执行;账本精确;零超预算;零成本(magpie 本地) |
-| 长稳 24h | **PARTIAL(中断已续采;期满待终验)** | `p0-mvp/soak-24h/`(真实计时起点 1794389572 未重置;12.53h 处会话解体中断,缝 365s 落账;06:10 续采 detached;中期快照 verify-interim-20261112T0613+0800.json:RSS 峰 312936<400000/3017 拍全 IDLE_PROVIDER_DOWN 零领取;**期满终验因中断缝 ⇒ PARTIAL,不得称 PASS**;口径=空闲稳定性) |
+| 长稳 24h | **PARTIAL(终验完成,PARTIAL 定格;2026-11-12 17:35)** | `p0-mvp/soak-24h/`(真实计时起点 1794389572 未重置;12.53h 处会话解体中断,缝 365s 落账;06:10 续采 detached;**期满终验=独立 Runner 唯一快照 verify-final-20261112T1735+0800.json:elapsed 86432≥86400/1433 样本/RSS 峰 312936<400000/零领取 5748 拍 IDLE/缝 365s+PG 采样异常 2 保留 ⇒ PARTIAL,不得称 PASS**;17:37 三进程受控退出+优雅停机铁证;收尾报告 p0-mvp/r3-final-closeout.md;口径=空闲稳定性;按 ADR-0010 不再阻断 Usable MVP) |
 | 真实 GitHub 交付 | **VERIFIED(R-1 闭环)** | `p0-mvp/r1-closure.md`(三重核对+漂移拒绝+历史保全) |
 
 ## §5 终判
@@ -62,5 +62,6 @@
 REWORK 剩余清单(全部有界、路径明确):
 - ~~R-1(用户)~~ **已解除**(2026-11-12 PAT 补权;`r1-closure.md`+`REVIEW-r1-closure.md`)。
 - R-2(模型路由):业务交付需非 magpie 模型——**待授权清单已发出**(替代模型/预算/超时/凭据四项;授权到位即按 `r2-failure-analysis.md` §3 跑对照实验,F1/F2 链路已就绪)。
-- R-3(时间+中断):**中断已处置(续采不重置起点)**;期满(17:32:52+0800)→ `node deploy/soak-verify.mjs …` 终验 → REVIEW 确认;**缝在 ⇒ PARTIAL**。
+- R-3(时间+中断):✅ **终验完成(2026-11-12 17:35;PARTIAL 定格)**——独立 Runner 唯一快照 elapsed 86432≥86400,缝 365s+PG 采样异常 2 保留 ⇒ 不得 PASS;17:37 三进程受控退出;证据冻结入库(`r3-final-closeout.md`);按 ADR-0010 不再阻断 Usable MVP,24h 义务移 PILOT-24H。
+- R-2(模型路由)补记(2026-11-12 11:10):**已执行对照实验=zcode/GLM-5.3 双败 PARTIAL+归因**(F2 BUDGET_EXHAUSTED@6 止损正常;F1 沙箱 maxTokens:8192 截断零编辑,机判拒+Reviewer BLOCK;报告 `p0-mvp/r2-contrast/REPORT-r2-contrast.md`;修复待用户授权)。
 - 全部证据绑 HEAD `a8adcab`;基线证据绑各包 REPORT 所记 HEAD。
