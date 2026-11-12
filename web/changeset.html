@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Relay 控制台 · ChangeSet / Evidence</title>
     <link rel="icon" href="data:," />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f1115" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -32,6 +35,11 @@
         <section class="card mt14">
           <h2>Diff 摘要</h2>
           <div id="cs-diff" data-testid="cs-diff"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>Diff Viewer(只读)</h2>
+          <div id="cs-full-diff" data-testid="cs-full-diff"></div>
         </section>
 
         <section class="card mt14">

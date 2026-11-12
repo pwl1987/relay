@@ -310,6 +310,80 @@
     return ul;
   }
 
+  // WEB-UX-01 §4.6:Goal 执行 Timeline(七阶段;状态全部由 DB 事实确定性推导,零模型判断)
+  function timelineBlock(g) {
+    const steps = [];
+    // Discovery:模型调查记录(规则面兜底不影响"是否运行过"的事实)
+    const disc = g.discovery && g.discovery.latest;
+    if (disc && disc.outcome === "SUCCEEDED") {
+      steps.push({ name: "Discovery 调查", st: "passed", note: "模型结构化报告已持久化(可回放 run " + A.short(disc.runId, 12) + ")" });
+    } else if (disc && disc.outcome === "FAILED") {
+      steps.push({ name: "Discovery 调查", st: "failed", note: "失败已如实落记:" + (disc.reason || "无原因") + ";规则面继续可用" });
+    } else {
+      steps.push({ name: "Discovery 调查", st: "waiting", note: "尚未显式发起模型调查(规则面始终可用)" });
+    }
+    // Planning:planGoal 派生任务即计划事实
+    steps.push(
+      g.tasks.length > 0
+        ? { name: "Planning 计划", st: "passed", note: g.tasks.length + " 个任务已派生(确定性默认计划)" }
+        : { name: "Planning 计划", st: "waiting", note: "尚未派生任务" },
+    );
+    // Coding:coder 运行面
+    const coderRuns = (g.runs || []).filter(function (r) {
+      return (r.role || "coder") === "coder";
+    });
+    const anyOk = coderRuns.some(function (r) { return r.outcome === "SUCCEEDED"; });
+    const anyBad = coderRuns.some(function (r) { return ["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(r.outcome) >= 0; });
+    const taskInFlight = (g.tasks || []).some(function (t) { return ["LEASED", "RUNNING", "SUBMITTED"].indexOf(t.state) >= 0; });
+    const taskAccepted = (g.tasks || []).some(function (t) { return t.state === "ACCEPTED"; });
+    if (taskAccepted || anyOk) steps.push({ name: "Coding 编码", st: "passed", note: "coder 运行 " + coderRuns.length + " 次(含成功)" });
+    else if (taskInFlight) steps.push({ name: "Coding 编码", st: "running", note: "任务执行中" });
+    else if (anyBad) steps.push({ name: "Coding 编码", st: "failed", note: "存在失败/预算耗尽的 coder 运行(详见运行记录)" });
+    else steps.push({ name: "Coding 编码", st: "waiting", note: "尚未开始" });
+    // Testing:确定性证据
+    const ev = g.evidence || [];
+    const evPassed = ev.some(function (e) { return e.passed; });
+    if (ev.length && evPassed) steps.push({ name: "Testing 测试", st: "passed", note: ev.filter(function (e) { return e.passed; }).length + " 条证据通过" });
+    else if (ev.length) steps.push({ name: "Testing 测试", st: "failed", note: "证据全部未通过(机判如实拒绝)" });
+    else steps.push({ name: "Testing 测试", st: "waiting", note: "尚无确定性证据" });
+    // Reviewing:独立 Reviewer 运行
+    const revRuns = (g.runs || []).filter(function (r) { return r.role === "reviewer"; });
+    if (revRuns.some(function (r) { return r.outcome === "SUCCEEDED"; })) steps.push({ name: "Reviewing 审查", st: "passed", note: "独立 Reviewer 已完成" });
+    else if (revRuns.length) steps.push({ name: "Reviewing 审查", st: "failed", note: "Reviewer 运行存在失败" });
+    else steps.push({ name: "Reviewing 审查", st: "waiting", note: "尚未进入独立审查" });
+    // Gate:裁决
+    const gates = g.gates || [];
+    if (gates.some(function (x) { return x.verdict === "PASS"; })) steps.push({ name: "Gate 裁决", st: "passed", note: "PASS(独立 Reviewer + 确定性检查)" });
+    else if (gates.some(function (x) { return x.verdict === "BLOCK" || x.verdict === "REWORK"; })) steps.push({ name: "Gate 裁决", st: "failed", note: "存在 BLOCK/REWORK 裁决(见 Gate 详情)" });
+    else steps.push({ name: "Gate 裁决", st: "waiting", note: "尚无裁决" });
+    // Delivery:变更集
+    const cs = g.changesets || [];
+    if (cs.some(function (x) { return x.deliveryState === "DELIVERED"; })) steps.push({ name: "Delivery 交付", st: "passed", note: "已交付并核对远端" });
+    else if (cs.some(function (x) { return x.deliveryState === "DELIVERING"; })) steps.push({ name: "Delivery 交付", st: "running", note: "交付进行中" });
+    else if (cs.some(function (x) { return x.deliveryState === "CONFLICT" || x.deliveryState === "FAILED"; })) steps.push({ name: "Delivery 交付", st: "failed", note: "交付异常(见候选变更与交付)" });
+    else steps.push({ name: "Delivery 交付", st: "waiting", note: "尚无候选变更" });
+
+    const cls = { passed: "tl-passed", running: "tl-running", failed: "tl-failed", rework: "tl-rework", waiting: "" };
+    const chip = { passed: ["passed", "ok"], running: ["running", "info"], failed: ["failed", "bad"], rework: ["rework", "warn"], waiting: ["waiting", "default"] };
+    return h(
+      "div",
+      { class: "timeline", "data-testid": "goal-timeline-steps" },
+      steps.map(function (s) {
+        return h(
+          "div",
+          { class: "tl-step " + (cls[s.st] || "") },
+          h("span", { class: "tl-dot" }),
+          h(
+            "div",
+            { class: "tl-body" },
+            h("div", { class: "tl-title" }, h("span", { class: "tl-name", text: s.name }), A.badge(chip[s.st][0], chip[s.st][1])),
+            h("div", { class: "tl-note", text: s.note }),
+          ),
+        );
+      }),
+    );
+  }
+
   async function refresh() {
     const id = new URLSearchParams(window.location.search).get("id");
     const detail = document.getElementById("goal-detail");
@@ -328,6 +402,8 @@
       document.getElementById("goal-header").appendChild(headerBlock(g));
       document.getElementById("goal-progress").textContent = "";
       document.getElementById("goal-progress").appendChild(progressBlock(g.progress || {}, g.budget || []));
+      document.getElementById("goal-timeline").textContent = "";
+      document.getElementById("goal-timeline").appendChild(timelineBlock(g));
       document.getElementById("goal-analysis").textContent = "";
       document.getElementById("goal-analysis").appendChild(analysisBlock(g.analysis, g.discovery));
       document.getElementById("goal-tasks").textContent = "";
@@ -347,28 +423,17 @@
     }
   }
 
-  async function createGoal() {
-    const input = document.getElementById("goal-input");
-    const msg = document.getElementById("create-msg");
-    const raw = input.value.trim();
-    if (!raw) {
-      msg.textContent = "请先写一句目标描述";
-      return;
-    }
-    try {
-      const res = await A.apiPost("/api/goals", { rawInput: raw });
-      msg.textContent = "已创建:" + res.goalId;
-      window.location.href = "/goal.html?id=" + encodeURIComponent(res.goalId);
-    } catch (e) {
-      msg.textContent = "创建失败:" + ((e && e.message) || e);
-    }
-  }
-
   A.boot("goal", async function () {
     document.getElementById("btn-refresh").addEventListener("click", refresh);
-    document.getElementById("btn-create-goal").addEventListener("click", createGoal);
     const id = new URLSearchParams(window.location.search).get("id");
-    if (!id) document.getElementById("create-card").hidden = false;
+    if (!id) {
+      document.getElementById("create-card").hidden = false;
+      const form = A.renderGoalForm({});
+      const host = document.getElementById("new-goal-form");
+      host.textContent = "";
+      host.appendChild(form.wrap);
+    }
     await refresh();
+    A.poll(refresh);
   });
 })();

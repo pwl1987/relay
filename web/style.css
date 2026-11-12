@@ -11,6 +11,7 @@
   --warn: #e2b341;
   --bad: #f2777a;
   --info: #8ab4f8;
+  --sidebar-w: 216px;
 }
 
 * { box-sizing: border-box; }
@@ -25,36 +26,65 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-header.app-header {
+/* 兼容旧类名(登录页仍用 .card 等) */
+header.app-header { display: none; }
+
+/* ---------------- §4.4 AppShell:左侧可折叠导航 + 中央工作区 ---------------- */
+
+body.shell-on { display: block; }
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-w);
+  background: var(--panel);
+  border-right: 1px solid var(--line);
   display: flex;
+  flex-direction: column;
+  padding: 14px 10px;
+  gap: 10px;
+  z-index: 20;
+}
+.side-brand { padding: 2px 8px 8px; border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; letter-spacing: 0.02em; }
+
+.side-nav { display: flex; flex-direction: column; gap: 2px; }
+.side-link {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  border: 1px solid transparent;
+  font-size: 14px;
+}
+.side-link:hover { color: var(--fg); background: var(--panel-2); text-decoration: none; }
+.side-link.active { color: var(--fg); background: var(--panel-2); border-color: var(--line); }
+
+.side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.btn-new-goal { text-align: center; padding: 9px 12px; font-weight: 600; }
+.side-user { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.whoami { color: var(--muted); font-size: 12px; }
+
+/* 折叠态(桌面) */
+body.side-collapsed { --sidebar-w: 0px; }
+body.side-collapsed .sidebar { display: none; }
+
+.mobile-topbar {
+  display: none;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 20px;
+  gap: 10px;
+  padding: 8px 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
-  z-index: 5;
-  flex-wrap: wrap;
+  z-index: 30;
 }
+
+body.shell-on main { margin-left: var(--sidebar-w); padding: 18px 22px 60px; max-width: 1240px; }
 
 .header-left { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .header-right { display: flex; align-items: center; gap: 12px; }
-.brand { font-weight: 700; letter-spacing: 0.02em; }
-.whoami { color: var(--muted); font-size: 12px; }
-
-.nav { display: flex; gap: 4px; flex-wrap: wrap; }
-.nav-link {
-  padding: 4px 10px;
-  border-radius: 6px;
-  color: var(--muted);
-  border: 1px solid transparent;
-}
-.nav-link:hover { color: var(--fg); background: var(--panel-2); text-decoration: none; }
-.nav-link.active { color: var(--fg); background: var(--panel-2); border-color: var(--line); }
-
-main { padding: 18px 20px 60px; max-width: 1400px; margin: 0 auto; }
 
 h1 { font-size: 19px; margin: 4px 0 14px; }
 h2 { font-size: 15px; margin: 0 0 10px; }
@@ -138,13 +168,13 @@ label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 12px;
 .kv { display: grid; grid-template-columns: minmax(120px, auto) 1fr; gap: 4px 12px; font-size: 13px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; word-break: break-all; }
-pre.out {
+pre.out, pre.diff {
   background: #0c0e12;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 9px 10px;
   overflow: auto;
-  max-height: 320px;
+  max-height: 420px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   white-space: pre-wrap;
@@ -173,25 +203,58 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .decision-sep { border-bottom: 1px solid var(--line); padding: 10px 0; }
 .mt8 { margin-top: 8px; }
 
-/* ---- OPERATOR-CONSOLE-00:总览条跨栏 + 表格横向滚动 + 响应式(Mac 主端;手机=查看+决策+控制) ---- */
+/* ---- OPERATOR-CONSOLE-00:总览条跨栏 + 表格横向滚动 + 响应式 ---- */
 #overview-card { grid-column: 1 / -1; }
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-@media (max-width: 760px) {
-  main { padding: 12px 12px 48px; }
-  header.app-header { padding: 8px 12px; gap: 8px; }
-  .header-left { gap: 8px; }
-  .nav-link { padding: 4px 8px; font-size: 13px; }
+/* ---------------- WEB-UX-01 §4.6 Goal Timeline(七阶段确定性推导) ---------------- */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.tl-step { display: flex; gap: 12px; align-items: flex-start; padding: 7px 0; }
+.tl-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--panel-2); border: 2px solid var(--line);
+  margin-top: 5px; flex: none;
+}
+.tl-step.tl-running .tl-dot { border-color: var(--info); background: #16233a; }
+.tl-step.tl-passed .tl-dot { border-color: #26594a; background: #17342c; }
+.tl-step.tl-failed .tl-dot { border-color: #6a3234; background: #3a1d1f; }
+.tl-step.tl-rework .tl-dot { border-color: #6a5525; background: #33290f; }
+.tl-body { flex: 1; min-width: 0; }
+.tl-title { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tl-name { font-weight: 600; font-size: 13px; }
+.tl-note { font-size: 12px; color: var(--muted); word-break: break-word; }
+
+/* §4.12:Decision 移动端单手操作(动作按钮加高加宽) */
+.decision-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.decision-actions .btn { min-height: 38px; }
+
+/* ---------------- 响应式(手机 390×844 优先保证 Dashboard/Goal/Decision/Result/控制) ---------------- */
+@media (max-width: 900px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+    width: 240px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .mobile-topbar { display: flex; }
+  body.shell-on main { margin-left: 0; padding: 12px 12px 48px; }
   h1 { font-size: 17px; }
   .grid { grid-template-columns: 1fr; }
   .kv { grid-template-columns: minmax(96px, auto) 1fr; gap: 4px 8px; font-size: 12.5px; }
   th, td { padding: 5px 6px; font-size: 12px; }
   table { font-size: 12px; }
   .toolbar { gap: 6px; }
+  .decision-actions .btn { flex: 1 1 46%; min-height: 42px; }
+  .btn-new-goal-sm { padding: 5px 10px; }
 }
 
 @media (max-width: 420px) {
-  .nav { gap: 2px; }
-  .nav-link { padding: 3px 6px; font-size: 12px; }
-  .btn { padding: 5px 10px; }
+  .btn { padding: 6px 10px; }
+  .decision-actions .btn { flex: 1 1 100%; }
+}
+
+@media (min-width: 901px) {
+  .mobile-topbar { display: none; }
+  .burger { display: none; }
 }

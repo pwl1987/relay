@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { join } from "node:path";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { createRelayServer } from "../../src/server/app.ts";
 import { Auth } from "../../src/server/auth.ts";
@@ -245,6 +246,60 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
       if (saved !== undefined) process.env["RELAY_PROJECTS_FILE"] = saved;
       else delete process.env["RELAY_PROJECTS_FILE"];
       rmSync(projDir, { recursive: true, force: true });
+      rmSync(join(registryFile, ".."), { recursive: true, force: true });
+    }
+  });
+
+  // WEB-UX-01 §4.8:只读 Diff Viewer 数据源(零写操作;不可用时如实返回原因,不伪造 diff)
+  it("GET /api/changesets/:id/diff:本地注册仓库两提交⇒available;无提交绑定/未绑定注册表⇒如实不可用", async () => {
+    await t.db.execute(sql`INSERT INTO runs (id, task_id, attempt, model_ref, sandbox, outcome) VALUES ('r-diff','t-api',1,'group/gm','docker','SUCCEEDED')`);
+    // ① 无 git 提交绑定 ⇒ available=false(候选未生成 commit)
+    await t.db.execute(sql`INSERT INTO candidate_changesets (id, task_id, run_id, attempt, base_sha, candidate_sha, requirement_sha, changed_files, impact_scope)
+      VALUES ('cs-nogit','t-api','r-diff',1,'aa','bb','cc','{"added":["x.txt"],"modified":[],"removed":[]}','{"inScope":["x.txt"],"violations":[]}')`);
+    const r1 = await api("GET", "/api/changesets/cs-nogit/diff");
+    expect(r1.status).toBe(200);
+    expect(r1.body["available"]).toBe(false);
+    expect(String(r1.body["reason"])).toContain("无 git 提交绑定");
+
+    // ② 注册表绑定 + 本地仓库含 base/交付两提交 ⇒ available=true,diff 内容真实
+    const saved = process.env["RELAY_PROJECTS_FILE"];
+    const repo = mkdtempSync(join(tmpdir(), "webux-diff-repo-"));
+    const registryFile = join(mkdtempSync(join(tmpdir(), "webux-diff-reg-")), "projects.json");
+    try {
+      execFileSync("git", ["-C", repo, "init", "--initial-branch=main"]);
+      execFileSync("git", ["-C", repo, "config", "user.email", "t@l"]);
+      execFileSync("git", ["-C", repo, "config", "user.name", "t"]);
+      writeFileSync(join(repo, "a.txt"), "hello\n", "utf8");
+      execFileSync("git", ["-C", repo, "add", "-A"]);
+      execFileSync("git", ["-C", repo, "commit", "--quiet", "-m", "base"]);
+      const baseSha = execFileSync("git", ["-C", repo, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+      writeFileSync(join(repo, "a.txt"), "hello world\n", "utf8");
+      execFileSync("git", ["-C", repo, "add", "-A"]);
+      execFileSync("git", ["-C", repo, "commit", "--quiet", "-m", "fix"]);
+      const fixSha = execFileSync("git", ["-C", repo, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+      writeFileSync(registryFile, JSON.stringify({ projects: [{ name: "diffproj", path: repo }] }), "utf8");
+      process.env["RELAY_PROJECTS_FILE"] = registryFile;
+
+      await t.db.execute(sql`INSERT INTO goals (id, raw_input, state) VALUES ('g-diff','diff goal','ACTIVE')`);
+      await t.db.execute(sql`INSERT INTO tasks (id, goal_id, state, allowed_scope) VALUES ('t-diff','g-diff','ACCEPTED', ${JSON.stringify([repo])}::jsonb)`);
+      await t.db.execute(sql`INSERT INTO candidate_changesets (id, task_id, run_id, attempt, base_sha, candidate_sha, requirement_sha, changed_files, impact_scope, git_base_commit_sha, git_tree_sha, git_commit_sha, delivery_state)
+        VALUES ('cs-diff','t-diff','r-diff',1,'aa','bb','cc','{"added":[],"modified":["a.txt"],"removed":[]}','{"inScope":["a.txt"],"violations":[]}', ${baseSha}, 'tree', ${fixSha}, 'DELIVERED')`);
+      const r2 = await api("GET", "/api/changesets/cs-diff/diff");
+      expect(r2.status).toBe(200);
+      expect(r2.body["available"]).toBe(true);
+      const diffText = String(r2.body["diff"]);
+      expect(diffText).toContain("a.txt");
+      expect(diffText).toContain("hello world");
+
+      // ③ 同一变更集,任务未绑定注册表 ⇒ 如实不可用
+      await t.db.execute(sql`UPDATE tasks SET allowed_scope='["/workspace"]'::jsonb WHERE id='t-diff'`);
+      const r3 = await api("GET", "/api/changesets/cs-diff/diff");
+      expect(r3.body["available"]).toBe(false);
+      expect(String(r3.body["reason"])).toContain("未绑定");
+    } finally {
+      if (saved !== undefined) process.env["RELAY_PROJECTS_FILE"] = saved;
+      else delete process.env["RELAY_PROJECTS_FILE"];
+      rmSync(repo, { recursive: true, force: true });
       rmSync(join(registryFile, ".."), { recursive: true, force: true });
     }
   });

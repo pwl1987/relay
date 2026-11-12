@@ -397,6 +397,65 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     expect(newErrors, "J6 页面不应产生控制台错误:" + newErrors.join(" | ")).toEqual([]);
     s.log.log("J6 OK:Projects/Models/System/总览条渲染正常;手机视口无横向溢出;零控制台错误");
   });
+
+  // WEB-UX-01:J7 项目绑定旅程(选择 Project → 一句话 → Create)+ AppShell + 手机抽屉
+  it("J7 New Goal 项目绑定:受控 projectId ⇒ scope=注册表路径;Project 页反向可见;AppShell 与手机抽屉", async () => {
+    const { page, base, t } = s;
+    const savedRegistry = process.env["RELAY_PROJECTS_FILE"];
+    const projDir = mkdtempSync(join(tmpdir(), "webux-e2e-proj-"));
+    execFileSync("git", ["-C", projDir, "init", "--initial-branch=main"], { encoding: "utf8" });
+    const registryFile = join(mkdtempSync(join(tmpdir(), "webux-e2e-reg-")), "projects.json");
+    writeFileSync(registryFile, JSON.stringify({ projects: [{ name: "pilot", path: projDir, repo: "example/pilot", branch: "main" }] }), "utf8");
+    process.env["RELAY_PROJECTS_FILE"] = registryFile;
+    try {
+      // AppShell:桌面侧边栏 + + New Goal 突出按钮
+      await page.goto(`${base}/`);
+      await page.waitForSelector('[data-testid="side-nav"]');
+      expect(await page.locator('[data-testid="btn-new-goal"]').count()).toBe(1);
+
+      // 选择 Project → 一句自然语言 → Create(option 属于 select 内部元素,等待 attached 而非 visible)
+      await page.waitForSelector('[data-testid="goal-project"] option[value="pilot"]', { state: "attached" });
+      await page.selectOption('[data-testid="goal-project"]', "pilot");
+      await page.fill('[data-testid="goal-input"]', "给试点项目补充一个 README 徽章说明");
+      await page.click('[data-testid="btn-create-goal"]');
+      await page.waitForURL(/\/goal\.html\?id=/);
+      const goalId = new URL(page.url()).searchParams.get("id") ?? "";
+      expect(goalId).toBeTruthy();
+
+      // Task allowed_scope 绑定注册表路径(非浏览器输入)
+      const scopeRow = await t.db.execute(sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${goalId} LIMIT 1`);
+      const scopeVal: unknown = scopeRow.rows[0]!["allowed_scope"];
+      const scopeArr = Array.isArray(scopeVal) ? scopeVal : (JSON.parse(String(scopeVal)) as unknown[]);
+      expect(scopeArr).toEqual([projDir]);
+
+      // Project 页反向可见该 Goal
+      await page.goto(`${base}/projects.html`);
+      await page.waitForSelector('[data-testid="projects-body"]');
+      const projects = await textOf(page, '[data-testid="projects-body"]');
+      expect(projects).toContain("pilot");
+
+      // 手机视口:顶栏 + 汉堡抽屉打开导航;页面无横向溢出
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`${base}/`);
+      await page.waitForSelector('[data-testid="mobile-topbar"]');
+      await page.click("#btn-burger");
+      const opened = await page.locator("#app-sidebar.open").count();
+      expect(opened).toBe(1);
+      const overflow = await page.evaluate((): number => {
+        const g = globalThis as unknown as { document: { documentElement: { scrollWidth: number } }; innerWidth: number };
+        return g.document.documentElement.scrollWidth - g.innerWidth;
+      });
+      expect(overflow).toBeLessThanOrEqual(1);
+      await page.setViewportSize({ width: 1280, height: 860 });
+      await shot(page, "j7-project-binding.png");
+      s.log.log(`J7 OK:projectId=pilot ⇒ allowed_scope=${projDir};Project 页反向可见;AppShell 侧边栏/手机抽屉正常`);
+    } finally {
+      if (savedRegistry !== undefined) process.env["RELAY_PROJECTS_FILE"] = savedRegistry;
+      else delete process.env["RELAY_PROJECTS_FILE"];
+      rmSync(projDir, { recursive: true, force: true });
+      rmSync(join(registryFile, ".."), { recursive: true, force: true });
+    }
+  });
 });
 
 describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)", { timeout: 180_000 }, () => {

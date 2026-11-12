@@ -67,5 +67,6 @@
   A.boot("projects", async function () {
     document.getElementById("btn-refresh").addEventListener("click", refresh);
     await refresh();
+    A.poll(refresh);
   });
 })();

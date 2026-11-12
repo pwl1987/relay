@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Relay 控制台 · Dashboard</title>
     <link rel="icon" href="data:," />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f1115" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -61,18 +64,9 @@
         <div id="goals-body" data-testid="goals-body"><span class="empty">读取中…</span></div>
       </section>
 
-      <section class="card mt14">
+      <section class="card mt14" id="new-goal">
         <h2>新建 Goal</h2>
-        <label for="goal-input">一句自然语言描述你要交付什么(可只写一句模糊话)</label>
-        <textarea id="goal-input" data-testid="goal-input" placeholder="例如:感觉登录页不好用,想让登录更快更清楚"></textarea>
-        <div class="row mt8">
-          <button class="btn btn-primary" id="btn-create-goal" type="button" data-testid="btn-create-goal">创建 Goal</button>
-          <span class="small dim" id="create-msg" data-testid="create-msg"></span>
-        </div>
-        <p class="small dim mt8">
-          创建走 core.planGoal(goal + 任务 + 预算账本行)。派生计划为<strong>确定性默认计划</strong>(非模型规划);
-          模型驱动的需求发现与推荐在本包<strong>未实现</strong>,创建后请在 Goal 页查看规则推导的理解与可验证建议。
-        </p>
+        <div id="new-goal-form"><span class="empty">读取项目注册表…</span></div>
       </section>
 
       <section class="card mt14">

@@ -328,27 +328,17 @@
     }
   }
 
-  async function createGoal() {
-    const input = document.getElementById("goal-input");
-    const msg = document.getElementById("create-msg");
-    const raw = input.value.trim();
-    if (!raw) {
-      msg.textContent = "请先写一句目标描述";
-      return;
-    }
-    try {
-      const res = await A.apiPost("/api/goals", { rawInput: raw });
-      msg.textContent = "已创建:" + res.goalId;
-      window.location.href = "/goal.html?id=" + encodeURIComponent(res.goalId);
-    } catch (e) {
-      msg.textContent = "创建失败:" + ((e && e.message) || e);
-    }
-  }
-
   A.boot("dashboard", async function () {
+    // §4.5:新建 Goal 表单(选择 Project → 一句话 → Create;共享实现,手机/桌面同流)
+    const form = A.renderGoalForm({});
+    const host = document.getElementById("new-goal-form");
+    host.textContent = "";
+    host.appendChild(form.wrap);
     document.getElementById("btn-tick").addEventListener("click", tick);
     document.getElementById("btn-refresh").addEventListener("click", refresh);
-    document.getElementById("btn-create-goal").addEventListener("click", createGoal);
     await refresh();
+    A.poll(refresh);
+    // 侧边栏 + New Goal 落地:聚焦输入框
+    if (window.location.hash === "#new-goal") form.focus();
   });
 })();

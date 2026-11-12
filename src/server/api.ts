@@ -18,6 +18,7 @@
 //   GET    /api/changesets/:id     ChangeSet/Evidence 详情
 //   POST   /api/worker/tick        推进一拍 Goal Loop(core.goalLoopTick)
 import { sql } from "drizzle-orm";
+import { execFileSync } from "node:child_process";
 import type { RelayDb, Exec } from "../core/db.ts";
 import { planGoal } from "../core/goals.ts";
 import { operatorAllowed, resolveDecision, resumeTask, pauseTask } from "../core/ops.ts";
@@ -490,6 +491,45 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const detail = await changesetDetailView(deps.db, csId);
       if (!detail) return fail(404, "changeset_not_found", "变更集不存在");
       return ok({ changeset: detail });
+    }
+    // WEB-UX-01 §4.8:只读 Diff Viewer 数据源(零写操作;零模型调用)。
+    // 来源=本地已注册项目仓库的 `git diff base..commit`(须本地同时含两提交;交付写入远端后
+    // 本地未 pull 则如实返回不可用原因,不伪造 diff)。
+    const csDiffMatch = /^\/api\/changesets\/([^/]+)\/diff$/.exec(path);
+    if (csDiffMatch && method === "GET") {
+      const csId = decodeURIComponent(csDiffMatch[1]!);
+      const detail = await changesetDetailView(deps.db, csId);
+      if (!detail) return fail(404, "changeset_not_found", "变更集不存在");
+      const c = detail.changeset;
+      if (!c.gitBaseCommitSha || !c.gitCommitSha) {
+        return ok({ available: false, reason: "无 git 提交绑定(候选未生成 commit),无可展示 diff" });
+      }
+      const scope = detail.task && detail.task.allowedScope.length ? detail.task.allowedScope[0]! : "";
+      const reg = readProjectRegistry().projects;
+      const entry = scope
+        ? reg.find((p) => p.path === scope || scope.startsWith(p.path) || p.path.startsWith(scope))
+        : undefined;
+      if (!entry) {
+        return ok({
+          available: false,
+          reason: "该变更集未绑定已注册项目目录(创建于项目绑定功能之前,或项目未登记);本地 diff 不可用,请直接在项目仓库核对提交 " + c.gitCommitSha.slice(0, 12),
+        });
+      }
+      try {
+        const raw = execFileSync(
+          "git",
+          ["-C", entry.path, "diff", c.gitBaseCommitSha + ".." + c.gitCommitSha, "--"],
+          { encoding: "utf8", timeout: 15000, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] },
+        );
+        const LIMIT = 200_000;
+        return ok({ available: true, source: entry.path, truncated: raw.length > LIMIT, diff: raw.slice(0, LIMIT) });
+      } catch {
+        return ok({
+          available: false,
+          source: entry.path,
+          reason: "本地仓库当前不包含 base/交付提交(交付写入远端;本地同步提交后可查看),不伪造 diff",
+        });
+      }
     }
     if (path === "/api/worker/tick" && method === "POST") {
       const worker = deps.worker;

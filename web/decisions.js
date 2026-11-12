@@ -48,9 +48,11 @@
     rows.push(h("dt", { text: "截止时间" }), h("dd", { class: "small", text: d.deadline ? A.fmtTime(d.deadline) : "无(未设)" }));
     rows.push(h("dt", { text: "关联任务状态" }), h("dd", {}, d.taskState ? A.badge(d.taskState, A.stateKind(d.taskState)) : h("span", { class: "small dim", text: "—" })));
 
-    const actions = h("div", { class: "row" });
+    const actions = h("div", { class: "row decision-actions" });
     if (pending) {
-      const approve = h("button", { class: "btn btn-primary", type: "button", "data-testid": "approve-" + d.id, text: "批准" });
+      // §4.7:有登记推荐时,主按钮语义=采用推荐(仍走同一 core.ops.resolveDecision;无新增放行路径)
+      const approveLabel = g.recommended ? "采用推荐并批准" : "批准";
+      const approve = h("button", { class: "btn btn-primary", type: "button", "data-testid": "approve-" + d.id, text: approveLabel });
       approve.addEventListener("click", function () {
         resolve(d, true, approve);
       });
@@ -60,7 +62,7 @@
         resolve(d, false, reject);
       });
       actions.appendChild(reject);
-      const defer = h("button", { class: "btn", type: "button", "data-testid": "defer-" + d.id, text: "推迟(仅延后截止时间)" });
+      const defer = h("button", { class: "btn", type: "button", "data-testid": "defer-" + d.id, text: "暂缓(仅延后截止时间)" });
       defer.addEventListener("click", function () {
         deferDecision(d, defer);
       });
@@ -175,5 +177,6 @@
   A.boot("decisions", async function () {
     document.getElementById("btn-refresh").addEventListener("click", refresh);
     await refresh();
+    A.poll(refresh);
   });
 })();

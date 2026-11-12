@@ -179,6 +179,25 @@
     return h("table", {}, h("thead", {}, h("tr", {}, h("th", { text: "变更集" }), h("th", { text: "交付状态" }), h("th", { text: "任务" }), h("th", { text: "" }))), tbody);
   }
 
+  // WEB-UX-01 §4.8:只读 Diff Viewer(数据源=本地已注册项目仓库的 git diff;不可用时如实标注原因)
+  async function diffViewerBlock(id) {
+    const wrap = h("div", { class: "stack", "data-testid": "cs-diff-viewer" });
+    try {
+      const res = await A.apiGet("/api/changesets/" + encodeURIComponent(id) + "/diff");
+      if (res.available) {
+        wrap.appendChild(
+          h("div", { class: "small dim", text: "来源:本地已注册项目仓库只读 git diff" + (res.source ? "(" + res.source + ")" : "") + (res.truncated ? " · 已截断(仅展示前 200KB)" : "") }),
+        );
+        wrap.appendChild(h("pre", { class: "diff", "data-testid": "cs-diff-content", text: res.diff || "(空 diff)" }));
+      } else {
+        wrap.appendChild(h("div", { class: "notice info", "data-testid": "cs-diff-unavailable" }, h("strong", { text: "Diff 暂不可用。" }), h("span", { text: " " + (res.reason || "原因未记录") })));
+      }
+    } catch (e) {
+      wrap.appendChild(h("div", { class: "notice", text: "Diff 读取失败:" + ((e && e.message) || e) }));
+    }
+    return wrap;
+  }
+
   async function refresh() {
     const id = new URLSearchParams(window.location.search).get("id");
     try {
@@ -205,6 +224,8 @@
       document.getElementById("cs-header").appendChild(headerBlock(d));
       document.getElementById("cs-diff").textContent = "";
       document.getElementById("cs-diff").appendChild(diffBlock(d.changeset));
+      document.getElementById("cs-full-diff").textContent = "";
+      document.getElementById("cs-full-diff").appendChild(await diffViewerBlock(id));
       document.getElementById("cs-gates").textContent = "";
       document.getElementById("cs-gates").appendChild(gatesBlock(d));
       document.getElementById("cs-evidence").textContent = "";
@@ -221,5 +242,6 @@
   A.boot("changeset", async function () {
     document.getElementById("btn-refresh").addEventListener("click", refresh);
     await refresh();
+    A.poll(refresh);
   });
 })();

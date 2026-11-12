@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Relay 控制台 · Goal</title>
     <link rel="icon" href="data:," />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f1115" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -20,22 +23,19 @@
 
       <section class="card" id="create-card" hidden>
         <h2>新建 Goal</h2>
-        <label for="goal-input">一句自然语言描述你要交付什么(可只写一句模糊话)</label>
-        <textarea id="goal-input" data-testid="goal-input" placeholder="例如:感觉登录页不好用,想让登录更快更清楚"></textarea>
-        <div class="row mt8">
-          <button class="btn btn-primary" id="btn-create-goal" type="button" data-testid="btn-create-goal">创建 Goal</button>
-          <span class="small dim" id="create-msg" data-testid="create-msg"></span>
-        </div>
-        <p class="small dim mt8">
-          派生计划为<strong>确定性默认计划</strong>(非模型规划):一个任务 + 最小作用域 + Gate 必需。
-          模型发现(Discovery)可经 <code>relay goal analyze</code> 或 API 显式发起(预算经账本);页面带来源徽章:模型结论只在 Discovery 区块展示,失败/未运行时规则面兜底并如实标注。
-        </p>
+        <div id="new-goal-form"><span class="empty">读取项目注册表…</span></div>
       </section>
 
       <div id="goal-detail" data-testid="goal-detail" hidden>
         <section class="card" id="progress-card">
           <h2>执行进度</h2>
           <div id="goal-progress" data-testid="goal-progress"></div>
+        </section>
+
+        <section class="card mt14">
+          <h2>执行 Timeline</h2>
+          <p class="small dim">阶段推导=确定性(来自数据库事实:任务状态/运行/证据/裁决/交付),非模型判断。</p>
+          <div id="goal-timeline" data-testid="goal-timeline"></div>
         </section>
 
         <section class="card mt14">
@@ -63,20 +63,23 @@
           <div id="goal-runs" data-testid="goal-runs"></div>
         </section>
 
-        <section class="card mt14">
-          <h2>执行证据</h2>
-          <div id="goal-evidence" data-testid="goal-evidence"></div>
-        </section>
+        <details class="tech-details mt14" id="goal-tech">
+          <summary class="dim small">技术细节(证据 / Gate 裁决 / 审计轨迹)</summary>
+          <section class="card mt14">
+            <h2>执行证据</h2>
+            <div id="goal-evidence" data-testid="goal-evidence"></div>
+          </section>
 
-        <section class="card mt14">
-          <h2>Gate 裁决</h2>
-          <div id="goal-gates" data-testid="goal-gates"></div>
-        </section>
+          <section class="card mt14">
+            <h2>Gate 裁决</h2>
+            <div id="goal-gates" data-testid="goal-gates"></div>
+          </section>
 
-        <section class="card mt14">
-          <h2>审计轨迹</h2>
-          <div id="goal-audit" data-testid="goal-audit"></div>
-        </section>
+          <section class="card mt14">
+            <h2>审计轨迹</h2>
+            <div id="goal-audit" data-testid="goal-audit"></div>
+          </section>
+        </details>
       </div>
     </main>
     <script src="/app.js"></script>

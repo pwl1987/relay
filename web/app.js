@@ -1,10 +1,12 @@
-// Relay 最小 Web 控制台共享前端(P0-02C)。
+// Relay 最小 Web 控制台共享前端(P0-02C → WEB-UX-01 §4.4 AppShell / §4.11 polling / §4.5 共享创建流)。
 // 约束:
 //  - 零构建、无第三方脚本(CSP script-src 'self');所有渲染用 DOM API(textContent),
 //    **不使用 innerHTML** ⇒ 用户输入(Goal 原文等)不会变成可执行标记;
 //  - 前端不持有业务状态:每次渲染都从 /api 取;连接中断时显示"无法核实"横幅 +
 //    最后一次成功读取的时间戳,绝不把陈旧数据伪装成实时(G-7);
-//  - 写操作统一带 x-relay-csrf(服务端双提交校验)。
+//  - 写操作统一带 x-relay-csrf(服务端双提交校验);
+//  - AppShell:桌面=左侧可折叠导航 + 中央工作区(右侧抽屉为各页卡片自身的扩展位);
+//    手机=顶栏 + 汉堡抽屉(§4.4);轮询 5~10s,后台降频 30s(§4.11,无 WebSocket/第二事件系统)。
 (function () {
   "use strict";
 
@@ -185,29 +187,72 @@
     }
   }
 
-  function renderHeader(active) {
-    const host = $("#app-header");
-    if (!host) return;
-    host.textContent = "";
+  // ---------------- §4.4 AppShell(左侧可折叠导航;手机=顶栏 + 抽屉) ----------------
+
+  const NAV_ITEMS = [
+    { id: "dashboard", href: "/", label: "Dashboard" },
+    { id: "goal", href: "/goal.html", label: "Goals" },
+    { id: "decisions", href: "/decisions.html", label: "Decisions" },
+    { id: "changeset", href: "/changeset.html", label: "Reviews" },
+    { id: "projects", href: "/projects.html", label: "Projects" },
+    { id: "models", href: "/models.html", label: "Models" },
+    { id: "system", href: "/system.html", label: "System" },
+  ];
+
+  function renderShell(active) {
+    const oldHeader = $("#app-header");
+    if (!oldHeader) return;
+
     const nav = h(
       "nav",
-      { class: "nav" },
-      h("a", { class: "nav-link" + (active === "dashboard" ? " active" : ""), href: "/", text: "Dashboard" }),
-      h("a", { class: "nav-link" + (active === "goal" ? " active" : ""), href: "/goal.html", text: "Goal" }),
-      h("a", { class: "nav-link" + (active === "decisions" ? " active" : ""), href: "/decisions.html", text: "Decision Inbox" }),
-      h("a", { class: "nav-link" + (active === "changeset" ? " active" : ""), href: "/changeset.html", text: "ChangeSet" }),
-      h("a", { class: "nav-link" + (active === "projects" ? " active" : ""), href: "/projects.html", text: "Projects" }),
-      h("a", { class: "nav-link" + (active === "models" ? " active" : ""), href: "/models.html", text: "Models" }),
-      h("a", { class: "nav-link" + (active === "system" ? " active" : ""), href: "/system.html", text: "System" }),
+      { class: "side-nav", "data-testid": "side-nav" },
+      NAV_ITEMS.map(function (item) {
+        return h("a", { class: "side-link" + (active === item.id ? " active" : ""), href: item.href, text: item.label });
+      }),
     );
-    const right = h(
+    const sidebar = h(
+      "aside",
+      { class: "sidebar", id: "app-sidebar", "data-testid": "sidebar" },
+      h("div", { class: "side-brand" }, h("span", { class: "brand", text: "Relay 控制台" })),
+      nav,
+      h("div", { class: "side-foot" },
+        h("a", { class: "btn btn-primary btn-new-goal", href: "/#new-goal", "data-testid": "btn-new-goal", text: "+ New Goal" }),
+        h("div", { class: "side-user" },
+          h("span", { id: "whoami", class: "whoami", text: state.role ? "身份:" + state.role : "" }),
+          h("button", { id: "btn-logout", class: "btn btn-ghost", type: "button", text: "退出登录" }),
+        ),
+      ),
+    );
+
+    // 手机顶栏(品牌 + 汉堡);桌面由 CSS 隐藏。
+    const topbar = h(
       "div",
-      { class: "header-right" },
-      h("span", { id: "whoami", class: "whoami", text: state.role ? "身份:" + state.role : "" }),
-      h("button", { id: "btn-logout", class: "btn btn-ghost", type: "button", text: "退出登录" }),
+      { class: "mobile-topbar", "data-testid": "mobile-topbar" },
+      h("button", { class: "btn btn-ghost burger", id: "btn-burger", type: "button", "aria-label": "打开导航", text: "☰" }),
+      h("span", { class: "brand", text: "Relay" }),
+      h("a", { class: "btn btn-primary btn-new-goal-sm", href: "/#new-goal", text: "+ Goal" }),
     );
-    host.appendChild(h("div", { class: "header-left" }, h("span", { class: "brand", text: "Relay 控制台" }), nav));
-    host.appendChild(right);
+
+    const parent = oldHeader.parentNode;
+    parent.insertBefore(sidebar, oldHeader);
+    parent.insertBefore(topbar, oldHeader);
+    oldHeader.remove();
+    document.body.classList.add("shell-on");
+
+    const burger = $("#btn-burger");
+    if (burger) {
+      burger.addEventListener("click", function () {
+        const sb = $("#app-sidebar");
+        if (sb) sb.classList.toggle("open");
+      });
+    }
+    // 手机:点击导航链接后收起抽屉
+    $$(".side-link", sidebar).forEach(function (a) {
+      a.addEventListener("click", function () {
+        sidebar.classList.remove("open");
+      });
+    });
+
     const logout = $("#btn-logout");
     if (logout) {
       logout.addEventListener("click", async function () {
@@ -225,6 +270,123 @@
     }
   }
 
+  // ---------------- §4.11 polling(可见 8s;后台 30s;无 WebSocket/第二事件系统) ----------------
+
+  let pollTimer = null;
+  let pollFn = null;
+
+  function schedulePoll(ms) {
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = setTimeout(function () {
+      tickPoll();
+    }, ms);
+  }
+
+  async function tickPoll() {
+    if (!pollFn) return;
+    const hidden = document.visibilityState === "hidden";
+    try {
+      await pollFn();
+    } catch (e) {
+      /* guarded 已把错误转成连接横幅;轮询不抛出 */
+    }
+    schedulePoll(hidden ? 30000 : 8000);
+  }
+
+  /** 页面注册轮询:关键用户动作仍直接调 refresh()(立即刷新)。 */
+  function poll(fn) {
+    pollFn = fn;
+    schedulePoll(8000);
+    document.addEventListener("visibilitychange", function () {
+      // 回到前台立即刷一拍,再按可见性调整节奏
+      if (document.visibilityState === "visible") schedulePoll(500);
+      else schedulePoll(30000);
+    });
+  }
+
+  // ---------------- §4.5 共享"新建 Goal"表单(选择 Project → 一句话 → Create) ----------------
+
+  /** 在容器内渲染新建表单;返回值供页面接按钮事件。projectPath 由服务端按注册表解析,浏览器零路径输入。 */
+  function renderGoalForm(opts) {
+    const o = opts || {};
+    const sel = h("select", { id: o.selectId || "goal-project", "data-testid": o.selectTestId || "goal-project" });
+    const ta = h("textarea", {
+      id: o.inputId || "goal-input",
+      "data-testid": o.inputTestId || "goal-input",
+      placeholder: "例如:给登录页加一个加载中的提示,让用户知道点了之后在做什么",
+    });
+    const msg = h("span", { class: "small dim", id: o.msgId || "create-msg", "data-testid": o.msgTestId || "create-msg" });
+    const btn = h("button", { class: "btn btn-primary", id: o.btnId || "btn-create-goal", type: "button", "data-testid": o.btnTestId || "btn-create-goal", text: "创建 Goal" });
+    const note = h(
+      "p",
+      { class: "small dim mt8" },
+      "执行范围由服务端按项目注册表(config/projects.json)解析;浏览器不提交任何服务器路径。创建走 core.planGoal(goal + 任务 + 预算账本行);",
+      h("strong", { text: "派生计划为确定性默认计划" }),
+      "(非模型规划)。",
+    );
+    const wrap = h(
+      "div",
+      {},
+      h("label", { for: o.selectId || "goal-project", text: "选择 Project(执行范围绑定)" }),
+      sel,
+      h("label", { for: o.inputId || "goal-input", text: "一句自然语言描述你要交付什么(可只写一句模糊话)" }),
+      ta,
+      h("div", { class: "row mt8" }, btn, msg),
+      note,
+    );
+
+    async function loadProjects() {
+      sel.textContent = "";
+      let projects = [];
+      try {
+        const res = await apiGet("/api/projects");
+        const v = res.projects || {};
+        projects = (v.projects || []).filter(function (p) {
+          return p && p.name && p.path;
+        });
+        if (!v.configured) {
+          sel.appendChild(h("option", { value: "", text: "未配置项目注册表(config/projects.json)— 可不绑定创建" }));
+        }
+      } catch (e) {
+        sel.appendChild(h("option", { value: "", text: "项目列表读取失败 — 可不绑定创建" }));
+      }
+      if (projects.length) {
+        sel.appendChild(h("option", { value: "", text: "不绑定项目(默认 /workspace 作用域)" }));
+        projects.forEach(function (p) {
+          const label = p.name + (p.health === "ok" ? "" : "(目录不可达)");
+          sel.appendChild(h("option", { value: p.name, text: label }));
+        });
+      } else if (!sel.options.length) {
+        sel.appendChild(h("option", { value: "", text: "不绑定项目(默认 /workspace 作用域)" }));
+      }
+    }
+
+    async function submit() {
+      const raw = ta.value.trim();
+      msg.textContent = "";
+      if (!raw) {
+        msg.textContent = "请先写一句目标描述";
+        return;
+      }
+      btn.disabled = true;
+      try {
+        const payload = { rawInput: raw };
+        const pid = sel.value;
+        if (pid) payload.projectId = pid;
+        const res = await apiPost("/api/goals", payload);
+        msg.textContent = "已创建:" + res.goalId + (res.project ? "(绑定 " + res.project.projectId + ")" : "");
+        window.location.href = "/goal.html?id=" + encodeURIComponent(res.goalId);
+      } catch (e) {
+        msg.textContent = "创建失败:" + ((e && e.message) || e);
+        btn.disabled = false;
+      }
+    }
+
+    btn.addEventListener("click", submit);
+    loadProjects();
+    return { wrap: wrap, loadProjects: loadProjects, focus: function () { ta.focus(); } };
+  }
+
   /** 页面骨架:未登录 ⇒ 跳登录页。 */
   async function boot(page, main) {
     try {
@@ -237,7 +399,7 @@
       setConn("无法读取会话:" + ((err && err.message) || err));
       return;
     }
-    renderHeader(page);
+    renderShell(page);
     setConn(null);
     updateStamp();
     await main();
@@ -258,5 +420,7 @@
     setConn: setConn,
     boot: boot,
     state: state,
+    poll: poll,
+    renderGoalForm: renderGoalForm,
   };
 })();
