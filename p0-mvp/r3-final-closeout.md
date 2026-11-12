@@ -25,7 +25,7 @@
 | --- | --- | --- |
 | Sampler 811916 | 17:33:41 自退(末样本后自写 soak-final.json 并退出) | soak-final.json present;elapsedSeconds=86432/workerAliveAtEnd=true |
 | Final Runner 859915 | 17:35:28 fire→verify→done(唯一快照,单次运行) | final-runner.log:RUNNER fire/done 各一次 |
-| Worker 810994 | **17:37:23 SIGTERM 受控停止**,优雅停机铁证落盘 | worker.log:`[relay-worker] SIGTERM received;graceful stop…`→`[relay-worker] stopped` |
+| Worker 810994 | **17:37:23 SIGTERM 受控停止**,优雅停机铁证落盘 | worker.log:`[relay-worker] SIGTERM received;graceful stop…`→`[relay-worker] stopped`(**注:810994=06:10 续采进程;原始进程 06:05 被会话解体波及,续采历史见 matrix G7 行/CONTINUATION §3 前文**) |
 
 停止前末样本:epoch 1794476004,elapsed 86432,IDLE_PROVIDER_DOWN;停止后三进程 ps 全部退出。
 
@@ -41,9 +41,11 @@
 
 ## 4. 证据冻结清单(本收口提交)
 
-- 解除 skip-worktree:`samples.csv`(+5375 行级变更)、`worker.log`(含 17:37 优雅停机铁证)
+- 解除 skip-worktree:`samples.csv`(**+1070 行**,git numstat 口径;366→1436)、`worker.log`(**+4305 行**,含 17:37 优雅停机铁证)(**勘误:提交 9ef38bc 消息中"samples.csv+430 行"为笔误,430 为 worker.log 行数,git numstat 为权威口径**)
 - 新增入库:`final-runner.log`、`soak-final.json`、`verify-final-20261112T1735+0800.json`、`verify-final-20261112T1735+0800.stderr.txt`
 - 保持未跟踪零触碰:`p0-mvp/soak-r3b/`(六文件,暂缓指令)
+
+**tick 计数口径注记(Reviewer m-2)**:快照 JSON 的 5748 拍对应 Runner fire 时点(17:35:28Z+8);冻结版 worker.log 全文 5755 拍(含 17:35:18Z→17:37:03Z 停机间自然追加 7 拍)——两个时点数字均为真;零领取实锤=claimed 非 "-" 行数为 0。
 
 ## 5. 环境注记(诚实披露)
 
