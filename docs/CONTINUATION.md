@@ -15,13 +15,13 @@
 ## 总包收官后的三个 REWORK 解除项(全部有界)
 
 1. ~~R-1~~ **已解除**(2026-11-12 用户补权;`p0-mvp/r1-closure.md`+`REVIEW-r1-closure.md`:US-08/G6 VERIFIED)。
-2. **R-2(用户授权模型)**:业务修改需非 magpie 模型(Discovery 已 VERIFIED;F1/F2 门控链路就绪)——**2026-11-12 授权参数(替代模型/预算/超时/凭据)缺失,精确待授权清单已发出:`p0-mvp/r2-pending-authorization.md`;授权到位即按 `r2-failure-analysis.md` §3 跑对照实验**。
+2. **R-2(用户授权模型)**:业务修改需非 magpie 模型(Discovery 已 VERIFIED;F1/F2 门控链路就绪)——**2026-11-12 授权参数(替代模型/预算/超时/凭据)缺失,精确待授权清单已发出:`p0-mvp/r2-pending-authorization.md`;授权到位即按 `r2-failure-analysis.md` §3 跑对照实验**(**注:此句已过时——2026-11-12 07:50 授权已定案 zcode/GLM-5.3 四参数,见 CURRENT.md 第三包"已授权定案"行,`r2-pending-authorization.md` 已关闭留档;执行排期见 ADR-0010 阶段B**)。
 3. **R-3(时间+中断)**:**06:05+0800@12.53h 会话解体 SIGTERM 波及两采集进程(缝 365s 落账),06:10 已按原始口径 setsid detached 续采、起点不重置**;期满(17:32:52+0800)→ `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验 → REVIEW 确认;**存在中断缝 ⇒ 终验口径 PARTIAL(收口指令:缺失样本或中断时保持 PARTIAL);soak-final.json 由采样器自动写,仅初步报告,判定权在验证器+REVIEW**。
 全部解除 → 重生成终版矩阵+独立 Reviewer → 方可 ACCEPTED(不得以 CI 绿代替)。
 
 ## MODEL-POLICY-00 设计冻结包(2026-11-12 用户指令;与五包顺序并行)
 
-**只做设计冻结,零模型消耗**:中文设计文档 `docs/MODEL_POLICY.md` + `ADR/0009-model-policy.md`(Provider 四层分层/QuotaPool 统一 glm_weekly/Scarcity/RunModelDecision 持久化/Run 边界切换/异构 Reviewer/DEGRADED_LOCAL/评价指标)。**禁止**:改 R-2 模型与实验变量、消耗新额度、删 Magpie、改 Pi Runtime/生产 Worker、启动动态路由、干扰 soak。MVP 最终 ACCEPTED 后才激活 MODEL-POLICY-01 实施(四通道真实验证+可回放 Evidence)。冻结执行顺序不变:第一包收口→F2→F1→R-3B→MVP 最终裁决。
+**只做设计冻结,零模型消耗**:中文设计文档 `docs/MODEL_POLICY.md` + `ADR/0009-model-policy.md`(Provider 四层分层/QuotaPool 统一 glm_weekly/Scarcity/RunModelDecision 持久化/Run 边界切换/异构 Reviewer/DEGRADED_LOCAL/评价指标)。**禁止**:改 R-2 模型与实验变量、消耗新额度、删 Magpie、改 Pi Runtime/生产 Worker、启动动态路由、干扰 soak。MVP 最终 ACCEPTED 后才激活 MODEL-POLICY-01 实施(四通道真实验证+可回放 Evidence)。冻结执行顺序不变:第一包收口→F2→F1→R-3B→MVP 最终裁决(**注:R-3B 已暂缓→PILOT-24H,顺序更新见 ADR-0010 与本文"可用 MVP 最终收口大包"节**)。
 
 ## 可用 MVP 最终收口大包(2026-11-12 用户指令;口径裁决=ADR-0010)
 

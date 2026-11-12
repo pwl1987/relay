@@ -22,9 +22,9 @@
    - CLI/API/Web 共用 Core VERIFIED;
    - R-2 至少达到本大包确定的真实模型验收要求(zcode/GLM-5.3,授权四参数不变;F1+F2 双过=VERIFIED,单过或双败=PARTIAL+归因,禁止加预算或降机判换 VERIFIED);
    - Operator Console 可实际使用(信息架构:Dashboard/Projects/New Goal/Goal Detail/Decisions/Review·Result/Models·Usage/System);
-   - Mac LAN 用户旅程通过(真实浏览器);
-   - 手机 VPN 基础旅程通过(查看+决策+控制,响应式);
-   - 至少 1 个真实项目任务从自然语言需求到 GitHub Delivery 完整通过;
+   - Mac LAN 用户旅程通过(真实浏览器;8 项:页面正常打开、登录/访问控制符合设计、创建 Goal、查看进度、查看 Decision、查看最终结果、暂停/恢复、页面刷新后状态不丢);
+   - 手机 VPN 基础旅程通过(定位=查看+决策+控制,响应式;6 项:Dashboard、Goal 状态、Decision、Result、暂停/恢复);
+   - 至少 1 个真实项目任务从自然语言需求到 GitHub Delivery 完整通过(争取 3 个;**项目约束:独立、低风险、非 Relay 自身、有测试、GitHub 可回滚**;用户只能通过正常使用方式提出需求,禁止为验收人为构造理想 Prompt);
    - 无 Critical / Major 未解决问题。
 3. **不再作为 MVP 硬阻断的项**(后置或移出 MVP 范围):连续 24h、72h、真实业务负载长稳、MODEL-POLICY-01、ChatGPT Supervisor、动态多模型路由、公网 Search/Crawler、多仓并发。
 4. **Pilot 阶段要求(原 24h 门的新位置)**:在真实使用过程中连续运行 ≥24h,包含真实任务、空闲、模型调用、GitHub、DB、Web 操作;无未解释退出、无重复副作用、无状态丢失。
