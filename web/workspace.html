@@ -2,17 +2,23 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- WEB-UX-03D §14:viewport-fit=cover 使 env(safe-area-inset-*) 在 iOS standalone 下生效 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Relay · 工作区</title>
     <link rel="icon" href="data:," />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#f4f5f7" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <!-- WEB-UX-03D §14:iPhone Safari 添加到主屏幕 → standalone(不依赖 Service Worker) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Relay" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body class="ws-body">
     <div class="ws-layout" id="ws-layout" data-testid="ws-layout">
-      <!-- 左:项目/任务侧栏(WEB-UX-03C §3;JS 渲染) -->
+      <!-- 左:项目/任务侧栏(WEB-UX-03C §3;JS 渲染;WEB-UX-03D ≤900px 转导航抽屉,☰ 开关+遮罩) -->
       <aside class="ws-sidebar" id="ws-sidebar" data-testid="ws-sidebar">
         <div class="ws-brand">Relay<span class="ws-brand-sub">AI 软件开发工作台</span></div>
         <button class="btn btn-primary ws-new-task" id="ws-new-task" type="button" data-testid="ws-new-task">＋ 新建任务</button>
@@ -27,13 +33,18 @@
           <button class="btn btn-ghost btn-sm ws-logout" id="ws-logout" type="button">退出登录</button>
         </div>
       </aside>
+      <!-- WEB-UX-03D §4:抽屉遮罩(仅移动端显示;点击关闭抽屉,回到原会话上下文不变) -->
+      <div class="ws-backdrop" id="ws-backdrop" data-testid="ws-backdrop"></div>
 
       <!-- 中:会话区(Feed + Composer)。
            WEB-UX-03C.1 P0-1:整页唯一主要自然语言输入 = 底部 Composer
-           (空白态=项目选择+「开始」;任务态=「发送」);不再另设新任务表单。 -->
+           (空白态=项目选择+「开始」;任务态=「发送」);不再另设新任务表单。
+           WEB-UX-03D §2:移动端顶栏=☰+状态点+项目·标题;刷新时间/详情开关等入二级。 -->
       <main class="ws-main">
-        <div id="ws-conn" hidden data-testid="ws-conn"></div>
+        <div id="ws-conn" class="ws-conn" hidden data-testid="ws-conn"></div>
         <header class="ws-topbar" id="ws-topbar" data-testid="ws-topbar">
+          <button class="btn btn-ghost btn-sm ws-menu-btn" id="ws-menu-btn" type="button" aria-label="打开导航" data-testid="ws-menu-btn">☰</button>
+          <span class="ws-dot ws-title-dot" id="ws-title-dot" hidden data-testid="ws-title-dot" title=""></span>
           <span class="ws-title" id="ws-title">工作区</span>
           <span class="spacer"></span>
           <span class="small dim" id="ws-stamp" data-testid="ws-stamp"></span>
@@ -43,7 +54,10 @@
         <!-- 会话 Feed(§4;JS 渲染;内层定宽阅读列,短会话贴 Composer) -->
         <div class="ws-feed" id="ws-feed" data-testid="ws-feed"><span class="empty">读取中…</span></div>
 
-        <!-- Composer(§6 + 03C.1 P0-1:唯一输入;始终可见) -->
+        <!-- WEB-UX-03D §10:用户向上翻历史时出现;点击回到底部最新(移动端) -->
+        <button class="ws-jump-latest" id="ws-jump-latest" type="button" hidden data-testid="ws-jump-latest">回到最新 ↓</button>
+
+        <!-- Composer(§6 + 03C.1 P0-1:唯一输入;始终可见;移动端固定视觉底部+safe-area) -->
         <div class="ws-composer" id="ws-composer" data-testid="ws-composer">
           <div class="ws-composer-inner">
             <div class="ws-composer-project" id="ws-composer-project" data-testid="ws-composer-project">
@@ -56,14 +70,26 @@
             </div>
             <div class="ws-composer-foot">
               <span class="small dim" id="ws-composer-msg" data-testid="ws-composer-msg"></span>
-              <span class="small dim">Enter 发送,Shift+Enter 换行</span>
+              <span class="small dim ws-enter-hint">Enter 发送,Shift+Enter 换行</span>
             </div>
           </div>
         </div>
       </main>
 
-      <!-- 右:详情栏(§9 + 03C.1 P0-6:默认摘要四项;技术详情折叠;整栏可收起) -->
+      <!-- 右:详情栏(§9 + P0-6:桌面默认摘要四项;技术详情折叠;整栏可收起;移动端整列隐藏,技术详情经 sheet) -->
       <aside class="ws-detail" id="ws-detail" data-testid="ws-detail"></aside>
+    </div>
+
+    <!-- WEB-UX-03D §11:移动端技术详情 sheet(默认隐藏;仅用户主动打开时显示 Model/Run/Budget/Gate/Reviewer/SHA/Scope) -->
+    <div class="ws-sheet" id="ws-sheet" hidden data-testid="ws-sheet">
+      <div class="ws-sheet-card" role="dialog" aria-label="任务详情">
+        <div class="ws-sheet-head">
+          <span class="ws-sheet-title">查看详情</span>
+          <button class="btn btn-ghost btn-sm" id="ws-sheet-close" type="button" data-testid="ws-sheet-close">关闭</button>
+        </div>
+        <div class="ws-sheet-body" id="ws-sheet-body"></div>
+      </div>
+      <div class="ws-backdrop ws-sheet-backdrop" id="ws-sheet-backdrop" data-testid="ws-sheet-backdrop"></div>
     </div>
     <script src="/app.js"></script>
     <script src="/workspace.js"></script>

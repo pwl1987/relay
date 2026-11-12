@@ -533,7 +533,106 @@ details.tech-details > summary::marker { color: var(--muted); }
 .ws-tech-toggle { margin-top: 10px; }
 .ws-tech-events { margin-top: 12px; border-top: 1px solid #eceef1; padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
 
+/* ---------------- WEB-UX-03D:移动端对话工作区(390×844;iPhone Safari/VPN) ----------------
+   原则:手机不是缩小版桌面后台。手机=看 Relay 在干什么/补充要求/处理 Decision/看结果。
+   §2 顶栏=☰+状态点+项目·标题;§3 工程信息(刷新时间/Goal ID/Model/SHA)入二级;
+   §4 侧栏转导航抽屉(关闭回原会话);§9 Composer 固定视觉底部(visualViewport+safe-area,
+   不依赖 100vh);§10 长会话「回到最新」;§11 技术详情 sheet(默认全隐藏)。
+   以下控件桌面一律不可见 ⇒ 03C.1 Desktop 视觉零回退(§15)。 */
+.ws-menu-btn { display: none; }
+.ws-title-dot { display: none; }
+.ws-backdrop { display: none; }
+.ws-jump-latest { display: none; }
+.ws-sheet { display: none; }
+.ws-menu-btn[hidden], .ws-title-dot[hidden], .ws-jump-latest[hidden], .ws-sheet[hidden] { display: none; }
+
 @media (max-width: 900px) {
+  /* §2/§3:移动顶栏(☰+状态点+标题);刷新时间/右栏开关移出顶栏 */
+  .ws-topbar { padding: calc(8px + env(safe-area-inset-top)) 10px 8px 4px; gap: 8px; }
+  .ws-menu-btn { display: inline-flex; font-size: 17px; min-width: 40px; min-height: 40px; }
+  .ws-title-dot { display: inline-block; width: 9px; height: 9px; flex: 0 0 9px; }
+  #ws-stamp, #ws-pane-toggle { display: none; }
+
+  /* §4:侧栏 → 导航抽屉(overlay;遮罩点击关闭,回到原会话上下文不变) */
+  .ws-sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: min(300px, 84vw); flex-basis: auto;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 60;
+    box-shadow: 0 8px 30px rgba(16, 24, 40, 0.22);
+    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .ws-layout.ws-drawer-open .ws-sidebar { transform: translateX(0); }
+  .ws-layout .ws-backdrop {
+    display: block; position: fixed; inset: 0;
+    background: rgba(16, 24, 40, 0.45);
+    z-index: 50; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .ws-layout.ws-drawer-open .ws-backdrop { opacity: 1; pointer-events: auto; }
+
+  /* §9:主列高度=动态视口(visualViewport 经 --ws-app-height 注入;不依赖 100vh) */
+  .ws-main { height: var(--ws-app-height, 100dvh); position: relative; }
+  body.ws-body { overflow: hidden; }
+  /* §11:右栏整列在手机隐藏;技术详情经 sheet 提供 */
   .ws-detail { display: none; }
-  .ws-sidebar { width: 200px; flex-basis: 200px; }
+
+  /* §10:Feed 阅读列全宽;iOS 惯性滚动 */
+  .ws-feed { -webkit-overflow-scrolling: touch; }
+  .ws-feed-col { max-width: 100%; padding: 12px 14px 8px; }
+  .ws-msg { max-width: 88%; }
+  .ws-card { max-width: 100%; }
+  .ws-empty-hero { padding: 0 8px; }
+
+  /* §7:Decision 单手可完成——主按钮整行、全部 ≥44px 触控高度 */
+  .ws-card-decision .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ws-card-decision .row .btn { min-height: 44px; width: 100%; }
+  .ws-card-decision .row .btn:first-child { grid-column: 1 / -1; }
+  .ws-block .btn { min-height: 40px; }
+
+  /* §10:回到最新(向上翻历史时出现) */
+  .ws-jump-latest {
+    display: inline-flex; align-items: center;
+    position: absolute; right: 14px;
+    bottom: calc(108px + env(safe-area-inset-bottom));
+    z-index: 10;
+    height: 36px; padding: 0 14px;
+    border: 1px solid #d5d9de; border-radius: 999px;
+    background: #fff; color: #24292f;
+    font: inherit; font-size: 12.5px;
+    box-shadow: var(--shadow); cursor: pointer;
+  }
+
+  /* §9:Composer 固定视觉底部;safe-area;16px 防 iOS 聚焦自动放大;发送键大触控 */
+  .ws-composer {
+    padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+    background: #f4f5f7;
+    border-top: 1px solid #e3e5e8;
+  }
+  .ws-composer-row .btn { min-height: 44px; min-width: 68px; }
+  #ws-input { font-size: 16px; min-height: 44px; } /* ≥16px 防 iOS 聚焦自动放大;JS 自然增高 */
+  .ws-enter-hint { display: none; }
+
+  /* §11:技术详情 sheet(secondary view;默认全隐藏,仅主动打开) */
+  .ws-sheet { display: block; position: fixed; inset: 0; z-index: 70; }
+  .ws-sheet .ws-backdrop { display: block; position: absolute; inset: 0; opacity: 1; pointer-events: auto; background: rgba(16, 24, 40, 0.45); }
+  .ws-sheet-card {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    max-height: 86%;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    display: flex; flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -8px 30px rgba(16, 24, 40, 0.28);
+    z-index: 72;
+  }
+  .ws-sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid #eceef1; flex: 0 0 auto;
+  }
+  .ws-sheet-title { font-weight: 600; font-size: 14px; }
+  .ws-sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 16px 20px; font-size: 12.5px; }
+  .ws-sheet-body .ws-detail-head { margin-top: 4px; }
 }

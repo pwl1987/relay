@@ -17,6 +17,31 @@
   const IN_FLIGHT = ["LEASED", "RUNNING", "SUBMITTED", "VERIFYING"];
   const TERMINAL_BAD = ["FAILED", "CANCELLED", "BLOCKED", "BUDGET_EXHAUSTED", "TIMEOUT"];
 
+  // ---------------- WEB-UX-03D 移动端(390×844;iPhone Safari/VPN;同一 API/Feed,零新状态模型) ----------------
+  // 布局断点与 style.css @media (max-width: 900px) 对齐;指针粗细判定 Enter 语义(§9:移动端 Enter=换行)。
+  const MOBILE_MQ = "(max-width: 900px)";
+  const COARSE_MQ = "(pointer: coarse)";
+  function mqMatches(query) {
+    return !!(window.matchMedia && window.matchMedia(query).matches);
+  }
+  function isMobileView() {
+    return mqMatches(MOBILE_MQ);
+  }
+  /** §13:iOS 键盘/工具栏不占 100vh ⇒ 高度经 --ws-app-height 注入(桌面 CSS 不消费该变量,零回退)。 */
+  function watchViewport() {
+    const vv = window.visualViewport;
+    const set = function () {
+      const px = vv ? Math.round(vv.height) : window.innerHeight;
+      document.documentElement.style.setProperty("--ws-app-height", px + "px");
+    };
+    if (vv) {
+      vv.addEventListener("resize", set);
+      vv.addEventListener("scroll", set);
+    }
+    window.addEventListener("resize", set);
+    set();
+  }
+
   const state = {
     goalId: null,
     cursor: 0,          // 已消费的最大消息 id(0=从头拉 200)
@@ -89,6 +114,17 @@
       badge.textContent = decisionTotal > 99 ? "99+" : String(decisionTotal);
       badge.hidden = decisionTotal === 0;
     }
+  }
+
+  // ---------------- 导航抽屉(§4:☰ 开关;遮罩/ Esc 关闭;关闭后回到原会话,上下文不变) ----------------
+
+  function setDrawer(open) {
+    const layout = $("#ws-layout");
+    if (layout) layout.classList.toggle("ws-drawer-open", !!open);
+  }
+  function drawerOpen() {
+    const layout = $("#ws-layout");
+    return !!(layout && layout.classList.contains("ws-drawer-open"));
   }
 
   // ---------------- 工作状态块(P0-3/P0-4:执行事件聚合;每 Goal 一个块,原位更新) ----------------
@@ -418,20 +454,71 @@
       col.appendChild(h("div", { class: "ws-event " + n.cls, "data-testid": "ws-notice", text: n.text }));
     });
     if (immediate || nearBottom) feed.scrollTop = feed.scrollHeight;
+    // §10:用户向上翻历史(未贴底)⇒ 出现「回到最新」;贴底/动作渲染后隐藏
+    updateJumpButton(!nearBottom && !!state.goalId);
+  }
+
+  /** §10:回到最新——平滑滚到底部(移动端浮层按钮;桌面由 CSS 隐藏)。旧 Safari 无 scrollTo options ⇒ 直接赋值回退。 */
+  function jumpToLatest() {
+    const feed = $("#ws-feed");
+    if (!feed) return;
+    try {
+      feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" });
+    } catch (e) {
+      feed.scrollTop = feed.scrollHeight;
+    }
+    updateJumpButton(false);
+  }
+
+  function updateJumpButton(show) {
+    const btn = $("#ws-jump-latest");
+    const feed = $("#ws-feed");
+    if (!btn) return;
+    const overflow = !!(feed && feed.scrollHeight > feed.clientHeight + 40);
+    btn.hidden = !(show && overflow);
   }
 
   // ---------------- 右侧详情栏(§9 + P0-6:默认四项;elapsed 按需;技术详情折叠;整栏可收起) ----------------
 
   let techOpen = false;
+  let sheetOpen = false;
+
+  /** 技术详情入口:桌面=右栏折叠(03C.1 不回退);移动端(§11)=打开详情 sheet(secondary view)。 */
   function toggleTech(force) {
+    if (isMobileView()) { openSheet(); return; }
     techOpen = force === undefined ? !techOpen : !!force;
     if (techOpen && !state.paneOpen) { state.paneOpen = true; applyPane(); }
     renderDetail();
   }
 
+  function openSheet() {
+    sheetOpen = true;
+    const sheet = $("#ws-sheet");
+    if (sheet) sheet.hidden = false;
+    renderSheet();
+  }
+  function closeSheet() {
+    sheetOpen = false;
+    const sheet = $("#ws-sheet");
+    if (sheet) sheet.hidden = true;
+  }
+  function renderSheet() {
+    if (!sheetOpen) return;
+    const body = $("#ws-sheet-body");
+    if (body) renderDetailInto(body, { techOpen: true, sheetMode: true });
+  }
+
   function renderDetail() {
-    const host = $("#ws-detail");
+    renderDetailInto($("#ws-detail"), { techOpen: techOpen });
+    renderSheet();
+  }
+
+  /** 详情渲染(单一实现,两处消费:桌面右栏 / 移动 sheet;sheet 恒展开技术详情且不带开关按钮)。 */
+  function renderDetailInto(host, opts) {
     if (!host) return;
+    const o = opts || {};
+    const techShown = !!o.techOpen;
+    const sheetMode = !!o.sheetMode;
     host.textContent = "";
     const st = state.status;
     const g = state.detail;
@@ -447,9 +534,12 @@
       // P0-6:已运行时间只在有意义时显示(有实际运行时长)
       host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "已运行时间"), h("span", { "data-testid": "ws-detail-elapsed", text: A.fmtDuration(elapsed) })));
     }
-    host.appendChild(h("button", { class: "btn btn-sm ws-tech-toggle", type: "button", "data-testid": "ws-detail-toggle", text: techOpen ? "收起技术详情" : "技术详情", onclick: function () { toggleTech(); } }));
-    if (techOpen && g) {
-      const box = h("div", { class: "ws-tech", "data-testid": "ws-detail-tech" });
+    if (!sheetMode) {
+      host.appendChild(h("button", { class: "btn btn-sm ws-tech-toggle", type: "button", "data-testid": "ws-detail-toggle", text: techShown ? "收起技术详情" : "技术详情", onclick: function () { toggleTech(); } }));
+    }
+    if (techShown && g) {
+      // §11:工程术语(Model/Run/Budget/Gate/Reviewer/SHA/Scope)只在此层;移动端 testid 独立避免桌面断言串扰
+      const box = h("div", { class: "ws-tech", "data-testid": sheetMode ? "ws-sheet-tech" : "ws-detail-tech" });
       const rows = [];
       rows.push(h("dt", { text: "Goal ID" }), h("dd", { class: "mono-sm", text: g.goal.id }));
       rows.push(h("dt", { text: "当前任务" }), h("dd", { class: "mono-sm", text: (g.progress || {}).currentTaskId || "—" }));
@@ -465,7 +555,7 @@
       rows.push(h("dt", { text: "作用域" }), h("dd", { class: "small", text: (g.tasks[0] && g.tasks[0].allowedScope.join(", ")) || "—" }));
       box.appendChild(h("dl", { class: "kv" }, rows));
       // P0-4:完整原始执行事件保留在技术详情(审计事实不删;P1-1:内部码/路径只在此层)
-      box.appendChild(h("div", { class: "ws-tech-events", "data-testid": "ws-tech-events" },
+      box.appendChild(h("div", { class: "ws-tech-events", "data-testid": sheetMode ? "ws-sheet-events" : "ws-tech-events" },
         h("div", { class: "ws-detail-head", text: "执行事件(原始)" }),
         deriveEvents(g).map(eventLine).concat([h("div", { class: "ws-event dim", text: "更早事件与完整审计见系统状态/技术证据。" })]),
       ));
@@ -508,6 +598,7 @@
     if (!content) return;
     if (content.length > 2000) { feedNotice("内容过长(上限 2000 字)", "st-bad"); return; }
     input.value = "";
+    growInput(); // 发送后输入框收回单行(§9)
     const localN = state.pendingLocal.length;
     state.pendingLocal.push({ n: localN, content: content });
     renderFeed(true); // §6:发送后立即在 Feed 显示 USER_MESSAGE(本地回显)
@@ -518,7 +609,8 @@
       await refreshAll(true); // §14:发送后立即刷新
     } catch (err) {
       state.pendingLocal = state.pendingLocal.filter(function (m) { return m.content !== content; });
-      input.value = content; // 失败还原文稿;显式报错,不假成功
+      input.value = content; // 失败还原文稿;显式报错,不假成功(§13 写操作)
+      growInput();
       feedNotice("发送失败,请稍后重试", "st-bad"); // P1-1:内部异常文案不直出
     } finally {
       btn.disabled = false;
@@ -553,11 +645,22 @@
     return createFromComposer();
   }
 
+  /** §9:输入框自然增高(上限 140px 与 CSS max-height 一致;下限由 CSS 按端 min-height 控制)。 */
+  function growInput() {
+    const input = $("#ws-input");
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 140) + "px";
+  }
+
   function wireComposer() {
     const input = $("#ws-input");
     const btn = $("#ws-send");
     if (btn) btn.addEventListener("click", composerSubmit);
     if (input) {
+      input.addEventListener("input", growInput);
+      // §9:移动端(coarse pointer)Enter=换行,发送走「发送」按钮;桌面保持 03C.1 语义(Enter 发送/Shift+Enter 换行)
+      if (mqMatches(COARSE_MQ)) return;
       input.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
@@ -585,12 +688,37 @@
 
   // ---------------- 顶栏 / 数据刷新(§14:Feed 增量 + 明细/侧栏整体替换;4s 可见 / 30s 后台) ----------------
 
+  /** §3:顶栏状态点(必要状态点;与工作块模式同源确定性推导;桌面 CSS 隐藏不回退 03C.1)。 */
+  const HEADER_DOT = {
+    running: ["ws-dot-blue", "正在处理"],
+    queued: ["ws-dot-blue", "已纳入执行队列"],
+    waiting: ["ws-dot-yellow", "等待你的决定"],
+    done: ["ws-dot-green", "已完成"],
+    failed: ["ws-dot-red", "需要处理"],
+  };
+
   function renderHeader() {
     const title = $("#ws-title");
     const g = state.detail;
-    if (!state.goalId) { title.textContent = "工作区"; return; }
+    const dot = $("#ws-title-dot");
+    if (!state.goalId) {
+      title.textContent = "工作区";
+      if (dot) dot.hidden = true;
+      return;
+    }
     // P0-2:Header 项目 = status.projectName(与侧栏/右栏同源);未绑定如实显示
     title.textContent = projectDisplay() + " · " + goalTitle(g && g.goal ? g.goal.rawInput : "");
+    const w = deriveWork(g);
+    if (dot) {
+      const d = w ? HEADER_DOT[w.mode] : null;
+      if (d) {
+        dot.className = "ws-dot ws-title-dot " + d[0];
+        dot.setAttribute("title", d[1]);
+        dot.hidden = false;
+      } else {
+        dot.hidden = true;
+      }
+    }
     const stamp = $("#ws-stamp");
     if (stamp) stamp.textContent = "数据读取时间:" + A.fmtTime(new Date().toISOString());
   }
@@ -639,7 +767,8 @@
       await refreshSidebar();
       setConn(null);
     } catch (err) {
-      setConn("无法核实当前状态(连接或服务异常);显示最后一次成功读取的内容。"); // Reviewer F-1:不直出原始异常文本
+      // §13:临时断网——统一用户文案(不直出原始异常);会话不清空,轮询自动恢复
+      setConn("与 Relay 的连接暂时中断,正在重新连接。"); // Reviewer F-1:不直出原始异常文本
     }
   }
 
@@ -680,19 +809,39 @@
     const newTask = $("#ws-new-task");
     if (newTask) {
       newTask.addEventListener("click", function () {
-        // P0-1:新建任务 = 回空白工作区(唯一 Composer 承载创建),不再有第二表单
+        // P0-1:新建任务 = 回空白工作区(唯一 Composer 承载创建;§5 手机同样进入该 sheet 式空白页),不再有第二表单
         if (state.goalId || window.location.search) window.location.href = "/workspace";
-        else { const input = $("#ws-input"); if (input) input.focus(); }
+        else { setDrawer(false); const input = $("#ws-input"); if (input) input.focus(); }
       });
     }
+    // WEB-UX-03D §4:导航抽屉(移动端;桌面 CSS 隐藏菜单键,行为不存在)
+    const menuBtn = $("#ws-menu-btn");
+    if (menuBtn) menuBtn.addEventListener("click", function () { setDrawer(!drawerOpen()); });
+    const backdrop = $("#ws-backdrop");
+    if (backdrop) backdrop.addEventListener("click", function () { setDrawer(false); });
+    // WEB-UX-03D §11:详情 sheet 关闭(按钮 + 遮罩 + Esc)
+    const sheetClose = $("#ws-sheet-close");
+    if (sheetClose) sheetClose.addEventListener("click", closeSheet);
+    const sheetBackdrop = $("#ws-sheet-backdrop");
+    if (sheetBackdrop) sheetBackdrop.addEventListener("click", closeSheet);
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (sheetOpen) closeSheet();
+      else if (drawerOpen()) setDrawer(false);
+    });
+    // WEB-UX-03D §10:回到最新
+    const jump = $("#ws-jump-latest");
+    if (jump) jump.addEventListener("click", jumpToLatest);
     const paneToggle = $("#ws-pane-toggle");
     if (paneToggle) paneToggle.addEventListener("click", function () { state.paneOpen = !state.paneOpen; applyPane(); });
     applyPane();
     wireComposer();
+    watchViewport();
     if (window.location.hash === "#new-task") { const input = $("#ws-input"); if (input) input.focus(); } // 旧锚点兼容:聚焦唯一 Composer
     if (!state.goalId) populateProjectSelect();
     await refreshAll(true);
-    if (!state.goalId) { const input = $("#ws-input"); if (input) input.focus(); }
+    // 移动端(coarse pointer)不自动弹键盘(页面加载即开键盘体验差);桌面保持 03C.1 聚焦行为
+    if (!state.goalId && !mqMatches(COARSE_MQ)) { const input = $("#ws-input"); if (input) input.focus(); }
     scheduleLoop();
   }, { bare: true });
 })();

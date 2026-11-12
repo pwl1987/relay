@@ -229,7 +229,7 @@ async function handleRequest(
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
       "content-security-policy":
-        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; manifest-src 'self'",
       "referrer-policy": "no-referrer",
     });
     res.end(content);

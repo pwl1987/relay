@@ -188,6 +188,35 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
     expect(anonApi.status).toBe(401);
   });
 
+  // WEB-UX-03D §14:PWA 真可安装(manifest 正确 MIME+关键字段;CSP 放行 manifest-src;iOS A2HS meta+safe-area)
+  it("PWA 静态资产:manifest MIME/字段;CSP manifest-src 'self';workspace/login 携带 standalone+safe-area meta", async () => {
+    const man = await fetch(base + "/manifest.webmanifest");
+    expect(man.status).toBe(200);
+    expect(man.headers.get("content-type")).toContain("application/manifest+json");
+    expect(man.headers.get("content-security-policy")).toContain("manifest-src 'self'");
+    const m = (await man.json()) as Record<string, unknown>;
+    expect(String(m["name"])).toContain("Relay");
+    expect(String(m["short_name"])).toBe("Relay");
+    expect(m["display"]).toBe("standalone");
+    expect(m["start_url"]).toBe("/");
+    const icons = m["icons"] as Array<Record<string, unknown>>;
+    expect(Array.isArray(icons) && icons.length >= 2).toBe(true);
+    // 图标资源可达(192/512;A2HS 与 manifest 双通道)
+    for (const p of ["/icons/icon-192.png", "/icons/icon-512.png"]) {
+      const icon = await fetch(base + p);
+      expect(icon.status, p).toBe(200);
+      expect(icon.headers.get("content-type")).toBe("image/png");
+    }
+    // 移动入口页:viewport-fit=cover(env(safe-area-inset-*) 前置)+ iOS standalone meta
+    for (const p of ["/workspace", "/login.html"]) {
+      const res = await fetch(base + p, { headers: { cookie }, redirect: "manual" });
+      expect(res.status, p).toBe(200);
+      const html = await res.text();
+      expect(html, p).toContain("viewport-fit=cover");
+      expect(html, p).toContain("apple-mobile-web-app-capable");
+    }
+  });
+
   // WEB-UX-01 §4.5:New Goal 项目绑定(浏览器只提交受控 projectId;路径由服务端注册表解析)
   it("POST /api/goals 项目绑定:projectId ⇒ scope=注册表路径+audit 记录;未知项目 400;浏览器 path 字段被忽略;未绑定保持默认", async () => {
     const saved = process.env["RELAY_PROJECTS_FILE"];
