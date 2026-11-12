@@ -109,7 +109,7 @@
       if (role === "coder") {
         if (r.outcome === "SUCCEEDED") push("run-ok-" + r.id, ts, "st-ok", "代码修改完成");
         else if (r.outcome === "RUNNING") push("run-go-" + r.id, ts, "st-run", "正在修改代码");
-        else if (["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(r.outcome) >= 0) push("run-bad-" + r.id + "-" + r.outcome, ts, "st-bad", "修改遇到问题" + (r.reason ? ":" + r.reason : "") + ",系统会按规则重试");
+        else if (["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(r.outcome) >= 0) push("run-bad-" + r.id + "-" + r.outcome, ts, "st-bad", "修改遇到问题,系统会按规则重试(原因见技术详情)"); // Reviewer F-2:内部错误码不直出
       } else if (role === "reviewer" && r.outcome === "RUNNING") {
         push("rev-go-" + r.id, ts, "st-run", "独立复核进行中");
       }
@@ -167,7 +167,7 @@
       "div",
       { class: "ws-card ws-card-decision", "data-testid": "ws-decision-card-" + d.id },
       h("div", { class: "ws-card-title ws-warn-text", text: "⚠ 需要你的决定" }),
-      h("div", { class: "ws-card-question", "data-testid": "ws-decision-question", text: d.question || "(系统未提供问题描述)" }),
+      h("div", { class: "ws-card-question", "data-testid": "ws-decision-question", text: (function () { const q = d.question || "(系统未提供问题描述)"; return q.length > 200 ? q.slice(0, 200) + "…(完整内容见技术详情)" : q; })() }), // Reviewer F-2:内部错误细节截断,完整内容走技术详情
       fb.recommended ? h("div", { class: "ws-card-sub", text: "建议:" + String(fb.recommended) }) : null,
       fb.risk ? h("div", { class: "ws-card-sub dim", text: "风险:" + String(fb.risk) }) : null,
       d.deadline ? h("div", { class: "ws-card-sub dim", text: "截止:" + A.fmtTime(d.deadline) }) : null,
@@ -178,7 +178,7 @@
       b.addEventListener("click", function () {
         disableRow();
         fn().catch(function (err) {
-          feedNotice("操作失败:" + ((err && err.message) || err), "st-bad");
+          feedNotice("操作失败,请稍后重试(详见技术详情)", "st-bad"); // Reviewer F-2:内部异常文案不直出
           disableRow(false);
         });
       });
@@ -287,8 +287,8 @@
     state.notices.forEach(function (n, i) {
       feed.appendChild(h("div", { class: "ws-event " + n.cls, "data-testid": "ws-notice", text: n.text }));
     });
-    // Result 卡(完成后内联)
-    const rc = resultCard(state.detail);
+    // Result 卡(完成后内联;detail 未返回时跳过,下一拍补齐——Reviewer F-1)
+    const rc = state.detail ? resultCard(state.detail) : null;
     if (rc) feed.appendChild(rc);
     feed.scrollTop = feed.scrollHeight;
   }
@@ -474,7 +474,7 @@
       await refreshSidebar();
       setConn(null);
     } catch (err) {
-      setConn("无法核实当前状态(" + ((err && err.message) || err) + ");显示最后一次成功读取的内容。");
+      setConn("无法核实当前状态(连接或服务异常);显示最后一次成功读取的内容。"); // Reviewer F-1:不直出原始异常文本
     }
   }
 
