@@ -13,6 +13,7 @@ import { startSupervisorLoop } from "./core/supervisor.ts";
 import type { SafeLoopHandle } from "./core/loop-safety.ts";
 import { startSafeLoop } from "./core/loop-safety.ts";
 import { createLiveWorkerDriver, type WorkerDriver } from "./server/worker.ts";
+import { resolveMaxOutputTokens, DEFAULT_MAX_OUTPUT_TOKENS } from "./runtime/sandbox.ts";
 import { appendAudit } from "./core/audit.ts";
 import { ensureEgress, type EgressStatus } from "./runtime/egress.ts";
 import type { Exec } from "./core/db.ts";
@@ -42,7 +43,9 @@ export function startWorkerEntry(opts: WorkerEntryOptions = {}): { handle: Worke
     stageBaseDir: process.env.RELAY_WEB_STAGE_DIR ?? join(homedir(), ".relay", "stage"),
   };
   const driver = createLiveWorkerDriver(driverOptions);
-  const banner = `[relay-worker] started workerId=${workerId} intervalMs=${intervalMs} sandbox=${process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker"} pid=${process.pid}`;
+  // R2-REMEDIATION-01:输出上限配置横幅(非法配置 ⇒ 启动即抛=fail-closed;未配置=默认 8192)
+  const maxOutputTokensConfigured = resolveMaxOutputTokens(process.env.RELAY_MAX_OUTPUT_TOKENS);
+  const banner = `[relay-worker] started workerId=${workerId} intervalMs=${intervalMs} sandbox=${process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker"} maxOutputTokens=${maxOutputTokensConfigured ?? DEFAULT_MAX_OUTPUT_TOKENS}${maxOutputTokensConfigured === undefined ? "(默认)" : "(配置)"} pid=${process.pid}`;
   console.log(banner);
 
   // supervisor 环路:租约回收/Reconcile/REWORK 释放(独立于 goal 环路,间隔可不同)

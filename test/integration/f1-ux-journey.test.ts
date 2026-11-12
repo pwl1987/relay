@@ -15,7 +15,7 @@ import { planGoal } from "../../src/core/goals.ts";
 import { runGoalDiscovery } from "../../src/core/discovery.ts";
 import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
 import { createLiveWorkerDriver, type DeliveryFactory, type CapturedDelivery } from "../../src/server/worker.ts";
-import { prepareRunDirs, cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
+import { prepareRunDirs, cleanupSandbox, type SandboxSpec, resolveMaxOutputTokens } from "../../src/runtime/sandbox.ts";
 import { ensureEgress } from "../../src/runtime/egress.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
@@ -68,13 +68,17 @@ const IMPROVED_HTML = `<!doctype html>
 </body>
 </html>
 `;
-function envModel(): { provider: string; model: string; apiKey: string; baseUrl: string } | null {
+function envModel(): { provider: string; model: string; apiKey: string; baseUrl: string; maxOutputTokens?: number } | null {
   const provider = process.env.RELAY_PI_PROVIDER;
   const model = process.env.RELAY_PI_MODEL;
   const apiKey = process.env.RELAY_PI_API_KEY;
   const baseUrl = process.env.RELAY_PI_BASE_URL;
   if (!provider || !model || !apiKey || !baseUrl) return null;
-  return { provider, model, apiKey, baseUrl };
+  // R2-REMEDIATION-01:RELAY_MAX_OUTPUT_TOKENS 可选(唯一实验变量);非法 ⇒ fail-closed 抛错
+  const maxOutputTokens = resolveMaxOutputTokens(process.env.RELAY_MAX_OUTPUT_TOKENS);
+  return maxOutputTokens === undefined
+    ? { provider, model, apiKey, baseUrl }
+    : { provider, model, apiKey, baseUrl, maxOutputTokens };
 }
 
 describe.skipIf(!gated || envModel() === null)("Fixture F1:模糊 UX 需求 → 真模型全链交付(Playwright 机判)", { timeout: 900_000 }, () => {

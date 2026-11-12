@@ -13,7 +13,7 @@ import { executeRun } from "../runtime/runner.ts";
 import { runReviewerSession } from "../runtime/reviewer.ts";
 import { resolveVendoredPi, type PiInstallation } from "../runtime/pi-version.ts";
 import { snapshotManifest } from "../runtime/workspace-manifest.ts";
-import { cleanupSandbox, dockerAvailable, type ModelConfig, type SandboxSpec } from "../runtime/sandbox.ts";
+import { cleanupSandbox, dockerAvailable, resolveMaxOutputTokens, type ModelConfig, type SandboxSpec } from "../runtime/sandbox.ts";
 import type { EgressStatus } from "../runtime/egress.ts";
 import type { CheckSpec } from "../core/evidence.ts";
 import { taskFollowUpMessagesView } from "./views/goal.ts";
@@ -82,7 +82,11 @@ function envModel(): ModelConfig | null {
   const apiKey = process.env.RELAY_PI_API_KEY;
   const baseUrl = process.env.RELAY_PI_BASE_URL;
   if (!provider || !model || !apiKey || !baseUrl) return null;
-  return { provider, model, apiKey, baseUrl };
+  // R2-REMEDIATION-01:RELAY_MAX_OUTPUT_TOKENS 可选;存在但非法 ⇒ fail-closed(抛错→本拍异常熔断,不领取)
+  const maxOutputTokens = resolveMaxOutputTokens(process.env.RELAY_MAX_OUTPUT_TOKENS);
+  return maxOutputTokens === undefined
+    ? { provider, model, apiKey, baseUrl }
+    : { provider, model, apiKey, baseUrl, maxOutputTokens };
 }
 
 /**

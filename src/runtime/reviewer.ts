@@ -19,6 +19,7 @@ import {
   launchPi,
   sandboxPaths,
   newRunId,
+  appliedMaxOutputTokens,
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
@@ -129,7 +130,13 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
       INSERT INTO runs (id, task_id, attempt, runtime, model_ref, budget, sandbox, outcome)
       VALUES (${runId}, ${spec.taskId}, ${spec.attempt}, 'pi-rpc',
         ${model.provider + "/" + model.model},
-        ${JSON.stringify({ role: "reviewer", reserveCalls })}::jsonb,
+        ${JSON.stringify({
+          role: "reviewer",
+          reserveCalls,
+          // R2-REMEDIATION-01:最终采用值与来源入 Evidence(与 coder run 同口径)
+          maxOutputTokens: appliedMaxOutputTokens(model),
+          maxOutputTokensSource: model.maxOutputTokens === undefined ? "default" : "config",
+        })}::jsonb,
         ${spec.sandbox}, 'RUNNING')
     `),
   );

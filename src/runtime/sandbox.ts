@@ -44,6 +44,33 @@ export interface ModelConfig {
   model: string;
   apiKey: string;
   baseUrl: string;
+  /** R2-REMEDIATION-01:每次补全最大输出 tokens(Pi models.json 现成字段 maxTokens 的来源;
+   *  历史=无条件硬编码 8192 ⇒ GLM-5.3 真实编码输出被钳制截断(R-2 F1 零编辑根因)。
+   *  缺省 DEFAULT_MAX_OUTPUT_TOKENS;超界 fail-closed(runner/discovery/reviewer 启动即拒)。 */
+  maxOutputTokens?: number;
+}
+
+/** models.json maxTokens 默认值(=历史硬编码值;保持未配置行为兼容;Pi 自身缺省 16384,不采用)。 */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+/** 上下界:下限=编码可用输出下限;上限=models.json contextWindow(128000;超上下文窗口无意义)。 */
+export const MIN_MAX_OUTPUT_TOKENS = 1024;
+export const MAX_MAX_OUTPUT_TOKENS = 128_000;
+
+/** 校验 maxOutputTokens(超界 fail-closed=抛错;undefined/null/空串=未配置 ⇒ 调用方取默认值)。 */
+export function resolveMaxOutputTokens(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null || (typeof raw === "string" && raw.trim() === "")) return undefined;
+  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+  if (!Number.isInteger(n) || n < MIN_MAX_OUTPUT_TOKENS || n > MAX_MAX_OUTPUT_TOKENS) {
+    throw new Error(
+      `invalid maxOutputTokens:${String(raw)}(须为 ${MIN_MAX_OUTPUT_TOKENS}~${MAX_MAX_OUTPUT_TOKENS} 的整数;fail-closed 不启动)`,
+    );
+  }
+  return n;
+}
+
+/** 最终采用值(models.json maxTokens):配置值经校验;未配置 ⇒ DEFAULT(=8192,行为兼容)。 */
+export function appliedMaxOutputTokens(model: Pick<ModelConfig, "maxOutputTokens">): number {
+  return resolveMaxOutputTokens(model.maxOutputTokens) ?? DEFAULT_MAX_OUTPUT_TOKENS;
 }
 
 /**
@@ -128,7 +155,9 @@ export function prepareRunDirs(baseDir: string, mode: SandboxSpec["mode"], model
                 id: model.model,
                 name: model.model,
                 contextWindow: 128_000,
-                maxTokens: 8192,
+                // R2-REMEDIATION-01:模型定义输出上限=可配置(Runner/Worker 透传 ModelConfig.maxOutputTokens;
+                // 缺省=历史值 8192,行为兼容;超界在 resolveMaxOutputTokens fail-closed)
+                maxTokens: appliedMaxOutputTokens(model),
                 reasoning: true,
               },
             ],

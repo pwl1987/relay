@@ -18,6 +18,7 @@ import {
   launchPi,
   sandboxPaths,
   newRunId,
+  appliedMaxOutputTokens,
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
@@ -230,7 +231,13 @@ export async function runDiscoverySession(db: RelayDb, pi: PiInstallation, spec:
     (tx as unknown as Exec).execute(sql`
       INSERT INTO runs (id, task_id, attempt, runtime, model_ref, budget, sandbox, outcome)
       VALUES (${runId}, ${spec.taskId}, 0, 'pi-rpc', ${model.provider + "/" + model.model},
-        ${JSON.stringify({ role: "discovery", reserveCalls })}::jsonb, ${spec.sandbox}, 'RUNNING')
+        ${JSON.stringify({
+          role: "discovery",
+          reserveCalls,
+          // R2-REMEDIATION-01:最终采用值与来源入 Evidence(与 coder run 同口径)
+          maxOutputTokens: appliedMaxOutputTokens(model),
+          maxOutputTokensSource: model.maxOutputTokens === undefined ? "default" : "config",
+        })}::jsonb, ${spec.sandbox}, 'RUNNING')
     `),
   );
 

@@ -22,6 +22,7 @@ import {
   sandboxPaths,
   newRunId,
   dockerAvailable,
+  appliedMaxOutputTokens,
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
@@ -101,7 +102,12 @@ async function insertRun(exec: Exec, spec: RunSpec, model: ModelConfig, runId: s
     VALUES (${runId}, ${spec.taskId}, ${spec.attempt}, 'pi-rpc',
       ${model.provider + "/" + model.model},
       ${detectInputCommitSha(sandbox.workspaceDir)},
-      ${JSON.stringify({ wallSeconds: spec.wallSeconds })}::jsonb,
+      ${JSON.stringify({
+        wallSeconds: spec.wallSeconds,
+        // R2-REMEDIATION-01:Evidence 记录最终采用值与来源(默认/配置);Run 全程可审计
+        maxOutputTokens: appliedMaxOutputTokens(model),
+        maxOutputTokensSource: model.maxOutputTokens === undefined ? "default" : "config",
+      })}::jsonb,
       ${sandbox.mode}, 'RUNNING')
   `);
 }
