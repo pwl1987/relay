@@ -15,7 +15,7 @@
 ## 总包收官后的三个 REWORK 解除项(全部有界)
 
 1. ~~R-1~~ **已解除**(2026-11-12 用户补权;`p0-mvp/r1-closure.md`+`REVIEW-r1-closure.md`:US-08/G6 VERIFIED)。
-2. **R-2(用户授权模型)**:业务修改需非 magpie 模型(Discovery 已 VERIFIED;F1/F2 门控链路就绪)——**2026-11-12 授权参数(替代模型/预算/超时/凭据)缺失,精确待授权清单已发出:`p0-mvp/r2-pending-authorization.md`;授权到位即按 `r2-failure-analysis.md` §3 跑对照实验**(**注:此句已过时——2026-11-12 07:50 授权已定案 zcode/GLM-5.3 四参数,见 CURRENT.md 第三包"已授权定案"行,`r2-pending-authorization.md` 已关闭留档;执行排期见 ADR-0010 阶段B**)。
+2. **R-2(用户授权模型)**:业务修改需非 magpie 模型(Discovery 已 VERIFIED;F1/F2 门控链路就绪)——**2026-11-12 授权参数(替代模型/预算/超时/凭据)缺失,精确待授权清单已发出:`p0-mvp/r2-pending-authorization.md`;授权到位即按 `r2-failure-analysis.md` §3 跑对照实验**(**注:此句已过时——2026-11-12 07:50 授权已定案 zcode/GLM-5.3 四参数,见 CURRENT.md 第三包"已授权定案"行,`r2-pending-authorization.md` 已关闭留档;执行排期见 ADR-0010 阶段B**)(**再注 2026-11-12 11:10:阶段B 已执行——F2/F1 各一次正式尝试双败,R-2=PARTIAL+归因:F2 BUDGET_EXHAUSTED@6(7×200 零上游故障,止损正常);F1 run SUCCEEDED 但零编辑空提交,机判 1/4 拒+Reviewer BLOCK,根因=`src/runtime/sandbox.ts:131` maxTokens:8192 输出钳制截断(模型自身上限 128000;修复属新变量待用户授权,未实施);model_ref=zcode/GLM-5.3 路由日志逐行实证;零重跑零加预算零换模型零变量调整;报告=`p0-mvp/r2-contrast/REPORT-r2-contrast.md`**)。
 3. **R-3(时间+中断)**:**06:05+0800@12.53h 会话解体 SIGTERM 波及两采集进程(缝 365s 落账),06:10 已按原始口径 setsid detached 续采、起点不重置**;期满(17:32:52+0800)→ `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验 → REVIEW 确认;**存在中断缝 ⇒ 终验口径 PARTIAL(收口指令:缺失样本或中断时保持 PARTIAL);soak-final.json 由采样器自动写,仅初步报告,判定权在验证器+REVIEW**。
 全部解除 → 重生成终版矩阵+独立 Reviewer → 方可 ACCEPTED(不得以 CI 绿代替)。
 
