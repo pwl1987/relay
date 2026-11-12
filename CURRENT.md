@@ -17,7 +17,7 @@
 | 第二包 R-3B 补充边界(用户指令 07:32) | 预置文件保持**未跟踪**,不得混入第一包提交;第一包(复核+冻结+CI+推送+释放 Writer)全部完成后才启动 | 独立目录/schema/systemd user 单元(Linger=yes)+不可掩盖故障的采样与看门狗;24h 重新真实计时,未满不报 PASS |
 | 第三包 R-2 **已授权定案**(用户指令 2026-11-12 07:50) | 四参数确认:①`zcode/GLM-5.3`(须记录实际 model_ref+Magpie 路由日志证真实上游,不得只记组名)②Coder≤12/Reviewer≤4/Goal≤30(禁绕过;测试次数与模型请求次数分别统计,ledger+Magpie 双重对账)③每实验 wall=600s(超时/耗尽/失败如实结束,禁放宽禁无限重试)④现有 Magpie 凭据(零新增/修改/读取/打印/入库 Key) | **执行顺序硬约束:第一包收口完成 → F2 → F1 → R-3B**;不得为提前跑 R-2 干扰三进程。夹具核对(只读):F1=12/4/1/600/goal30 **与授权逐项一致**;F2=6/4/1/420/goal10 全部 ≤上限,**零测试修改**;F2 一次正式尝试失败先分析不得自动加预算重跑。VERIFIED 仅当:真实修改+机判全过+独立 Reviewer PASS+Gate ACCEPTED+三 SHA 绑定+交付成功+无 Stub+调用数/Token/wall/工具/实际模型 ID 全落证;双过⇒VERIFIED,单过⇒PARTIAL,双败⇒PARTIAL+归因。**不预设通过**;授权不含:加预算/换模型/改 PAT/生产部署/RSI/放宽 Gate·Reviewer·机判 |
 | 第五包 MVP 最终裁决 | 待 R-2/R-3 完整证据 | 重生成 US/V/G/F 矩阵;R-1 只读复核(不为绿重复制造远端提交);F1/F2 实际验证;连续运行日志独立审核;D3 无自动批准/预算无突破/无重复副作用;独立 Reviewer 给 ACCEPTED/REWORK/BLOCKED;**全部 P0 必需门通过才 ACCEPTED** |
-| MODEL-POLICY-00 设计冻结包(用户指令 2026-11-12) | **进行中**(设计只写;零模型消耗;与五包顺序并行不干扰) | 只输出:中文设计文档(`docs/MODEL_POLICY.md`)+ ADR-0009 + 数据结构草案 + 状态机/路由规则 + 后续实施包(MODEL-POLICY-01)+ 验收标准;**禁止**:改当前 R-2 模型与实验变量/消耗新模型额度/删除 Magpie/改 Pi Runtime/改生产 Worker/启动多 Provider 动态路由/干扰 soak;MVP 最终 ACCEPTED 后才激活 MODEL-POLICY-01(实施须真实验证 Pi→本地Qwen/MiniMax/GLM/ChatGPT OAuth 四通道+可回放证据) |
+| MODEL-POLICY-00 设计冻结包(用户指令 2026-11-12) | ✅ **完成**(254ec5b 合同→5fb4766 交付物+独立 Reviewer PASS-WITH-FINDINGS 零 Major·F-1~F-6 全消化+CI 绿;零代码改动零模型消耗,soak 产物零触碰) | 交付:`docs/MODEL_POLICY.md` v0.1 + `ADR/0009-model-policy.md` + `docs/MODEL_POLICY_REVIEW.md`;设计冻结(实现 OPEN),激活前置=MVP 最终 ACCEPTED 后 MODEL-POLICY-01(四通道真实验证+可回放证据);禁止项全程未违反 |
 
 ## 治理纪律(总包)
 
