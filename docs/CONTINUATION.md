@@ -19,6 +19,10 @@
 3. **R-3(时间+中断)**:**06:05+0800@12.53h 会话解体 SIGTERM 波及两采集进程(缝 365s 落账),06:10 已按原始口径 setsid detached 续采、起点不重置**;期满(17:32:52+0800)→ `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验 → REVIEW 确认;**存在中断缝 ⇒ 终验口径 PARTIAL(收口指令:缺失样本或中断时保持 PARTIAL);soak-final.json 由采样器自动写,仅初步报告,判定权在验证器+REVIEW**。
 全部解除 → 重生成终版矩阵+独立 Reviewer → 方可 ACCEPTED(不得以 CI 绿代替)。
 
+## MODEL-POLICY-00 设计冻结包(2026-11-12 用户指令;与五包顺序并行)
+
+**只做设计冻结,零模型消耗**:中文设计文档 `docs/MODEL_POLICY.md` + `ADR/0009-model-policy.md`(Provider 四层分层/QuotaPool 统一 glm_weekly/Scarcity/RunModelDecision 持久化/Run 边界切换/异构 Reviewer/DEGRADED_LOCAL/评价指标)。**禁止**:改 R-2 模型与实验变量、消耗新额度、删 Magpie、改 Pi Runtime/生产 Worker、启动动态路由、干扰 soak。MVP 最终 ACCEPTED 后才激活 MODEL-POLICY-01 实施(四通道真实验证+可回放 Evidence)。冻结执行顺序不变:第一包收口→F2→F1→R-3B→MVP 最终裁决。
+
 ## 运行环境事实(累计,接手必读)
 
 - **Node strip-types 子进程禁 TS 参数属性**;裸 `node src/xxx.ts` 直跑 .ts(cli/server/worker-entry 同模式;src/server/index.ts 曾因参数属性从未能启动——已修)。
