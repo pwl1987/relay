@@ -68,18 +68,19 @@
 ## 5. 组件边界（03C 实现范围）
 
 ```text
-web/src/
-  goal-feed/           # 新增：Feed 渲染层（纯投影，无状态机）
-    feed.js            #   时间流容器 + 事件分发
-    event-user.js      #   USER_MESSAGE 气泡
-    event-relay.js     #   RELAY_MESSAGE 气泡（Markdown 渲染）
-    event-status.js    #   STATUS 行
-    event-decision.js  #   DECISION 卡（含 inline resolve 调用）
-    event-result.js    #   RESULT / FAILURE 卡
-  composer/            # 新增：底部输入区（follow-up 发送）
-  sidebar/             # 改造：项目/任务侧栏（Pi-Web Sidebar 心智模型）
-  detail/              # 改造：右栏（默认折叠，技术详情展开）
+web/                  # 扁平结构(实际现状)
+  goal-feed.js        # 新增：Feed 渲染层（纯投影，无状态机）
+  event-user.js       #   USER_MESSAGE 气泡
+  event-relay.js      #   RELAY_MESSAGE 气泡（Markdown 渲染）
+  event-status.js     #   STATUS 行
+  event-decision.js   #   DECISION 卡（含 inline resolve 调用）
+  event-result.js     #   RESULT / FAILURE 卡
+  composer.js         # 新增：底部输入区（follow-up 发送）
+  sidebar.js          # 改造：项目/任务侧栏（Pi-Web Sidebar 心智模型）
+  detail.js           # 改造：右栏（默认折叠，技术详情展开）
 ```
+
+现有 `web/` 为扁平结构（app.js/dashboard.js/goal.js 等直接位于 web/ 下），新增文件与其同层；服务端路由在 `src/server/`（api.ts/app.ts/views/）。
 
 现有 Vanilla JS 可完成则继续用（合同 §11 禁止盲迁 Next.js）。新增代码沿用现有模块模式（无构建步骤或最小构建），不引入重型框架。
 
@@ -101,7 +102,7 @@ append-only 表 `goal_messages`：
 ```sql
 CREATE TABLE goal_messages (
   id                  SERIAL PRIMARY KEY,
-  goal_id             INTEGER NOT NULL REFERENCES goals(id),
+  goal_id             TEXT NOT NULL REFERENCES goals(id),  -- goals.id 为 text 主键(migrations/0002),不得用 integer
   actor               TEXT NOT NULL CHECK (actor IN ('USER','RELAY')),
   kind                TEXT NOT NULL CHECK (kind IN ('USER_MESSAGE','RELAY_MESSAGE')),
   content             TEXT NOT NULL,
@@ -109,7 +110,8 @@ CREATE TABLE goal_messages (
 );
 ```
 
-- 合同 §9 备选字段（related_task_id / related_decision_id nullable）**第一版不加**——状态关联由 Feed 投影层按 goal_id + 时间序组装，避免双写漂移。若实施中发现必须回填，作为 03B 修订记录。
+- **偏离声明（显式）**：合同 §3 备选字段（related_task_id / related_decision_id nullable）**第一版不加**——decisions 表已有 goal_id 列（migrations/0003_gate_orchestration.sql）可无歧义承载状态关联，此为对合同 §3 字段清单的显式偏离；若实施中发现必须回填，作为 03B 修订记录。
+- 职责分离（合同 §3）：`goal_messages` = 自由文本会话事实；现有 Core Tables = 软件执行事实。Feed 投影层按 `goal_id` 合并两源，按时间序输出统一事件流。
 - 职责分离（合同 §3）：`goal_messages` = 自由文本会话事实；现有 Core Tables = 软件执行事实。Feed 投影层按 `goal_id` 合并两源，按时间序输出统一事件流。
 
 ## 8. 刷新策略（合同 §7）
@@ -128,7 +130,7 @@ CREATE TABLE goal_messages (
 
 ## 10. 新建任务流程（合同 §5）
 
-只需三步：**选择项目**（受控 Project Registry）→ **大输入框**（占位文案："例如：这个登录页面感觉不太好用，你自己检查并改好。"）→ `开始`。不得要求用户填 Task/Run/Scope/Model/Budget/SHA/Branch/Gate。首次消息形成初始 Goal；之后继续输入即为 follow-up（合同 §7 生命周期策略已裁决：follow-up 形成新的受控执行动作，**不创建脱离当前 Goal 的匿名 Pi Session**）。
+只需三步：**选择项目**（受控 Project Registry）→ **大输入框**（占位文案："例如：这个登录页面感觉不太好用，你自己检查并改好。"）→ `开始`。不得要求用户填 Task/Run/Scope/Model/Budget/SHA/Branch/Gate。首次消息形成初始 Goal；之后继续输入即为 follow-up（合同 §5/§9-J5：follow-up 形成新的受控执行动作，**不创建脱离当前 Goal 的匿名 Pi Session**）。
 
 ## 11. 禁止项回指（合同 §11，全程有效）
 

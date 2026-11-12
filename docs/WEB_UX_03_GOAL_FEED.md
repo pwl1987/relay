@@ -61,7 +61,7 @@ Feed(goal_id) = merge(
 ```text
 1. Core 产生 Decision（pending）→ core_projection 生成 DECISION 卡（pending 状态）
 2. Feed 渲染决策卡：⚠️ 需要你的决定 + 建议/原因 + [允许本次修改][不允许][稍后决定]
-3. 用户点 [允许] → POST /api/decisions/:id/resolve {choice:'allow'}（复用现有 Decision resolve 语义）
+3. 用户点 [允许] → POST /api/decisions/:id/resolve {taskId, expectedStateVersion, approve:true}（复用现有 Decision resolve 语义，src/server/api.ts:399–408：expectedStateVersion 不匹配→409；内联透传，不向用户暴露版本号）
 4. Core 更新 Decision（resolved）→ core_projection 更新该卡片为已决状态（已允许）
 5. 状态继续推进（STATUS 事件随之而来）
 ```
@@ -95,5 +95,5 @@ Feed(goal_id) = merge(
 - J2（执行过程）：Discovery→Coding→Testing 在同一会话流展示（STATUS 事件序列）。
 - J3（Decision）：Decision 出现在 Feed → 用户点允许 → 状态继续推进（DECISION 卡 resolved + STATUS）。
 - J4（完成）：测试→Reviewer→Delivery→RESULT 卡。
-- J5（Follow-up）：任务完成后继续输入"再优化一下按钮"→形成新的受控执行动作，**不创建脱离当前 Goal 的匿名 Pi Session**（合同 §7 生命周期策略）。
+- J5（Follow-up）：任务完成后继续输入"再优化一下按钮"→形成新的受控执行动作，**不创建脱离当前 Goal 的匿名 Pi Session**（合同 §5/§9-J5）。
 - J6（手机 390×844）：消息→Decision→Result→输入回复。
