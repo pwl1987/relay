@@ -41,7 +41,7 @@ const MIME: Record<string, string> = {
 };
 
 /** 业务页面(需会话);其余静态资源公开。 */
-const PAGE_ROUTES = new Set(["/", "/goal.html", "/decisions.html", "/changeset.html"]);
+const PAGE_ROUTES = new Set(["/", "/goal.html", "/decisions.html", "/changeset.html", "/projects.html", "/models.html", "/system.html"]);
 
 /** G-1 绑定面拒绝(可辨识错误类型,入口层据此落审计)。 */
 export class BindRejectedError extends Error {

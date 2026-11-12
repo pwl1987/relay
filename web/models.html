@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · Models / Usage</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header" id="app-header"></header>
+    <main>
+      <div id="conn-banner" hidden data-testid="conn-banner"></div>
+      <div class="toolbar">
+        <h1>Models / Usage</h1>
+        <span class="spacer"></span>
+        <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
+        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Provider / Model</h2>
+          <div id="provider-body" data-testid="provider-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>Budget(预算账本)</h2>
+          <div id="budget-body" data-testid="usage-budget-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>调用结果分布 / 失败原因</h2>
+          <div id="outcomes-body" data-testid="outcomes-body"><span class="empty">读取中…</span></div>
+        </section>
+      </div>
+
+      <section class="card mt14">
+        <h2>最近模型调用(Runs)</h2>
+        <div id="runs-body" data-testid="usage-runs-body"><span class="empty">读取中…</span></div>
+      </section>
+
+      <section class="card mt14">
+        <h2>最近 Discovery</h2>
+        <div id="discoveries-body" data-testid="discoveries-body"><span class="empty">读取中…</span></div>
+      </section>
+
+      <p class="small dim mt8">
+        本页为纯观察(OPERATOR-CONSOLE-00):零模型探测、零凭据展示。Provider Registry / QuotaPool / 动态路由属
+        MODEL-POLICY-01(ADR-0009 设计冻结;激活前置=MVP 最终 ACCEPTED),本页不实现、不预设分类。
+      </p>
+    </main>
+    <script src="/app.js"></script>
+    <script src="/models.js"></script>
+  </body>
+</html>

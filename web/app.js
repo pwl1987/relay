@@ -56,6 +56,17 @@
     return d.toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
   }
 
+  /** 秒 ⇒ 人读时长(OPERATOR-CONSOLE-00;Goal Detail elapsed 用)。 */
+  function fmtDuration(seconds) {
+    if (seconds === null || seconds === undefined || isNaN(Number(seconds))) return "—";
+    const s = Math.max(0, Math.round(Number(seconds)));
+    if (s < 60) return s + " 秒";
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + " 分 " + (s % 60) + " 秒";
+    const hr = Math.floor(m / 60);
+    return hr + " 小时 " + (m % 60) + " 分";
+  }
+
   function short(sha, n) {
     if (!sha) return "—";
     const len = n || 12;
@@ -184,7 +195,10 @@
       h("a", { class: "nav-link" + (active === "dashboard" ? " active" : ""), href: "/", text: "Dashboard" }),
       h("a", { class: "nav-link" + (active === "goal" ? " active" : ""), href: "/goal.html", text: "Goal" }),
       h("a", { class: "nav-link" + (active === "decisions" ? " active" : ""), href: "/decisions.html", text: "Decision Inbox" }),
-      h("a", { class: "nav-link" + (active === "changeset" ? " active" : ""), href: "/changeset.html", text: "ChangeSet / Evidence" }),
+      h("a", { class: "nav-link" + (active === "changeset" ? " active" : ""), href: "/changeset.html", text: "ChangeSet" }),
+      h("a", { class: "nav-link" + (active === "projects" ? " active" : ""), href: "/projects.html", text: "Projects" }),
+      h("a", { class: "nav-link" + (active === "models" ? " active" : ""), href: "/models.html", text: "Models" }),
+      h("a", { class: "nav-link" + (active === "system" ? " active" : ""), href: "/system.html", text: "System" }),
     );
     const right = h(
       "div",
@@ -234,6 +248,7 @@
     $: $,
     $$: $$,
     fmtTime: fmtTime,
+    fmtDuration: fmtDuration,
     short: short,
     badge: badge,
     stateKind: stateKind,

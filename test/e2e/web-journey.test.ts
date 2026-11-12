@@ -348,6 +348,55 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       await stopStack(crash);
     }
   });
+
+  // OPERATOR-CONSOLE-00 P0-UI 新页面旅程(零模型;stub 栈数据已含 Goal/任务/决策)
+  it("J6 新页面:Projects/Models/System 渲染关键要素 + 手机视口无横向溢出(响应式)", async () => {
+    const { page, base } = s;
+    const errBefore = s.errLog.lines.length;
+    // Projects:空注册文件 ⇒ 引导说明而非报错
+    await page.goto(`${base}/projects.html`);
+    await page.waitForSelector('[data-testid="projects-body"]');
+    const projects = await textOf(page, '[data-testid="projects-body"]');
+    expect(projects).toContain("projects.json");
+    // Models:零探测徽章 + UNREGISTERED 分类如实
+    await page.goto(`${base}/models.html`);
+    await page.waitForSelector('[data-testid="provider-body"]');
+    const provider = await textOf(page, '[data-testid="provider-body"]');
+    expect(provider).toContain("未探测");
+    expect(provider).toContain("MODEL-POLICY-01");
+    const budgetTotals = await page.locator('[data-testid="usage-budget-totals"]').count();
+    expect(budgetTotals).toBe(1);
+    // System:HEAD + DB 可用 + Worker 模式可见
+    await page.goto(`${base}/system.html`);
+    await page.waitForSelector('[data-testid="relay-body"]');
+    const head = await textOf(page, '[data-testid="system-head"]');
+    expect(head).toMatch(/^[0-9a-f]{10}$/);
+    const dbWorker = await textOf(page, '[data-testid="db-worker-body"]');
+    expect(dbWorker).toContain("可用");
+    expect(dbWorker).toContain("PostgreSQL");
+    // Dashboard 总览条(P0-UI-1)
+    await page.goto(`${base}/`);
+    await page.waitForSelector('[data-testid="overview-body"]');
+    const overview = await textOf(page, '[data-testid="overview-body"]');
+    expect(overview).toContain("Relay");
+    expect(overview).toContain("GitHub Delivery");
+    // 手机视口(390×844):Dashboard/Decision 页 body 无横向溢出
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const p of ["/", "/decisions.html", "/system.html"]) {
+      await page.goto(`${base}${p}`);
+      await page.waitForSelector('[data-testid="data-stamp"]');
+      const overflow = await page.evaluate((): number => {
+        const g = globalThis as unknown as { document: { documentElement: { scrollWidth: number } }; innerWidth: number };
+        return g.document.documentElement.scrollWidth - g.innerWidth;
+      });
+      expect(overflow, p + " 手机视口不应横向溢出").toBeLessThanOrEqual(1);
+    }
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await shot(page, "j6-mobile-dashboard.png");
+    const newErrors = s.errLog.lines.slice(errBefore);
+    expect(newErrors, "J6 页面不应产生控制台错误:" + newErrors.join(" | ")).toEqual([]);
+    s.log.log("J6 OK:Projects/Models/System/总览条渲染正常;手机视口无横向溢出;零控制台错误");
+  });
 });
 
 describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)", { timeout: 180_000 }, () => {

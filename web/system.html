@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · System</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header" id="app-header"></header>
+    <main>
+      <div id="conn-banner" hidden data-testid="conn-banner"></div>
+      <div class="toolbar">
+        <h1>System</h1>
+        <span class="spacer"></span>
+        <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
+        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Relay Core</h2>
+          <div id="relay-body" data-testid="relay-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>PostgreSQL / Worker</h2>
+          <div id="db-worker-body" data-testid="db-worker-body"><span class="empty">读取中…</span></div>
+        </section>
+
+        <section class="card">
+          <h2>GitHub / Provider</h2>
+          <div id="github-provider-body" data-testid="github-provider-body"><span class="empty">读取中…</span></div>
+        </section>
+      </div>
+
+      <section class="card mt14">
+        <h2>最近异常</h2>
+        <div id="errors-body" data-testid="errors-body"><span class="empty">读取中…</span></div>
+      </section>
+
+      <p class="small dim mt8">
+        本页全部为只读事实(OPERATOR-CONSOLE-00):HEAD 取自仓库 git(1h 缓存);DB 探活=SELECT version();
+        Provider 零探测;凭据零展示。网络边界:本控制台仅 LAN + VPN,禁止公网暴露。
+      </p>
+    </main>
+    <script src="/app.js"></script>
+    <script src="/system.js"></script>
+  </body>
+</html>

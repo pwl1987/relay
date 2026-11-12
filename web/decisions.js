@@ -15,13 +15,27 @@
 
   function decisionCard(d) {
     const pending = d.state === "OPEN" || d.state === "EXPIRED_STILL_BLOCKED";
+    const g = d.guidance || {};
     const rows = [];
     rows.push(h("dt", { text: "处置路径(规则)" }), h("dd", { text: PATH_BY_LEVEL[d.level] || "未登记" }));
-    rows.push(h("dt", { text: "模型推荐" }), h("dd", { class: "small dim", text: "未实现 —— 本页不展示模型生成的推荐" }));
-    rows.push(h("dt", { text: "为什么(为什么需要裁决)" }), h("dd", { text: d.question }));
+    // OPERATOR-CONSOLE-00 P0-UI-4:决策支持五要素(服务端从既有列确定性推导;不伪造模型推荐)
+    rows.push(h("dt", { text: "为什么需要用户决定" }), h("dd", { class: "small", "data-testid": "decision-why-" + d.id, text: g.why || d.question }));
     rows.push(
-      h("dt", { text: "备选 / fallback" }),
-      h("dd", { class: "small", text: d.fallback ? JSON.stringify(d.fallback) : "无(未声明 fallback ⇒ 不得自动执行)" }),
+      h("dt", { text: "推荐方案" }),
+      h("dd", { class: "small", "data-testid": "decision-recommended-" + d.id, text: g.recommended || "系统未预设推荐方案(需人工结合事实判断)" }),
+    );
+    rows.push(
+      h("dt", { text: "备选方案" }),
+      h("dd", { class: "small", "data-testid": "decision-alternatives-" + d.id, text: g.alternatives && g.alternatives.length ? g.alternatives.join(";") : "无登记备选" }),
+    );
+    rows.push(h("dt", { text: "风险" }), h("dd", { class: "small", "data-testid": "decision-risk-" + d.id, text: g.risk || "未登记" }));
+    rows.push(
+      h("dt", { text: "不处理会怎样" }),
+      h("dd", { class: "small", "data-testid": "decision-impact-" + d.id, text: g.impactOfNoAction || d.timeoutBehavior }),
+    );
+    rows.push(
+      h("dt", { text: "原始问题 / fallback" }),
+      h("dd", { class: "small", text: d.question + (d.fallback ? " · fallback:" + JSON.stringify(d.fallback) : " · 无声明 fallback ⇒ 不得自动执行") }),
     );
     rows.push(
       h("dt", { text: "影响文件 / 系统" }),

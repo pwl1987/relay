@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay 控制台 · Projects</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header" id="app-header"></header>
+    <main>
+      <div id="conn-banner" hidden data-testid="conn-banner"></div>
+      <div class="toolbar">
+        <h1>Projects</h1>
+        <span class="spacer"></span>
+        <span class="small dim" id="data-stamp" data-testid="data-stamp"></span>
+        <button class="btn" id="btn-refresh" type="button" data-testid="btn-refresh">刷新</button>
+      </div>
+
+      <section class="card">
+        <h2>已接入项目</h2>
+        <div id="projects-body" data-testid="projects-body"><span class="empty">读取中…</span></div>
+        <p class="small dim mt8">
+          来源=<code>config/projects.json</code>(或环境变量 <code>RELAY_PROJECTS_FILE</code>),格式:
+          <code>{"projects":[{"name":"…","path":"/绝对路径","repo":"https://github.com/…","branch":"main"}]}</code>。
+          健康=本地目录/git 只读事实(零网络);Goal 关联经任务 allowed_scope 前缀匹配。本页仅观察,不做多仓调度。
+        </p>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+    <script src="/projects.js"></script>
+  </body>
+</html>

@@ -5,6 +5,37 @@
   const A = window.RelayApp;
   const h = A.h;
 
+  // OPERATOR-CONSOLE-00 P0-UI-3:执行进度(阶段/当前任务/模型/耗时/计数;全部服务端确定性推导)
+  function progressBlock(p, budgetRows) {
+    const phaseKind = p.delivered ? "ok" : ["失败", "等待人工决策", "已阻塞"].indexOf(p.phase) >= 0 ? "bad" : ["已暂停", "返工中"].indexOf(p.phase) >= 0 ? "warn" : "info";
+    const mc = (budgetRows || []).find(function (b) {
+      return b.kind === "model_calls";
+    });
+    const counts = p.counts || {};
+    const rows = [];
+    rows.push(h("dt", { text: "当前阶段" }), h("dd", { "data-testid": "goal-phase" }, A.badge(p.phase, phaseKind), h("span", { class: "small dim", text: " " + p.phaseBasis })));
+    rows.push(h("dt", { text: "当前任务" }), h("dd", { class: "mono small", "data-testid": "goal-current-task", text: p.currentTaskId || "—" }));
+    rows.push(h("dt", { text: "当前模型" }), h("dd", { class: "mono small", "data-testid": "goal-current-model", text: p.currentModelRef || "尚无运行" }));
+    rows.push(h("dt", { text: "已运行" }), h("dd", { class: "small", "data-testid": "goal-elapsed", text: p.elapsedSeconds === null || p.elapsedSeconds === undefined ? "—" : A.fmtDuration(p.elapsedSeconds) }));
+    rows.push(
+      h("dt", { text: "预算(模型调用)" }),
+      h("dd", { class: "small", "data-testid": "goal-budget-mc", text: mc ? "已用 " + mc.used + (mc.limit !== null ? " / 上限 " + mc.limit : " / 无上限") + " · 预留 " + mc.reserved : "无账本行" }),
+    );
+    rows.push(
+      h("dt", { text: "质量面" }),
+      h(
+        "dd",
+        { class: "row" },
+        A.badge("Run " + (counts.runs || 0), "default"),
+        A.badge("证据 " + (counts.evidence || 0), "info"),
+        A.badge("Gate " + (counts.gates || 0), counts.gates ? "ok" : "default"),
+        A.badge("待决 " + (counts.openDecisions || 0), counts.openDecisions ? "warn" : "default"),
+        A.badge(p.delivered ? "已交付" : "未交付", p.delivered ? "ok" : "default"),
+      ),
+    );
+    return h("dl", { class: "kv" }, rows);
+  }
+
   function headerBlock(g) {
     const rows = [];
     rows.push(h("dt", { text: "原始需求" }), h("dd", { "data-testid": "goal-raw-input", text: g.goal.rawInput }));
@@ -295,6 +326,8 @@
       document.getElementById("page-title").textContent = "Goal · " + A.short(g.goal.id, 12);
       document.getElementById("goal-header").textContent = "";
       document.getElementById("goal-header").appendChild(headerBlock(g));
+      document.getElementById("goal-progress").textContent = "";
+      document.getElementById("goal-progress").appendChild(progressBlock(g.progress || {}, g.budget || []));
       document.getElementById("goal-analysis").textContent = "";
       document.getElementById("goal-analysis").appendChild(analysisBlock(g.analysis, g.discovery));
       document.getElementById("goal-tasks").textContent = "";

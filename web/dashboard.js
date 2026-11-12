@@ -193,6 +193,72 @@
     return h("div", { class: "stack" }, h("p", { class: "small dim", text: "worker 执行面:" + reg.workerMode + "(登记于 " + A.fmtTime(reg.generatedAt) + ")" }), table);
   }
 
+  // OPERATOR-CONSOLE-00 P0-UI-1:总览条(状态/当前 Goal/任务分组/Decision 待决/Provider·Model/Delivery/Worker)
+  function overviewBlock(d, extras, worker, providerModel) {
+    const overall = extras.overall || { status: "normal", basis: "" };
+    const statusKind = overall.status === "blocked" ? "bad" : "ok";
+    const statusText = overall.status === "blocked" ? "需要关注" : "正常运行";
+    const g = extras.taskGroups || {};
+    const left = h(
+      "div",
+      { class: "stack", "data-testid": "overview-status" },
+      h("div", { class: "row" }, A.badge("Relay " + statusText, statusKind), h("span", { class: "small dim", text: overall.basis })),
+      h(
+        "div",
+        { class: "row" },
+        A.badge("进行中 " + (g.inFlight || 0), "info"),
+        A.badge("可排队 " + (g.ready || 0), "default"),
+        A.badge("等待·受阻 " + (g.waiting || 0), g.waiting ? "warn" : "default"),
+        A.badge("失败 " + (g.failed || 0), g.failed ? "bad" : "default"),
+        A.badge("完成 " + (g.done || 0), "ok"),
+        A.badge("Decision 待决 " + (d.openDecisionCount || 0), d.openDecisionCount ? "warn" : "default"),
+      ),
+    );
+    const cur = extras.currentGoal;
+    const curLine = h(
+      "div",
+      { class: "small", "data-testid": "overview-current-goal" },
+      cur
+        ? [
+            h("span", { class: "dim", text: "当前 Goal:" }),
+            h("a", { href: "/goal.html?id=" + encodeURIComponent(cur.id), text: cur.rawInput.length > 60 ? cur.rawInput.slice(0, 60) + "…" : cur.rawInput }),
+            cur.inFlightState ? h("span", { class: "small dim", text: "(任务 " + cur.inFlightState + ")" }) : null,
+          ]
+        : h("span", { class: "dim", text: "当前无活跃 Goal —— 可在下方一句话创建" }),
+    );
+    const delivery = extras.deliverySummary || { byState: {}, deliveredTotal: 0 };
+    const dsKeys = Object.keys(delivery.byState || {});
+    const deliveryLine = h(
+      "div",
+      { class: "row", "data-testid": "overview-delivery" },
+      h("span", { class: "dim small", text: "GitHub Delivery:" }),
+      dsKeys.length
+        ? dsKeys.map(function (k) {
+            return A.badge(k + " " + delivery.byState[k], A.stateKind(k));
+          })
+        : h("span", { class: "small dim", text: "尚无变更集" }),
+    );
+    const model = extras.lastModel || {};
+    const providerLine = h(
+      "div",
+      { class: "row", "data-testid": "overview-provider" },
+      h("span", { class: "dim small", text: "Provider/Model:" }),
+      providerModel.configured
+        ? A.badge((providerModel.providerName || "?") + " / " + (providerModel.modelName || "?"), "info")
+        : A.badge("未配置", "warn"),
+      model.modelRef ? h("span", { class: "small dim mono", text: "最近 " + model.modelRef }) : h("span", { class: "small dim", text: "尚无调用记录" }),
+    );
+    const workerLine = h(
+      "div",
+      { class: "row", "data-testid": "overview-worker" },
+      h("span", { class: "dim small", text: "Worker:" }),
+      A.badge(worker.mode === "live" ? "本进程驱动" : worker.mode === "stub" ? "桩执行器" : "独立进程", worker.mode === "live" ? "ok" : "info"),
+      worker.lastTick ? h("span", { class: "small dim", text: "最近 tick " + worker.lastTick.status }) : h("span", { class: "small dim", text: "独立进程推进" }),
+      extras.lastWorkerHeartbeat ? h("span", { class: "small dim", text: "· 租约心跳 " + A.fmtTime(extras.lastWorkerHeartbeat) }) : null,
+    );
+    return h("div", { class: "stack" }, left, curLine, deliveryLine, providerLine, workerLine);
+  }
+
   async function refresh() {
     try {
       const res = await A.guarded(function () {
@@ -200,6 +266,8 @@
       });
       const d = res.dashboard;
       const health = await A.apiGet("/api/health");
+      document.getElementById("overview-body").textContent = "";
+      document.getElementById("overview-body").appendChild(overviewBlock(d, res.extras || {}, res.worker || { mode: "external" }, res.providerModel || { configured: false }));
       document.getElementById("health-body").textContent = "";
       document.getElementById("health-body").appendChild(healthBlock(health, d.lastProgressAt));
       document.getElementById("task-counts").textContent = "";

@@ -26,7 +26,18 @@ import { resolveVendoredPi } from "../runtime/pi-version.ts";
 import { ensureEgress } from "../runtime/egress.ts";
 import { deferDecision } from "../core/decisions.ts";
 import { appendAudit } from "../core/audit.ts";
-import { dashboardView, goalListView, goalDetailView, decisionListView, changesetDetailView, changesetListView } from "./views.ts";
+import {
+  dashboardView,
+  dashboardExtrasView,
+  goalListView,
+  goalDetailView,
+  decisionListView,
+  changesetDetailView,
+  changesetListView,
+  projectsView,
+  modelsUsageView,
+  systemView,
+} from "./views.ts";
 import { buildCapabilityRegistry } from "./capabilities.ts";
 import { redactSecrets, safeErrorMessage } from "./redact.ts";
 import { AuthError, clearCookie, sessionCookie, type Auth, type Session } from "./auth.ts";
@@ -241,7 +252,41 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       return ok({ registry: buildCapabilityRegistry(deps.workerMode, new Date().toISOString()) });
     }
     if (path === "/api/dashboard" && method === "GET") {
-      return ok({ dashboard: await dashboardView(deps.db) });
+      const worker = deps.worker ?? null;
+      return ok({
+        dashboard: await dashboardView(deps.db),
+        extras: await dashboardExtrasView(deps.db),
+        worker: {
+          mode: deps.workerMode,
+          lastTick: worker?.lastTick() ?? null,
+          active: Boolean(worker),
+        },
+        providerModel: {
+          configured: Boolean(process.env.RELAY_PI_PROVIDER && process.env.RELAY_PI_MODEL && process.env.RELAY_PI_BASE_URL),
+          providerName: process.env.RELAY_PI_PROVIDER ?? null,
+          modelName: process.env.RELAY_PI_MODEL ?? null,
+          probed: false,
+          note: "零探测;最近 model_ref 见 extras.lastModel(runs/discoveries 原始事实)。",
+        },
+      });
+    }
+    // OPERATOR-CONSOLE-00 P0-UI-2:Projects(注册文件驱动,零 schema 变更,只读)
+    if (path === "/api/projects" && method === "GET") {
+      return ok({ projects: await projectsView(deps.db) });
+    }
+    // OPERATOR-CONSOLE-00 P0-UI-5:Models/Usage(纯观察;零探测零凭据)
+    if (path === "/api/models-usage" && method === "GET") {
+      return ok({ usage: await modelsUsageView(deps.db) });
+    }
+    // OPERATOR-CONSOLE-00 P0-UI-6:System(HEAD/DB/Worker/GitHub/Provider/uptime/最近错误)
+    if (path === "/api/system" && method === "GET") {
+      const worker = deps.worker ?? null;
+      const view = await systemView(deps.db, {
+        mode: deps.workerMode,
+        active: Boolean(worker),
+        lastTick: worker?.lastTick() ?? null,
+      });
+      return ok({ system: view });
     }
     if (path === "/api/goals" && method === "GET") {
       return ok({ goals: await goalListView(deps.db) });

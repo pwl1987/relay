@@ -68,6 +68,7 @@ h3 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); text-transform: n
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px 16px;
+  overflow-x: auto;
 }
 .card h2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
@@ -171,3 +172,26 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .mt10 { margin-top: 10px; }
 .decision-sep { border-bottom: 1px solid var(--line); padding: 10px 0; }
 .mt8 { margin-top: 8px; }
+
+/* ---- OPERATOR-CONSOLE-00:总览条跨栏 + 表格横向滚动 + 响应式(Mac 主端;手机=查看+决策+控制) ---- */
+#overview-card { grid-column: 1 / -1; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 760px) {
+  main { padding: 12px 12px 48px; }
+  header.app-header { padding: 8px 12px; gap: 8px; }
+  .header-left { gap: 8px; }
+  .nav-link { padding: 4px 8px; font-size: 13px; }
+  h1 { font-size: 17px; }
+  .grid { grid-template-columns: 1fr; }
+  .kv { grid-template-columns: minmax(96px, auto) 1fr; gap: 4px 8px; font-size: 12.5px; }
+  th, td { padding: 5px 6px; font-size: 12px; }
+  table { font-size: 12px; }
+  .toolbar { gap: 6px; }
+}
+
+@media (max-width: 420px) {
+  .nav { gap: 2px; }
+  .nav-link { padding: 3px 6px; font-size: 12px; }
+  .btn { padding: 5px 10px; }
+}

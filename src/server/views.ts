@@ -5,9 +5,16 @@
 // 可用动作(availableActions)由 core 的转移表(TRANSITIONS/isLegalTransition)裁决 ——
 // 界面不能提供 core 会拒绝的转移。
 import { sql } from "drizzle-orm";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readFileSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import type { RelayDb } from "../core/db.ts";
 import { TRANSITIONS, isLegalTransition, type TaskState } from "../core/lifecycle.ts";
 import { ledgerSnapshot } from "../core/budget.ts";
+
+/** Server 进程启动时刻(System 页 uptime 基准)。 */
+const serverStartedAt = new Date().toISOString();
 
 type Row = Record<string, unknown>;
 
@@ -419,6 +426,14 @@ export interface DecisionView {
   canApprove: boolean;
   canReject: boolean;
   canDefer: boolean;
+  /** OPERATOR-CONSOLE-00 P0-UI-4:决策支持五要素(为何需人工/推荐/备选/风险/不处理影响) */
+  guidance: {
+    why: string;
+    recommended: string | null;
+    alternatives: string[];
+    risk: string | null;
+    impactOfNoAction: string;
+  };
 }
 
 export interface GoalDetail {
@@ -441,6 +456,8 @@ export interface GoalDetail {
   analysis: GoalAnalysis;
   /** REWORK-1:最新 Discovery 记录与来源徽章(model=模型分析;rules=规则面兜底,不冒充模型) */
   discovery: GoalDiscoveryView;
+  /** OPERATOR-CONSOLE-00 P0-UI-3:确定性执行进度(阶段/当前模型/耗时/计数) */
+  progress: GoalProgress;
 }
 
 export interface GoalDiscoveryView {
@@ -482,6 +499,57 @@ const TIMEOUT_BEHAVIOR: Record<string, string> = {
   D3: "永不超时自动批准:超时仅标记 EXPIRED_STILL_BLOCKED,任务停留 NEEDS_DECISION 等待人",
   D4: "禁止(创建即拒绝)",
 };
+
+/** P0-UI-4:决策支持五要素(全部由既有列确定性推导;不伪造系统未有的判断)。 */
+function decisionGuidance(input: {
+  level: string;
+  question: string;
+  fallback: Record<string, unknown> | null;
+  taskState: string | null;
+  blockedReason: string | null;
+  deadline: string | null;
+  reversible: boolean;
+}): DecisionView["guidance"] {
+  const levelWhy: Record<string, string> = {
+    D2: "D2 级决策:仅当创建时已声明 fallback 才可由循环自动执行;当前行等待人工裁决或按已授权 fallback 处理。",
+    D3: "D3 级决策:涉及需人工批准的事项(Gate 消费 BLOCK、Review 有界失败或外部副作用),**永不超时自动批准**。",
+    D4: "D4 级:系统禁止此类决策(创建即拒绝)。",
+  };
+  const why =
+    (levelWhy[input.level] ?? "级别 " + input.level + " 需人工裁决。") +
+    (input.taskState ? " 任务当前 " + input.taskState + ",在裁决前不推进。" : "") +
+    (input.blockedReason ? " 阻塞原因:" + input.blockedReason : "");
+  const fb = input.fallback ?? {};
+  const recommendedRaw = fb["recommended"] ?? fb["action"] ?? null;
+  const recommended =
+    typeof recommendedRaw === "string" && recommendedRaw.trim()
+      ? recommendedRaw
+      : recommendedRaw && typeof recommendedRaw === "object"
+        ? JSON.stringify(recommendedRaw)
+        : null;
+  const alternatives = Array.isArray(fb["alternatives"])
+    ? (fb["alternatives"] as unknown[]).filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    : [];
+  const riskRaw = fb["risk"] ?? null;
+  const risk =
+    typeof riskRaw === "string" && riskRaw.trim()
+      ? riskRaw
+      : input.reversible
+        ? "未登记专用风险说明;该决策关联的操作按架构要求可回滚(交付绑定远端 SHA,本地 bare/真实远端均可核对)。"
+        : "未登记专用风险说明;请结合问题与受影响文件评估。";
+  const impactOfNoAction =
+    (input.deadline ? "期限 " + input.deadline + ";逾期 " : "无期限;") +
+    (input.level === "D3"
+      ? "仅标记 EXPIRED_STILL_BLOCKED,任务停留等待,**不会自动批准**;其他安全任务不受影响继续推进。"
+      : "按超时语义处理(见超时行为)。");
+  return {
+    why,
+    recommended,
+    alternatives,
+    risk,
+    impactOfNoAction,
+  };
+}
 
 function availableActionsFor(task: TaskView, hasOpenDecision: boolean): TaskView["availableActions"] {
   const actions: TaskView["availableActions"] = [];
@@ -665,6 +733,15 @@ export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalD
       canApprove: pending && level !== "D4" && legal,
       canReject: pending && level !== "D4",
       canDefer: pending && level !== "D4",
+      guidance: decisionGuidance({
+        level,
+        question: str(r["question"]),
+        fallback: json<Record<string, unknown> | null>(r["fallback"], null),
+        taskState,
+        blockedReason: tRow && tRow["blocked_reason"] !== null && tRow["blocked_reason"] !== undefined ? str(tRow["blocked_reason"]) : null,
+        deadline: iso(r["deadline"]),
+        reversible: level === "D3",
+      }),
     };
   });
 
@@ -754,6 +831,15 @@ export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalD
     budget: ledger,
     analysis,
     discovery,
+    progress: buildGoalProgress({
+      goalState: str(grow["state"]),
+      tasks: tasks.map((x) => ({ id: x.id, state: x.state })),
+      runs: runs.map((x) => ({ outcome: x.outcome, modelRef: x.modelRef, startedAt: x.startedAt })),
+      changesets: changesets.map((x) => ({ deliveryState: x.deliveryState, deliveredAt: null })),
+      openDecisions: decisions.filter((d) => d.state === "OPEN" || d.state === "EXPIRED_STILL_BLOCKED").length,
+      evidenceCount: evidence.length,
+      gateCount: gates.length,
+    }),
   };
 }
 
@@ -905,7 +991,7 @@ export async function decisionListView(db: RelayDb): Promise<DecisionView[]> {
   const rows = await exec.execute(sql`
     SELECT d.id, d.task_id, d.goal_id, d.level, d.question, d.fallback, d.deadline, d.state,
            d.verdict, d.decided_by, d.decided_at, d.created_at,
-           t.state AS task_state, t.state_version
+           t.state AS task_state, t.state_version, t.blocked_reason
     FROM decisions d LEFT JOIN tasks t ON t.id = d.task_id
     ORDER BY (d.state IN ('OPEN','EXPIRED_STILL_BLOCKED')) DESC, d.level ASC, d.deadline ASC NULLS LAST, d.created_at ASC
   `);
@@ -947,6 +1033,15 @@ export async function decisionListView(db: RelayDb): Promise<DecisionView[]> {
       canApprove: pending && level !== "D4" && legal,
       canReject: pending && level !== "D4",
       canDefer: pending && level !== "D4",
+      guidance: decisionGuidance({
+        level,
+        question: str(r["question"]),
+        fallback: json<Record<string, unknown> | null>(r["fallback"], null),
+        taskState,
+        blockedReason: r["blocked_reason"] === null || r["blocked_reason"] === undefined ? null : str(r["blocked_reason"]),
+        deadline: iso(r["deadline"]),
+        reversible: level === "D3",
+      }),
     };
   });
 }
@@ -1176,6 +1271,15 @@ export async function changesetDetailView(db: RelayDb, changesetId: string): Pro
       canApprove: pending && level !== "D4" && legal,
       canReject: pending && level !== "D4",
       canDefer: pending && level !== "D4",
+      guidance: decisionGuidance({
+        level,
+        question: str(r["question"]),
+        fallback: json<Record<string, unknown> | null>(r["fallback"], null),
+        taskState: task?.state ?? null,
+        blockedReason: task?.blockedReason ?? null,
+        deadline: iso(r["deadline"]),
+        reversible: level === "D3",
+      }),
     };
   });
 
@@ -1233,3 +1337,645 @@ export async function changesetListView(db: RelayDb): Promise<ChangesetSummary[]
     createdAt: iso(r["created_at"]) ?? "",
   }));
 }
+
+// ---------------- Operator Console 扩展(OPERATOR-CONSOLE-00) ----------------
+// 同一铁律:只读 SELECT;零模型调用;所有"当前值"都是 DB/本地事实,不探测 Provider(0 次推理请求)。
+
+const IN_FLIGHT_STATES = ["LEASED", "RUNNING", "SUBMITTED", "VERIFYING"];
+
+/** 任务状态 ⇒ 操作面四分组(进行中/可排队/等待·受阻/失败;完成单列)。 */
+export function groupTaskCounts(taskCounts: TaskStateCounts): {
+  inFlight: number;
+  ready: number;
+  waiting: number;
+  failed: number;
+  done: number;
+} {
+  const pick = (states: string[]): number => states.reduce((a, s) => a + (taskCounts[s] ?? 0), 0);
+  return {
+    inFlight: pick(IN_FLIGHT_STATES),
+    ready: pick(["CREATED", "READY", "REWORK"]),
+    waiting: pick(["NEEDS_DECISION", "PAUSED", "BLOCKED", "NEEDS_RECONCILE"]),
+    failed: pick(["FAILED"]),
+    done: pick(["ACCEPTED", "CANCELLED"]),
+  };
+}
+
+export interface DashboardExtras {
+  overall: { status: "normal" | "attention" | "blocked"; basis: string };
+  currentGoal: { id: string; rawInput: string; state: string; updatedAt: string; inFlightTaskId: string | null; inFlightState: string | null } | null;
+  taskGroups: ReturnType<typeof groupTaskCounts>;
+  deliverySummary: { byState: Record<string, number>; deliveredTotal: number; lastDeliveredAt: string | null };
+  lastModel: { modelRef: string | null; source: "run" | "discovery" | null; at: string | null };
+  lastWorkerHeartbeat: string | null;
+  recentCompleted: Array<{ taskId: string; goalId: string | null; deliveryState: string; commitSha: string | null; deliveredAt: string | null; changedFiles: number }>;
+}
+
+/** P0-UI-1 增强:当前 Goal / 任务分组 / Delivery 汇总 / 最近模型事实 / Worker 心跳 / 最近完成。 */
+export async function dashboardExtrasView(db: RelayDb): Promise<DashboardExtras> {
+  const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
+  const allCounts = await exec.execute(sql`SELECT state, count(*)::int AS n FROM tasks GROUP BY state`);
+  const taskCounts: TaskStateCounts = {};
+  for (const r of allCounts.rows) taskCounts[str(r["state"])] = num(r["n"]);
+
+  const inFlight = await exec.execute(sql`
+    SELECT t.id, t.goal_id, t.state, t.updated_at, g.raw_input, g.state AS goal_state, g.updated_at AS goal_updated_at
+    FROM tasks t LEFT JOIN goals g ON g.id = t.goal_id
+    WHERE t.state IN ('LEASED','RUNNING','SUBMITTED','VERIFYING')
+    ORDER BY t.updated_at DESC LIMIT 1
+  `);
+  let currentGoal: DashboardExtras["currentGoal"] = null;
+  if (inFlight.rows.length > 0) {
+    const r = inFlight.rows[0]!;
+    currentGoal = {
+      id: str(r["goal_id"]),
+      rawInput: str(r["raw_input"]),
+      state: str(r["goal_state"]),
+      updatedAt: iso(r["goal_updated_at"]) ?? "",
+      inFlightTaskId: str(r["id"]),
+      inFlightState: str(r["state"]),
+    };
+  } else {
+    const latestActive = await exec.execute(sql`
+      SELECT id, raw_input, state, updated_at FROM goals WHERE state IN ('ACTIVE','PAUSED')
+      ORDER BY updated_at DESC LIMIT 1
+    `);
+    if (latestActive.rows.length > 0) {
+      const r = latestActive.rows[0]!;
+      currentGoal = {
+        id: str(r["id"]),
+        rawInput: str(r["raw_input"]),
+        state: str(r["state"]),
+        updatedAt: iso(r["updated_at"]) ?? "",
+        inFlightTaskId: null,
+        inFlightState: null,
+      };
+    }
+  }
+
+  const deliveryRows = await exec.execute(sql`
+    SELECT delivery_state, count(*)::int AS n FROM candidate_changesets GROUP BY delivery_state
+  `);
+  const byState: Record<string, number> = {};
+  for (const r of deliveryRows.rows) byState[str(r["delivery_state"])] = num(r["n"]);
+  const lastDelivered = await exec.execute(sql`
+    SELECT max(delivered_at) AS at FROM candidate_changesets WHERE delivery_state = 'DELIVERED'
+  `);
+
+  const lastRunModel = await exec.execute(sql`
+    SELECT model_ref, started_at FROM runs ORDER BY started_at DESC LIMIT 1
+  `);
+  const lastDiscoveryModel = await exec.execute(sql`
+    SELECT model_ref, created_at FROM discoveries ORDER BY created_at DESC LIMIT 1
+  `);
+  let lastModel: DashboardExtras["lastModel"] = { modelRef: null, source: null, at: null };
+  const runAt = lastRunModel.rows.length ? iso(lastRunModel.rows[0]!["started_at"]) : null;
+  const discAt = lastDiscoveryModel.rows.length ? iso(lastDiscoveryModel.rows[0]!["created_at"]) : null;
+  if (runAt || discAt) {
+    const useRun = Boolean(runAt) && (!discAt || String(runAt) >= String(discAt));
+    const src = useRun ? lastRunModel.rows[0]! : lastDiscoveryModel.rows[0]!;
+    lastModel = {
+      modelRef: str(src["model_ref"]),
+      source: useRun ? "run" : "discovery",
+      at: useRun ? runAt : discAt,
+    };
+  }
+
+  const heartbeat = await exec.execute(sql`SELECT max(heartbeat_at) AS at FROM leases`);
+
+  const completed = await exec.execute(sql`
+    SELECT cc.task_id, t.goal_id, cc.delivery_state, cc.git_commit_sha, cc.delivered_at, cc.changed_files
+    FROM candidate_changesets cc LEFT JOIN tasks t ON t.id = cc.task_id
+    WHERE cc.delivery_state IN ('DELIVERED','CONFLICT','FAILED')
+    ORDER BY cc.delivered_at DESC NULLS LAST, cc.created_at DESC LIMIT 5
+  `);
+  const recentCompleted = completed.rows.map((r) => {
+    const files = json<{ added?: string[]; modified?: string[]; removed?: string[] }>(r["changed_files"], {});
+    return {
+      taskId: str(r["task_id"]),
+      goalId: r["goal_id"] === null ? null : str(r["goal_id"]),
+      deliveryState: str(r["delivery_state"]),
+      commitSha: r["git_commit_sha"] === null ? null : str(r["git_commit_sha"]),
+      deliveredAt: iso(r["delivered_at"]),
+      changedFiles: (files.added ?? []).length + (files.modified ?? []).length + (files.removed ?? []).length,
+    };
+  });
+
+  const groups = groupTaskCounts(taskCounts);
+  const badSignals = groups.failed + groups.waiting + (byState["CONFLICT"] ?? 0) + (byState["FAILED"] ?? 0);
+  const overall: DashboardExtras["overall"] = badSignals > 0
+    ? { status: "blocked", basis: "存在失败/等待人工/交付异常信号 " + badSignals + " 项" }
+    : groups.inFlight > 0 || groups.done > 0
+      ? { status: "normal", basis: "无阻塞信号;任务在推进" }
+      : { status: "normal", basis: "空闲(无任务或全部完成)" };
+
+  return {
+    overall,
+    currentGoal,
+    taskGroups: groups,
+    deliverySummary: {
+      byState,
+      deliveredTotal: byState["DELIVERED"] ?? 0,
+      lastDeliveredAt: iso(lastDelivered.rows[0]?.["at"]),
+    },
+    lastModel,
+    lastWorkerHeartbeat: iso(heartbeat.rows[0]?.["at"]),
+    recentCompleted,
+  };
+}
+
+// ---------------- Goal 执行进度(P0-UI-3) ----------------
+
+export interface GoalProgress {
+  phase: string;
+  phaseBasis: string;
+  currentTaskId: string | null;
+  currentModelRef: string | null;
+  startedAt: string | null;
+  lastActivityAt: string | null;
+  elapsedSeconds: number | null;
+  delivered: boolean;
+  counts: { runs: number; evidence: number; gates: number; openDecisions: number };
+}
+
+/** 确定性阶段推导(非模型):从任务状态/证据/交付状态唯一事实推导操作面阶段。 */
+export function deriveGoalPhase(input: {
+  goalState: string;
+  tasks: Array<{ id: string; state: string }>;
+  runs: Array<{ outcome: string; modelRef: string; startedAt: string }>;
+  changesets: Array<{ deliveryState: string; deliveredAt: string | null }>;
+  openDecisions: number;
+  evidenceCount: number;
+  gateCount: number;
+  nowMs: number;
+}): GoalProgress {
+  const inFlight = input.tasks.find((t) => IN_FLIGHT_STATES.includes(t.state));
+  const needsHuman = input.tasks.find((t) => ["NEEDS_DECISION", "NEEDS_RECONCILE", "BLOCKED", "PAUSED"].includes(t.state));
+  const failed = input.tasks.find((t) => t.state === "FAILED");
+  const done = input.tasks.length > 0 && input.tasks.every((t) => t.state === "ACCEPTED" || t.state === "CANCELLED");
+  const delivered = input.changesets.some((c) => c.deliveryState === "DELIVERED");
+  const delivering = input.changesets.some((c) => c.deliveryState === "DELIVERING");
+
+  let phase = "排队中";
+  let basis = "任务尚未被领取";
+  if (delivered) {
+    phase = "已交付";
+    basis = "存在 DELIVERED 变更集(远端已核对)";
+  } else if (delivering) {
+    phase = "交付中";
+    basis = "变更集处于 DELIVERING";
+  } else if (done) {
+    phase = "已完成";
+    basis = "全部任务 ACCEPTED/CANCELLED";
+  } else if (inFlight) {
+    if (inFlight.state === "VERIFYING" || inFlight.state === "SUBMITTED") {
+      phase = input.gateCount > 0 || input.evidenceCount > 0 ? "审查中" : "验证中";
+      basis = "任务 " + inFlight.id + " 处于 " + inFlight.state;
+    } else {
+      phase = "执行中";
+      basis = "任务 " + inFlight.id + " 处于 " + inFlight.state;
+    }
+  } else if (needsHuman) {
+    phase = needsHuman.state === "PAUSED" ? "已暂停" : needsHuman.state === "NEEDS_DECISION" ? "等待人工决策" : "已阻塞";
+    basis = "任务 " + needsHuman.id + " 处于 " + needsHuman.state;
+  } else if (failed && input.tasks.every((t) => !IN_FLIGHT_STATES.includes(t.state))) {
+    phase = "失败";
+    basis = "任务 " + failed.id + " 处于 FAILED";
+  } else if (input.tasks.some((t) => t.state === "REWORK")) {
+    phase = "返工中";
+    basis = "存在 REWORK 任务";
+  }
+
+  const startedAt = input.runs.length > 0 ? input.runs[input.runs.length - 1]!.startedAt : null;
+  const lastActivityAt = input.runs.length > 0 ? input.runs[0]!.startedAt : null;
+  const elapsedSeconds = startedAt
+    ? Math.max(0, Math.round((input.nowMs - new Date(startedAt).getTime()) / 1000))
+    : null;
+
+  return {
+    phase,
+    phaseBasis: basis,
+    currentTaskId: inFlight ? inFlight.id : needsHuman ? needsHuman.id : failed ? failed.id : null,
+    currentModelRef: input.runs.length > 0 ? input.runs[0]!.modelRef : null,
+    startedAt,
+    lastActivityAt,
+    elapsedSeconds,
+    delivered,
+    counts: {
+      runs: input.runs.length,
+      evidence: input.evidenceCount,
+      gates: input.gateCount,
+      openDecisions: input.openDecisions,
+    },
+  };
+}
+
+// ---------------- Projects(P0-UI-2;注册文件驱动,零 schema 变更) ----------------
+
+export interface ProjectView {
+  name: string;
+  path: string;
+  repo: string | null;
+  branch: string | null;
+  health: "ok" | "unreachable";
+  healthDetail: string | null;
+  gitBranch: string | null;
+  gitHead: string | null;
+  recentGoals: Array<{ id: string; rawInput: string; state: string; updatedAt: string }>;
+  goalCount: number;
+}
+
+export interface ProjectsView {
+  source: string | null;
+  configured: boolean;
+  note: string;
+  projects: ProjectView[];
+}
+
+function repoRootFromModule(): string {
+  // src/server/views.ts ⇒ 仓库根(与 process.cwd 解耦)
+  return resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+}
+
+function readProjectRegistry(): { source: string | null; projects: Array<{ name: string; path: string; repo?: string; branch?: string }> } {
+  const explicit = process.env.RELAY_PROJECTS_FILE;
+  const defau1t = join(repoRootFromModule(), "config", "projects.json");
+  const file = explicit && explicit.trim() ? explicit : defau1t;
+  try {
+    const raw = readFileSync(file, "utf8");
+    const parsed = JSON.parse(raw) as { projects?: unknown };
+    const list = Array.isArray(parsed.projects) ? parsed.projects : [];
+    return {
+      source: file,
+      projects: list
+        .filter((p): p is Record<string, unknown> => Boolean(p) && typeof p === "object")
+        .slice(0, 20)
+        .map((p) => ({
+          name: typeof p["name"] === "string" ? p["name"] : basename(String(p["path"] ?? "project")),
+          path: typeof p["path"] === "string" ? p["path"] : "",
+          repo: typeof p["repo"] === "string" ? p["repo"] : undefined,
+          branch: typeof p["branch"] === "string" ? p["branch"] : undefined,
+        }))
+        .filter((p) => p.path.length > 0),
+    };
+  } catch {
+    return { source: file, projects: [] };
+  }
+}
+
+function localGitFacts(path: string): { exists: boolean; gitBranch: string | null; gitHead: string | null; detail: string | null } {
+  try {
+    statSync(path);
+  } catch {
+    return { exists: false, gitBranch: null, gitHead: null, detail: "目录不存在或不可读" };
+  }
+  const run = (args: string[]): string | null => {
+    try {
+      return execFileSync("git", ["-C", path, ...args], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+    } catch {
+      return null;
+    }
+  };
+  const head = run(["rev-parse", "HEAD"]);
+  if (!head) return { exists: true, gitBranch: null, gitHead: null, detail: "存在但不是可读的 git 工作树" };
+  return { exists: true, gitBranch: run(["rev-parse", "--abbrev-ref", "HEAD"]), gitHead: head, detail: null };
+}
+
+/** P0-UI-2:最小项目列表(注册文件 + 本地只读 git 事实 + 经 allowed_scope 关联的最近 Goal)。 */
+export async function projectsView(db: RelayDb): Promise<ProjectsView> {
+  const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
+  const registry = readProjectRegistry();
+  const note =
+    registry.projects.length === 0
+      ? "未配置项目注册文件(config/projects.json 或 RELAY_PROJECTS_FILE);格式:{\"projects\":[{\"name\",\"path\",\"repo\",\"branch\"}]}。本页仅观察,不调度。"
+      : "来源=项目注册文件;健康=本地目录/git 只读事实;Goal 关联经任务 allowed_scope 前缀匹配(当前 Goal 创建流未绑定项目时显示为空)。";
+  const projects: ProjectView[] = [];
+  for (const entry of registry.projects) {
+    const facts = localGitFacts(entry.path);
+    const link = await exec.execute(sql`
+      SELECT g.id, g.raw_input, g.state, g.updated_at
+      FROM tasks t
+      JOIN jsonb_array_elements_text(t.allowed_scope) s ON true
+      JOIN goals g ON g.id = t.goal_id
+      WHERE ${entry.path} LIKE s || '%'
+      ORDER BY g.updated_at DESC
+    `);
+    const seen = new Set<string>();
+    const recentGoals: ProjectView["recentGoals"] = [];
+    let goalCount = 0;
+    for (const r of link.rows) {
+      const gid = str(r["id"]);
+      if (seen.has(gid)) continue;
+      seen.add(gid);
+      goalCount += 1;
+      if (recentGoals.length < 3) {
+        recentGoals.push({ id: gid, rawInput: str(r["raw_input"]), state: str(r["state"]), updatedAt: iso(r["updated_at"]) ?? "" });
+      }
+    }
+    projects.push({
+      name: entry.name,
+      path: entry.path,
+      repo: entry.repo ?? null,
+      branch: entry.branch ?? null,
+      health: facts.exists && facts.gitHead ? "ok" : "unreachable",
+      healthDetail: facts.detail,
+      gitBranch: facts.gitBranch,
+      gitHead: facts.gitHead,
+      recentGoals,
+      goalCount,
+    });
+  }
+  return { source: registry.source, configured: registry.projects.length > 0, note, projects };
+}
+
+// ---------------- Models / Usage(P0-UI-5;纯观察) ----------------
+
+export interface ModelsUsageView {
+  provider: {
+    configured: boolean;
+    providerName: string | null;
+    modelName: string | null;
+    baseUrlHost: string | null;
+    probed: false;
+    note: string;
+  };
+  classification: { status: "UNREGISTERED"; note: string };
+  recentRuns: Array<{ id: string; taskId: string; modelRef: string; outcome: string; sandbox: string; role: string | null; startedAt: string; endedAt: string | null; durationMs: number | null }>;
+  recentDiscoveries: Array<{ id: string; goalId: string; modelRef: string; outcome: string; reason: string | null; createdAt: string }>;
+  budgetTotals: { modelCalls: { limit: number | null; reserved: number; used: number }; tokensInUsed: number; tokensOutUsed: number; wallSecondsUsed: number };
+  perGoal: Array<{ goalId: string; rawInput: string; limit: number | null; reserved: number; used: number }>;
+  outcomes: { byOutcome: Record<string, number>; reasons: Array<{ reason: string; n: number }> };
+}
+
+/** P0-UI-5:模型观察面。零探测(probed 恒 false);Key/凭据零返回(redact 兜底之外本层就不取)。 */
+export async function modelsUsageView(db: RelayDb): Promise<ModelsUsageView> {
+  const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
+  const providerName = process.env.RELAY_PI_PROVIDER ?? null;
+  const modelName = process.env.RELAY_PI_MODEL ?? null;
+  const baseUrl = process.env.RELAY_PI_BASE_URL ?? null;
+  let baseUrlHost: string | null = null;
+  if (baseUrl) {
+    try {
+      baseUrlHost = new URL(baseUrl).host;
+    } catch {
+      baseUrlHost = null;
+    }
+  }
+
+  const runRows = await exec.execute(sql`
+    SELECT id, task_id, model_ref, outcome, sandbox, detail->>'role' AS role, started_at, ended_at
+    FROM runs ORDER BY started_at DESC LIMIT 30
+  `);
+  const recentRuns = runRows.rows.map((r) => {
+    const s = iso(r["started_at"]);
+    const e = iso(r["ended_at"]);
+    const durationMs = s && e ? new Date(e).getTime() - new Date(s).getTime() : null;
+    return {
+      id: str(r["id"]),
+      taskId: str(r["task_id"]),
+      modelRef: str(r["model_ref"]),
+      outcome: str(r["outcome"]),
+      sandbox: str(r["sandbox"]),
+      role: r["role"] === null ? null : str(r["role"]),
+      startedAt: s ?? "",
+      endedAt: e,
+      durationMs,
+    };
+  });
+
+  const discRows = await exec.execute(sql`
+    SELECT id, goal_id, model_ref, outcome, reason, created_at
+    FROM discoveries ORDER BY created_at DESC LIMIT 10
+  `);
+
+  const outcomeRows = await exec.execute(sql`
+    SELECT outcome, count(*)::int AS n FROM runs GROUP BY outcome
+  `);
+  const byOutcome: Record<string, number> = {};
+  for (const r of outcomeRows.rows) byOutcome[str(r["outcome"])] = num(r["n"]);
+  const reasonRows = await exec.execute(sql`
+    SELECT detail->>'reason' AS reason, count(*)::int AS n FROM runs
+    WHERE outcome IN ('FAILED','TIMEOUT','INTERRUPTED','CANCELLED') AND detail->>'reason' IS NOT NULL
+    GROUP BY detail->>'reason' ORDER BY n DESC LIMIT 10
+  `);
+
+  const totalsRows = await exec.execute(sql`
+    SELECT kind, sum(coalesce(limit_value, 0)) AS limit_sum, sum(reserved) AS reserved_sum, sum(used) AS used_sum
+    FROM budget_ledger GROUP BY kind
+  `);
+  const byKind = new Map<string, { limitSum: number; reserved: number; used: number }>();
+  let hasModelLimit = false;
+  for (const r of totalsRows.rows) {
+    const kind = str(r["kind"]);
+    const limitSum = num(r["limit_sum"]);
+    if (kind === "model_calls" && num(r["limit_sum"]) > 0) hasModelLimit = true;
+    byKind.set(kind, { limitSum, reserved: num(r["reserved_sum"]), used: num(r["used_sum"]) });
+  }
+  const mc = byKind.get("model_calls");
+  const perGoalRows = await exec.execute(sql`
+    SELECT bl.scope_id AS goal_id, g.raw_input, bl.limit_value, bl.reserved, bl.used
+    FROM budget_ledger bl LEFT JOIN goals g ON g.id = bl.scope_id
+    WHERE bl.scope_type = 'goal' AND bl.kind = 'model_calls'
+    ORDER BY bl.updated_at DESC LIMIT 50
+  `);
+
+  return {
+    provider: {
+      configured: Boolean(providerName && modelName && baseUrl),
+      providerName,
+      modelName,
+      baseUrlHost,
+      probed: false,
+      note: "本页零模型探测;是否可用以运行时事实(runs/discoveries)为准。凭据一律不显示。",
+    },
+    classification: {
+      status: "UNREGISTERED",
+      note: "Provider Registry 属 MODEL-POLICY-01(ADR-0009 设计冻结,激活前置=MVP 最终 ACCEPTED);当前仅记录 model_ref 原文,本地/云端分类不伪造。",
+    },
+    recentRuns,
+    recentDiscoveries: discRows.rows.map((r) => ({
+      id: str(r["id"]),
+      goalId: str(r["goal_id"]),
+      modelRef: str(r["model_ref"]),
+      outcome: str(r["outcome"]),
+      reason: r["reason"] === null ? null : str(r["reason"]),
+      createdAt: iso(r["created_at"]) ?? "",
+    })),
+    budgetTotals: {
+      modelCalls: {
+        limit: hasModelLimit && mc ? mc.limitSum : null,
+        reserved: mc ? mc.reserved : 0,
+        used: mc ? mc.used : 0,
+      },
+      tokensInUsed: byKind.get("tokens_in")?.used ?? 0,
+      tokensOutUsed: byKind.get("tokens_out")?.used ?? 0,
+      wallSecondsUsed: byKind.get("wall_seconds")?.used ?? 0,
+    },
+    perGoal: perGoalRows.rows.map((r) => ({
+      goalId: str(r["goal_id"]),
+      rawInput: str(r["raw_input"]),
+      limit: r["limit_value"] === null ? null : num(r["limit_value"]),
+      reserved: num(r["reserved"]),
+      used: num(r["used"]),
+    })),
+    outcomes: {
+      byOutcome,
+      reasons: reasonRows.rows.map((r) => ({ reason: str(r["reason"]), n: num(r["n"]) })),
+    },
+  };
+}
+
+// ---------------- System(P0-UI-6) ----------------
+
+export interface SystemView {
+  relay: { head: string | null; headShort: string | null; version: string; startedAt: string; uptimeSeconds: number; node: string };
+  db: { ok: boolean; serverVersion: string | null; schema: string | null; error: string | null };
+  worker: { mode: string; active: boolean; lastTick: { status: string; at: string } | null; activeLeases: number; lastLeaseHeartbeat: string | null };
+  github: { deliveryByState: Record<string, number>; lastDeliveredAt: string | null; recentIntents: Array<{ id: string; capability: string; state: string; target: string; updatedAt: string }> };
+  provider: { configured: boolean; providerName: string | null; modelName: string | null; probed: false; lastModelRef: string | null; note: string };
+  recentErrors: Array<{ kind: string; subject: string; detail: string; ts: string | null }>;
+}
+
+let cachedHead: { sha: string | null; at: number } = { sha: null, at: 0 };
+
+/** 本仓库 HEAD(1h 缓存;只读 git rev-parse,零网络)。 */
+export function relayHead(force = false): string | null {
+  const now = Date.now();
+  if (!force && cachedHead.sha && now - cachedHead.at < 3600_000) return cachedHead.sha;
+  try {
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: repoRootFromModule(),
+      encoding: "utf8",
+      timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    cachedHead = { sha: sha || null, at: now };
+    return cachedHead.sha;
+  } catch {
+    cachedHead = { sha: null, at: now };
+    return null;
+  }
+}
+
+export interface WorkerRuntimeInfo {
+  mode: string;
+  active: boolean;
+  lastTick: { status: string; at: string } | null;
+}
+
+/** P0-UI-6:系统页(HEAD/DB/Worker/GitHub/Provider/uptime/最近错误;全部只读事实)。 */
+export async function systemView(db: RelayDb, workerInfo: WorkerRuntimeInfo): Promise<SystemView> {
+  const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
+
+  let dbOk = true;
+  let dbError: string | null = null;
+  let serverVersion: string | null = null;
+  try {
+    const v = await exec.execute(sql`SELECT version() AS v`);
+    serverVersion = str(v.rows[0]?.["v"]) || null;
+  } catch (err) {
+    dbOk = false;
+    dbError = err instanceof Error ? err.message : String(err);
+  }
+
+  const leaseRows = await exec.execute(sql`
+    SELECT count(*)::int AS n, max(heartbeat_at) AS at FROM leases
+    WHERE lease_expires_at > now()
+  `);
+
+  const deliveryRows = await exec.execute(sql`
+    SELECT delivery_state, count(*)::int AS n FROM candidate_changesets GROUP BY delivery_state
+  `);
+  const deliveryByState: Record<string, number> = {};
+  for (const r of deliveryRows.rows) deliveryByState[str(r["delivery_state"])] = num(r["n"]);
+  const lastDelivered = await exec.execute(sql`
+    SELECT max(delivered_at) AS at FROM candidate_changesets WHERE delivery_state = 'DELIVERED'
+  `);
+  const intentRows = await exec.execute(sql`
+    SELECT id, capability, state, target, updated_at FROM action_intents
+    ORDER BY updated_at DESC LIMIT 8
+  `);
+
+  const lastModel = await exec.execute(sql`SELECT model_ref FROM runs ORDER BY started_at DESC LIMIT 1`);
+
+  const errRuns = await exec.execute(sql`
+    SELECT id, outcome, detail->>'reason' AS reason, started_at FROM runs
+    WHERE outcome IN ('FAILED','TIMEOUT','INTERRUPTED','CANCELLED') ORDER BY started_at DESC LIMIT 5
+  `);
+  const errDelivery = await exec.execute(sql`
+    SELECT id, delivery_state, task_id FROM candidate_changesets
+    WHERE delivery_state IN ('CONFLICT','FAILED') ORDER BY created_at DESC LIMIT 3
+  `);
+  const errAudit = await exec.execute(sql`
+    SELECT seq, action, detail, ts FROM audit_events
+    WHERE action LIKE '%FAILED%' OR action LIKE '%REJECTED%' ORDER BY seq DESC LIMIT 5
+  `);
+  const recentErrors: SystemView["recentErrors"] = [];
+  for (const r of errRuns.rows) {
+    recentErrors.push({ kind: "run_" + str(r["outcome"]).toLowerCase(), subject: str(r["id"]), detail: str(r["reason"]) || "无原因记录", ts: iso(r["started_at"]) });
+  }
+  for (const r of errDelivery.rows) {
+    recentErrors.push({ kind: "delivery_" + str(r["delivery_state"]).toLowerCase(), subject: str(r["id"]), detail: "任务 " + str(r["task_id"]) + " 交付异常", ts: null });
+  }
+  for (const r of errAudit.rows) {
+    const detail = json<Record<string, unknown>>(r["detail"], {});
+    recentErrors.push({ kind: str(r["action"]), subject: "#" + num(r["seq"]), detail: typeof detail["reason"] === "string" ? String(detail["reason"]) : "", ts: iso(r["ts"]) });
+  }
+
+  const head = relayHead();
+  return {
+    relay: {
+      head,
+      headShort: head ? head.slice(0, 10) : null,
+      version: "0.1.0-p0",
+      startedAt: serverStartedAt,
+      uptimeSeconds: Math.round(process.uptime()),
+      node: process.version,
+    },
+    db: { ok: dbOk, serverVersion, schema: process.env.RELAY_DB_SCHEMA ?? null, error: dbError },
+    worker: {
+      mode: workerInfo.mode,
+      active: workerInfo.active,
+      lastTick: workerInfo.lastTick,
+      activeLeases: leaseRows.rows.length ? num(leaseRows.rows[0]!["n"]) : 0,
+      lastLeaseHeartbeat: iso(leaseRows.rows[0]?.["at"]),
+    },
+    github: {
+      deliveryByState,
+      lastDeliveredAt: iso(lastDelivered.rows[0]?.["at"]),
+      recentIntents: intentRows.rows.map((r) => ({
+        id: str(r["id"]),
+        capability: str(r["capability"]),
+        state: str(r["state"]),
+        target: str(r["target"]),
+        updatedAt: iso(r["updated_at"]) ?? "",
+      })),
+    },
+    provider: {
+      configured: Boolean(process.env.RELAY_PI_PROVIDER && process.env.RELAY_PI_MODEL && process.env.RELAY_PI_BASE_URL),
+      providerName: process.env.RELAY_PI_PROVIDER ?? null,
+      modelName: process.env.RELAY_PI_MODEL ?? null,
+      probed: false,
+      lastModelRef: lastModel.rows.length ? str(lastModel.rows[0]!["model_ref"]) : null,
+      note: "零探测;最近 model_ref 来自 runs 原始事实。",
+    },
+    recentErrors: recentErrors.slice(0, 10),
+  };
+}
+
+// ---------------- Goal 详情进度装配 ----------------
+
+/** 在 goalDetailView 基础上补 progress(OPERATOR-CONSOLE-00;复用同函数的查询结果,单独入口便于测试)。 */
+export function buildGoalProgress(args: {
+  goalState: string;
+  tasks: Array<{ id: string; state: string }>;
+  runs: Array<{ outcome: string; modelRef: string; startedAt: string }>;
+  changesets: Array<{ deliveryState: string; deliveredAt: string | null }>;
+  openDecisions: number;
+  evidenceCount: number;
+  gateCount: number;
+  nowMs?: number;
+}): GoalProgress {
+  return deriveGoalPhase({ ...args, nowMs: args.nowMs ?? Date.now() });
+}
+
