@@ -1,6 +1,11 @@
 # Relay 当前执行契约
 
-- **当前唯一 ACTIVE：RELAY-QUALITY-LOCAL-01**（用户指令 2026-11-13；本行=唯一当前授权执行入口；前置=RELAY-ARCH-FREEZE-01 已收口，见下）。
+- **RELAY-QUALITY-LOCAL-01 ✅ 收口（2026-11-13）**：实施提交 de3ba22（17 文件 +1446/-121）；exact-head CI 43398045983 双 job success（test=quality:full 除浏览器/e2e=浏览器）；独立 Reviewer 首轮 REWORK（M-1=changedFiles 越界文件致干净树假 FAILED）→ M-1+Minor 全消化 → 第二轮终裁 **PASS**（记录 p0-mvp/quality-local-01/REVIEW-QUALITY-LOCAL-01.md）；实测 quality:quick PASS（干净树 format=NOT_RUN 语义正确）、quality:release PASS（56 文件 273 用例+github-real 4/4+备份恢复+浏览器）；报告=p0-mvp/quality-local-01/REPORT-QUALITY-LOCAL-01.md。当前无新 ACTIVE 授权。
+- 交付摘要：①统一质量入口 quality:quick/full/release（biome.jsonc 唯一检查配置+@biomejs/biome@2.6.7 固定；CI 与本地同源）②Gate 最低机器证据修复（反例实证→修复：显式机器检查>内建候选清单复验>保守停机三级；gate_required=false 对代码变更失效；record/consume 双侧同规则）③历史基线 123 format 偏差/20 文件+93 lint warn 登记留痕不全仓重排。差距登记 8 项（p0-mvp/quality-local-01/GAP-REGISTER.md；P1=E-2/E-3/E-4/E-7，建议下包=用户控制面最小实现）。
+- 权威起点：GitHub origin/main = 收口提交（见 git log）；VM80 本地与远端一致；未跟踪 config/ 与 p0-mvp/soak-r3b/ 仍为受保护遗留产物，严禁触碰或提交。
+- Writer：本包 Writer 已释放；下一窗口冷启动从 live main 读取，不得沿用本文件历史 SHA 为当前事实。
+- 显式 NOT_RUN/未验证：性能专项（无实测基线，不虚构阈值）；模型门禁 e2e（RELAY_A4_E2E/RELAY_GATE_E2E/RELAY_EGRESS_E2E 需独立授权）；生产部署验证（未触碰生产）。
+- 旧 MVP REWORK、R-2/R-3 PARTIAL 历史裁决不变；MODEL-POLICY-01、REAL-PILOT、R-3B 仍不启动。
 - **允许范围**：①统一代码格式与静态检查（先评估 Biome，未验证不引入复杂工具链，单一组合）；②本地可复现验证命令 `quality:quick/full/release`；③与 GitHub Actions 复用同一检查配置；④现有 Gate 最低机器证据要求的最小修复（反例测试先行）；⑤必要的测试与文档更新。
 - **不允许范围**：重做 Goal/Task/Run 生命周期；Session Fabric/多 Agent 调度平台；修改生产部署或主机网络；新建分支/常驻服务/第二 Gate/规则引擎/质量数据库；全仓无意义格式化；自动改变用户可见业务交互语义；启动 REAL-PILOT/MODEL-POLICY-01/R-3B；触碰 config/ 与 p0-mvp/soak-r3b/。
 - **质量命令要求（C1~C9）**：quick=格式只读检查+Lint+TypeScript+快速测试；full=单元+真 PG 集成+容器安全门+浏览器，必需项不得默默跳过；release=按变更风险触发安全/恢复/性能/真实环境，不虚构阈值不伪装通过；本地与 CI 同一配置；历史质量问题先建可审计基线不全仓重排，新增/修改代码必须达标；固定依赖可复现安装，禁不必要新依赖；证据绑定 SHA/环境/时间/命令/退出码/原始日志，NOT_RUN/SKIPPED/FAILED/PASS 区分清楚；隔离 DB/工作区/网络/资源，禁生产密钥与生产库；真实 Provider 测试独立授权开关，npm test 不得隐式消耗模型额度。

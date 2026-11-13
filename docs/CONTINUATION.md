@@ -99,3 +99,12 @@ ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模�
 - 独立审计（新窗口冷启动，未沿用上轮自评）：A1~A5/A7/A8 PASS；A3/A4 设计层 PASS（接管/PlanRevision 等明示 OPEN，代码无虚假宣称）；A6=REWORK 但属实现缺口非设计缺陷。
 - A6 缺口定位（交新包阶段 D 反例测试）：①生产 worker-entry 不传 evidenceChecks（src/server/worker.ts:205 条件展开）⇒ 生产 Gate PASS 仅 reviewer_output 证据；②src/core/gates.ts:80 PASS 仅要求 evidenceIds 非空，reviewer_output 计入 ⇒ Reviewer 输出可单独满足；③gate-orchestrator.ts:110+lease.ts:212 gate_required=false 豁免通道（当前无写入点，goals.ts INSERT 省略列默认 true，属潜伏逃生口）；④证据无 SKIPPED/NOT_RUN 状态，"缺席"不可见。
 - 收口证据：live main=dcb26cd 与本地一致；exact-head CI 43372681642@dcb26cd=success；纯设计文档变更（99ddb4b 10 文件 +227/-8），不表示新功能已实现。
+
+## RELAY-QUALITY-LOCAL-01（2026-11-13，✅ 收口）
+
+- 合同登记 2b57f04；前置=ARCH-FREEZE-01 收口 60a970b；实施 de3ba22（17 文件 +1446/-121）；exact-head CI 43398045983 双 job success（test=quality:full 除浏览器/e2e=浏览器）；独立 Reviewer 首轮 REWORK（M-1）→ 全消化 → 终裁 PASS（p0-mvp/quality-local-01/REVIEW-QUALITY-LOCAL-01.md）；干净树 quick PASS（format NOT_RUN 语义正确）。
+- 交付：①统一质量入口 quality:quick/full/release（scripts/quality.mjs + biome.jsonc 唯一检查配置 + @biomejs/biome@2.6.7 精确固定；CI test job=quality:full 除浏览器，e2e job 同一浏览器命令；格式检查范围=RELAY_QUALITY_BASE_SHA..HEAD 变更集）。②Gate 最低机器证据修复（反例先行：修复前仅 reviewer_output 即 ACCEPTED，证据 p0-mvp/quality-local-01/evidence/counterexample-prefix-run.log；修复后=显式机器检查 > 内建候选清单复验 candidate_manifest_verify > 保守停机 NEEDS_DECISION 三级；isDocsOnlyChanges 确定性 N/A（.md/.markdown；空清单视同代码变更）；gate_required=false 对代码变更失效（GATE_REQUIRED_OVERRIDE 审计）；record/consume 双侧同规则）。
+- 实测：quality:quick PASS；quality:release PASS（56 文件 273 用例全过+50 环境门禁 skip 可见+github-real 真实远端 4/4+备份恢复 13 表核对一致+浏览器通过）；github-real 两轮失败归因=出口链路瞬断+跨 run 沙箱远端竞争（remote_drift=Relay 防漂移语义正确拒绝），第三轮 4/4。
+- 基线：历史 format 偏差 123 处/20 文件（不全仓重排，清单入库 evidence/format-baseline-files.txt）；lint 93 warn+3 info 降级留痕于 biome.jsonc 注释；新增/修改代码 0 error 0 format 差异。
+- 差距登记：p0-mvp/quality-local-01/GAP-REGISTER.md（8 项只读；P1=E-2 终态 Goal 消息/E-3 steer·abort/E-4 接管交还/E-7 NEEDS_RECONCILE 自愈；建议下包=用户控制面最小实现）。
+- 显式 NOT_RUN：性能（无基线不虚构阈值）、模型门禁 e2e（RELAY_A4_E2E/RELAY_GATE_E2E/RELAY_EGRESS_E2E 需独立授权）、生产部署验证。

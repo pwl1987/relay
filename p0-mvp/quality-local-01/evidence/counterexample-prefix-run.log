@@ -1,0 +1,36 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/integration/gate-machine-evidence.test.ts (3 tests | 1 failed) 1486ms
+   ✓ Gate 最低机器证据(反例先行) > 反例 A:代码变更候选 + 零机器检查 + Reviewer PASS ⇒ 当前实现 ACCEPTED(漏洞实证,修复后必须不 ACCEPTED)  626ms
+   ✓ Gate 最低机器证据(反例先行) > 反例 B:docs-only 候选 + 零机器检查 + Reviewer PASS ⇒ ACCEPTED(合法豁免,修复后保留)  585ms
+   × Gate 最低机器证据(反例先行) > 纵深防御:直接调用 recordGateVerdict,代码变更候选仅 reviewer_output ⇒ 拒绝(修复后) 23ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/gate-machine-evidence.test.ts > Gate 最低机器证据(反例先行) > 纵深防御:直接调用 recordGateVerdict,代码变更候选仅 reviewer_output ⇒ 拒绝(修复后)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/integration/gate-machine-evidence.test.ts:172:20
+    170|     });
+    171|     // 修复前:ok:true(漏洞);修复后:拒绝 machine_evidence_missing
+    172|     expect(rec.ok).toBe(false);
+       |                    ^
+    173|     if (!rec.ok) expect(rec.reason).toBe("machine_evidence_missing");
+    174|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  15:48:03
+   Duration  2.70s (transform 286ms, setup 0ms, collect 943ms, tests 1.49s, environment 0ms, prepare 76ms)
+
