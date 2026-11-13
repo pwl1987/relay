@@ -82,7 +82,9 @@ export function validateCheckWorkspace(
       return root;
     }
   });
-  const inside = roots.some((root) => real === root || real.startsWith(root + sep));
+  // 仅接受允许根**之下**的目录(等于根本身 ⇒ 拒绝:把整个 /tmp 挂为候选工作区不是合法语义;
+  // 生产 Run 工作区一律为 prepareRunDirs(tmpdir(),…)/relay-run-*/ws,深度 ≥3)。Reviewer Minor-1。
+  const inside = roots.some((root) => real.startsWith(root + sep));
   if (!inside) return { ok: false, reason: "workspace_out_of_scope" };
   return { ok: true };
 }

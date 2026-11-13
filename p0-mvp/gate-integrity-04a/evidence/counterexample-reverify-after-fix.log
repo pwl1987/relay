@@ -1,0 +1,19 @@
+=== 反例 A:功能性检查(deterministic_test)已配置 ⇒ candidate_manifest_verify 完整性硬门被跳过 ===
+A.setup: run=run-7ee44c46-ced0-4b10-9ea4-65f2f4f76d2e outcome=SUCCEEDED workspace=/tmp/relay-run-SFSmrw/ws
+A.drift-setup: candidate_sha=a07514e517d2… 写入漂移文件后真实复验 ok=false(预期 false=完整性必败)
+A.result: status=NEEDS_DECISION reason=candidate_manifest_verify_failed
+A.manifestVerify-calls=1(修复前预期 0=完整性门被跳过;修复后预期 ≥1)
+A.evidence-kinds=[candidate_manifest_verify:FAIL]
+A.defect-verdict: 不成立(需人工核查)
+
+=== 反例 B:workspaceDir 未提供 ⇒ 检查工作区回退 process.cwd()(宿主仓库根)并作为 Docker 挂载源 ===
+B.docker-probe: passed=false env.mode=sandbox-fail-closed
+B.docker-probe mountinfo=null(挂载源=/home/ubuntu/dev/relay,rw)
+B.docker-probe inode: 宿主仓库根=23505976 容器/workspace=n/a ⇒ 挂载绑定实证=no
+B.docker-probe note: 容器 UID 10001 因宿主目录权限(0750/0770)暂不可穿越读取 —— 挂载绑定本身已实证;仓库权限放开或 UID 配置变更即完全暴露。如实记录,不夸大可利用性。
+B.orchestrator: status=NEEDS_DECISION reason=workspace_missing
+B.orchestrator-check-ran=no 传给执行器的工作区=null
+B.defect-verdict: 不成立(需人工核查)
+B.note: 宿主仓库根作为挂载源意味着候选检查在 Relay 项目根运行(可读写仓库文件、误用仓库状态作为候选面);生产 LiveWorker 当前总是传 result.workspaceDir(防御纵深缺口,合同§四.2 要求消除隐式回退);B-1 的 Docker 实测证明该值会被真实挂载。
+
+反例运行完成(对未修复代码;隔离 p01a_ schema 已清理;零真实远端写入/零模型调用)。

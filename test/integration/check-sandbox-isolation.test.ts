@@ -435,6 +435,8 @@ d("GATE-INTEGRITY-04A 检查工作区安全边界(真实 docker;越界挂载 FAI
     try {
       expect(validateCheckWorkspace(link).reason).toBe("workspace_symlink");
       expect(validateCheckWorkspace(real).ok).toBe(true);
+      // 允许根本身(tmpdir)不是合法候选工作区(挂整个 /tmp 无意义且面过大;Reviewer Minor-1)
+      expect(validateCheckWorkspace(tmpdir()).reason).toBe("workspace_out_of_scope");
     } finally {
       rmSync(link, { force: true });
       rmSync(real, { recursive: true, force: true });
