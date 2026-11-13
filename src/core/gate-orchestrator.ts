@@ -14,7 +14,15 @@ import type { RelayDb, Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
 import { advanceTask } from "./lease.ts";
 import { latestChangeset, type ChangesetRow } from "./changesets.ts";
-import { collectCheckEvidence, recordEvidence, workerEnv, type CheckSpec, type EvidenceRow } from "./evidence.ts";
+import {
+  collectCheckEvidence,
+  failClosedCheckRunner,
+  recordEvidence,
+  workerEnv,
+  type CheckRunner,
+  type CheckSpec,
+  type EvidenceRow,
+} from "./evidence.ts";
 import { acquireVerificationLease, heartbeatVerificationLease, expireVerificationLease } from "./verify-lease.ts";
 import {
   recordGateVerdict,
@@ -52,6 +60,13 @@ export interface GateOrchestrationOptions {
   verificationTtlSeconds?: number;
   /** Worker 侧可信检查(确定性测试/真实 API 行为);在 Run 工作区执行 */
   evidenceChecks?: Array<CheckSpec>;
+  /**
+   * 检查执行器端口(RELAY-CONTROL-SAFETY-04 P0-A):候选功能检查的**唯一**执行面,
+   * 由调用方注入(生产 = runtime docker 沙箱执行器;测试注入确定性 stub)。
+   * 未注入 ⇒ failClosedCheckRunner(FAIL-CLOSED:检查按失败处理,绝不退回宿主执行;
+   * 宿主 execFile 已从 evidence 层移除 —— 反例 p0-mvp/control-safety-04/evidence/)。
+   */
+  checkRunner?: CheckRunner;
   /** 内建候选清单复验(runtime 注入;core 不 import runtime)。
    *  生产默认机器证据:重采工作区清单比对 candidate_sha;未配置机器检查时的兜底(D1)。 */
   manifestVerify?: (spec: {
@@ -307,21 +322,43 @@ export async function orchestrateGate(
     );
   }
 
-  // 3) 证据采集(可信执行器)
-  for (const check of gate.evidenceChecks ?? []) {
-    const row = await collectCheckEvidence(
-      db as unknown as Exec,
-      {
-        ...check,
-        taskId: input.taskId,
-        attempt: input.attempt,
-        candidateSha: changeset.candidateSha,
-        producedBy: verifierId,
-      },
-      input.workspaceDir ?? process.cwd(),
-    );
-    evidenceIds.push(row.id);
-    evidenceSummaries.push({ id: row.id, kind: row.kind, passed: row.passed });
+  // 3) 证据采集(可信执行器;P0-A:经 CheckRunner 端口在沙箱内执行,未注入 ⇒ FAIL-CLOSED;
+  //    采集期 abort 轮询 —— 旗标翻转 ⇒ 终止执行进程组并立即 STOP,不进 Reviewer)
+  const checkAbortFlag = { cancelled: false };
+  const checkAbortPoller = setInterval(() => {
+    isAbortRequested(db as unknown as Exec, input.taskId)
+      .then((v) => {
+        if (v) checkAbortFlag.cancelled = true;
+      })
+      .catch(() => {
+        /* 轮询失败不翻转旗标(保守);下一轮重试 */
+      });
+  }, 1000);
+  try {
+    const runner = gate.checkRunner ?? failClosedCheckRunner;
+    for (const check of gate.evidenceChecks ?? []) {
+      const row = await collectCheckEvidence(
+        db as unknown as Exec,
+        {
+          ...check,
+          taskId: input.taskId,
+          attempt: input.attempt,
+          candidateSha: changeset.candidateSha,
+          producedBy: verifierId,
+        },
+        input.workspaceDir ?? process.cwd(),
+        runner,
+        { abortSignal: checkAbortFlag },
+      );
+      evidenceIds.push(row.id);
+      evidenceSummaries.push({ id: row.id, kind: row.kind, passed: row.passed });
+      if (checkAbortFlag.cancelled) {
+        // 采集期间旗标到达 ⇒ 立即 STOP(裁决不记录不消费,Reviewer 不烧 —— F-1 同语义延伸)
+        return await abortStop();
+      }
+    }
+  } finally {
+    clearInterval(checkAbortPoller);
   }
 
   // 3.5) 必需检查失败 ⇒ 保守停机(P0-B:证据不足不得 ACCEPTED;不烧 Reviewer —— 候选已注定

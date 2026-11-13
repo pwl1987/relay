@@ -25,6 +25,7 @@ import { DEFAULT_DELIVERY_POLICY } from "../../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
 import { makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const E2E = process.env.RELAY_E2E === "1";
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
@@ -67,7 +68,10 @@ interface Stack {
   tmpRoots: string[];
 }
 
-async function startStack(label: string, opts: { delivery?: DeliveryFactory; stubMode?: string; verdict?: string } = {}): Promise<Stack> {
+async function startStack(
+  label: string,
+  opts: { delivery?: DeliveryFactory; stubMode?: string; verdict?: string } = {},
+): Promise<Stack> {
   const t = await createTestDb(`p02c-e2e-${label}`);
   const auth = new Auth({
     password: PASSWORD,
@@ -91,7 +95,12 @@ async function startStack(label: string, opts: { delivery?: DeliveryFactory; stu
     stubInjection: {
       argv: [process.execPath, STUB],
       coderEnv: { STUB_MODE: opts.stubMode ?? "ok", STUB_WRITE_FILE: "delivered.txt:ok", STUB_DELAY_MS: "80" },
-      reviewerEnv: { STUB_MODE: "verdict", STUB_VERDICT: opts.verdict ?? "PASS", STUB_FINDINGS: "e2e 独立审查通过", STUB_DELAY_MS: "80" },
+      reviewerEnv: {
+        STUB_MODE: "verdict",
+        STUB_VERDICT: opts.verdict ?? "PASS",
+        STUB_FINDINGS: "e2e 独立审查通过",
+        STUB_DELAY_MS: "80",
+      },
     },
     prepareWorkspace: (ws: string) => {
       execFileSync("git", ["-C", ws, "init", "--initial-branch=main"], { encoding: "utf8" });
@@ -102,6 +111,7 @@ async function startStack(label: string, opts: { delivery?: DeliveryFactory; stu
       execFileSync("git", ["-C", ws, "add", "-A"], { encoding: "utf8" });
       execFileSync("git", ["-C", ws, "commit", "--quiet", "-m", "base"], { encoding: "utf8" });
     },
+    checkRunner: hostTestCheckRunner,
     evidenceChecks: [
       { kind: "deterministic_test", command: ["cat", "delivered.txt"], cwdWorkspace: true, expectOutputContains: "ok" },
     ],
@@ -140,7 +150,20 @@ async function startStack(label: string, opts: { delivery?: DeliveryFactory; stu
     errLog.log(`${new Date().toISOString()} pageerror ${err.message}`);
   });
   log.log(`# stack ${label} @ ${base}(stub worker;非真实模型)`);
-  return { t, server, base, browser, context, page, log, httpLog, errLog, dbLog, remote: opts.delivery ? undefined : undefined, tmpRoots: [] };
+  return {
+    t,
+    server,
+    base,
+    browser,
+    context,
+    page,
+    log,
+    httpLog,
+    errLog,
+    dbLog,
+    remote: opts.delivery ? undefined : undefined,
+    tmpRoots: [],
+  };
 }
 
 async function stopStack(s: Stack): Promise<void> {
@@ -181,12 +204,10 @@ async function openTech(page: Page, id: string): Promise<void> {
   }, id);
 }
 
-
 async function cookieHeader(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
   return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
 }
-
 
 async function createGoalViaUi(page: Page, base: string, rawInput: string): Promise<string> {
   await page.goto(`${base}/index.html`);
@@ -249,7 +270,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     const raw = await textOf(page, '[data-testid="goal-raw-input"]');
     expect(raw).toContain("登录页");
     await shot(page, "j1-goal-created.png");
-    s.log.log(`J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 ${suggestions} 条(含依据/验证方式)`);
+    s.log.log(
+      `J1 OK:创建模糊需求 Goal;分析来源=确定性规则推导;模型 Discovery=显式发起(页面区分规则面/模型结论);建议 ${suggestions} 条(含依据/验证方式)`,
+    );
     await dumpDbState(s, "J1 after goal create");
   });
 
@@ -282,40 +305,42 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     }
 
     try {
-    // A:D3 永不自动批准 —— 任务 NEEDS_DECISION、决策仍 OPEN(只有人能裁决)
-    const dRow = await t.db.execute(sql`SELECT state, verdict FROM decisions WHERE id = 'dec-e2e-d3'`);
-    expect(String(dRow.rows[0]!["state"])).toBe("OPEN");
-    expect(dRow.rows[0]!["verdict"]).toBeNull();
-    const aRow = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskA}`);
-    expect(String(aRow.rows[0]!["state"])).toBe("NEEDS_DECISION");
-    // B:正常推进(终态 ACCEPTED)
-    const bRow = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskB}`);
-    expect(String(bRow.rows[0]!["state"])).toBe("ACCEPTED");
+      // A:D3 永不自动批准 —— 任务 NEEDS_DECISION、决策仍 OPEN(只有人能裁决)
+      const dRow = await t.db.execute(sql`SELECT state, verdict FROM decisions WHERE id = 'dec-e2e-d3'`);
+      expect(String(dRow.rows[0]!["state"])).toBe("OPEN");
+      expect(dRow.rows[0]!["verdict"]).toBeNull();
+      const aRow = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskA}`);
+      expect(String(aRow.rows[0]!["state"])).toBe("NEEDS_DECISION");
+      // B:正常推进(终态 ACCEPTED)
+      const bRow = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskB}`);
+      expect(String(bRow.rows[0]!["state"])).toBe("ACCEPTED");
 
-    // UI:Decision Inbox 展示 D3(OPEN)+ 三动作,无任何"自动批准"入口
-    // WEB-UX-02:面向用户的卡片是中文(级别/状态/建议);内部 D 代码与 OPEN 枚举不再直显
-    await page.goto(`${base}/decisions.html`);
-    await page.waitForSelector('[data-testid="decision-card-dec-e2e-d3"]');
-    const card = await textOf(page, '[data-testid="decision-card-dec-e2e-d3"]');
-    expect(card).toContain("需要你决定");
-    expect(card).toContain("待处理");
-    expect(card).toContain("不会自动批准");
-    expect(await page.locator('[data-testid="approve-dec-e2e-d3"]').count()).toBe(1);
-    expect(await page.locator('[data-testid="reject-dec-e2e-d3"]').count()).toBe(1);
-    expect(await page.locator('[data-testid="defer-dec-e2e-d3"]').count()).toBe(1);
-    const policy = await textOf(page, '[data-testid="d3-policy-notice"]');
-    expect(policy).toContain("永不自动批准");
-    await shot(page, "j2-decision-inbox-d3.png");
+      // UI:Decision Inbox 展示 D3(OPEN)+ 三动作,无任何"自动批准"入口
+      // WEB-UX-02:面向用户的卡片是中文(级别/状态/建议);内部 D 代码与 OPEN 枚举不再直显
+      await page.goto(`${base}/decisions.html`);
+      await page.waitForSelector('[data-testid="decision-card-dec-e2e-d3"]');
+      const card = await textOf(page, '[data-testid="decision-card-dec-e2e-d3"]');
+      expect(card).toContain("需要你决定");
+      expect(card).toContain("待处理");
+      expect(card).toContain("不会自动批准");
+      expect(await page.locator('[data-testid="approve-dec-e2e-d3"]').count()).toBe(1);
+      expect(await page.locator('[data-testid="reject-dec-e2e-d3"]').count()).toBe(1);
+      expect(await page.locator('[data-testid="defer-dec-e2e-d3"]').count()).toBe(1);
+      const policy = await textOf(page, '[data-testid="d3-policy-notice"]');
+      expect(policy).toContain("永不自动批准");
+      await shot(page, "j2-decision-inbox-d3.png");
 
-    // Goal A 页面显示阻塞原因与下一动作(技术详情内:任务状态中文映射 + 原始枚举并列)
-    await page.goto(`${base}/goal.html?id=${goalA}`);
-    await openTech(page, "goal-tech");
-    await page.waitForSelector('[data-testid="goal-tasks"]');
-    const tasks = await textOf(page, '[data-testid="goal-tasks"]');
-    expect(tasks).toContain("等待你的决定");
-    expect(tasks).toContain("NEEDS_DECISION");
-    await shot(page, "j2-goal-a-blocked.png");
-    s.log.log("J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略");
+      // Goal A 页面显示阻塞原因与下一动作(技术详情内:任务状态中文映射 + 原始枚举并列)
+      await page.goto(`${base}/goal.html?id=${goalA}`);
+      await openTech(page, "goal-tech");
+      await page.waitForSelector('[data-testid="goal-tasks"]');
+      const tasks = await textOf(page, '[data-testid="goal-tasks"]');
+      expect(tasks).toContain("等待你的决定");
+      expect(tasks).toContain("NEEDS_DECISION");
+      await shot(page, "j2-goal-a-blocked.png");
+      s.log.log(
+        "J2 OK:D3 任务停留 NEEDS_DECISION(决策仍 OPEN,零自动批准);无关任务推进到 ACCEPTED;UI 提供批准/拒绝/推迟且明示 D3 策略",
+      );
     } finally {
       await dumpDbState(s, "J2 after tick(finally)");
     }
@@ -334,7 +359,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       await crash.page.locator("#tick-msg", { hasText: "推进结果" }).waitFor({ timeout: 90000 });
 
       // DB 事实:Run FAILED(rpc_disconnect/进程退出),任务回到 READY(有界重试,attempt+1)
-      const runRow = await crash.t.db.execute(sql`SELECT outcome, detail->>'reason' AS reason FROM runs ORDER BY started_at DESC LIMIT 1`);
+      const runRow = await crash.t.db.execute(
+        sql`SELECT outcome, detail->>'reason' AS reason FROM runs ORDER BY started_at DESC LIMIT 1`,
+      );
       expect(String(runRow.rows[0]!["outcome"])).toBe("FAILED");
       const taskRow = await crash.t.db.execute(sql`SELECT state, attempt FROM tasks ORDER BY created_at DESC LIMIT 1`);
       expect(String(taskRow.rows[0]!["state"])).toBe("READY");
@@ -357,7 +384,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       const anomalies = await textOf(crash.page, '[data-testid="anomalies-body"]');
       expect(anomalies).toContain("运行失败");
       await shot(crash.page, "j3-dashboard-anomaly.png");
-      crash.log.log("J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed");
+      crash.log.log(
+        "J3 OK:崩溃 Run=FAILED(rpc_disconnect)在 UI 可见;任务恢复 READY(attempt=1,有界重试);Dashboard 异常面板含 run_failed",
+      );
     } finally {
       await dumpDbState(crash, "J3 after crash tick(finally)");
       await stopStack(crash);
@@ -409,11 +438,22 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     expect(heroInput).toBe(1);
     // 手机视口(390×844):Dashboard/Decision 页 body 无横向溢出
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const p of ["/index.html", "/decisions.html", "/system.html", "/projects.html", "/models.html", "/goal.html", "/changeset.html"]) {
+    for (const p of [
+      "/index.html",
+      "/decisions.html",
+      "/system.html",
+      "/projects.html",
+      "/models.html",
+      "/goal.html",
+      "/changeset.html",
+    ]) {
       await page.goto(`${base}${p}`);
       await page.waitForSelector('[data-testid="data-stamp"]');
       const overflow = await page.evaluate((): number => {
-        const g = globalThis as unknown as { document: { documentElement: { scrollWidth: number } }; innerWidth: number };
+        const g = globalThis as unknown as {
+          document: { documentElement: { scrollWidth: number } };
+          innerWidth: number;
+        };
         return g.document.documentElement.scrollWidth - g.innerWidth;
       });
       expect(overflow, p + " 手机视口不应横向溢出").toBeLessThanOrEqual(1);
@@ -432,7 +472,11 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
     const projDir = mkdtempSync(join(tmpdir(), "webux-e2e-proj-"));
     execFileSync("git", ["-C", projDir, "init", "--initial-branch=main"], { encoding: "utf8" });
     const registryFile = join(mkdtempSync(join(tmpdir(), "webux-e2e-reg-")), "projects.json");
-    writeFileSync(registryFile, JSON.stringify({ projects: [{ name: "pilot", path: projDir, repo: "example/pilot", branch: "main" }] }), "utf8");
+    writeFileSync(
+      registryFile,
+      JSON.stringify({ projects: [{ name: "pilot", path: projDir, repo: "example/pilot", branch: "main" }] }),
+      "utf8",
+    );
     process.env["RELAY_PROJECTS_FILE"] = registryFile;
     try {
       // AppShell:桌面侧边栏 + + New Goal 突出按钮
@@ -469,7 +513,10 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       const opened = await page.locator("#app-sidebar.open").count();
       expect(opened).toBe(1);
       const overflow = await page.evaluate((): number => {
-        const g = globalThis as unknown as { document: { documentElement: { scrollWidth: number } }; innerWidth: number };
+        const g = globalThis as unknown as {
+          document: { documentElement: { scrollWidth: number } };
+          innerWidth: number;
+        };
         return g.document.documentElement.scrollWidth - g.innerWidth;
       });
       expect(overflow).toBeLessThanOrEqual(1);
@@ -513,7 +560,12 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
         executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
         verifyRemoteContent: async (commitSha: string) => {
           const scratch = mkdtempSync(join(tmpdir(), "p02c-e2e-verify-"));
-          const r = await verifyRemoteCommitContent({ target: remote.url, commitSha, manifest: c.manifest, scratchDir: scratch });
+          const r = await verifyRemoteCommitContent({
+            target: remote.url,
+            commitSha,
+            manifest: c.manifest,
+            scratchDir: scratch,
+          });
           return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
         },
         manifest: c.manifest,
@@ -544,7 +596,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
     `);
     changesetId = String(csRow.rows[0]!["id"]);
     expect(String(csRow.rows[0]!["delivery_state"])).toBe("DELIVERED");
-    const remoteHead = execFileSync("git", ["-C", remote.dir, "rev-parse", "refs/heads/main"], { encoding: "utf8" }).trim();
+    const remoteHead = execFileSync("git", ["-C", remote.dir, "rev-parse", "refs/heads/main"], {
+      encoding: "utf8",
+    }).trim();
     expect(remoteHead).toBe(String(csRow.rows[0]!["git_commit_sha"]));
 
     // UI:验收结果页第一屏=摘要;三 SHA 在技术证据折叠区(WEB-UX-02 §11)
@@ -577,7 +631,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
     expect(caveat).toContain("GitHub");
     expect(caveat).toContain("尚未接入");
     await shot(page, "j4-changeset-delivered.png");
-    s.log.log(`J4 OK:全链 DELIVERED(远端 HEAD=${remoteHead.slice(0, 12)});UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED`);
+    s.log.log(
+      `J4 OK:全链 DELIVERED(远端 HEAD=${remoteHead.slice(0, 12)});UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED`,
+    );
     await dumpDbState(s, "J4 after delivery");
   });
 

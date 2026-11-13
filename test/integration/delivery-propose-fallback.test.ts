@@ -15,6 +15,7 @@ import { runReviewerSession } from "../../src/runtime/reviewer.ts";
 import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import type { ReviewRunInput, ReviewRunResult } from "../../src/core/gate-orchestrator.ts";
 import type { Exec } from "../../src/core/db.ts";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 const MODEL = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
@@ -37,7 +38,15 @@ describe("P0-ACCEPT R-1:propose 装配失败 ⇒ D3 兜底(不冒泡/不回滚 A
         id: goalId,
         rawInput: "propose 兜底演练",
         budget: { modelCalls: 12 },
-        tasks: [{ id: "t-propose-fb", goalText: "生成", priority: 2, allowedScope: ["/workspace"], allowedCommands: ["echo"] }],
+        tasks: [
+          {
+            id: "t-propose-fb",
+            goalText: "生成",
+            priority: 2,
+            allowedScope: ["/workspace"],
+            allowedCommands: ["echo"],
+          },
+        ],
       }),
     );
     const pi = resolveVendoredPi();
@@ -91,8 +100,14 @@ describe("P0-ACCEPT R-1:propose 装配失败 ⇒ D3 兜底(不冒泡/不回滚 A
         };
       },
       gate: {
+        checkRunner: hostTestCheckRunner,
         evidenceChecks: [
-          { kind: "deterministic_test", command: ["node", "-e", "console.log('ok')"], cwdWorkspace: true, timeoutMs: 10_000 },
+          {
+            kind: "deterministic_test",
+            command: ["node", "-e", "console.log('ok')"],
+            cwdWorkspace: true,
+            timeoutMs: 10_000,
+          },
         ],
         reviewRun,
         reviewAttempts: 1,

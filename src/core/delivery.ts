@@ -22,6 +22,7 @@ import {
   type IntentExecutor,
   type ReconcileDecision,
 } from "./intents.ts";
+import { isAbortRequested } from "./ops.ts";
 import type { WorkspaceManifest } from "./changesets.ts";
 
 /** 候选 commit 绑定事实(三 SHA;core 侧类型,runtime/git-candidate 提供核验实现)。 */
@@ -81,7 +82,13 @@ async function loadChangesetForDelivery(
 }
 
 /** 查询可作授权基础的裁决:已消费 PASS 且绑定当前 task/attempt/候选/需求。 */
-async function findConsumedPass(exec: Exec, taskId: string, attempt: number, candidateSha: string, requirementSha: string): Promise<string | null> {
+async function findConsumedPass(
+  exec: Exec,
+  taskId: string,
+  attempt: number,
+  candidateSha: string,
+  requirementSha: string,
+): Promise<string | null> {
   const res = await exec.execute(sql`
     SELECT id FROM task_gate_verdicts
     WHERE task_id = ${taskId} AND verdict = 'PASS' AND consumed_at IS NOT NULL
@@ -145,7 +152,8 @@ export async function proposeDelivery(exec: Exec, input: ProposeDeliveryInput): 
   const loaded = await loadChangesetForDelivery(exec, input.taskId, input.attempt);
   if (!loaded.ok) return reject(loaded.reason);
   const cs = loaded.cs;
-  if (!cs.gitCommitSha || !cs.gitTreeSha || !cs.gitBaseCommitSha) return reject("no_commit_binding", { changesetId: cs.id });
+  if (!cs.gitCommitSha || !cs.gitTreeSha || !cs.gitBaseCommitSha)
+    return reject("no_commit_binding", { changesetId: cs.id });
   const gitBaseCommitSha = cs.gitBaseCommitSha;
   const gitTreeSha = cs.gitTreeSha;
   const gitCommitSha = cs.gitCommitSha;
@@ -257,7 +265,14 @@ export interface DeliveryIO {
 
 export type DeliveryExecutionResult =
   | { ok: true; state: "DELIVERED"; remoteHead: string; intentId: string }
-  | { ok: false; state: "CONFLICT" | "FAILED" | "NEEDS_RECONCILE"; reason: string; intentId?: string };
+  | {
+      ok: false;
+      // RELAY-CONTROL-SAFETY-04 P0-B B1:STOPPED=停止请求先于外部动作(零外部写入;
+      // proposal 保持 POLICY_APPROVED,恢复仅经人工处置 —— 不与 FAILED[可重试]混淆)
+      state: "CONFLICT" | "FAILED" | "NEEDS_RECONCILE" | "STOPPED";
+      reason: string;
+      intentId?: string;
+    };
 
 async function loadChangeset(exec: Exec, proposal: ProposalRow) {
   const res = await exec.execute(sql`
@@ -273,7 +288,13 @@ export function deliveryIdempotencyKey(proposal: ProposalRow): string {
     .digest("hex");
 }
 
-async function markDelivered(db: RelayDb, proposal: ProposalRow, intentId: string, remoteHead: string, actor: string): Promise<void> {
+async function markDelivered(
+  db: RelayDb,
+  proposal: ProposalRow,
+  intentId: string,
+  remoteHead: string,
+  actor: string,
+): Promise<void> {
   await db.transaction(async (tx) => {
     await (tx as unknown as Exec).execute(sql`
       UPDATE candidate_changesets SET delivery_state = 'DELIVERED',
@@ -288,12 +309,24 @@ async function markDelivered(db: RelayDb, proposal: ProposalRow, intentId: strin
       authority: "WORKER",
       action: "DELIVERY_DELIVERED",
       taskId: proposal.taskId,
-      detail: { proposalId: proposal.id, intentId, commitSha: proposal.commitSha, remoteHead, note: "远端 HEAD 与树内容均已核对" },
+      detail: {
+        proposalId: proposal.id,
+        intentId,
+        commitSha: proposal.commitSha,
+        remoteHead,
+        note: "远端 HEAD 与树内容均已核对",
+      },
     });
   });
 }
 
-async function markConflict(db: RelayDb, proposal: ProposalRow, intentId: string | null, reason: string, actor: string): Promise<void> {
+async function markConflict(
+  db: RelayDb,
+  proposal: ProposalRow,
+  intentId: string | null,
+  reason: string,
+  actor: string,
+): Promise<void> {
   await db.transaction(async (tx) => {
     await (tx as unknown as Exec).execute(sql`
       UPDATE candidate_changesets SET delivery_state = 'CONFLICT',
@@ -301,7 +334,10 @@ async function markConflict(db: RelayDb, proposal: ProposalRow, intentId: string
       WHERE id = ${proposal.changesetId}
     `);
     const goalRow = await (tx as unknown as Exec).execute(sql`SELECT goal_id FROM tasks WHERE id = ${proposal.taskId}`);
-    const goalId = goalRow.rows[0]?.["goal_id"] === null || goalRow.rows[0]?.["goal_id"] === undefined ? null : String(goalRow.rows[0]!["goal_id"]);
+    const goalId =
+      goalRow.rows[0]?.["goal_id"] === null || goalRow.rows[0]?.["goal_id"] === undefined
+        ? null
+        : String(goalRow.rows[0]!["goal_id"]);
     await (tx as unknown as Exec).execute(sql`
       INSERT INTO decisions (id, task_id, goal_id, level, question, state)
       VALUES (${`dec-dl-${randomUUID()}`}, ${proposal.taskId}, ${goalId}, 'D3',
@@ -312,12 +348,23 @@ async function markConflict(db: RelayDb, proposal: ProposalRow, intentId: string
       authority: "WORKER",
       action: "DELIVERY_CONFLICT",
       taskId: proposal.taskId,
-      detail: { proposalId: proposal.id, intentId, reason, note: "交付层冲突不回滚 Gate 结论(ACCEPTED 终态);D3 人工处置" },
+      detail: {
+        proposalId: proposal.id,
+        intentId,
+        reason,
+        note: "交付层冲突不回滚 Gate 结论(ACCEPTED 终态);D3 人工处置",
+      },
     });
   });
 }
 
-async function markFailed(db: RelayDb, proposal: ProposalRow, intentId: string | null, reason: string, actor: string): Promise<void> {
+async function markFailed(
+  db: RelayDb,
+  proposal: ProposalRow,
+  intentId: string | null,
+  reason: string,
+  actor: string,
+): Promise<void> {
   await db.transaction(async (tx) => {
     await (tx as unknown as Exec).execute(sql`
       UPDATE candidate_changesets SET delivery_state = 'FAILED',
@@ -355,12 +402,20 @@ export async function executeDelivery(
     let head: string;
     try {
       head = await io.executor.check({
-        id: proposal.id, taskId: proposal.taskId, capability: proposal.capability,
-        target: proposal.target, branch: proposal.branch,
-        expectedRemoteSha: proposal.expectedRemoteSha, payloadSha: proposal.commitSha,
+        id: proposal.id,
+        taskId: proposal.taskId,
+        capability: proposal.capability,
+        target: proposal.target,
+        branch: proposal.branch,
+        expectedRemoteSha: proposal.expectedRemoteSha,
+        payloadSha: proposal.commitSha,
       });
     } catch (err) {
-      return { ok: false, state: "NEEDS_RECONCILE", reason: `consumed_check_failed:${(err as Error).message.slice(0, 200)}` };
+      return {
+        ok: false,
+        state: "NEEDS_RECONCILE",
+        reason: `consumed_check_failed:${(err as Error).message.slice(0, 200)}`,
+      };
     }
     if (head === proposal.commitSha) {
       let content: Awaited<ReturnType<typeof io.verifyRemoteContent>>;
@@ -369,8 +424,11 @@ export async function executeDelivery(
       } catch (err) {
         // 核验实现抛错(如远端瞬断)= 结果不明 ⇒ 不翻转记录,交 Reconcile 先查真实状态
         await appendAudit(db as unknown as Exec, {
-          actor, authority: "WORKER", action: "DELIVERY_NEEDS_RECONCILE",
-          taskId: proposal.taskId, intentId: `recovered-${proposal.id}`,
+          actor,
+          authority: "WORKER",
+          action: "DELIVERY_NEEDS_RECONCILE",
+          taskId: proposal.taskId,
+          intentId: `recovered-${proposal.id}`,
           detail: { proposalId: proposal.id, reason: `consumed_verify_failed:${(err as Error).message.slice(0, 200)}` },
         });
         return { ok: false, state: "NEEDS_RECONCILE", reason: "consumed_verify_failed" };
@@ -389,6 +447,26 @@ export async function executeDelivery(
   }
   if (proposal.state !== "POLICY_APPROVED") {
     return { ok: false, state: "FAILED", reason: `proposal_state_${proposal.state}` };
+  }
+
+  // RELAY-CONTROL-SAFETY-04 P0-B B3/B7:交付执行入口的确定性停止边界 —— proposal 已批准、
+  // 外部动作尚未开始;abort 旗标已置 ⇒ 不预留 Intent、不执行外部写入(零外部副作用)。
+  // proposal 保持 POLICY_APPROVED(changeset 交付态不变),恢复仅经人工处置;
+  // 本边界之后(预留 Intent → perform 前) intents 层还有最后停止边界(纵深)。
+  if (await isAbortRequested(db as unknown as Exec, proposal.taskId)) {
+    await appendAudit(db as unknown as Exec, {
+      actor,
+      authority: "WORKER",
+      action: "DELIVERY_STOPPED_BEFORE_EXTERNAL",
+      taskId: proposal.taskId,
+      detail: {
+        proposalId: proposal.id,
+        changesetId: proposal.changesetId,
+        reason: "abort_requested_before_external",
+        note: "停止请求先于外部动作:零 Intent、零外部写入;交付保持 PROPOSED 等待人工处置",
+      },
+    });
+    return { ok: false, state: "STOPPED", reason: "abort_requested_before_external" };
   }
 
   const intentKey = deliveryIdempotencyKey(proposal);
@@ -425,21 +503,34 @@ export async function executeDelivery(
     let head: string;
     try {
       head = await io.executor.check({
-        id: intentId, taskId: proposal.taskId, capability: proposal.capability,
-        target: proposal.target, branch: proposal.branch,
-        expectedRemoteSha: proposal.expectedRemoteSha, payloadSha: proposal.commitSha,
+        id: intentId,
+        taskId: proposal.taskId,
+        capability: proposal.capability,
+        target: proposal.target,
+        branch: proposal.branch,
+        expectedRemoteSha: proposal.expectedRemoteSha,
+        payloadSha: proposal.commitSha,
       });
     } catch (err) {
       // 写后核对不可达 = 结果不明 ⇒ NEEDS_RECONCILE(先查真实状态,绝不盲推/盲标 DELIVERED)
       await appendAudit(db as unknown as Exec, {
-        actor, authority: "WORKER", action: "DELIVERY_NEEDS_RECONCILE",
-        taskId: proposal.taskId, intentId,
+        actor,
+        authority: "WORKER",
+        action: "DELIVERY_NEEDS_RECONCILE",
+        taskId: proposal.taskId,
+        intentId,
         detail: { proposalId: proposal.id, reason: `postverify_check_failed:${(err as Error).message.slice(0, 200)}` },
       });
       return { ok: false, state: "NEEDS_RECONCILE", reason: "postverify_check_failed", intentId };
     }
     if (head !== proposal.commitSha) {
-      await markConflict(db, proposal, intentId, `postverify_head_moved:expected ${proposal.commitSha} actual ${head}`, actor);
+      await markConflict(
+        db,
+        proposal,
+        intentId,
+        `postverify_head_moved:expected ${proposal.commitSha} actual ${head}`,
+        actor,
+      );
       return { ok: false, state: "CONFLICT", reason: "postverify_head_moved", intentId };
     }
     let content: Awaited<ReturnType<typeof io.verifyRemoteContent>>;
@@ -450,8 +541,11 @@ export async function executeDelivery(
       // (绝不误标 DELIVERED;intent 回执已 COMPLETED,恢复经 reconcileDelivery 的
       //  already_completed 路径补核对,方向与 §3.6 意图一致)
       await appendAudit(db as unknown as Exec, {
-        actor, authority: "WORKER", action: "DELIVERY_NEEDS_RECONCILE",
-        taskId: proposal.taskId, intentId,
+        actor,
+        authority: "WORKER",
+        action: "DELIVERY_NEEDS_RECONCILE",
+        taskId: proposal.taskId,
+        intentId,
         detail: { proposalId: proposal.id, reason: `postverify_verify_failed:${(err as Error).message.slice(0, 200)}` },
       });
       return { ok: false, state: "NEEDS_RECONCILE", reason: "postverify_verify_failed", intentId };
@@ -464,13 +558,22 @@ export async function executeDelivery(
     return { ok: true, state: "DELIVERED", remoteHead: head, intentId };
   }
   if (result.state === "CONFLICT") {
-    await markConflict(db, proposal, intentId, `remote_drift:${result.reason}(expected ${proposal.expectedRemoteSha} actual ${result.actual ?? "unknown"})`, actor);
+    await markConflict(
+      db,
+      proposal,
+      intentId,
+      `remote_drift:${result.reason}(expected ${proposal.expectedRemoteSha} actual ${result.actual ?? "unknown"})`,
+      actor,
+    );
     return { ok: false, state: "CONFLICT", reason: result.reason, intentId };
   }
   if (result.state === "EXECUTING") {
     await appendAudit(db as unknown as Exec, {
-      actor, authority: "WORKER", action: "DELIVERY_NEEDS_RECONCILE",
-      taskId: proposal.taskId, intentId,
+      actor,
+      authority: "WORKER",
+      action: "DELIVERY_NEEDS_RECONCILE",
+      taskId: proposal.taskId,
+      intentId,
       detail: { proposalId: proposal.id, reason: result.reason },
     });
     return { ok: false, state: "NEEDS_RECONCILE", reason: result.reason, intentId };
@@ -479,8 +582,11 @@ export async function executeDelivery(
   return { ok: false, state: "FAILED", reason: result.reason, intentId };
 }
 
-export type DeliveryReconcileResult =
-  | { decision: ReconcileDecision | "already_completed"; state: "DELIVERED" | "PROPOSED" | "CONFLICT"; remoteHead?: string };
+export type DeliveryReconcileResult = {
+  decision: ReconcileDecision | "already_completed";
+  state: "DELIVERED" | "PROPOSED" | "CONFLICT";
+  remoteHead?: string;
+};
 
 /**
  * D-10:结果不明时的恢复入口。先查远端真实状态再决策(绝不盲目重推):
@@ -514,18 +620,42 @@ export async function reconcileDelivery(
     try {
       content = await io.verifyRemoteContent(payloadSha);
     } catch (err) {
-      await markConflict(db, proposal, intentId, `reconcile_verify_failed:${(err as Error).message.slice(0, 200)}`, actor);
-      return { decision: r.decision, state: "CONFLICT", ...(r.actualRemoteHead !== undefined ? { remoteHead: r.actualRemoteHead } : {}) };
+      await markConflict(
+        db,
+        proposal,
+        intentId,
+        `reconcile_verify_failed:${(err as Error).message.slice(0, 200)}`,
+        actor,
+      );
+      return {
+        decision: r.decision,
+        state: "CONFLICT",
+        ...(r.actualRemoteHead !== undefined ? { remoteHead: r.actualRemoteHead } : {}),
+      };
     }
     if (!content.ok) {
-      await markConflict(db, proposal, intentId, `reconcile_postverify:${content.mismatches.slice(0, 10).join(",")}`, actor);
-      return { decision: r.decision, state: "CONFLICT", ...(r.actualRemoteHead !== undefined ? { remoteHead: r.actualRemoteHead } : {}) };
+      await markConflict(
+        db,
+        proposal,
+        intentId,
+        `reconcile_postverify:${content.mismatches.slice(0, 10).join(",")}`,
+        actor,
+      );
+      return {
+        decision: r.decision,
+        state: "CONFLICT",
+        ...(r.actualRemoteHead !== undefined ? { remoteHead: r.actualRemoteHead } : {}),
+      };
     }
     const cs = await loadChangeset(exec, proposal);
     if (cs && String(cs["delivery_state"]) !== "DELIVERED") {
       await markDelivered(db, proposal, intentId, payloadSha, actor);
     }
-    return { decision: r.decision, state: "DELIVERED", ...(r.actualRemoteHead !== undefined ? { remoteHead: r.actualRemoteHead } : {}) };
+    return {
+      decision: r.decision,
+      state: "DELIVERED",
+      ...(r.actualRemoteHead !== undefined ? { remoteHead: r.actualRemoteHead } : {}),
+    };
   }
   if (r.decision === "SIDE_EFFECT_CONFIRMED") {
     // 副作用已发生(远端头==payload):核对内容后补 DELIVERED,绝不重推
@@ -533,11 +663,23 @@ export async function reconcileDelivery(
     try {
       content = await io.verifyRemoteContent(payloadSha);
     } catch (err) {
-      await markConflict(db, proposal, intentId, `reconcile_verify_failed:${(err as Error).message.slice(0, 200)}`, actor);
+      await markConflict(
+        db,
+        proposal,
+        intentId,
+        `reconcile_verify_failed:${(err as Error).message.slice(0, 200)}`,
+        actor,
+      );
       return { decision: r.decision, state: "CONFLICT", remoteHead: r.actualRemoteHead };
     }
     if (!content.ok) {
-      await markConflict(db, proposal, intentId, `reconcile_postverify:${content.mismatches.slice(0, 10).join(",")}`, actor);
+      await markConflict(
+        db,
+        proposal,
+        intentId,
+        `reconcile_postverify:${content.mismatches.slice(0, 10).join(",")}`,
+        actor,
+      );
       return { decision: r.decision, state: "CONFLICT", remoteHead: r.actualRemoteHead };
     }
     await markDelivered(db, proposal, intentId, payloadSha, actor);
@@ -549,13 +691,22 @@ export async function reconcileDelivery(
         UPDATE candidate_changesets SET delivery_state = 'PROPOSED' WHERE id = ${proposal.changesetId} AND delivery_state = 'DELIVERING'
       `);
       await appendAudit(tx as unknown as Exec, {
-        actor, authority: "RECONCILER", action: "DELIVERY_RECONCILE_SAFE_RETRY",
-        taskId: proposal.taskId, intentId,
+        actor,
+        authority: "RECONCILER",
+        action: "DELIVERY_RECONCILE_SAFE_RETRY",
+        taskId: proposal.taskId,
+        intentId,
         detail: { decision: r.decision, actualRemoteHead: r.actualRemoteHead },
       });
     });
     return { decision: r.decision, state: "PROPOSED", remoteHead: r.actualRemoteHead };
   }
-  await markConflict(db, proposal, intentId, `reconcile_remote_moved(actual ${r.actualRemoteHead ?? "unknown"})`, actor);
+  await markConflict(
+    db,
+    proposal,
+    intentId,
+    `reconcile_remote_moved(actual ${r.actualRemoteHead ?? "unknown"})`,
+    actor,
+  );
   return { decision: r.decision, state: "CONFLICT", remoteHead: r.actualRemoteHead };
 }

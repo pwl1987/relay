@@ -25,6 +25,7 @@ import { executeRun } from "../../src/runtime/runner.ts";
 import { runReviewerSession } from "../../src/runtime/reviewer.ts";
 import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { assertOk } from "../setup/assert.ts";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 const MODEL = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
@@ -378,6 +379,7 @@ describe("Gate 最低机器证据(反例先行)", () => {
         actor: "test-dme",
       },
       {
+        checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "console.log('check ok')"], cwdWorkspace: true },
         ],
@@ -409,6 +411,7 @@ describe("Gate 最低机器证据(反例先行)", () => {
         actor: "test-dme",
       },
       {
+        checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "process.exit(3)"], cwdWorkspace: true },
         ],

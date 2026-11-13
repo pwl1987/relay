@@ -21,19 +21,45 @@ import {
   type ModelConfig,
   type SandboxSpec,
 } from "../runtime/sandbox.ts";
+import { dockerCheckRunner } from "../runtime/check-sandbox.ts";
 import type { EgressStatus } from "../runtime/egress.ts";
-import type { CheckSpec } from "../core/evidence.ts";
+import type { CheckRunner, CheckSpec } from "../core/evidence.ts";
 import { taskFollowUpMessagesView } from "./views/goal.ts";
 
 export type WorkerMode = "live" | "stub" | "external";
 
-/** 尽力而为审计(不改变 Run 结果;失败仅吞掉 —— 审计失败不得打断执行链)。 */
-async function appendAuditSafe(db: RelayDb, event: Parameters<typeof appendAudit>[1]): Promise<void> {
-  try {
-    await db.transaction(async (tx) => appendAudit(tx as unknown as Exec, event));
-  } catch {
-    /* 审计失败不改变 Run 结果 */
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * 尽力而为审计(不改变 Run 结果;P1-C C4:失败不得被静默吞掉)——
+ * 重试 3 次(250ms 间隔);仍失败 ⇒ 结构化 console.error 告警(journald 可观察;
+ * 事件原文随告警保留,权威事实可人工补记),绝不无声丢失 STOP_CONFIRMED 类权威事实。
+ */
+export async function appendAuditSafe(db: RelayDb, event: Parameters<typeof appendAudit>[1]): Promise<boolean> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await db.transaction(async (tx) => appendAudit(tx as unknown as Exec, event));
+      return true;
+    } catch (err) {
+      if (attempt < 3) await sleepMs(250);
+      else {
+        // C4 可观察告警:结构化输出(审计失败=权威事实未落库,须人工补记;不改变 Run 结果)
+        console.error(
+          `[relay-worker] AUDIT_WRITE_FAILED(审计写入失败,已重试 3 次;事件未落库,需人工补记) ${JSON.stringify({
+            level: "AUDIT_WRITE_FAILED",
+            action: event.action,
+            taskId: event.taskId ?? null,
+            event,
+            error: err instanceof Error ? err.message : String(err),
+            at: new Date().toISOString(),
+          })}`,
+        );
+      }
+    }
   }
+  return false;
 }
 
 export interface WorkerDriver {
@@ -74,6 +100,12 @@ export interface LiveWorkerOptions {
   reviewerReserveCallsPerRun?: number;
   reviewAttempts?: number;
   evidenceChecks?: CheckSpec[];
+  /**
+   * 检查执行器端口(RELAY-CONTROL-SAFETY-04 P0-A):候选功能检查执行面。
+   * 缺省:docker 沙箱 ⇒ runtime dockerCheckRunner;host-fallback(仅 stub 测试)⇒
+   * 不注入 ⇒ FAIL-CLOSED(检查按失败处理;绝不退回宿主执行)。测试可显式注入 stub。
+   */
+  checkRunner?: CheckRunner;
   delivery?: DeliveryFactory;
   /** 候选 stage 仓库根目录(交付用) */
   stageBaseDir?: string;
@@ -270,6 +302,13 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
         gate: {
           reviewAttempts: options.reviewAttempts ?? 2,
           ...(options.evidenceChecks ? { evidenceChecks: options.evidenceChecks } : {}),
+          // P0-A:检查执行面 —— docker 沙箱为生产缺省;未注入(docker 不可用/host-fallback
+          // 且未显式注入)⇒ FAIL-CLOSED(检查按失败处理;绝不退回宿主执行)
+          ...(options.checkRunner
+            ? { checkRunner: options.checkRunner }
+            : sandbox === "docker"
+              ? { checkRunner: dockerCheckRunner({ egress: options.egress }) }
+              : {}),
           // 内建候选清单复验(RELAY-QUALITY-LOCAL-01 D1 引入;RELAY-SAFETY-CLOSE-02 P0-B 降格为
           // 完整性硬门):重采工作区清单比对 candidate_sha,零编辑空提交/内容不一致 ⇒ 拦截。
           // 完整性不证明行为:未配置功能性机器检查(evidenceChecks)的代码变更候选 ⇒ 保守停机

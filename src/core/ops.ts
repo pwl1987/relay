@@ -177,6 +177,14 @@ export async function pauseTask(
 }
 
 // RELAY-CONTROL-READY-03 P1-3:紧急停止与人工接管最小切片。
+// RELAY-CONTROL-SAFETY-04 P0-B 扩展:ACCEPTED(已验收)且交付未完成(PROPOSED/DELIVERING)
+// ⇒ 允许"交付阶段停止"(同一 abort 旗标,不引入第二生命周期):
+//   - 交付未开始 ⇒ 边界检查(executeDelivery 入口 + perform 前)阻止外部写入;
+//   - 交付外部动作已在进行 ⇒ 回执如实 external_in_progress,**不声称 STOP_CONFIRMED**,
+//     结果以远端核对为准(NEEDS_RECONCILE);已发生的外部提交不可撤销(合同 B2,如实陈述);
+//   - 已 DELIVERED/无交付 ⇒ 拒绝(无停止对象,不混语义)。
+// ControlCommand 审计最小字段(P1-C C3):actor/task/runId/expectedVersion/幂等键/请求时间/
+// 实际结果/控制权状态。
 // 语义(AGENT_CONTROL §4;回执三分:REQUESTED=RECEIVED / 旗标生效=APPLIED /
 // run=CANCELLED+任务终态=STOP_CONFIRMED —— 三者不混淆,均落审计):
 //   - abort 旗标跨进程安全(无需触碰 worker 进程):worker 在 Run 期间心跳轮询
@@ -196,9 +204,57 @@ export interface AbortResult {
   reason?: string;
   alreadyRequested?: boolean;
   fromState?: string;
+  /** 停止相位:P1-C C1 —— run=在飞 Run 停止;delivery=验收后交付阶段停止 */
+  phase?: "run" | "delivery";
+  /** 控制权状态(C1/C2:停止确认前不构成"获得人工控制权";交付相位=真实交付态) */
+  controlState?: string;
 }
 
-/** 请求紧急停止(abort 旗标;幂等;仅在飞状态;OPERATOR 授权 + 可选 state_version 校验)。 */
+/**
+ * 交付阶段相位查询(P0-B B1 五态判别;基于既有 changeset.delivery_state + proposal +
+ * intent 状态,不复制状态机):not_started(未开始)/ external_in_progress(外部动作已在进行)/
+ * already_delivered(已交付)/ none(无可停止交付)。
+ * 注意:proposeDelivery 只建 action_proposals 行,changeset.delivery_state 在 executeDelivery
+ * 才推进 —— "已批准未执行"的相位必须同时查 proposal 面(P0-B B7 竞争测试实证)。
+ */
+export async function deliveryStopPhase(exec: Exec, taskId: string): Promise<string> {
+  const res = await exec.execute(sql`
+    SELECT cc.delivery_state AS delivery_state, cc.delivery_intent_id AS intent_id, ai.state AS intent_state
+    FROM candidate_changesets cc
+    LEFT JOIN action_intents ai ON ai.id = cc.delivery_intent_id
+    WHERE cc.task_id = ${taskId}
+    ORDER BY cc.created_at DESC, cc.id DESC
+    LIMIT 1
+  `);
+  const row = res.rows[0];
+  if (!row) return "none";
+  const ds = String(row["delivery_state"] ?? "NONE");
+  if (ds === "DELIVERED") return "already_delivered";
+  if (ds === "DELIVERING") {
+    // intent 已 EXECUTING = 外部动作可能已在进行(诚实相位;绝不声称已停止)
+    return String(row["intent_state"] ?? "") === "EXECUTING" ? "external_in_progress" : "not_started";
+  }
+  if (ds === "PROPOSED") return "not_started";
+  if (ds === "NONE") {
+    // changeset 交付态未推进:已批准未执行的 proposal ⇒ not_started(可停止);否则无可停止对象
+    const p = await exec.execute(sql`
+      SELECT 1 FROM action_proposals
+      WHERE task_id = ${taskId} AND state = 'POLICY_APPROVED'
+      ORDER BY updated_at DESC LIMIT 1
+    `);
+    return p.rows.length > 0 ? "not_started" : "none";
+  }
+  return "none"; // CONFLICT/FAILED:无在飞外部写入,不混停止语义(D3 人工处置既有路径)
+}
+
+/** 最新 run id(ControlCommand 审计字段 C3;无 run 为 null)。 */
+async function latestRunId(exec: Exec, taskId: string): Promise<string | null> {
+  const r = await exec.execute(sql`
+    SELECT id FROM runs WHERE task_id = ${taskId} ORDER BY started_at DESC, id DESC LIMIT 1`);
+  return r.rows[0] ? String(r.rows[0]!["id"]) : null;
+}
+
+/** 请求紧急停止(abort 旗标;幂等;仅在飞状态或交付阶段;OPERATOR 授权 + 可选 state_version 校验)。 */
 export async function requestTaskAbort(
   exec: Exec,
   taskId: string,
@@ -217,8 +273,8 @@ export async function requestTaskAbort(
   const task = await lockTaskRow(exec, taskId);
   if (!task) return { ok: false, reason: "task_not_found" };
   const fromState = String(task["state"]);
-  if (isTerminal(fromState)) return { ok: false, reason: `state_terminal:${fromState}`, fromState };
-  if (opts.expectedStateVersion !== undefined && Number(task["state_version"]) !== opts.expectedStateVersion) {
+  const expectedVersionActual = Number(task["state_version"]);
+  if (opts.expectedStateVersion !== undefined && expectedVersionActual !== opts.expectedStateVersion) {
     await appendAudit(exec, {
       actor: opts.actor,
       authority: "OPERATOR",
@@ -227,11 +283,67 @@ export async function requestTaskAbort(
       detail: {
         reason: "state_version_mismatch",
         expected: opts.expectedStateVersion,
-        actual: Number(task["state_version"]),
+        actual: expectedVersionActual,
       },
     });
     return { ok: false, reason: "state_version_mismatch", fromState };
   }
+  // C3 幂等键:abort 命令面=set-if-null 旗标;键绑定 (taskId),审计如实记录
+  const idempotencyKey = `abort:${taskId}`;
+
+  // P0-B:交付阶段停止(ACCEPTED 终态上唯一被授权的停止语义;B1 五态/ B3/B4 诚实回执)
+  if (fromState === "ACCEPTED") {
+    const phase = await deliveryStopPhase(exec, taskId);
+    if (phase === "none") {
+      await appendAudit(exec, {
+        actor: opts.actor,
+        authority: "OPERATOR",
+        action: "TASK_ABORT_REJECTED",
+        taskId,
+        detail: { reason: "state_terminal:ACCEPTED", note: "已验收且无可停止交付(无 PROPOSED/DELIVERING 变更集)" },
+      });
+      return { ok: false, reason: "state_terminal:ACCEPTED", fromState };
+    }
+    if (phase === "already_delivered") {
+      // B2/B4:外部提交已发生 ⇒ 停止请求不撤销已发生的事实;诚实回执(不置旗、不虚报停止)
+      return { ok: true, fromState, phase: "delivery", controlState: "already_delivered" };
+    }
+    if (task["abort_requested_at"] !== null && task["abort_requested_at"] !== undefined) {
+      // 幂等:旗标已置;回执仍按当前真实相位(重复点击不重复生效,不虚报)
+      return { ok: true, alreadyRequested: true, fromState, phase: "delivery", controlState: phase };
+    }
+    await exec.execute(sql`
+      UPDATE tasks SET abort_requested_at = now(), updated_at = now()
+      WHERE id = ${taskId} AND abort_requested_at IS NULL
+    `);
+    const runId = await latestRunId(exec, taskId);
+    await appendAudit(exec, {
+      actor: opts.actor,
+      authority: "OPERATOR",
+      action: "TASK_ABORT_REQUESTED",
+      taskId,
+      beforeState: fromState,
+      afterState: fromState,
+      detail: {
+        fromState,
+        phase: "delivery",
+        runId,
+        expectedStateVersion: opts.expectedStateVersion ?? null,
+        idempotencyKey,
+        requestTime: new Date().toISOString(),
+        actualResult: "requested",
+        controlState: phase,
+        note:
+          "交付阶段停止请求(RECEIVED):边界检查将阻止未开始的外部写入;" +
+          (phase === "external_in_progress"
+            ? "外部动作已在进行,不声称 STOP_CONFIRMED,结果以远端核对为准"
+            : "尚未发生外部写入"),
+      },
+    });
+    return { ok: true, fromState, phase: "delivery", controlState: phase };
+  }
+
+  if (isTerminal(fromState)) return { ok: false, reason: `state_terminal:${fromState}`, fromState };
   if (!ABORTABLE_STATES.has(fromState)) {
     await appendAudit(exec, {
       actor: opts.actor,
@@ -243,12 +355,13 @@ export async function requestTaskAbort(
     return { ok: false, reason: `abort_requires_in_flight:${fromState}`, fromState };
   }
   if (task["abort_requested_at"] !== null && task["abort_requested_at"] !== undefined) {
-    return { ok: true, alreadyRequested: true, fromState }; // 幂等:旗标已置,不重复审计生效
+    return { ok: true, alreadyRequested: true, fromState, phase: "run" }; // 幂等:旗标已置,不重复审计生效
   }
   await exec.execute(sql`
     UPDATE tasks SET abort_requested_at = now(), updated_at = now()
     WHERE id = ${taskId} AND abort_requested_at IS NULL
   `);
+  const runId = await latestRunId(exec, taskId);
   await appendAudit(exec, {
     actor: opts.actor,
     authority: "OPERATOR",
@@ -258,10 +371,18 @@ export async function requestTaskAbort(
     afterState: fromState,
     detail: {
       fromState,
+      phase: "run",
+      runId,
+      expectedStateVersion: opts.expectedStateVersion ?? null,
+      idempotencyKey,
+      requestTime: new Date().toISOString(),
+      actualResult: "requested",
+      // C1/C2:停止确认前不构成获得人工控制权(worker 轮询生效/Run 确认后才是 STOP_CONFIRMED)
+      controlState: "stop_pending_confirmation",
       note: "abort 旗标置位(RECEIVED);worker 轮询生效(APPLIED);run=CANCELLED+任务终态=STOP_CONFIRMED",
     },
   });
-  return { ok: true, fromState };
+  return { ok: true, fromState, phase: "run", controlState: "stop_pending_confirmation" };
 }
 
 /** 紧急停止旗标读取(RELAY-CONTROL-READY-03 F-1 修复:Gate 编排链接入旗标 —— 独立函数供

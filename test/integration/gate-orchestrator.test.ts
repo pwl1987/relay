@@ -17,6 +17,7 @@ import { executeRun } from "../../src/runtime/runner.ts";
 import { runReviewerSession } from "../../src/runtime/reviewer.ts";
 import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { assertOk } from "../setup/assert.ts";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 const MODEL = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
@@ -120,6 +121,7 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
         actor: "test-orch",
       },
       {
+        checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           // 真实确定性检查:候选文件内容核验(Worker 侧执行,非模型判定)
           {
@@ -172,7 +174,12 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub("REWORK"), reviewAttempts: 1 },
+      {
+        checkRunner: hostTestCheckRunner,
+        evidenceChecks: PASSING_CHECK,
+        reviewRun: reviewerStub("REWORK"),
+        reviewAttempts: 1,
+      },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("REWORK");
     const st = await t.db.execute(
@@ -193,7 +200,12 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub("BLOCK"), reviewAttempts: 1 },
+      {
+        checkRunner: hostTestCheckRunner,
+        evidenceChecks: PASSING_CHECK,
+        reviewRun: reviewerStub("BLOCK"),
+        reviewAttempts: 1,
+      },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
@@ -217,7 +229,12 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub(null), reviewAttempts: 2 },
+      {
+        checkRunner: hostTestCheckRunner,
+        evidenceChecks: PASSING_CHECK,
+        reviewRun: reviewerStub(null),
+        reviewAttempts: 2,
+      },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
@@ -241,7 +258,12 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub("BLOCK"), reviewAttempts: 1 },
+      {
+        checkRunner: hostTestCheckRunner,
+        evidenceChecks: PASSING_CHECK,
+        reviewRun: reviewerStub("BLOCK"),
+        reviewAttempts: 1,
+      },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);

@@ -11,6 +11,7 @@
 import { sql } from "drizzle-orm";
 import type { Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
+import { isAbortRequested } from "./ops.ts";
 
 export type IntentState = "RESERVED" | "EXECUTING" | "COMPLETED" | "CONFLICT" | "FAILED";
 
@@ -76,10 +77,7 @@ async function rowToRef(row: IntentRow): Promise<IntentRef> {
 }
 
 // 阶段 1:预留意图(idempotency_key 幂等;同 key 重复预留不产生第二行)。
-export async function reserveIntent(
-  exec: Exec,
-  spec: ReserveIntentSpec,
-): Promise<{ id: string; created: boolean }> {
+export async function reserveIntent(exec: Exec, spec: ReserveIntentSpec): Promise<{ id: string; created: boolean }> {
   const id = spec.id ?? `intent-${spec.idempotencyKey}`;
   const res = await exec.execute(sql`
     INSERT INTO action_intents
@@ -185,6 +183,28 @@ export async function executeIntent(
     await new Promise((resolve) => setTimeout(resolve, options.preActionPauseMs));
   }
 
+  // RELAY-CONTROL-SAFETY-04 P0-B B3/B7:外部动作前的最后确定性停止边界 —— 旗标在
+  // 预留后、perform 前到达 ⇒ intent 落 FAILED(可按预算重试;重试仍会前置核对+本边界),
+  // 零外部副作用;审计 EXECUTE_STOPPED_BEFORE_PERFORM(RECEIVED 之后的真实执行事实)。
+  // 本检查之后 perform 已在途 ⇒ 外部动作不可拦截(结果如实交核对/Reconcile,不虚报 STOP_CONFIRMED)。
+  if (ref.taskId !== null && (await isAbortRequested(exec, ref.taskId))) {
+    await exec.execute(sql`
+      UPDATE action_intents SET state = 'FAILED', updated_at = now() WHERE id = ${intentId}
+    `);
+    await appendAudit(exec, {
+      actor,
+      authority: "WORKER",
+      action: "EXECUTE_STOPPED_BEFORE_PERFORM",
+      taskId: ref.taskId,
+      intentId,
+      detail: {
+        reason: "abort_requested_before_perform",
+        note: "停止请求先于外部动作:零外部写入;intent=FAILED(重试仍过前置核对+本边界)",
+      },
+    });
+    return { ok: false, state: "FAILED", reason: "abort_requested_before_perform" };
+  }
+
   try {
     await executor.perform(ref);
   } catch (err) {
@@ -284,7 +304,12 @@ export async function reconcileIntent(
     taskId: ref.taskId,
     intentId,
     beforeState: intent.state,
-    afterState: decision === "SIDE_EFFECT_CONFIRMED" ? "COMPLETED" : decision === "REMOTE_MOVED_NEEDS_HUMAN" ? "CONFLICT" : "RESERVED",
+    afterState:
+      decision === "SIDE_EFFECT_CONFIRMED"
+        ? "COMPLETED"
+        : decision === "REMOTE_MOVED_NEEDS_HUMAN"
+          ? "CONFLICT"
+          : "RESERVED",
     detail: {
       decision,
       intentState: intent.state,

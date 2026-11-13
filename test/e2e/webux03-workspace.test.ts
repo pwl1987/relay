@@ -24,6 +24,7 @@ import { DEFAULT_DELIVERY_POLICY } from "../../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
 import { makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const E2E = process.env.RELAY_E2E === "1";
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
@@ -83,6 +84,7 @@ async function startStack(
       execFileSync("git", ["-C", ws, "add", "-A"], { encoding: "utf8" });
       execFileSync("git", ["-C", ws, "commit", "--quiet", "-m", "base"], { encoding: "utf8" });
     },
+    checkRunner: hostTestCheckRunner,
     evidenceChecks: [
       { kind: "deterministic_test", command: ["cat", "delivered.txt"], cwdWorkspace: true, expectOutputContains: "ok" },
     ],

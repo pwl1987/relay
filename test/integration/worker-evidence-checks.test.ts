@@ -38,6 +38,20 @@ describe("RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed)",
     );
   });
 
+  it("P0-A 配置面:cwdWorkspace 显式 false 保留(容器内 /tmp);非布尔 cwdWorkspace/allowEgressNetwork ⇒ fail-closed 抛错", () => {
+    const out = resolveEvidenceChecks(
+      '[{"kind":"deterministic_test","command":["node","-e","1"],"cwdWorkspace":false,"allowEgressNetwork":true}]',
+    );
+    expect(out![0]!.cwdWorkspace).toBe(false);
+    expect(out![0]!.allowEgressNetwork).toBe(true);
+    expect(() =>
+      resolveEvidenceChecks('[{"kind":"deterministic_test","command":["x"],"cwdWorkspace":"yes"}]'),
+    ).toThrow(/cwdWorkspace/);
+    expect(() =>
+      resolveEvidenceChecks('[{"kind":"deterministic_test","command":["x"],"allowEgressNetwork":"1"}]'),
+    ).toThrow(/allowEgressNetwork/);
+  });
+
   it("startWorkerEntry:非法配置在连接 DB 之前即抛(启动 fail-closed,零连接零副作用)", () => {
     const saved = process.env.RELAY_EVIDENCE_CHECKS_JSON;
     try {

@@ -15,6 +15,7 @@ import { Auth } from "../../src/server/auth.ts";
 import { createRelayServer } from "../../src/server/app.ts";
 import { createLiveWorkerDriver } from "../../src/server/worker.ts";
 import type { AddressInfo } from "node:net";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const E2E = process.env.RELAY_E2E === "1";
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
@@ -56,7 +57,12 @@ async function startStack(label: string): Promise<Stack> {
     stubInjection: {
       argv: [process.execPath, STUB],
       coderEnv: { STUB_MODE: "ok", STUB_WRITE_FILE: "delivered.txt:ok", STUB_DELAY_MS: "80" },
-      reviewerEnv: { STUB_MODE: "verdict", STUB_VERDICT: "PASS", STUB_FINDINGS: "视觉旅程独立审查通过", STUB_DELAY_MS: "80" },
+      reviewerEnv: {
+        STUB_MODE: "verdict",
+        STUB_VERDICT: "PASS",
+        STUB_FINDINGS: "视觉旅程独立审查通过",
+        STUB_DELAY_MS: "80",
+      },
     },
     prepareWorkspace: (ws: string) => {
       execFileSync("git", ["-C", ws, "init", "--initial-branch=main"], { encoding: "utf8" });
@@ -67,6 +73,7 @@ async function startStack(label: string): Promise<Stack> {
       execFileSync("git", ["-C", ws, "add", "-A"], { encoding: "utf8" });
       execFileSync("git", ["-C", ws, "commit", "--quiet", "-m", "base"], { encoding: "utf8" });
     },
+    checkRunner: hostTestCheckRunner,
     evidenceChecks: [
       { kind: "deterministic_test", command: ["cat", "delivered.txt"], cwdWorkspace: true, expectOutputContains: "ok" },
     ],
@@ -97,7 +104,11 @@ async function startStack(label: string): Promise<Stack> {
   execFileSync("git", ["-C", projDir, "add", "-A"], { encoding: "utf8" });
   execFileSync("git", ["-C", projDir, "commit", "--quiet", "-m", "init"], { encoding: "utf8" });
   const registryFile = join(mkdtempSync(join(tmpdir(), "webux02-reg-")), "projects.json");
-  writeFileSync(registryFile, JSON.stringify({ projects: [{ name: "试点项目", path: projDir, repo: "local/pilot-demo", branch: "main" }] }), "utf8");
+  writeFileSync(
+    registryFile,
+    JSON.stringify({ projects: [{ name: "试点项目", path: projDir, repo: "local/pilot-demo", branch: "main" }] }),
+    "utf8",
+  );
   process.env["RELAY_PROJECTS_FILE"] = registryFile;
   return { t, base, page, context, browser, projDir, registryFile };
 }
@@ -212,7 +223,9 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     await page.waitForSelector('[data-testid="decision-card-dec-visual-d3"]');
     await shot(page, "d4-1440-decisions.png");
     // 5 验收结果(摘要;无变更集时截列表态)
-    await page.goto(changesetId ? `${base}/changeset.html?id=${encodeURIComponent(changesetId)}` : `${base}/changeset.html`);
+    await page.goto(
+      changesetId ? `${base}/changeset.html?id=${encodeURIComponent(changesetId)}` : `${base}/changeset.html`,
+    );
     await page.waitForSelector('[data-testid="result-summary"], [data-testid="cs-picker"]');
     await shot(page, "d5-1440-result.png");
     // 5b 验收结果(技术证据展开)
@@ -228,11 +241,15 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     await page.click('[data-testid="project-ask-试点项目"]');
     await page.waitForSelector('[data-testid="goal-input"]');
     // m10:等待项目被预选(而非停留在"请选择一个项目")
-    await page.waitForFunction(() => {
-      const g = globalThis as unknown as { document: { querySelector: (s: string) => { value: string } | null } };
-      const sel = g.document.querySelector('[data-testid="goal-project"]');
-      return !!sel && sel.value === "试点项目";
-    }, undefined, { timeout: 15000 });
+    await page.waitForFunction(
+      () => {
+        const g = globalThis as unknown as { document: { querySelector: (s: string) => { value: string } | null } };
+        const sel = g.document.querySelector('[data-testid="goal-project"]');
+        return !!sel && sel.value === "试点项目";
+      },
+      undefined,
+      { timeout: 15000 },
+    );
     await shot(page, "d6b-1440-project-form.png");
     // 7 AI 资源 / 系统状态
     await page.goto(`${base}/models.html`);
@@ -283,15 +300,28 @@ describe.skipIf(!E2E)("WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机
     await page.waitForSelector('[data-testid="decision-card-dec-visual-d3"]');
     await shot(page, "p4-390-decisions.png");
     // 验收结果
-    await page.goto(changesetId ? `${base}/changeset.html?id=${encodeURIComponent(changesetId)}` : `${base}/changeset.html`);
+    await page.goto(
+      changesetId ? `${base}/changeset.html?id=${encodeURIComponent(changesetId)}` : `${base}/changeset.html`,
+    );
     await page.waitForSelector('[data-testid="result-summary"], [data-testid="cs-picker"]');
     await shot(page, "p5-390-result.png");
     // 横向溢出兜底断言(§14)
-    for (const p of ["/index.html", "/goal.html", "/decisions.html", "/changeset.html", "/projects.html", "/models.html", "/system.html"]) {
+    for (const p of [
+      "/index.html",
+      "/goal.html",
+      "/decisions.html",
+      "/changeset.html",
+      "/projects.html",
+      "/models.html",
+      "/system.html",
+    ]) {
       await page.goto(`${base}${p}`);
       await page.waitForSelector('[data-testid="data-stamp"]');
       const overflow = await page.evaluate((): number => {
-        const g = globalThis as unknown as { document: { documentElement: { scrollWidth: number } }; innerWidth: number };
+        const g = globalThis as unknown as {
+          document: { documentElement: { scrollWidth: number } };
+          innerWidth: number;
+        };
         return g.document.documentElement.scrollWidth - g.innerWidth;
       });
       expect(overflow, p + " 手机视口不应横向溢出").toBeLessThanOrEqual(1);

@@ -514,22 +514,29 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         );
       }
 
-      // 显式"交给 Relay 执行":原子幂等防重(单语句 check+insert)—— 同 Goal 相同内容的执行请求
-      // 若"未消费(排队中)"或"已派生且其任务仍在非终态(READY/…执行链)"⇒ 不再插入
-      //(重复点击/网络重发不重复创建;先前同内容任务已到终态 ⇒ 允许发起新一轮授权)。
-      const inserted = await deps.db.execute(sql`
-        INSERT INTO goal_messages (goal_id, actor, kind, content, execution_request)
-        SELECT ${goalId}, 'USER', 'USER_MESSAGE', ${content}, true
-        WHERE NOT EXISTS (
-          SELECT 1 FROM goal_messages g2
-          LEFT JOIN goal_message_consumptions c2 ON c2.message_id = g2.id
-          LEFT JOIN tasks t2 ON t2.id = c2.task_id
-          WHERE g2.goal_id = ${goalId} AND g2.actor = 'USER' AND g2.execution_request = true
-            AND g2.content = ${content}
-            AND (c2.id IS NULL OR t2.state IS NULL OR t2.state NOT IN ('ACCEPTED','FAILED','CANCELLED'))
-        )
-        RETURNING id
-      `);
+      // 显式"交给 Relay 执行":原子幂等防重(check+insert)+ 数据库级互斥(P1-C C5)——
+      // 同 Goal 相同内容的执行请求若"未消费(排队中)"或"已派生且其任务仍在非终态
+      //(READY/…执行链)"⇒ 不再插入(重复点击/网络重发不重复创建;先前同内容任务已到终态
+      // ⇒ 允许发起新一轮授权)。单语句 NOT EXISTS 在 READ COMMITTED 真并发下可双插
+      //(反例实证:两连接交错均通过检查 ⇒ 双消息=重复授权面),故检查+插入整体置于
+      // pg_advisory_xact_lock(hashtext(goal),hashtext(content)) 之下 —— 同键并发请求
+      // 串行化,后到者必见先到者的已提交行 ⇒ 可证明的唯一性(非仅探针未复现)。
+      const inserted = await deps.db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${goalId}), hashtext(${content}))`);
+        return tx.execute(sql`
+          INSERT INTO goal_messages (goal_id, actor, kind, content, execution_request)
+          SELECT ${goalId}, 'USER', 'USER_MESSAGE', ${content}, true
+          WHERE NOT EXISTS (
+            SELECT 1 FROM goal_messages g2
+            LEFT JOIN goal_message_consumptions c2 ON c2.message_id = g2.id
+            LEFT JOIN tasks t2 ON t2.id = c2.task_id
+            WHERE g2.goal_id = ${goalId} AND g2.actor = 'USER' AND g2.execution_request = true
+              AND g2.content = ${content}
+              AND (c2.id IS NULL OR t2.state IS NULL OR t2.state NOT IN ('ACCEPTED','FAILED','CANCELLED'))
+          )
+          RETURNING id
+        `);
+      });
       if (inserted.rows.length === 0) {
         const existing = await deps.db.execute(sql`
           SELECT gm.id AS id, c.task_id AS task_id, t.state AS task_state FROM goal_messages gm
@@ -840,11 +847,22 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
                 : 400;
         return fail(status, reason);
       }
+      // RELAY-CONTROL-SAFETY-04 P1-C C1/C2:回执显式区分相位与控制权状态 —— 停止确认前
+      // 不构成"获得人工控制权";交付相位回执按真实交付态(external_in_progress 不声称已停止)。
+      const isDeliveryPhase = result.phase === "delivery";
       return ok({
         taskId,
         alreadyRequested: result.alreadyRequested === true,
         fromState: result.fromState,
-        note: "已请求紧急停止;执行端确认生效后任务进入 CANCELLED(STOP_CONFIRMED 以审计为准)",
+        phase: result.phase ?? "run",
+        controlState: result.controlState ?? "stop_pending_confirmation",
+        note: isDeliveryPhase
+          ? result.controlState === "external_in_progress"
+            ? "已登记交付停止请求;外部写入已在进行,不声称已停止——最终结果以远端核对为准(可能 NEEDS_RECONCILE)。"
+            : result.controlState === "already_delivered"
+              ? "交付已完成,停止请求不撤销已发生的外部提交(如实告知)。"
+              : "已登记交付停止请求;外部写入尚未开始,边界检查将阻止其发生。"
+          : "已请求紧急停止;执行端确认生效后任务进入 CANCELLED;停止确认前不构成获得人工控制权(STOP_CONFIRMED 以审计为准)。",
       });
     }
     const takeoverMatch = /^\/api\/tasks\/([^/]+)\/takeover$/.exec(path);
@@ -875,14 +893,26 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         taskId,
         detail: {
           fromState: result.fromState,
-          note: "人工接管=停止在飞 Run 并撤销其后续写入资格(abort 旗标);Run 确认 CANCELLED 后写权回归用户(STOP_CONFIRMED=ABORT_CONFIRMED 审计);交还 AI 经方案 A 显式执行请求或既有 resume",
+          phase: result.phase ?? "run",
+          controlState: result.controlState ?? "stop_pending_confirmation",
+          // C1/C2:接管回执=请求已接收;旧 Run 停止确认/租约失效/副作用核对完成前,不声称获得控制权
+          note: "人工接管请求已接收(停止在飞 Run/交付 + 撤销写入资格);控制权转移以 TASK_ABORT_CONFIRMED/STOP_CONFIRMED 审计为准,请求回执不构成接管成功;交还 AI 经方案 A 显式执行请求或既有 resume",
         },
       });
+      const isDeliveryPhase = result.phase === "delivery";
       return ok({
         taskId,
         alreadyRequested: result.alreadyRequested === true,
         fromState: result.fromState,
-        note: "已请求人工接管(停止在飞执行并撤销其写入资格);Run 确认 CANCELLED 后写权回归用户",
+        phase: result.phase ?? "run",
+        controlState: result.controlState ?? "stop_pending_confirmation",
+        note: isDeliveryPhase
+          ? result.controlState === "external_in_progress"
+            ? "接管请求已接收;交付外部写入已在进行,不声称接管完成——最终结果以远端核对为准。"
+            : result.controlState === "already_delivered"
+              ? "交付已完成;接管请求不撤销已发生的外部提交(如实告知)。"
+              : "接管请求已接收;交付外部写入尚未开始,边界检查将阻止其发生。"
+          : "接管请求已接收(停止在飞执行并撤销其写入资格);控制权转移以 STOP_CONFIRMED 审计为准,当前状态=stop_pending_confirmation。",
       });
     }
     if (path === "/api/changesets" && method === "GET") {

@@ -21,6 +21,7 @@ import { DEFAULT_DELIVERY_POLICY } from "../../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
 import { makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const E2E = process.env.RELAY_E2E === "1";
 const SHOTS = process.env.RELAY_03C_SHOTS === "1";
@@ -60,7 +61,12 @@ async function startStack(delivery: DeliveryFactory): Promise<void> {
     stubInjection: {
       argv: [process.execPath, STUB],
       coderEnv: { STUB_MODE: "ok", STUB_WRITE_FILE: "delivered.txt:ok", STUB_DELAY_MS: "2500" },
-      reviewerEnv: { STUB_MODE: "verdict", STUB_VERDICT: "PASS", STUB_FINDINGS: "截图栈独立审查通过", STUB_DELAY_MS: "80" },
+      reviewerEnv: {
+        STUB_MODE: "verdict",
+        STUB_VERDICT: "PASS",
+        STUB_FINDINGS: "截图栈独立审查通过",
+        STUB_DELAY_MS: "80",
+      },
     },
     prepareWorkspace: (ws: string) => {
       execFileSync("git", ["-C", ws, "init", "--initial-branch=main"], { encoding: "utf8" });
@@ -71,6 +77,7 @@ async function startStack(delivery: DeliveryFactory): Promise<void> {
       execFileSync("git", ["-C", ws, "add", "-A"], { encoding: "utf8" });
       execFileSync("git", ["-C", ws, "commit", "--quiet", "-m", "base"], { encoding: "utf8" });
     },
+    checkRunner: hostTestCheckRunner,
     evidenceChecks: [
       { kind: "deterministic_test", command: ["cat", "delivered.txt"], cwdWorkspace: true, expectOutputContains: "ok" },
     ],
@@ -161,49 +168,62 @@ const VIEWPORTS: Array<{ w: number; h: number }> = [
 ];
 
 describe.skipIf(!E2E || !SHOTS)("WEB-UX-03C §16 正式截图(双视口)", { timeout: 300_000 }, () => {
-beforeAll(async () => {
-  // 每任务独立 bare 远端(03C.1 夹具修正,同 webux03-workspace):共享远端 + 每 Run 全新种子提交
-  // ⇒ 后续交付 push 非快进被拒 → D3 delivery_propose_failed(工作状态块如实呈现,夹具须修复)。
-  const remoteBase = mkdtempSync(join(tmpdir(), "webux03c-shots-remote-"));
-  const remotes = new Map<string, BareRemoteFixture>();
-  const remoteFor = (taskId: string): BareRemoteFixture => {
-    let r = remotes.get(taskId);
-    if (!r) {
-      r = makeBareRemote(remoteBase);
-      remotes.set(taskId, r);
-    }
-    return r;
-  };
-  const delivery: DeliveryFactory = {
-    propose: async (c) => {
-      const remote = remoteFor(c.taskId);
-      remote.pushHead(c.stageRepoDir, c.baseCommitSha);
-      return {
-        taskId: c.taskId,
-        attempt: c.attempt,
-        target: remote.url,
-        branch: "main",
-        expectedRemoteSha: c.baseCommitSha,
-        policy: { ...DEFAULT_DELIVERY_POLICY, allowedRepos: [remote.url.toLowerCase()] },
-        credentialPresent: true,
-        verifyCommitBinding: makeCommitBindingVerifier(() => c.stageRepoDir),
-        actor: "shots",
-      };
-    },
-    io: async (c) => ({
-      executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
-      verifyRemoteContent: async (commitSha: string) => {
-        const scratch = mkdtempSync(join(tmpdir(), "webux03c-shots-verify-"));
-        const r = await verifyRemoteCommitContent({ target: remoteFor(c.taskId).url, commitSha, manifest: c.manifest, scratchDir: scratch });
-        return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
+  beforeAll(async () => {
+    // 每任务独立 bare 远端(03C.1 夹具修正,同 webux03-workspace):共享远端 + 每 Run 全新种子提交
+    // ⇒ 后续交付 push 非快进被拒 → D3 delivery_propose_failed(工作状态块如实呈现,夹具须修复)。
+    const remoteBase = mkdtempSync(join(tmpdir(), "webux03c-shots-remote-"));
+    const remotes = new Map<string, BareRemoteFixture>();
+    const remoteFor = (taskId: string): BareRemoteFixture => {
+      let r = remotes.get(taskId);
+      if (!r) {
+        r = makeBareRemote(remoteBase);
+        remotes.set(taskId, r);
+      }
+      return r;
+    };
+    const delivery: DeliveryFactory = {
+      propose: async (c) => {
+        const remote = remoteFor(c.taskId);
+        remote.pushHead(c.stageRepoDir, c.baseCommitSha);
+        return {
+          taskId: c.taskId,
+          attempt: c.attempt,
+          target: remote.url,
+          branch: "main",
+          expectedRemoteSha: c.baseCommitSha,
+          policy: { ...DEFAULT_DELIVERY_POLICY, allowedRepos: [remote.url.toLowerCase()] },
+          credentialPresent: true,
+          verifyCommitBinding: makeCommitBindingVerifier(() => c.stageRepoDir),
+          actor: "shots",
+        };
       },
-      manifest: c.manifest,
-    }),
-  };
-  await startStack(delivery);
+      io: async (c) => ({
+        executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
+        verifyRemoteContent: async (commitSha: string) => {
+          const scratch = mkdtempSync(join(tmpdir(), "webux03c-shots-verify-"));
+          const r = await verifyRemoteCommitContent({
+            target: remoteFor(c.taskId).url,
+            commitSha,
+            manifest: c.manifest,
+            scratchDir: scratch,
+          });
+          return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
+        },
+        manifest: c.manifest,
+      }),
+    };
+    await startStack(delivery);
     // 项目注册表(LAMICE/WPS 插件):侧栏项目分组需要;路径仅用于归组匹配,不要求目录存在
     const reg = join(mkdtempSync(join(tmpdir(), "webux03c-shots-reg-")), "projects.json");
-    writeFileSync(reg, JSON.stringify({ projects: [{ name: "LAMICE", path: "/tmp/proj-lamice" }, { name: "WPS 插件", path: "/tmp/proj-wps" }] }));
+    writeFileSync(
+      reg,
+      JSON.stringify({
+        projects: [
+          { name: "LAMICE", path: "/tmp/proj-lamice" },
+          { name: "WPS 插件", path: "/tmp/proj-wps" },
+        ],
+      }),
+    );
     process.env["RELAY_PROJECTS_FILE"] = reg;
   });
   afterAll(async () => {
@@ -223,7 +243,9 @@ beforeAll(async () => {
     // ② 执行中 Goal(慢桩;截图时处于 RUNNING)
     // ③ 等待决定 Goal(D3 未决)
     const decGoal = await createGoal(page, "需要扩大到 src/styles/ 的样式统一调整");
-    const decTaskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${decGoal} ORDER BY created_at ASC LIMIT 1`);
+    const decTaskRow = await t.db.execute(
+      sql`SELECT id FROM tasks WHERE goal_id = ${decGoal} ORDER BY created_at ASC LIMIT 1`,
+    );
     const decTaskId = String(decTaskRow.rows[0]!["id"]);
     await t.db.execute(sql`
       INSERT INTO decisions (id, task_id, goal_id, level, question, fallback, state, deadline)
@@ -234,19 +256,24 @@ beforeAll(async () => {
     // ④ 侧栏多样性:再建两个不同项目的 Goal(注册表路径经 API?项目绑定只接受注册表内 name;
     //    createGoal UI 未选项目 ⇒ 默认工作区;为让侧栏分组真实,用 API 携带 projectId 建两条)
     const cookie = await page.context().cookies();
-    const csrf = await page.evaluate((): string => (globalThis as unknown as { RelayApp: { state: { csrf: string } } }).RelayApp.state.csrf || "");
+    const csrf = await page.evaluate(
+      (): string => (globalThis as unknown as { RelayApp: { state: { csrf: string } } }).RelayApp.state.csrf || "",
+    );
     void cookie;
     const mkGoal = async (projectId: string, raw: string): Promise<string> => {
-      const res = await page.evaluate(async ({ projectId, raw, csrf }: { projectId: string; raw: string; csrf: string }) => {
-        const r = await fetch("/api/goals", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "content-type": "application/json", "x-relay-csrf": csrf },
-          body: JSON.stringify({ rawInput: raw, projectId }),
-        });
-        const b = (await r.json()) as { goalId?: string };
-        return `${r.status}:${b.goalId ?? ""}`;
-      }, { projectId, raw, csrf });
+      const res = await page.evaluate(
+        async ({ projectId, raw, csrf }: { projectId: string; raw: string; csrf: string }) => {
+          const r = await fetch("/api/goals", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "content-type": "application/json", "x-relay-csrf": csrf },
+            body: JSON.stringify({ rawInput: raw, projectId }),
+          });
+          const b = (await r.json()) as { goalId?: string };
+          return `${r.status}:${b.goalId ?? ""}`;
+        },
+        { projectId, raw, csrf },
+      );
       console.log("shots diag: mkGoal", projectId, raw.slice(0, 12), "=>", res);
       const gid = res.split(":")[1] ?? "";
       const feed = await page.evaluate(async (g: string) => {
@@ -271,7 +298,9 @@ beforeAll(async () => {
       await shot(page, `ws16-01-blank-newtask-${tag}.png`);
       // 02 执行中会话(后台一拍进行时;侧栏多项目;每视口新建一个执行中 Goal)
       const execGoal = await mkGoal("LAMICE", "登录页优化:按钮状态与错误反馈");
-      const execTaskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${execGoal} ORDER BY created_at ASC LIMIT 1`);
+      const execTaskRow = await t.db.execute(
+        sql`SELECT id FROM tasks WHERE goal_id = ${execGoal} ORDER BY created_at ASC LIMIT 1`,
+      );
       const execTaskId = String(execTaskRow.rows[0]!["id"]);
       // 确定性领取:提高本 Goal 任务优先级(后台一拍必领本任务,而非更早创建的其他 READY 任务)
       await t.db.execute(sql`UPDATE tasks SET priority = 50 WHERE goal_id = ${execGoal}`);
@@ -282,7 +311,10 @@ beforeAll(async () => {
       let running = false;
       for (let i = 0; i < 25; i++) {
         const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${execTaskId}`);
-        if (String(r.rows[0]!["state"]) === "RUNNING") { running = true; break; }
+        if (String(r.rows[0]!["state"]) === "RUNNING") {
+          running = true;
+          break;
+        }
         await page.waitForTimeout(200);
       }
       if (running) {
@@ -290,7 +322,11 @@ beforeAll(async () => {
         await page.waitForSelector('[data-testid="ws-work-block"]', { timeout: 10000 });
         await page.waitForFunction(
           () => {
-            const doc = (globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }).document;
+            const doc = (
+              globalThis as unknown as {
+                document: { querySelector(sel: string): { textContent: string | null } | null };
+              }
+            ).document;
             const el = doc.querySelector('[data-testid="ws-work-block"]');
             return el !== null && el.textContent !== null && el.textContent.indexOf("正在修改代码") >= 0;
           },
@@ -300,17 +336,35 @@ beforeAll(async () => {
       }
       await page.waitForTimeout(400); // 版式稳定
       const dump = await page.evaluate((): string => {
-        type Rect = { x: number; y: number; width: number; height: number; top: number; right: number; bottom: number; left: number };
+        type Rect = {
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          top: number;
+          right: number;
+          bottom: number;
+          left: number;
+        };
         const doc = globalThis as unknown as {
           document: {
             querySelector(sel: string): { getBoundingClientRect(): Rect } | null;
-            getElementById(id: string): { getBoundingClientRect(): Rect; scrollTop: number; scrollHeight: number; clientHeight: number } | null;
+            getElementById(
+              id: string,
+            ): { getBoundingClientRect(): Rect; scrollTop: number; scrollHeight: number; clientHeight: number } | null;
           };
         };
         const el = doc.document.querySelector('[data-testid^="ws-msg-user"]');
         const feed = doc.document.getElementById("ws-feed");
         const r = el ? el.getBoundingClientRect() : null;
-        const f = feed ? { top: feed.getBoundingClientRect().top, scrollTop: feed.scrollTop, scrollHeight: feed.scrollHeight, clientHeight: feed.clientHeight } : null;
+        const f = feed
+          ? {
+              top: feed.getBoundingClientRect().top,
+              scrollTop: feed.scrollTop,
+              scrollHeight: feed.scrollHeight,
+              clientHeight: feed.clientHeight,
+            }
+          : null;
         return JSON.stringify({ bubbleRect: r, feed: f });
       });
       console.log("shots diag: 02 bubble geom =", dump);

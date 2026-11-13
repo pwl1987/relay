@@ -69,11 +69,22 @@ export function resolveEvidenceChecks(raw: string | undefined): CheckSpec[] | un
     ) {
       throw new Error("RELAY_EVIDENCE_CHECKS_JSON.timeoutMs 必须在 1000~600000(fail-closed)");
     }
+    // P0-A A4:网络能力须单独授权 —— allowEgressNetwork 仅接受显式布尔;true 时执行器仍会
+    // 校验 egress 白名单(未验证 ⇒ FAIL-CLOSED),此处只做配置面类型收口。
+    if (s["allowEgressNetwork"] !== undefined && typeof s["allowEgressNetwork"] !== "boolean") {
+      throw new Error("RELAY_EVIDENCE_CHECKS_JSON.allowEgressNetwork 必须为布尔(缺省 false=容器禁网;fail-closed)");
+    }
+    // P0-A A5:cwdWorkspace 显式归一 —— false 保留(容器内 /tmp + 工作区只读,不构成宿主绕过);
+    // 缺省/true ⇒ true(候选工作区)。非法类型(非布尔)⇒ fail-closed 拒绝配置。
+    if (s["cwdWorkspace"] !== undefined && typeof s["cwdWorkspace"] !== "boolean") {
+      throw new Error("RELAY_EVIDENCE_CHECKS_JSON.cwdWorkspace 必须为布尔(缺省 true=候选工作区;fail-closed)");
+    }
     out.push({
       kind: kind as CheckSpec["kind"],
       command: cmd as string[],
-      ...(s["cwdWorkspace"] === false ? {} : { cwdWorkspace: true }),
+      ...(s["cwdWorkspace"] === false ? { cwdWorkspace: false } : { cwdWorkspace: true }),
       ...(timeoutMs !== undefined ? { timeoutMs: Number(timeoutMs) } : {}),
+      ...(s["allowEgressNetwork"] === true ? { allowEgressNetwork: true } : {}),
       ...(typeof s["expectOutputContains"] === "string" && (s["expectOutputContains"] as string).length > 0
         ? { expectOutputContains: s["expectOutputContains"] as string }
         : {}),

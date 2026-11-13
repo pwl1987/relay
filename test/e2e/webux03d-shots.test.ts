@@ -22,6 +22,7 @@ import { DEFAULT_DELIVERY_POLICY } from "../../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
 import { makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
+import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const E2E = process.env.RELAY_E2E === "1";
 const SHOTS = process.env.RELAY_03D_SHOTS === "1";
@@ -62,7 +63,12 @@ async function startStack(delivery: DeliveryFactory): Promise<void> {
     stubInjection: {
       argv: [process.execPath, STUB],
       coderEnv: { STUB_MODE: "ok", STUB_WRITE_FILE: "delivered.txt:ok", STUB_DELAY_MS: "2500" },
-      reviewerEnv: { STUB_MODE: "verdict", STUB_VERDICT: "PASS", STUB_FINDINGS: "截图栈独立审查通过", STUB_DELAY_MS: "80" },
+      reviewerEnv: {
+        STUB_MODE: "verdict",
+        STUB_VERDICT: "PASS",
+        STUB_FINDINGS: "截图栈独立审查通过",
+        STUB_DELAY_MS: "80",
+      },
     },
     prepareWorkspace: (ws: string) => {
       execFileSync("git", ["-C", ws, "init", "--initial-branch=main"], { encoding: "utf8" });
@@ -73,6 +79,7 @@ async function startStack(delivery: DeliveryFactory): Promise<void> {
       execFileSync("git", ["-C", ws, "add", "-A"], { encoding: "utf8" });
       execFileSync("git", ["-C", ws, "commit", "--quiet", "-m", "base"], { encoding: "utf8" });
     },
+    checkRunner: hostTestCheckRunner,
     evidenceChecks: [
       { kind: "deterministic_test", command: ["cat", "delivered.txt"], cwdWorkspace: true, expectOutputContains: "ok" },
     ],
@@ -178,7 +185,12 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
         executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
         verifyRemoteContent: async (commitSha: string) => {
           const scratch = mkdtempSync(join(tmpdir(), "webux03d-shots-verify-"));
-          const r = await verifyRemoteCommitContent({ target: remoteFor(c.taskId).url, commitSha, manifest: c.manifest, scratchDir: scratch });
+          const r = await verifyRemoteCommitContent({
+            target: remoteFor(c.taskId).url,
+            commitSha,
+            manifest: c.manifest,
+            scratchDir: scratch,
+          });
           return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
         },
         manifest: c.manifest,
@@ -187,7 +199,15 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
     await startStack(delivery);
     // 项目注册表(LAMICE/WPS 插件):抽屉分组真实呈现
     const reg = join(mkdtempSync(join(tmpdir(), "webux03d-shots-reg-")), "projects.json");
-    writeFileSync(reg, JSON.stringify({ projects: [{ name: "LAMICE", path: "/tmp/proj-lamice" }, { name: "WPS 插件", path: "/tmp/proj-wps" }] }));
+    writeFileSync(
+      reg,
+      JSON.stringify({
+        projects: [
+          { name: "LAMICE", path: "/tmp/proj-lamice" },
+          { name: "WPS 插件", path: "/tmp/proj-wps" },
+        ],
+      }),
+    );
     process.env["RELAY_PROJECTS_FILE"] = reg;
   });
   afterAll(async () => {
@@ -203,7 +223,9 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
     // --- 数据准备(全部经真实 API/worker;零模型,stub) ---
     // ① 已完成 Goal(全链 DELIVERED,Result 卡最丰富)
     const doneGoal = await createGoal(page, "优化登录页的状态提示与错误反馈");
-    const doneTaskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${doneGoal} ORDER BY created_at ASC LIMIT 1`);
+    const doneTaskRow = await t.db.execute(
+      sql`SELECT id FROM tasks WHERE goal_id = ${doneGoal} ORDER BY created_at ASC LIMIT 1`,
+    );
     const doneTaskId = String(doneTaskRow.rows[0]!["id"]);
     // 推进到终态(单拍=完整链路;停滞补拍)
     for (let i = 0; i < 12; i++) {
@@ -216,7 +238,9 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
     expect(String(doneState.rows[0]!["state"])).toBe("ACCEPTED");
     // ② Decision Goal(D3 未决)
     const decGoal = await createGoal(page, "需要扩大到 src/styles/ 的样式统一调整");
-    const decTaskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${decGoal} ORDER BY created_at ASC LIMIT 1`);
+    const decTaskRow = await t.db.execute(
+      sql`SELECT id FROM tasks WHERE goal_id = ${decGoal} ORDER BY created_at ASC LIMIT 1`,
+    );
     const decTaskId = String(decTaskRow.rows[0]!["id"]);
     await t.db.execute(sql`
       INSERT INTO decisions (id, task_id, goal_id, level, question, fallback, state, deadline)
@@ -232,18 +256,23 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
     const decState = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${decTaskId}`);
     expect(String(decState.rows[0]!["state"])).toBe("NEEDS_DECISION");
     // ③ 侧栏分组多样性(绑定项目经 API)
-    const csrf = await page.evaluate((): string => (globalThis as unknown as { RelayApp: { state: { csrf: string } } }).RelayApp.state.csrf || "");
+    const csrf = await page.evaluate(
+      (): string => (globalThis as unknown as { RelayApp: { state: { csrf: string } } }).RelayApp.state.csrf || "",
+    );
     const mkGoal = async (projectId: string, raw: string): Promise<string> => {
-      const res = await page.evaluate(async ({ projectId, raw, csrf }: { projectId: string; raw: string; csrf: string }) => {
-        const r = await fetch("/api/goals", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "content-type": "application/json", "x-relay-csrf": csrf },
-          body: JSON.stringify({ rawInput: raw, projectId }),
-        });
-        const b = (await r.json()) as { goalId?: string };
-        return b.goalId ?? "";
-      }, { projectId, raw, csrf });
+      const res = await page.evaluate(
+        async ({ projectId, raw, csrf }: { projectId: string; raw: string; csrf: string }) => {
+          const r = await fetch("/api/goals", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "content-type": "application/json", "x-relay-csrf": csrf },
+            body: JSON.stringify({ rawInput: raw, projectId }),
+          });
+          const b = (await r.json()) as { goalId?: string };
+          return b.goalId ?? "";
+        },
+        { projectId, raw, csrf },
+      );
       expect(res).toBeTruthy();
       return res;
     };
@@ -252,7 +281,9 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
     // ④ 长会话 Goal(24 条 RELAY 进度消息;不进消费链 ⇒ 零派生)
     const longGoal = await createGoal(page, "整理项目文档结构并补齐缺失说明");
     for (let i = 1; i <= 24; i++) {
-      await s.t.db.execute(sql`INSERT INTO goal_messages (goal_id, actor, kind, content) VALUES (${longGoal}, 'RELAY', 'RELAY_MESSAGE', ${"进度播报第 " + i + " 条:阶段性验证进行中。"})`);
+      await s.t.db.execute(
+        sql`INSERT INTO goal_messages (goal_id, actor, kind, content) VALUES (${longGoal}, 'RELAY', 'RELAY_MESSAGE', ${"进度播报第 " + i + " 条:阶段性验证进行中。"})`,
+      );
     }
 
     // --- 01 新任务(空白工作区) ---
@@ -264,7 +295,9 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
 
     // --- 02 正在处理(慢桩 RUNNING;确定性领取 priority=50) ---
     const execGoal = await mkGoal("LAMICE", "登录页优化:按钮状态与错误反馈");
-    const execTaskRow = await s.t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${execGoal} ORDER BY created_at ASC LIMIT 1`);
+    const execTaskRow = await s.t.db.execute(
+      sql`SELECT id FROM tasks WHERE goal_id = ${execGoal} ORDER BY created_at ASC LIMIT 1`,
+    );
     const execTaskId = String(execTaskRow.rows[0]!["id"]);
     await s.t.db.execute(sql`UPDATE tasks SET priority = 50 WHERE goal_id = ${execGoal}`);
     tickInBackground(page);
@@ -273,14 +306,19 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
     let running = false;
     for (let i = 0; i < 30; i++) {
       const r = await s.t.db.execute(sql`SELECT state FROM tasks WHERE id = ${execTaskId}`);
-      if (String(r.rows[0]!["state"]) === "RUNNING") { running = true; break; }
+      if (String(r.rows[0]!["state"]) === "RUNNING") {
+        running = true;
+        break;
+      }
       await page.waitForTimeout(200);
     }
     if (running) {
       await page.waitForSelector('[data-testid="ws-work-block"]', { timeout: 10000 });
       await page.waitForFunction(
         (): boolean => {
-          const doc = (globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }).document;
+          const doc = (
+            globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }
+          ).document;
           const el = doc.querySelector('[data-testid="ws-work-block"]');
           return el !== null && el.textContent !== null && el.textContent.indexOf("正在") >= 0;
         },
@@ -326,14 +364,16 @@ describe.skipIf(!E2E || !SHOTS)("WEB-UX-03D §17 正式截图(390×844 + 桌面�
     await page.waitForSelector('[data-testid="ws-input"]');
     await page.waitForFunction(
       (): boolean => {
-        const doc = (globalThis as unknown as { document: { querySelectorAll(sel: string): { length: number } } }).document;
+        const doc = (globalThis as unknown as { document: { querySelectorAll(sel: string): { length: number } } })
+          .document;
         return doc.querySelectorAll('[data-testid^="ws-msg-"]').length >= 20;
       },
       undefined,
       { timeout: 15000 },
     );
     await page.evaluate((): void => {
-      const doc = (globalThis as unknown as { document: { getElementById(id: string): { scrollTop: number } | null } }).document;
+      const doc = (globalThis as unknown as { document: { getElementById(id: string): { scrollTop: number } | null } })
+        .document;
       const f = doc.getElementById("ws-feed");
       if (f) f.scrollTop = 0;
     });
