@@ -7,7 +7,7 @@
 当前唯一设计工作合同以 CURRENT.md 顶部为准；历史 ACTIVE 记录仅供追溯。本轮设计基于 GitHub main 51972cdeb89a，由受控 VM80 Writer 修改文档与 ADR，不改产品代码、依赖、CI 实现、生产配置或模型调用。
 冻结原则：Relay Core 唯一编排/状态/Gate 权威、Pi First、唯一 Writer；人工接管与方向纠偏的版本化控制见 docs/AGENT_CONTROL_LOCAL_QUALITY.md；本地独立质量检查与 GitHub 外部复核、机器测试证据硬门见 ADR-0012。
 实现尚需独立 POC 和 Reviewer：会话重入、PlanRevision、子 Agent 权限、质量脚本、风险分级证据、性能阈值与 pstack 适配均不得宣称已交付。MVP REWORK 与 R-2/R-3 PARTIAL 历史状态不变。
-本地文档提交=99ddb4b（前置合同=7251ecb）；GitHub HTTPS push 503、SSH 443 timeout，远端仍为 51972cdeb89a，新的 exact-head CI 和独立 Reviewer 均 NOT_RUN；当前包 BLOCKED 待推送/复核。不得以本地提交冒充 GitHub 已正式冻结。
+本地文档提交=99ddb4b（前置合同=7251ecb），阻断记录 4a76c68；2026-11-13 经本地 HTTP 代理成功快进推送到 GitHub main=4a76c68；Actions run 43372512499 已启动，结果待核；独立 Reviewer NOT_RUN，当前包 REVIEW_PENDING 不得宣布最终 PASS。
 Writer 完成后需释放 Dev Agent Kit 的人类接管；任何新代码包需另立 CURRENT 合同并获得授权。
 
 ## RELAY-MVP-READINESS-01(2026-11-13 用户指令;**当前执行包,唯一续接入口**)

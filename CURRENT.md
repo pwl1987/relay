@@ -1,11 +1,11 @@
 # Relay 当前执行契约
 
-- 当前唯一待收口包：**RELAY-ARCH-FREEZE-01 BLOCKED（远端推送/独立复核）**；当前没有新的 ACTIVE 实施授权。设计草案已在 VM80 本地 main 形成提交 7251ecb（合同）与 99ddb4b（文档及 ADR），GitHub 仍停留于 51972cdeb89a。
+- 当前唯一待复核包：**RELAY-ARCH-FREEZE-01 REVIEW_PENDING（已快进推送，尚未独立验收）**；当前没有新的 ACTIVE 实施授权。合同 7251ecb、设计文档/ADR 99ddb4b、阻断实录 4a76c68 均已推送 GitHub main；后续本次更正提交本身仍须验证 exact-head CI。
 - 权威起点：GitHub origin/main = 51972cdeb89ac87a13e57215ac959d60b7d95c5c；VM80 本地 main/远端一致，受跟踪文件无修改；未跟踪 config/ 与 p0-mvp/soak-r3b/ 为受保护遗留产物，严禁触碰或提交。
 - Writer：本轮人工接管用于受控文档编辑；在记录阻断后释放给自动控制器。受保护未跟踪目录仍保留，未触碰。严禁为恢复推送创建其他分支、重置工作区或强推。
 - 结果边界：基于现有 ARCHITECTURE_BASELINE/CONTRACTS/DELIVERY/VALIDATION/INTEGRATIONS，新增或精简 Agent 控制、计划修订、多 Agent 权限、Pi/pstack 边界、本地质量检查/GitHub 外部复核、机器证据、性能与评分原则；保持唯一状态与治理事实源。
 - 核查：文档相对链接/章节契约检查 PASS，git diff --check PASS，npm run typecheck PASS；没有修改产品代码/部署。独立 Reviewer、变更后的 exact-head GitHub CI 和真实接管/质量 E2E 均 NOT_RUN，不能宣称全面验收。
-- 阻断原因/下一步：HTTPS push → 503 CONNECT；SSH 443 → timeout 35s。网络恢复后重新核对 live main、单 Writer 和未跟踪目录，以快进方式推送本地提交，再运行 exact-head CI 和独立只读 Reviewer，最后裁决 PASS/REWORK。旧 MVP REWORK、R-2/R-3 PARTIAL 不变。
+- 推送恢复：2026-11-13 通过 VM80 本地 HTTP 代理 127.0.0.1:8118 完成快进推送，GitHub API 确认远端 HEAD=4a76c68a8798b66cfcd3c71024304488a598dc10；Actions https://github.com/pwl1987/relay/actions/runs/43372512499 已启动，最终结论及当前更正提交的 exact-head CI 待核实。独立只读 Reviewer 尚未执行；设计原则可保持 FROZEN，整包不能报 PASS。旧 MVP REWORK、R-2/R-3 PARTIAL 不变。
 
 ## 历史执行记录（只供追溯，不是当前 ACTIVE 授权）
 
