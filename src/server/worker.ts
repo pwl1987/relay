@@ -82,7 +82,9 @@ function envModel(): ModelConfig | null {
   const apiKey = process.env.RELAY_PI_API_KEY;
   const baseUrl = process.env.RELAY_PI_BASE_URL;
   if (!provider || !model || !apiKey || !baseUrl) return null;
-  // R2-REMEDIATION-01:RELAY_MAX_OUTPUT_TOKENS 可选;存在但非法 ⇒ fail-closed(抛错→本拍异常熔断,不领取)
+  // R2-REMEDIATION-01:RELAY_MAX_OUTPUT_TOKENS 可选;存在但非法 ⇒ fail-closed。
+  // 实际语义(READINESS-01 子包②澄清):抛错沿 tick 向上传播=本拍不领取任务并由
+  // loop-safety 记审计;连续 3 拍错误(阈值默认 3)⇒ 整环熔断 circuitOpen(不是单拍优雅跳过)。
   const maxOutputTokens = resolveMaxOutputTokens(process.env.RELAY_MAX_OUTPUT_TOKENS);
   return maxOutputTokens === undefined
     ? { provider, model, apiKey, baseUrl }

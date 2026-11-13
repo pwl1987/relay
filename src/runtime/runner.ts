@@ -22,7 +22,7 @@ import {
   sandboxPaths,
   newRunId,
   dockerAvailable,
-  appliedMaxOutputTokens,
+  budgetEvidence,
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
@@ -105,8 +105,8 @@ async function insertRun(exec: Exec, spec: RunSpec, model: ModelConfig, runId: s
       ${JSON.stringify({
         wallSeconds: spec.wallSeconds,
         // R2-REMEDIATION-01:Evidence 记录最终采用值与来源(默认/配置);Run 全程可审计
-        maxOutputTokens: appliedMaxOutputTokens(model),
-        maxOutputTokensSource: model.maxOutputTokens === undefined ? "default" : "config",
+        // (READINESS-01 子包②:两字段单一来源=budgetEvidence,三口径同源)
+        ...budgetEvidence(model),
       })}::jsonb,
       ${sandbox.mode}, 'RUNNING')
   `);

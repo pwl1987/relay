@@ -9,6 +9,7 @@ import {
   MAX_MAX_OUTPUT_TOKENS,
   MIN_MAX_OUTPUT_TOKENS,
   appliedMaxOutputTokens,
+  budgetEvidence,
   prepareRunDirs,
   resolveMaxOutputTokens,
   cleanupSandbox,
@@ -16,6 +17,8 @@ import {
 } from "../../src/runtime/sandbox.ts";
 
 const MODEL_BASE: ModelConfig = { provider: "p", model: "m", apiKey: "k", baseUrl: "http://127.0.0.1:1/v1" };
+/** 模拟敌意输入(绕过 optional number 类型的 null/字符串);运行时健壮性由 resolve 保证。 */
+const asNum = (v: unknown) => v as unknown as number;
 
 describe("R2-REMEDIATION-01:maxOutputTokens 运行时配置", () => {
   it("resolveMaxOutputTokens:未配置(undefined/null/空串)⇒ undefined(调用方取默认)", () => {
@@ -71,5 +74,47 @@ describe("R2-REMEDIATION-01:maxOutputTokens 运行时配置", () => {
   it("上下界常量与 contextWindow 一致(128000;输出上限不得超过模型上下文窗口)", () => {
     expect(MIN_MAX_OUTPUT_TOKENS).toBe(1024);
     expect(MAX_MAX_OUTPUT_TOKENS).toBe(128_000);
+  });
+
+  // ---- READINESS-01 子包②收口:budgetEvidence 单一来源 + source 语义对齐 resolve ----
+
+  it("budgetEvidence:未配置(undefined/null/空串)⇒ default+8192;配置 ⇒ config+采用值", () => {
+    expect(budgetEvidence(MODEL_BASE)).toEqual({ maxOutputTokens: 8192, maxOutputTokensSource: "default" });
+    // null/空串(敌意输入,类型上绕过 optional number)与 resolve 语义对齐:一律记 default
+    expect(budgetEvidence({ ...MODEL_BASE, maxOutputTokens: asNum(null) })).toEqual({
+      maxOutputTokens: 8192,
+      maxOutputTokensSource: "default",
+    });
+    expect(budgetEvidence({ ...MODEL_BASE, maxOutputTokens: asNum("") })).toEqual({
+      maxOutputTokens: 8192,
+      maxOutputTokensSource: "default",
+    });
+    expect(budgetEvidence({ ...MODEL_BASE, maxOutputTokens: 32768 })).toEqual({
+      maxOutputTokens: 32768,
+      maxOutputTokensSource: "config",
+    });
+    expect(budgetEvidence({ ...MODEL_BASE, maxOutputTokens: asNum("16384") })).toEqual({
+      maxOutputTokens: 16384,
+      maxOutputTokensSource: "config",
+    });
+  });
+
+  it("budgetEvidence:采用值与 appliedMaxOutputTokens 一致(两函数同源于 resolve)", () => {
+    for (const raw of [undefined, null, "", 1024, 32768, 128_000]) {
+      const model = { ...MODEL_BASE, maxOutputTokens: raw } as ModelConfig;
+      expect(budgetEvidence(model).maxOutputTokens).toBe(appliedMaxOutputTokens(model));
+    }
+  });
+
+  it("prepareRunDirs:models.json contextWindow 与 MAX_MAX_OUTPUT_TOKENS 共享同一常量(消除双字面量)", () => {
+    const spec = prepareRunDirs(tmpdir(), "host-fallback", MODEL_BASE);
+    try {
+      const modelsJson = JSON.parse(readFileSync(join(spec.homeDir, ".pi", "agent", "models.json"), "utf8")) as {
+        providers: Record<string, { models: Array<{ contextWindow: number }> }>;
+      };
+      expect(modelsJson.providers[MODEL_BASE.provider]!.models[0]!.contextWindow).toBe(MAX_MAX_OUTPUT_TOKENS);
+    } finally {
+      cleanupSandbox(spec);
+    }
   });
 });

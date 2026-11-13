@@ -12,5 +12,6 @@
 - [0008 Method Packs 与扩展](0008-extensions-and-method-packs.md) — FROZEN（职责）；Registry OPEN
 - [0009 Model Policy 与多 Provider 分层](0009-model-policy.md) — **ACCEPTED(v0.1 设计冻结；实现 OPEN，激活前置=MVP 最终 ACCEPTED)**
 - [0010 MVP 验收口径调整](0010-mvp-acceptance-repositioning.md) — **ACCEPTED(2026-11-12；连续 24h 重定位为 Operational/Pilot Readiness Gate；原 R-3 保持 PARTIAL 历史事实不改；R-3B 暂缓并入 PILOT-24H)**
+- [0011 模型输出上限运行时配置化](0011-max-output-tokens.md) — **ACCEPTED(2026-11-13；maxOutputTokens 运行时配置项，默认 8192 行为兼容，界 1024~128000，超界 fail-closed；不属于 MODEL-POLICY-01；READINESS-01 子包②补语义澄清+budgetEvidence 单一来源)**
 
 修改 FROZEN 决策须说明替代方案、验证和迁移影响；不要删除旧 ADR 或建立第二个权威目录。

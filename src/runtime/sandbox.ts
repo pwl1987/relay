@@ -74,6 +74,20 @@ export function appliedMaxOutputTokens(model: Pick<ModelConfig, "maxOutputTokens
 }
 
 /**
+ * runs.budget Evidence 两字段(READINESS-01 子包②收口:coder/reviewer/discovery 三口径单一来源)。
+ * 来源语义与 resolveMaxOutputTokens 对齐:仅当存在「通过校验的配置值」时记 "config",
+ * undefined/null/空串一律 "default"(与最终采用值的一致性由同一 resolve 判定保证)。
+ */
+export function budgetEvidence(
+  model: Pick<ModelConfig, "maxOutputTokens">,
+): { maxOutputTokens: number; maxOutputTokensSource: "default" | "config" } {
+  const resolved = resolveMaxOutputTokens(model.maxOutputTokens);
+  return resolved === undefined
+    ? { maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS, maxOutputTokensSource: "default" }
+    : { maxOutputTokens: resolved, maxOutputTokensSource: "config" };
+}
+
+/**
  * Run 容器内 models.json 的占位 key(P0-02A C-8 密钥隔离;P0-02B G-3 后持钥面 = 宿主 0600
  * 文件只读挂载进代理容器):容器内可见面(models.json/env/argv)只出现本占位值,
  * 代理改写 Authorization 后转发上游。
@@ -154,7 +168,9 @@ export function prepareRunDirs(baseDir: string, mode: SandboxSpec["mode"], model
               {
                 id: model.model,
                 name: model.model,
-                contextWindow: 128_000,
+                // 上界常量=models.json contextWindow(ADR-0011:输出上限上界 128000 即取自此处;
+                // 两处共享同一常量,避免双字面量漂移)
+                contextWindow: MAX_MAX_OUTPUT_TOKENS,
                 // R2-REMEDIATION-01:模型定义输出上限=可配置(Runner/Worker 透传 ModelConfig.maxOutputTokens;
                 // 缺省=历史值 8192,行为兼容;超界在 resolveMaxOutputTokens fail-closed)
                 maxTokens: appliedMaxOutputTokens(model),

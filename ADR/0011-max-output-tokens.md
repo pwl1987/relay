@@ -33,3 +33,17 @@ R-2 F1 对照实验(2026-11-12,zcode/GLM-5.3)实证:Run 可完成但 coder 输�
 - 未配置环境(含全部既有测试/生产 worker)行为零变化;
 - F2-R/F1-R 复验(2026-11-13 授权)以 `RELAY_MAX_OUTPUT_TOKENS=32768` 为唯一实验变量;
 - 后续模型策略(MODEL-POLICY-01)激活时可基于此配置项实施 RunModelDecision,无需再次改沙箱。
+
+## 语义澄清(READINESS-01 子包②,2026-11-13;仅措辞,不改决策)
+
+决策第 4 条原文「本拍不领取」表述不精确,实测行为核验(src/core/loop-safety.ts)后澄清:
+Worker 环境非法(`RELAY_MAX_OUTPUT_TOKENS` 非法)时 `envModel` 抛错沿 tick 向上传播 ⇒
+**该拍不领取任务并由 loop-safety 计连续错误与审计;连续 3 拍错误(阈值默认 3)⇒ 整环熔断
+`circuitOpen`,停止调度新 tick**——即 fail-closed 的实现机制是「错误累积→环路熔断」,
+不是单拍优雅跳过后继续正常调度。fail-closed 性质不变(非法配置永不进入 Run、审计留痕),
+仅明确熔断的触发方式。
+
+另:三处 `runs.budget` 证据字段(决策第 5 条)自 READINESS-01 起由 `sandbox.ts` 的
+`budgetEvidence()` 单一来源生成;来源语义与 `resolveMaxOutputTokens` 对齐
+(undefined/null/空串一律记 `"default"`,仅通过校验的配置值记 `"config"`);
+`MAX_MAX_OUTPUT_TOKENS` 与 `models.json` 条目的 `contextWindow` 共享同一常量(消除双字面量)。

@@ -18,7 +18,7 @@ import {
   launchPi,
   sandboxPaths,
   newRunId,
-  appliedMaxOutputTokens,
+  budgetEvidence,
   type ModelConfig,
   type SandboxSpec,
 } from "./sandbox.ts";
@@ -235,8 +235,8 @@ export async function runDiscoverySession(db: RelayDb, pi: PiInstallation, spec:
           role: "discovery",
           reserveCalls,
           // R2-REMEDIATION-01:最终采用值与来源入 Evidence(与 coder run 同口径)
-          maxOutputTokens: appliedMaxOutputTokens(model),
-          maxOutputTokensSource: model.maxOutputTokens === undefined ? "default" : "config",
+          // (READINESS-01 子包②:两字段单一来源=budgetEvidence,三口径同源)
+          ...budgetEvidence(model),
         })}::jsonb, ${spec.sandbox}, 'RUNNING')
     `),
   );
