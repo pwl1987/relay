@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 // RELAY-QUALITY-LOCAL-01:统一本地质量流水线(唯一实现;本地与 GitHub Actions 复用同一配置)。
+// RELAY-SAFETY-CLOSE-02 增补(P1-D/P0-C):必需项 NOT_RUN 不产生发布就绪 PASS(release INCOMPLETE);
+//   release 禁继承 RELAY_QUALITY_SKIP_BROWSER(fail-closed);运行前置校验 RELAY_DB_URL 授权三元组;
+//   RELAY_GITHUB_REAL_E2E 显式授权门(默认不写远端,剥离继承)。
 // 语义(C7):每步记录 status=PASS|FAILED|NOT_RUN、命令、退出码、时长、日志文件;
 //           证据 JSON 落 test-evidence/(gitignore,不入库),CI 以 Actions 日志为权威证据面。
 // 模式:
@@ -17,6 +20,37 @@ const mode = process.argv[2] ?? "";
 if (!["quick", "full", "release"].includes(mode)) {
   console.error("用法: node scripts/quality.mjs quick|full|release");
   process.exit(2);
+}
+
+// ---- P1-D 前置校验(在任何测试执行之前) ----
+// ① release 必须真跑浏览器:禁继承 RELAY_QUALITY_SKIP_BROWSER(继承=静默降低验收面 ⇒ fail-closed)
+if (mode === "release" && process.env.RELAY_QUALITY_SKIP_BROWSER === "1") {
+  console.error(
+    "quality:release 拒绝执行:RELAY_QUALITY_SKIP_BROWSER=1 被继承 —— release 模式必需浏览器检查,不得跳过后仍报告发布就绪(P1-D fail-closed);请清除该变量后重试",
+  );
+  process.exit(2);
+}
+// ② 测试目标必须是授权的独立测试库(P0-C;与 test/setup/testdb.ts 守卫同一三元组,两层防线)。
+//    错误生产 RELAY_DB_URL 在任何写操作前拒绝;未设置(默认)不拦截。
+if (process.env.RELAY_DB_URL) {
+  let u;
+  try {
+    u = new URL(process.env.RELAY_DB_URL);
+  } catch {
+    u = null;
+  }
+  const authorized =
+    u !== null &&
+    ["127.0.0.1", "localhost", "::1"].includes(u.hostname) &&
+    (u.port || "5432") === "55433" &&
+    u.pathname.replace(/^\//, "") === "relayp000";
+  if (!authorized) {
+    console.error(
+      "quality 拒绝执行:RELAY_DB_URL 不在授权测试三元组(loopback:55433/relayp000)内 —— 测试不得指向生产或未授权数据库(P0-C fail-closed);未执行任何测试或写操作。" +
+        "如需让 quality 使用其它测试库,请清除 RELAY_DB_URL(默认 127.0.0.1:55433/relayp000)。",
+    );
+    process.exit(2);
+  }
 }
 
 const startedAt = new Date().toISOString();
@@ -78,8 +112,9 @@ function pgReachable(port = 55433, timeoutMs = 2000) {
   });
 }
 
-/** 模型消耗门禁变量(C9):quality 运行器显式剥离,防止操作者 shell 残留变量隐式启用模型门。
- *  release 的 backup 步骤所需 RELAY_BACKUP_E2E 由步骤参数显式传入,不受剥离影响。 */
+/** 外部副作用门禁变量(C9/P1-D):quality 运行器显式剥离,防止操作者 shell 残留变量隐式启用
+ *  模型消耗或真实远端写入。release 的 backup 步骤所需 RELAY_BACKUP_E2E 由步骤参数显式传入,
+ *  不受剥离影响;真实 GitHub 远端写入须由操作者在调用 quality 之外、经独立授权流程显式设置。 */
 const MODEL_GATE_ENV = [
   "RELAY_A4_E2E",
   "RELAY_GATE_E2E",
@@ -90,6 +125,7 @@ const MODEL_GATE_ENV = [
   "RELAY_F1_E2E",
   "RELAY_F2_E2E",
   "RELAY_F3_E2E",
+  "RELAY_GITHUB_REAL_E2E",
 ];
 function childEnv(extra = {}) {
   const env = { ...process.env };
@@ -242,6 +278,28 @@ async function main() {
   }
 
   const failed = steps.some((s) => s.status === "FAILED");
+  // P1-D 发布就绪语义:必需项 NOT_RUN 不产生整体发布就绪 PASS。
+  // - release:计划步骤(除 format —— 变更集作用域检查,无变更文件时 NOT_RUN 属语义正确)必须
+  //   全部 PASS 才算 PASS;任一必需项 NOT_RUN ⇒ INCOMPLETE(检查可完成 ≠ 可发布),exit 1。
+  // - full:CI test job 场景下 browser NOT_RUN 属分工设计 ⇒ 判定仍 PASS,但证据强制携带
+  //   releaseReadiness 警示(浏览器结论必须由独立 e2e job 的真实结果补足)。
+  const notRunRequired =
+    mode === "release"
+      ? plan[mode]
+          .filter((n) => n !== "format")
+          .filter((n) => steps.some((s) => s.name === n && s.status === "NOT_RUN"))
+      : [];
+  const releaseReadiness =
+    mode === "release"
+      ? failed
+        ? "NOT_READY(存在 FAILED 步骤;不得宣称发布就绪,修复后重跑)"
+        : notRunRequired.length === 0
+          ? "READY(全部必需检查 PASS;性能/模型门禁/真实部署仍按 NOT_RUN 登记为未验证,不虚构)"
+          : `NOT_READY(必需项未执行:${notRunRequired.join(", ")})`
+      : mode === "full" && steps.some((s) => s.name === "browser" && s.status === "NOT_RUN")
+        ? "质量检查完成 ≠ 发布就绪:本 job 浏览器 NOT_RUN;必须由独立 e2e job 的真实结果补足(P1-D)"
+        : null;
+  const verdict = failed ? "FAILED" : mode === "release" && notRunRequired.length > 0 ? "INCOMPLETE" : "PASS";
   const gitDirty = (() => {
     try {
       return execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim().length > 0;
@@ -249,6 +307,15 @@ async function main() {
       return null;
     }
   })();
+  // P1-D:github-real 真实远端写入 —— quality 管线零外部副作用(RELAY_GITHUB_REAL_E2E 已剥离);
+  // 真实写入验证属独立授权步骤(在 quality 之外显式运行该测试文件),此处如实登记未验证。
+  if (mode === "full" || mode === "release") {
+    notRun.push({
+      name: "github-real-write",
+      reason:
+        "quality 管线零外部副作用:RELAY_GITHUB_REAL_E2E 被剥离,真实远端写入用例跳过(P1-D;仅凭本地凭据存在不得隐式写入);需独立授权时在 quality 之外显式运行 test/integration/github-real.test.ts",
+    });
+  }
   const evidence = {
     mode,
     sha,
@@ -261,13 +328,15 @@ async function main() {
     cwd: process.cwd(),
     steps,
     notRun,
-    verdict: failed ? "FAILED" : "PASS",
+    ...(releaseReadiness ? { releaseReadiness } : {}),
+    verdict,
   };
   const evFile = join(evDir, "evidence.json");
   writeFileSync(evFile, JSON.stringify(evidence, null, 2));
   console.log(`\n===== 质量证据: ${evFile} =====`);
-  console.log(`===== ${mode} 总裁决: ${evidence.verdict} =====`);
-  process.exit(failed ? 1 : 0);
+  if (releaseReadiness) console.log(`===== 发布就绪: ${releaseReadiness} =====`);
+  console.log(`===== ${mode} 总裁决: ${verdict} =====`);
+  process.exit(verdict === "PASS" ? 0 : 1);
 }
 
 main().catch((err) => {

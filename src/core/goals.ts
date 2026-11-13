@@ -40,10 +40,33 @@ export async function planGoal(exec: Exec, spec: GoalSpec): Promise<PlannedGoal>
     INSERT INTO goals (id, raw_input, state, budget)
     VALUES (${goalId}, ${spec.rawInput}, 'ACTIVE', ${JSON.stringify(spec.budget)}::jsonb)
   `);
-  await ensureLedgerRow(exec, { scopeType: "goal", scopeId: goalId, kind: "model_calls", limit: Math.floor(spec.budget.modelCalls) });
-  if (spec.budget.tokensIn) await ensureLedgerRow(exec, { scopeType: "goal", scopeId: goalId, kind: "tokens_in", limit: Math.floor(spec.budget.tokensIn) });
-  if (spec.budget.tokensOut) await ensureLedgerRow(exec, { scopeType: "goal", scopeId: goalId, kind: "tokens_out", limit: Math.floor(spec.budget.tokensOut) });
-  if (spec.budget.wallSeconds) await ensureLedgerRow(exec, { scopeType: "goal", scopeId: goalId, kind: "wall_seconds", limit: Math.floor(spec.budget.wallSeconds) });
+  await ensureLedgerRow(exec, {
+    scopeType: "goal",
+    scopeId: goalId,
+    kind: "model_calls",
+    limit: Math.floor(spec.budget.modelCalls),
+  });
+  if (spec.budget.tokensIn)
+    await ensureLedgerRow(exec, {
+      scopeType: "goal",
+      scopeId: goalId,
+      kind: "tokens_in",
+      limit: Math.floor(spec.budget.tokensIn),
+    });
+  if (spec.budget.tokensOut)
+    await ensureLedgerRow(exec, {
+      scopeType: "goal",
+      scopeId: goalId,
+      kind: "tokens_out",
+      limit: Math.floor(spec.budget.tokensOut),
+    });
+  if (spec.budget.wallSeconds)
+    await ensureLedgerRow(exec, {
+      scopeType: "goal",
+      scopeId: goalId,
+      kind: "wall_seconds",
+      limit: Math.floor(spec.budget.wallSeconds),
+    });
 
   const taskIds: string[] = [];
   for (const t of spec.tasks) {
@@ -90,8 +113,17 @@ export interface FollowUpTaskSpec {
  */
 export async function planFollowUpTask(exec: Exec, spec: FollowUpTaskSpec): Promise<{ taskId: string }> {
   if (!spec.goalText || !spec.goalText.trim()) throw new Error("goalText 必须为非空描述");
-  const goalRows = await exec.execute(sql`SELECT id FROM goals WHERE id = ${spec.goalId}`);
+  const goalRows = await exec.execute(sql`SELECT id, state FROM goals WHERE id = ${spec.goalId}`);
   if (goalRows.rows.length === 0) throw new Error(`goal 不存在:${spec.goalId}`);
+  // P0-A 纵深防御(RELAY-SAFETY-CLOSE-02):非 ACTIVE Goal 不得派生可执行 Task
+  // (AGENT_CONTROL §3"终态 Goal 上的新要求不得静默派生可执行 Task"/ADR-0012 #3)。
+  // 消费层已守卫;此处保证任何直接调用方也无法绕过(终态 Goal 派生 = 孤儿执行)。
+  const goalState = String(goalRows.rows[0]!["state"] ?? "");
+  if (goalState !== "ACTIVE") {
+    throw new Error(
+      `goal 非 ACTIVE(${goalState}):终态/暂停 Goal 不得静默派生可执行 Task;请创建新 Goal(AGENT_CONTROL §3/ADR-0012 #3)`,
+    );
+  }
   const taskId = `task-${randomUUID()}`;
   await exec.execute(sql`
     INSERT INTO tasks (id, goal_id, state, priority, max_attempts, allowed_scope, allowed_commands)

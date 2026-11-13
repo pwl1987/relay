@@ -1,4 +1,8 @@
 // RELAY-QUALITY-LOCAL-01 阶段 D:Gate 最低机器证据反例测试(反例先行,证明风险后才修复)。
+// RELAY-SAFETY-CLOSE-02 P0-B 增补:功能性证据区分 —— candidate_manifest_verify 只证明候选
+// 完整性,不证明行为正确;代码变更候选的 PASS 必须含 ≥1 条功能性证据
+// (deterministic_test/api_behavior);单凭 manifest 复验 + Reviewer PASS 不得 ACCEPTED
+// (修复前反例证据:p0-mvp/safety-close-02/evidence/counterexample-manifest-reviewer-accepted.log)。
 // 反例 A(修复前应为 ACCEPTED=漏洞实证):代码变更候选 + 零机器检查 + 仅 reviewer_output
 //   ⇒ Reviewer 自评即可放行 —— 违反 ADR-0012 #7/CONTRACTS §5("只有 Reviewer 输出时不得
 //   通过必需测试 Gate")。
@@ -113,7 +117,7 @@ describe("Gate 最低机器证据(反例先行)", () => {
     );
     // 修复后:机器证据预检拦在 Reviewer 之前 —— 不放行、不烧模型预算
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
-    expect(gate.reason).toBe("machine_evidence_unconfigured");
+    expect(gate.reason).toBe("functional_evidence_unconfigured");
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
     expect(String(st.rows[0]!["state"])).toBe("NEEDS_DECISION");
     // 无 PASS 裁决、无 reviewer_output 证据(Reviewer 根本未启动)
@@ -147,7 +151,7 @@ describe("Gate 最低机器证据(反例先行)", () => {
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("ACCEPTED");
   });
 
-  it("纵深防御:直接调用 recordGateVerdict,代码变更候选仅 reviewer_output ⇒ 拒绝 machine_evidence_missing", async () => {
+  it("纵深防御:直接调用 recordGateVerdict,代码变更候选仅 reviewer_output ⇒ 拒绝 functional_evidence_missing", async () => {
     const taskId = "t-dme-direct";
     const goalId = `goal-${taskId}`;
     await t.db.transaction(async (tx) =>
@@ -201,9 +205,71 @@ describe("Gate 最低机器证据(反例先行)", () => {
       coderRunId: runId,
       evidenceIds: [String(ev.rows[0]!["id"])],
     });
-    // 修复前:ok:true(漏洞);修复后:拒绝 machine_evidence_missing
+    // 修复前:ok:true(漏洞);修复后:拒绝 functional_evidence_missing
     expect(rec.ok).toBe(false);
-    if (!rec.ok) expect(rec.reason).toBe("machine_evidence_missing");
+    if (!rec.ok) expect(rec.reason).toBe("functional_evidence_missing");
+  });
+
+  it("纵深防御(P0-B):直录 PASS 仅含 candidate_manifest_verify + reviewer_output(无功能性证据)⇒ 拒绝 functional_evidence_missing", async () => {
+    const taskId = "t-dme-manifest-only-direct";
+    const goalId = `goal-${taskId}`;
+    await t.db.transaction(async (tx) =>
+      planGoal(tx as unknown as Exec, {
+        id: goalId,
+        rawInput: "完整性不等于功能",
+        budget: { modelCalls: 4 },
+        tasks: [{ id: taskId, goalText: "生成", priority: 2, allowedScope: ["/workspace"], allowedCommands: ["echo"] }],
+      }),
+    );
+    const runId = "run-dme-mv-direct";
+    await t.db.execute(sql`
+      INSERT INTO runs (id, task_id, attempt, model_ref, sandbox, detail) VALUES (${runId}, ${taskId}, 1, 'stub/gm', 'host-fallback', '{"role":"coder"}'::jsonb)
+    `);
+    const candidate = new Map([["result.txt", sha256Hex("sum=87")]]);
+    await recordChangeset(t.db as unknown as Exec, {
+      taskId,
+      runId,
+      attempt: 1,
+      base: new Map(),
+      candidate,
+      requirement: { goalText: "完整性不等于功能", taskId, allowedScope: ["/workspace"], allowedCommands: ["echo"] },
+    });
+    const reviewerRunId = "run-dme-mv-reviewer";
+    await t.db.execute(sql`
+      INSERT INTO runs (id, task_id, attempt, model_ref, sandbox, detail) VALUES (${reviewerRunId}, ${taskId}, 1, 'stub/gm', 'host-fallback', '{"role":"reviewer"}'::jsonb)
+    `);
+    const csRow = await t.db.execute(
+      sql`SELECT candidate_sha, requirement_sha FROM candidate_changesets WHERE task_id=${taskId} ORDER BY created_at DESC LIMIT 1`,
+    );
+    const candidateSha = String(csRow.rows[0]!["candidate_sha"]);
+    const requirementSha = String(csRow.rows[0]!["requirement_sha"]);
+    // 完整性(通过)+ Reviewer(通过),但零功能性证据 ⇒ 修复前该组合即 ACCEPTED(P0-B 反例)
+    const ev1 = await t.db.execute(sql`
+      INSERT INTO gate_evidence (id, task_id, attempt, candidate_sha, kind, passed, raw_output, env, content_sha256, produced_by)
+      VALUES ('ev-dme-mv', ${taskId}, 1, ${candidateSha},
+        'candidate_manifest_verify', true, 'verify=ok', '{"mode":"worker"}'::jsonb, ${sha256Hex("verify=ok")}, 'test')
+      RETURNING id
+    `);
+    const ev2 = await t.db.execute(sql`
+      INSERT INTO gate_evidence (id, task_id, attempt, candidate_sha, kind, passed, raw_output, env, content_sha256, produced_by)
+      VALUES ('ev-dme-ro', ${taskId}, 1, ${candidateSha},
+        'reviewer_output', true, 'stub pass', '{"mode":"reviewer"}'::jsonb, ${sha256Hex("stub pass")}, 'test')
+      RETURNING id
+    `);
+    const rec = await recordGateVerdict(t.db as unknown as Exec, {
+      taskId,
+      verdict: "PASS",
+      reviewer: "test",
+      attempt: 1,
+      candidateSha,
+      requirementSha,
+      testEnv: { mode: "worker", node: "test", host: "test" },
+      reviewerRunId,
+      coderRunId: runId,
+      evidenceIds: [String(ev1.rows[0]!["id"]), String(ev2.rows[0]!["id"])],
+    });
+    expect(rec.ok).toBe(false);
+    if (!rec.ok) expect(rec.reason).toBe("functional_evidence_missing");
   });
 
   it("D6:gate_required=false + 代码变更 ⇒ 仍强制 Gate(豁免通道关闭;审计留 GATE_REQUIRED_OVERRIDE)", {
@@ -257,11 +323,13 @@ describe("Gate 最低机器证据(反例先行)", () => {
     expect(audit.rows.length).toBe(1);
   });
 
-  it("生产默认兜底:无显式检查 + manifestVerify 注入(候选一致)⇒ ACCEPTED,证据含 candidate_manifest_verify", {
+  it("P0-B 反例(修复前实证,修复后翻转):候选完整性通过 + Reviewer PASS 但无功能性证据 ⇒ NEEDS_DECISION(不烧 Reviewer;完整性证据留档)", {
     timeout: 90_000,
   }, async () => {
+    // 修复前该组合 ACCEPTED(反例证据:counterexample-manifest-reviewer-accepted.log)——
+    // 完整性(candidate_manifest_verify)只证明"交付内容与绑定面一致且非空",不证明行为正确。
     const taskId = "t-dme-manifest-verify";
-    const { result, goalId } = await coderRun(taskId, "result.txt:sum=87");
+    const { result } = await coderRun(taskId, "result.txt:sum=87");
     expect(result.outcome).toBe("SUCCEEDED");
     const gate = await orchestrateGate(
       t.db,
@@ -277,16 +345,85 @@ describe("Gate 最低机器证据(反例先行)", () => {
           const { verifyCandidateManifest } = await import("../../src/runtime/workspace-manifest.ts");
           return verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount);
         },
+        reviewRun: reviewerStub("PASS", `goal-${taskId}`, result.sandboxSpec.workspaceDir),
+        reviewAttempts: 1,
+      },
+    );
+    expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
+    expect(gate.reason).toBe("functional_evidence_unconfigured");
+    // 完整性硬门仍执行并留档(通过);Reviewer 未启动(零 reviewer_output 证据)
+    const ev = await t.db.execute(sql`SELECT kind, passed FROM gate_evidence WHERE task_id=${taskId}`);
+    expect(ev.rows.length).toBe(1);
+    expect(String(ev.rows[0]!["kind"])).toBe("candidate_manifest_verify");
+    expect(ev.rows[0]!["passed"]).toBe(true);
+    const verdicts = await t.db.execute(sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${taskId}`);
+    expect(Number(verdicts.rows[0]!["n"])).toBe(0);
+  });
+
+  it("功能性证据合法放行:配置 deterministic_test(恒真)⇒ ACCEPTED,证据含功能性 + Reviewer", {
+    timeout: 90_000,
+  }, async () => {
+    // 旧成功路径回归:功能性机器检查在 ⇒ Gate 语义完整(REWORK/BLOCK/PASS 全链不变)
+    const taskId = "t-dme-functional-pass";
+    const { result, goalId } = await coderRun(taskId, "result.txt:sum=87");
+    expect(result.outcome).toBe("SUCCEEDED");
+    const gate = await orchestrateGate(
+      t.db,
+      {
+        taskId,
+        attempt: 1,
+        coderRunId: result.runId,
+        workspaceDir: result.sandboxSpec.workspaceDir,
+        actor: "test-dme",
+      },
+      {
+        evidenceChecks: [
+          { kind: "deterministic_test", command: ["node", "-e", "console.log('check ok')"], cwdWorkspace: true },
+        ],
         reviewRun: reviewerStub("PASS", goalId, result.sandboxSpec.workspaceDir),
         reviewAttempts: 1,
       },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("ACCEPTED");
-    const kinds = await t.db.execute(sql`SELECT kind, passed FROM gate_evidence WHERE task_id=${taskId} ORDER BY kind`);
+    const kinds = await t.db.execute(sql`SELECT kind, passed FROM gate_evidence WHERE task_id=${taskId}`);
     const kindList = kinds.rows.map((r) => String(r["kind"]));
-    expect(kindList).toContain("candidate_manifest_verify");
+    expect(kindList).toContain("deterministic_test");
     expect(kindList).toContain("reviewer_output");
     for (const r of kinds.rows) expect(r["passed"]).toBe(true);
+  });
+
+  it("必需功能性检查失败 ⇒ 保守停机 evidence_failed(不进 Reviewer,零模型预算)", {
+    timeout: 90_000,
+  }, async () => {
+    const taskId = "t-dme-functional-fail";
+    const { result } = await coderRun(taskId, "result.txt:sum=87");
+    expect(result.outcome).toBe("SUCCEEDED");
+    const gate = await orchestrateGate(
+      t.db,
+      {
+        taskId,
+        attempt: 1,
+        coderRunId: result.runId,
+        workspaceDir: result.sandboxSpec.workspaceDir,
+        actor: "test-dme",
+      },
+      {
+        evidenceChecks: [
+          { kind: "deterministic_test", command: ["node", "-e", "process.exit(3)"], cwdWorkspace: true },
+        ],
+        reviewRun: reviewerStub("PASS", `goal-${taskId}`, result.sandboxSpec.workspaceDir),
+        reviewAttempts: 1,
+      },
+    );
+    expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
+    expect(gate.reason).toBe("evidence_failed:deterministic_test");
+    // 失败证据留档;Reviewer 未启动
+    const ev = await t.db.execute(sql`SELECT kind, passed FROM gate_evidence WHERE task_id=${taskId}`);
+    expect(ev.rows.length).toBe(1);
+    expect(String(ev.rows[0]!["kind"])).toBe("deterministic_test");
+    expect(ev.rows[0]!["passed"]).toBe(false);
+    const verdicts = await t.db.execute(sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${taskId}`);
+    expect(Number(verdicts.rows[0]!["n"])).toBe(0);
   });
 
   it("生产默认兜底拦截:manifestVerify 复验失败(候选不一致)⇒ NEEDS_DECISION,不进 Reviewer", {

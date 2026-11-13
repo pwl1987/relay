@@ -1,4 +1,7 @@
 // 可信 Evidence 采集(P0-02A C-3;合同条款 3/7)。
+// 证据四类语义(RELAY-SAFETY-CLOSE-02 P0-B;详见 gates.ts FUNCTIONAL_EVIDENCE_KINDS 注):
+//   candidate_manifest_verify = 候选完整性(硬门,不证明行为);deterministic_test/api_behavior =
+//   功能性证据(证明行为,代码变更 PASS 必需);reviewer_output = 独立 Review(永不充当机器证据)。
 // 原则:
 // - Evidence 由 **可信执行器**(Worker 侧进程)执行并落库,不依赖 Agent 可改写的 workspace 日志。
 // - passed 由 Worker 按退出码/探针结果判定,模型文本不参与判定。

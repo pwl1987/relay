@@ -41,7 +41,10 @@ interface Stack {
   errors: string[];
 }
 
-async function startStack(label: string, opts: { delivery?: DeliveryFactory; stubDelayMs?: string } = {}): Promise<Stack> {
+async function startStack(
+  label: string,
+  opts: { delivery?: DeliveryFactory; stubDelayMs?: string } = {},
+): Promise<Stack> {
   const t = await createTestDb(`webux03c-e2e-${label}`);
   const auth = new Auth({
     password: PASSWORD,
@@ -64,7 +67,12 @@ async function startStack(label: string, opts: { delivery?: DeliveryFactory; stu
     stubInjection: {
       argv: [process.execPath, STUB],
       coderEnv: { STUB_MODE: "ok", STUB_WRITE_FILE: "delivered.txt:ok", STUB_DELAY_MS: opts.stubDelayMs ?? "80" },
-      reviewerEnv: { STUB_MODE: "verdict", STUB_VERDICT: "PASS", STUB_FINDINGS: "webux03c e2e 独立审查通过", STUB_DELAY_MS: "80" },
+      reviewerEnv: {
+        STUB_MODE: "verdict",
+        STUB_VERDICT: "PASS",
+        STUB_FINDINGS: "webux03c e2e 独立审查通过",
+        STUB_DELAY_MS: "80",
+      },
     },
     prepareWorkspace: (ws: string) => {
       execFileSync("git", ["-C", ws, "init", "--initial-branch=main"], { encoding: "utf8" });
@@ -211,7 +219,12 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
         executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
         verifyRemoteContent: async (commitSha: string) => {
           const scratch = mkdtempSync(join(tmpdir(), "webux03c-verify-"));
-          const r = await verifyRemoteCommitContent({ target: remoteFor(c.taskId).url, commitSha, manifest: c.manifest, scratchDir: scratch });
+          const r = await verifyRemoteCommitContent({
+            target: remoteFor(c.taskId).url,
+            commitSha,
+            manifest: c.manifest,
+            scratchDir: scratch,
+          });
           return r.ok ? { ok: true as const } : { ok: false as const, mismatches: r.mismatches };
         },
         manifest: c.manifest,
@@ -255,7 +268,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await page.waitForSelector('[data-testid="ws-feed"] [data-testid^="ws-msg-user"]');
     const bubble = await page.textContent('[data-testid="ws-feed"] [data-testid^="ws-msg-user"]');
     expect(bubble).toContain("登录页不好用");
-    const msgRow = await t.db.execute(sql`SELECT id, content FROM goal_messages WHERE goal_id = ${goalId} AND actor = 'USER' ORDER BY id ASC LIMIT 1`);
+    const msgRow = await t.db.execute(
+      sql`SELECT id, content FROM goal_messages WHERE goal_id = ${goalId} AND actor = 'USER' ORDER BY id ASC LIMIT 1`,
+    );
     expect(String(msgRow.rows[0]!["content"])).toContain("登录页不好用");
     const mapRow = await t.db.execute(sql`SELECT task_id FROM goal_message_consumptions WHERE goal_id = ${goalId}`);
     expect(mapRow.rows.length).toBe(1); // 首条消息已绑定首 Task(防首拍重复派生)
@@ -266,7 +281,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
   it("C2 执行状态:完成后工作状态块聚合(需求→修改→测试→复核→交付;同阶段不重复 UX4/UX5;P1-1 无内部码)", async () => {
     const { page, base, t } = s;
     const goalId = desktopGoal;
-    const taskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC LIMIT 1`);
+    const taskRow = await t.db.execute(
+      sql`SELECT id FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC LIMIT 1`,
+    );
     const taskId = String(taskRow.rows[0]!["id"]);
     await tickOnce(page, base); // 一拍内:领取→Run(桩)→验证→Gate→交付
     const final = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskId}`);
@@ -331,7 +348,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     const { page, base, t } = s;
     // 新 Goal + D3 未决(先建 Goal,再插决策;下一拍 handleOpenDecisions 置 NEEDS_DECISION)
     const goalId = await createGoalViaWorkspace(page, "目标:被 D3 卡住的扩大作用域工作");
-    const taskRow = await t.db.execute(sql`SELECT id, state_version FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC LIMIT 1`);
+    const taskRow = await t.db.execute(
+      sql`SELECT id, state_version FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC LIMIT 1`,
+    );
     const taskId = String(taskRow.rows[0]!["id"]);
     await t.db.execute(sql`
       INSERT INTO decisions (id, task_id, goal_id, level, question, fallback, state, deadline)
@@ -351,7 +370,10 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await notice.waitFor({ timeout: 15000 });
     expect(await notice.textContent()).toContain("已批准");
     // 卡状态更新:决策已裁决 ⇒ 从未决列表消失(Feed 内联更新,不跳页)
-    await page.waitForSelector('[data-testid="ws-decision-card-dec-03c-inline"]', { state: "detached", timeout: 20000 });
+    await page.waitForSelector('[data-testid="ws-decision-card-dec-03c-inline"]', {
+      state: "detached",
+      timeout: 20000,
+    });
     const decRow = await t.db.execute(sql`SELECT state FROM decisions WHERE id = 'dec-03c-inline'`);
     // 现有 resolve 语义(ops.resolveDecision):人工批准 ⇒ RESOLVED_MANUAL;拒绝 ⇒ REJECTED
     expect(String(decRow.rows[0]!["state"])).toBe("RESOLVED_MANUAL");
@@ -365,7 +387,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     s.errors.length = 0;
   });
 
-  it("C5 Follow-up:完成后继续说 → 消息持久化 + 同 Goal 新受控 Task(消费映射绑定)→ 新结果仍在同一 Conversation", async () => {
+  it("C5 Follow-up(终态;RELAY-SAFETY-CLOSE-02 P0-A):完成后继续说 ⇒ 只记录不派生(held 反馈 + 请新建需求指引;消息事实保留)", async () => {
+    // P0-A:终态 Goal 上的新请求不得静默派生可执行 Task(AGENT_CONTROL §3/ADR-0012 #3;
+    // 原语义"完成后继续说 ⇒ 派生新 Task"已在该包收窄 —— 活会话在途补充的边界消费仍由 C6 钉住)。
     const { page, base, t } = s;
     const goalId = desktopGoal;
     expect(goalId).toBeTruthy();
@@ -374,39 +398,33 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await page.waitForSelector('[data-testid="ws-input"]');
     await page.fill('[data-testid="ws-input"]', "按钮还是太浅,再明显一点。");
     await page.click('[data-testid="ws-send"]');
-    // USER_MESSAGE 持久化 + RELAY 确认出现在 Feed(同一会话)
-    const ack = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已收到你的补充" }).first();
+    // RELAY"已记录"确认出现在 Feed(同一会话;不误导为新一轮执行)
+    const ack = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已记录" }).first();
     await ack.waitFor({ timeout: 15000 });
-    expect(await ack.textContent()).toContain("已收到你的补充");
-    // 派生同 Goal follow-up Task;不创建新 Goal
+    expect(await ack.textContent()).toContain("已记录");
+    // 只记录不派生:零新 Task、零消费映射、不创建新 Goal
     await page.waitForTimeout(600); // 等刷新落定后核对 DB
-    const tasks = await t.db.execute(sql`SELECT id, state FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC`);
-    expect(tasks.rows.length).toBe(2);
-    const followUp = String(tasks.rows[1]!["id"]);
-    expect(String(tasks.rows[1]!["state"])).toBe("READY");
+    const tasks = await t.db.execute(
+      sql`SELECT id, state FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC`,
+    );
+    expect(tasks.rows.length).toBe(1);
+    expect(String(tasks.rows[0]!["state"])).toBe("ACCEPTED");
     const mapRow = await t.db.execute(sql`
       SELECT c.task_id, gm.content FROM goal_message_consumptions c
       JOIN goal_messages gm ON gm.id = c.message_id
       WHERE c.goal_id = ${goalId} AND gm.content LIKE '%按钮还是太浅%'
     `);
-    expect(String(mapRow.rows[0]!["task_id"])).toBe(followUp);
+    expect(mapRow.rows.length).toBe(0); // 不伪造消费映射
     const goalsAfter = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM goals`);
     expect(Number(goalsAfter.rows[0]!["n"])).toBe(Number(goalsBefore.rows[0]!["n"]));
-    // 新执行完成仍在同一 Conversation(Feed 同页;含 follow-up 消息与新事件)。
-    // 每拍只领一个任务:循环推进直到 follow-up 到终态(兼容 FIFO 先领取其他 READY 任务)。
-    let done = false;
-    for (let i = 0; i < 3 && !done; i++) {
-      await tickOnce(page, base);
-      const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${followUp}`);
-      if (String(r.rows[0]!["state"]) === "ACCEPTED") done = true;
-    }
-    expect(done).toBe(true);
-    await page.goto(`${base}/workspace?goal=${goalId}`);
-    await page.waitForSelector('[data-testid="ws-result-card"]');
+    // 消息事实保留:USER 消息仍在会话 Feed;held 审计留痕
     const feed = await page.textContent('[data-testid="ws-feed"]');
     expect(feed).toContain("按钮还是太浅");
-    expect(feed).toContain("已完成本轮工作");
-    await shot(page, "c5-follow-up-same-conversation.png");
+    const heldAudit = await t.db.execute(sql`
+      SELECT action FROM audit_events WHERE detail->>'goalId' = ${goalId} AND action = 'GOAL_MESSAGE_HELD'
+    `);
+    expect(heldAudit.rows.length).toBe(1);
+    await shot(page, "c5-followup-terminal-held.png");
     s.errors.length = 0;
   });
 
@@ -419,17 +437,22 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     expect(selText).toContain("LAMICE");
     expect(selText).not.toContain("默认工作区");
     // 绑定项目 Goal(经 API 携带 projectId=LAMICE;与侧栏归组同一注册表规则)
-    const csrf = await page.evaluate((): string => (globalThis as unknown as { RelayApp: { state: { csrf: string } } }).RelayApp.state.csrf || "");
-    const created = await page.evaluate(async ({ raw, csrf }: { raw: string; csrf: string }) => {
-      const r = await fetch("/api/goals", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json", "x-relay-csrf": csrf },
-        body: JSON.stringify({ rawInput: raw, projectId: "LAMICE" }),
-      });
-      const b = (await r.json()) as { goalId?: string };
-      return b.goalId ?? "";
-    }, { raw: "UX3 绑定项目的上下文一致性检查", csrf });
+    const csrf = await page.evaluate(
+      (): string => (globalThis as unknown as { RelayApp: { state: { csrf: string } } }).RelayApp.state.csrf || "",
+    );
+    const created = await page.evaluate(
+      async ({ raw, csrf }: { raw: string; csrf: string }) => {
+        const r = await fetch("/api/goals", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json", "x-relay-csrf": csrf },
+          body: JSON.stringify({ rawInput: raw, projectId: "LAMICE" }),
+        });
+        const b = (await r.json()) as { goalId?: string };
+        return b.goalId ?? "";
+      },
+      { raw: "UX3 绑定项目的上下文一致性检查", csrf },
+    );
     expect(created).toBeTruthy();
     await page.goto(`${base}/workspace?goal=${created}`);
     await page.waitForSelector('[data-testid="ws-detail-project"]');
@@ -437,7 +460,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     // (CI tsconfig 无 DOM lib:evaluate/waitForFunction 回调内经 globalThis 结构化类型访问 DOM——073589d 教训)
     await page.waitForFunction(
       () => {
-        const doc = (globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }).document;
+        const doc = (
+          globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }
+        ).document;
         const el = doc.querySelector('[data-testid="ws-detail-project"]');
         return el !== null && el.textContent === "LAMICE";
       },
@@ -450,7 +475,11 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await sidebarRow.waitFor({ timeout: 10000 });
     // 侧栏行位于 LAMICE 分组下(向前找最近的分组名)
     const groupName = await page.evaluate((gid: string): string | null => {
-      type WsNode = { classList: { contains(c: string): boolean }; previousElementSibling: WsNode | null; textContent: string | null };
+      type WsNode = {
+        classList: { contains(c: string): boolean };
+        previousElementSibling: WsNode | null;
+        textContent: string | null;
+      };
       const doc = (globalThis as unknown as { document: { querySelector(sel: string): WsNode | null } }).document;
       let p: WsNode | null = doc.querySelector('[data-testid="ws-goal-row-' + gid + '"]');
       if (!p) return null;
@@ -464,7 +493,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await page.waitForSelector('[data-testid="ws-detail-project"]');
     await page.waitForFunction(
       () => {
-        const doc = (globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }).document;
+        const doc = (
+          globalThis as unknown as { document: { querySelector(sel: string): { textContent: string | null } | null } }
+        ).document;
         const el = doc.querySelector('[data-testid="ws-detail-project"]');
         return el !== null && el.textContent === "项目未绑定";
       },
@@ -496,7 +527,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     const { page, base, t } = s;
     await login(page, base);
     const goalId = await createGoalViaWorkspace(page, "目标:执行中追加需求也不丢消息");
-    const firstTaskRow = await t.db.execute(sql`SELECT id FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC LIMIT 1`);
+    const firstTaskRow = await t.db.execute(
+      sql`SELECT id FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC LIMIT 1`,
+    );
     const task1 = String(firstTaskRow.rows[0]!["id"]);
     const goalsBefore = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM goals`);
 
@@ -508,7 +541,10 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     for (let i = 0; i < 20; i++) {
       const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${task1}`);
       const st = String(r.rows[0]!["state"]);
-      if (st === "RUNNING") { running = true; break; }
+      if (st === "RUNNING") {
+        running = true;
+        break;
+      }
       if (["ACCEPTED", "FAILED", "CANCELLED"].includes(st)) break;
       await page.waitForTimeout(200);
     }
@@ -525,7 +561,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
 
     // 在途 ⇒ 只记录:消息持久化;此刻不得派生 follow-up(无新 Task)
     await page.waitForTimeout(400);
-    const msgRow = await t.db.execute(sql`SELECT id FROM goal_messages WHERE goal_id = ${goalId} AND content LIKE '%错误提示文字%'`);
+    const msgRow = await t.db.execute(
+      sql`SELECT id FROM goal_messages WHERE goal_id = ${goalId} AND content LIKE '%错误提示文字%'`,
+    );
     expect(msgRow.rows.length).toBe(1);
     const midTasks = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
     expect(Number(midTasks.rows[0]!["n"])).toBe(1); // 在途不派生
@@ -533,14 +571,19 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     let accepted = false;
     for (let i = 0; i < 40; i++) {
       const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${task1}`);
-      if (String(r.rows[0]!["state"]) === "ACCEPTED") { accepted = true; break; }
+      if (String(r.rows[0]!["state"]) === "ACCEPTED") {
+        accepted = true;
+        break;
+      }
       await page.waitForTimeout(300);
     }
     expect(accepted).toBe(true);
 
     // 安全边界后:下一拍自动消费 → 派生同 Goal follow-up → 本拍领取执行并完成
     await tickOnce(page, base);
-    const tasks = await t.db.execute(sql`SELECT id, state FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC`);
+    const tasks = await t.db.execute(
+      sql`SELECT id, state FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC`,
+    );
     expect(tasks.rows.length).toBe(2);
     const task2 = String(tasks.rows[1]!["id"]);
     const mapRow = await t.db.execute(sql`
@@ -549,7 +592,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     `);
     expect(mapRow.rows.length).toBe(1); // at-most-once:恰好一条消费映射
     expect(String(mapRow.rows[0]!["task_id"])).toBe(task2);
-    const auditRow = await t.db.execute(sql`SELECT action FROM audit_events WHERE action = 'GOAL_MESSAGES_CONSUMED' AND detail->>'goalId' = ${goalId}`);
+    const auditRow = await t.db.execute(
+      sql`SELECT action FROM audit_events WHERE action = 'GOAL_MESSAGES_CONSUMED' AND detail->>'goalId' = ${goalId}`,
+    );
     expect(auditRow.rows.length).toBe(1);
     // 不建匿名会话:Goal 数不变;新任务同 Goal
     const goalsAfter = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM goals`);
@@ -561,7 +606,10 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     let task2Done = false;
     for (let i = 0; i < 3 && !task2Done; i++) {
       const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${task2}`);
-      if (String(r.rows[0]!["state"]) === "ACCEPTED") { task2Done = true; break; }
+      if (String(r.rows[0]!["state"]) === "ACCEPTED") {
+        task2Done = true;
+        break;
+      }
       await tickOnce(page, base);
     }
     expect(task2Done).toBe(true);

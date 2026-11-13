@@ -5,17 +5,22 @@
 // 4) 进程重启:loop 子进程被真实 SIGKILL → 新 loop 从 PG 恢复事实状态继续(无内存权威)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { createTestDb, type TestDb } from "../setup/testdb.ts";
+import { createTestDb, databaseUrl, type TestDb } from "../setup/testdb.ts";
 import { planGoal } from "../../src/core/goals.ts";
 import { goalLoopTick, type RunOutcomeDigest } from "../../src/core/goal-loop.ts";
 import { advanceTask } from "../../src/core/lease.ts";
 import { randomUUID } from "node:crypto";
 
 /** stub 专用:模拟 runner 的 runs 行落库(failureStreak 数据源)。 */
-async function stubRunRow(db: { execute(q: ReturnType<typeof sql>): Promise<{ rows: Array<Record<string, unknown>> }> }, taskId: string, outcome: string, reason: string): Promise<void> {
+async function stubRunRow(
+  db: { execute(q: ReturnType<typeof sql>): Promise<{ rows: Array<Record<string, unknown>> }> },
+  taskId: string,
+  outcome: string,
+  reason: string,
+): Promise<void> {
   await db.execute(sql`
     INSERT INTO runs (id, task_id, attempt, model_ref, sandbox, outcome, detail, started_at, ended_at)
-    VALUES (${'run-' + randomUUID()}, ${taskId}, 0, 'stub/stub', 'host-fallback', ${outcome},
+    VALUES (${"run-" + randomUUID()}, ${taskId}, 0, 'stub/stub', 'host-fallback', ${outcome},
       ${JSON.stringify({ reason })}::jsonb, now(), now())
   `);
 }
@@ -24,7 +29,8 @@ import { spawnHelper, kill9AndAssertDead, sleep, waitFor, type HelperChild } fro
 import { connectDb } from "../../src/core/db.ts";
 import { recordGateVerdict } from "../../src/core/gates.ts";
 
-const DB_URL = process.env.RELAY_DB_URL ?? "postgresql://postgres:relayp000local@127.0.0.1:55433/relayp000";
+// P0-C:经 testdb 授权守卫解析(错误生产 URL fail-closed),不再裸读 env
+const DB_URL = databaseUrl();
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 
 describe("熔断与 attempt 预算(故意无限失败 ⇒ 有界停止)", () => {
@@ -72,7 +78,9 @@ describe("熔断与 attempt 预算(故意无限失败 ⇒ 有界停止)", () => 
     expect(runCount).toBe(3);
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id='t-cir'`);
     expect(String(st.rows[0]!["state"])).toBe("FAILED");
-    const audit = await t.db.execute(sql`SELECT detail FROM audit_events WHERE task_id='t-cir' AND action='CIRCUIT_OPEN'`);
+    const audit = await t.db.execute(
+      sql`SELECT detail FROM audit_events WHERE task_id='t-cir' AND action='CIRCUIT_OPEN'`,
+    );
     expect(audit.rows.length).toBe(1);
     expect((audit.rows[0]!["detail"] as Record<string, unknown>)["streak"]).toBe(3);
     // 指数退避可观测(0.01s 基数:1x,2x)
@@ -114,9 +122,13 @@ describe("熔断与 attempt 预算(故意无限失败 ⇒ 有界停止)", () => 
       await sleep(30);
     }
     expect(runCount).toBe(2);
-    const audit = await t.db.execute(sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id='t-att' AND action='ATTEMPT_BUDGET_EXHAUSTED'`);
+    const audit = await t.db.execute(
+      sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id='t-att' AND action='ATTEMPT_BUDGET_EXHAUSTED'`,
+    );
     expect(Number(audit.rows[0]!["n"])).toBe(1);
-    const circuit = await t.db.execute(sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id='t-att' AND action='CIRCUIT_OPEN'`);
+    const circuit = await t.db.execute(
+      sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id='t-att' AND action='CIRCUIT_OPEN'`,
+    );
     expect(Number(circuit.rows[0]!["n"])).toBe(0);
   });
 });
@@ -143,8 +155,28 @@ describe("并发/重复 Tick 与进程重启恢复", () => {
     );
     let runs = 0;
     const [r1, r2] = await Promise.all([
-      goalLoopTick(t.db, { workerId: "w-parallel-1", ttlSeconds: 60, runTask: async (c) => { runs += 1; await t.db.transaction(async (tx) => advanceTask(tx as unknown as Exec, c.taskId, "w-parallel-1", c.fencingToken, "LEASED", "RUNNING")); return { outcome: "SUCCEEDED", taskId: c.taskId }; } }),
-      goalLoopTick(t.db, { workerId: "w-parallel-2", ttlSeconds: 60, runTask: async (c) => { runs += 1; await t.db.transaction(async (tx) => advanceTask(tx as unknown as Exec, c.taskId, "w-parallel-2", c.fencingToken, "LEASED", "RUNNING")); return { outcome: "SUCCEEDED", taskId: c.taskId }; } }),
+      goalLoopTick(t.db, {
+        workerId: "w-parallel-1",
+        ttlSeconds: 60,
+        runTask: async (c) => {
+          runs += 1;
+          await t.db.transaction(async (tx) =>
+            advanceTask(tx as unknown as Exec, c.taskId, "w-parallel-1", c.fencingToken, "LEASED", "RUNNING"),
+          );
+          return { outcome: "SUCCEEDED", taskId: c.taskId };
+        },
+      }),
+      goalLoopTick(t.db, {
+        workerId: "w-parallel-2",
+        ttlSeconds: 60,
+        runTask: async (c) => {
+          runs += 1;
+          await t.db.transaction(async (tx) =>
+            advanceTask(tx as unknown as Exec, c.taskId, "w-parallel-2", c.fencingToken, "LEASED", "RUNNING"),
+          );
+          return { outcome: "SUCCEEDED", taskId: c.taskId };
+        },
+      }),
     ]);
     const claims = [r1.tick?.claimed, r2.tick?.claimed].filter(Boolean);
     expect(claims.length).toBe(1); // 恰好一个赢家
@@ -168,10 +200,14 @@ describe("并发/重复 Tick 与进程重启恢复", () => {
       INTERVAL_MS: "200",
       OWNER: "loop-A",
     });
-    await waitFor("loop-A 领取并 RUNNING", async () => {
-      const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id='t-rs'`);
-      return String(r.rows[0]!["state"]) === "RUNNING" ? true : null;
-    }, 20000);
+    await waitFor(
+      "loop-A 领取并 RUNNING",
+      async () => {
+        const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id='t-rs'`);
+        return String(r.rows[0]!["state"]) === "RUNNING" ? true : null;
+      },
+      20000,
+    );
 
     // 真实 SIGKILL + 死亡核验
     await kill9AndAssertDead(loop);
@@ -182,10 +218,18 @@ describe("并发/重复 Tick 与进程重启恢复", () => {
     const { reclaimExpiredLeases, reconcilePendingTasks } = await import("../../src/core/supervisor.ts");
     const reclaimed = await t.db.transaction(async (tx) => reclaimExpiredLeases(tx as unknown as Exec, "recover-test"));
     expect(reclaimed.map((r) => r.taskId)).toContain("t-rs");
-    const rec = await reconcilePendingTasks(t.db, {
-      check: async () => { throw new Error("无 EXECUTING 意图"); },
-      perform: async () => { throw new Error("同上"); },
-    }, "recover-test");
+    const rec = await reconcilePendingTasks(
+      t.db,
+      {
+        check: async () => {
+          throw new Error("无 EXECUTING 意图");
+        },
+        perform: async () => {
+          throw new Error("同上");
+        },
+      },
+      "recover-test",
+    );
     expect(rec.map((r) => r.taskId)).toContain("t-rs");
     const readyState = await t.db.execute(sql`SELECT state FROM tasks WHERE id='t-rs'`);
     expect(String(readyState.rows[0]!["state"])).toBe("READY");
@@ -196,7 +240,11 @@ describe("并发/重复 Tick 与进程重启恢复", () => {
       ttlSeconds: 60,
       runTask: async (claim) => {
         // 模拟 runner:LEASED→RUNNING→SUBMITTED→VERIFYING(经 advanceTask,租约权威内)
-        for (const [from, to] of [["LEASED", "RUNNING"], ["RUNNING", "SUBMITTED"], ["SUBMITTED", "VERIFYING"]] as const) {
+        for (const [from, to] of [
+          ["LEASED", "RUNNING"],
+          ["RUNNING", "SUBMITTED"],
+          ["SUBMITTED", "VERIFYING"],
+        ] as const) {
           const r = await t.db.transaction(async (tx) =>
             advanceTask(tx as unknown as Exec, claim.taskId, "loop-B", claim.fencingToken, from, to),
           );
@@ -209,7 +257,9 @@ describe("并发/重复 Tick 与进程重启恢复", () => {
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id='t-rs'`);
     expect(String(st.rows[0]!["state"])).toBe("VERIFYING");
     // 审计链:RECLAIM_EXPIRED 存在(崩溃被记账,不是静默重做)
-    const audit = await t.db.execute(sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id='t-rs' AND action='RECLAIM_EXPIRED'`);
+    const audit = await t.db.execute(
+      sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id='t-rs' AND action='RECLAIM_EXPIRED'`,
+    );
     expect(Number(audit.rows[0]!["n"])).toBeGreaterThanOrEqual(1);
     void STUB;
     void recordGateVerdict;

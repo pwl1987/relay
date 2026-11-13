@@ -142,7 +142,13 @@ async function audit(
 /** 派生默认计划(确定性;非模型规划):一句需求 ⇒ 一个任务 + 最小作用域。 */
 export function deriveDefaultPlan(rawInput: string): {
   rawInput: string;
-  tasks: Array<{ goalText: string; allowedScope: string[]; allowedCommands: string[]; priority: number; maxAttempts: number }>;
+  tasks: Array<{
+    goalText: string;
+    allowedScope: string[];
+    allowedCommands: string[];
+    priority: number;
+    maxAttempts: number;
+  }>;
 } {
   return {
     rawInput,
@@ -170,7 +176,13 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       await audit(deps, { actor: "web", action: "WEB_LOGIN", detail: { role: session.role } });
       return {
         status: 200,
-        body: { ok: true, authenticated: true, role: session.role, csrfToken: session.csrf, expiresAt: new Date(session.expiresAt).toISOString() },
+        body: {
+          ok: true,
+          authenticated: true,
+          role: session.role,
+          csrfToken: session.csrf,
+          expiresAt: new Date(session.expiresAt).toISOString(),
+        },
         headers: { "set-cookie": sessionCookie(session.id, Math.floor((session.expiresAt - Date.now()) / 1000)) },
       };
     } catch (err) {
@@ -206,12 +218,20 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
     } catch (err) {
       if (err instanceof AuthError) {
         await audit(deps, { actor: session.role, action: "WEB_WRITE_REJECTED", detail: { path, reason: err.code } });
-        return fail(err.code.startsWith("csrf") || err.code.includes("origin") || err.code.includes("cross_site") ? 403 : 400, err.code, err.message);
+        return fail(
+          err.code.startsWith("csrf") || err.code.includes("origin") || err.code.includes("cross_site") ? 403 : 400,
+          err.code,
+          err.message,
+        );
       }
       return fail(500, "write_guard_error", safeErrorMessage(err));
     }
     if (!operatorAllowed(session.role)) {
-      await audit(deps, { actor: session.role, action: "WEB_WRITE_REJECTED", detail: { path, reason: "actor_not_authorized" } });
+      await audit(deps, {
+        actor: session.role,
+        action: "WEB_WRITE_REJECTED",
+        detail: { path, reason: "actor_not_authorized" },
+      });
       return fail(403, "actor_not_authorized", "当前身份无写权限");
     }
   }
@@ -272,7 +292,9 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           active: Boolean(worker),
         },
         providerModel: {
-          configured: Boolean(process.env.RELAY_PI_PROVIDER && process.env.RELAY_PI_MODEL && process.env.RELAY_PI_BASE_URL),
+          configured: Boolean(
+            process.env.RELAY_PI_PROVIDER && process.env.RELAY_PI_MODEL && process.env.RELAY_PI_BASE_URL,
+          ),
           providerName: process.env.RELAY_PI_PROVIDER ?? null,
           modelName: process.env.RELAY_PI_MODEL ?? null,
           probed: false,
@@ -312,7 +334,12 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       let boundProject: { name: string; path: string; repo: string | null; branch: string | null } | null = null;
       if (projectId) {
         const entry = readProjectRegistry().projects.find((p) => p.name === projectId);
-        if (!entry) return fail(400, "unknown_project", "未登记的项目:仅接受项目注册表内的 projectId(路径由服务端解析,不接受浏览器提交路径)");
+        if (!entry)
+          return fail(
+            400,
+            "unknown_project",
+            "未登记的项目:仅接受项目注册表内的 projectId(路径由服务端解析,不接受浏览器提交路径)",
+          );
         boundProject = { name: entry.name, path: entry.path, repo: entry.repo ?? null, branch: entry.branch ?? null };
       }
       const plan = deriveDefaultPlan(rawInput);
@@ -324,7 +351,7 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           tasks: plan.tasks.map((t) => ({
             goalText: t.goalText,
             // §4.5:项目绑定 ⇒ Task allowed_scope 绑定注册表解析的项目目录;未绑定保持既有默认。
-            allowedScope: boundProject ? [boundProject.path] : deps.defaultAllowedScope ?? t.allowedScope,
+            allowedScope: boundProject ? [boundProject.path] : (deps.defaultAllowedScope ?? t.allowedScope),
             allowedCommands: t.allowedCommands,
             priority: t.priority,
             maxAttempts: t.maxAttempts,
@@ -366,7 +393,14 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         {
           goalId: created.goalId,
           taskIds: created.taskIds,
-          project: boundProject ? { projectId: boundProject.name, path: boundProject.path, repo: boundProject.repo, branch: boundProject.branch } : null,
+          project: boundProject
+            ? {
+                projectId: boundProject.name,
+                path: boundProject.path,
+                repo: boundProject.repo,
+                branch: boundProject.branch,
+              }
+            : null,
         },
         201,
       );
@@ -389,24 +423,66 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const content = str(req.body?.["content"]).trim();
       if (!content) return fail(400, "content_required", "请填写要告诉 Relay 的内容");
       if (content.length > 2000) return fail(400, "content_too_long", "内容过长(上限 2000 字)");
-      const goalExists = await deps.db.execute(sql`SELECT 1 FROM goals WHERE id = ${goalId}`);
-      if (goalExists.rows.length === 0) return fail(404, "goal_not_found", "Goal 不存在");
+      const goalRow = await deps.db.execute(sql`SELECT state FROM goals WHERE id = ${goalId}`);
+      if (goalRow.rows.length === 0) return fail(404, "goal_not_found", "Goal 不存在");
+      const goalState = String(goalRow.rows[0]!["state"]);
       const inserted = await deps.db.execute(sql`
         INSERT INTO goal_messages (goal_id, actor, kind, content)
         VALUES (${goalId}, 'USER', 'USER_MESSAGE', ${content})
         RETURNING id
       `);
       const messageId = Number(inserted.rows[0]!["id"]);
+      // RELAY-SAFETY-CLOSE-02 P0-A:非 ACTIVE Goal(终态/暂停)⇒ 消息只记录,不派生、不消费
+      // (AGENT_CONTROL §3/ADR-0012 #3:终态 Goal 上的新要求不得静默派生可执行 Task)。
+      // 消费层(consumption.ts goal_closed 守卫)为纵深防御;intake 层给出明确"已记录"反馈,
+      // 消息保持 append-only 会话事实(不伪造消费映射)。
+      const held = goalState !== "ACTIVE";
+      if (held) {
+        const stateLabel = goalState === "PAUSED" ? "该需求会话已暂停" : "该需求已完结";
+        const ackText = `已记录你的补充。${stateLabel},不会自动创建新执行任务;如需继续,请新建一个需求。`;
+        await deps.db.execute(sql`
+          INSERT INTO goal_messages (goal_id, actor, kind, content)
+          VALUES (${goalId}, 'RELAY', 'RELAY_MESSAGE', ${ackText})
+        `);
+        await audit(deps, {
+          actor: session.role,
+          action: "GOAL_MESSAGE_HELD",
+          detail: { goalId, messageId, goalState, contentLength: content.length },
+        });
+        await audit(deps, {
+          actor: session.role,
+          action: "WEB_GOAL_MESSAGE",
+          detail: {
+            goalId,
+            messageId,
+            followUpTaskId: null,
+            inFlight: false,
+            held: true,
+            goalState,
+            contentLength: content.length,
+          },
+        });
+        return ok(
+          {
+            messageId,
+            followUpTaskId: null,
+            inFlight: false,
+            held: true,
+            note: `已记录。${stateLabel},不会自动创建新执行任务;如需继续,请新建一个需求。`,
+          },
+          201,
+        );
+      }
       // WEB-UX-03C §0/§0.1(03B.1):消费语义唯一入口 core.consumeGoalMessages。
       // 不在途 ⇒ 本调用内派生同 Goal follow-up Task + 消费映射(message→task,UNIQUE at-most-once)
-  //   + GOAL_MESSAGES_CONSUMED 审计 + RELAY 确认消息;在途 ⇒ 只记录(等待执行边界,loop 下一拍消费)。
+      //   + GOAL_MESSAGES_CONSUMED 审计 + RELAY 确认消息;在途 ⇒ 只记录(等待执行边界,loop 下一拍消费)。
       const consumption = await consumeGoalMessages(deps.db, goalId, { actor: session.role });
       const followUpTaskId = consumption.consumed ? (consumption.taskId ?? null) : null;
       const inFlight = !consumption.consumed && consumption.reason === "in_flight";
       await audit(deps, {
         actor: session.role,
         action: "WEB_GOAL_MESSAGE",
-        detail: { goalId, messageId, followUpTaskId, inFlight, contentLength: content.length },
+        detail: { goalId, messageId, followUpTaskId, inFlight, goalState, contentLength: content.length },
       });
       return ok(
         {
@@ -456,7 +532,11 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const key = process.env.RELAY_PI_API_KEY;
       const baseUrl = process.env.RELAY_PI_BASE_URL;
       if (!provider || !m || !key || !baseUrl) {
-        return fail(501, "provider_not_configured", "未配置 RELAY_PI_* ⇒ 不发起模型分析(FAIL-CLOSED);规则面继续可用并标注来源");
+        return fail(
+          501,
+          "provider_not_configured",
+          "未配置 RELAY_PI_* ⇒ 不发起模型分析(FAIL-CLOSED);规则面继续可用并标注来源",
+        );
       }
       // REVIEW Major-1 修复:docker 路径先建出口栈(与 worker 同款);失败如实 503,不静默
       const eg = await ensureEgress(baseUrl);
@@ -474,10 +554,19 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       });
       if (!result.ok) {
         const reason = result.reason ?? "discovery_failed";
-        const status = reason === "goal_not_found" || reason === "goal_has_no_task" ? 404 : reason.includes("budget") ? 409 : 500;
+        const status =
+          reason === "goal_not_found" || reason === "goal_has_no_task" ? 404 : reason.includes("budget") ? 409 : 500;
         return fail(status, reason);
       }
-      return ok({ source: result.source, discoveryId: result.discoveryId, report: result.report, note: "来源=模型(结构化报告持久化,可回放)" }, 201);
+      return ok(
+        {
+          source: result.source,
+          discoveryId: result.discoveryId,
+          report: result.report,
+          note: "来源=模型(结构化报告持久化,可回放)",
+        },
+        201,
+      );
     }
     if (path === "/api/decisions" && method === "GET") {
       return ok({ decisions: await decisionListView(deps.db) });
@@ -489,7 +578,8 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const approve = req.body?.["approve"] === true;
       const expectedStateVersion = int(req.body?.["expectedStateVersion"]);
       if (!taskId) return fail(400, "task_id_required", "缺少 taskId");
-      if (expectedStateVersion === null) return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
+      if (expectedStateVersion === null)
+        return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
       const result = await deps.db.transaction(async (tx) =>
         resolveDecision(tx as unknown as Exec, {
           decisionId,
@@ -503,10 +593,22 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       if (!result.ok) {
         const reason = result.reason ?? "decision_resolve_failed";
         const status =
-          reason === "state_version_mismatch" ? 409 : reason === "actor_not_authorized" ? 403 : reason.includes("not_found") ? 404 : 400;
+          reason === "state_version_mismatch"
+            ? 409
+            : reason === "actor_not_authorized"
+              ? 403
+              : reason.includes("not_found")
+                ? 404
+                : 400;
         return fail(status, reason);
       }
-      return ok({ decisionId, taskId, fromState: result.fromState, toState: result.toState, decisionResolved: result.decisionResolved ?? false });
+      return ok({
+        decisionId,
+        taskId,
+        fromState: result.fromState,
+        toState: result.toState,
+        decisionResolved: result.decisionResolved ?? false,
+      });
     }
     const deferMatch = /^\/api\/decisions\/([^/]+)\/defer$/.exec(path);
     if (deferMatch && method === "POST") {
@@ -515,9 +617,11 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const expectedStateVersion = int(req.body?.["expectedStateVersion"]);
       const newDeadlineRaw = str(req.body?.["newDeadline"]);
       if (!taskId) return fail(400, "task_id_required", "缺少 taskId");
-      if (expectedStateVersion === null) return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
+      if (expectedStateVersion === null)
+        return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
       const newDeadline = new Date(newDeadlineRaw);
-      if (!newDeadlineRaw || Number.isNaN(newDeadline.getTime())) return fail(400, "new_deadline_invalid", "推迟时间无效");
+      if (!newDeadlineRaw || Number.isNaN(newDeadline.getTime()))
+        return fail(400, "new_deadline_invalid", "推迟时间无效");
       const result = await deps.db.transaction(async (tx) =>
         deferDecision(tx as unknown as Exec, {
           decisionId,
@@ -538,14 +642,21 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
     if (resumeMatch && method === "POST") {
       const taskId = decodeURIComponent(resumeMatch[1]!);
       const expectedStateVersion = int(req.body?.["expectedStateVersion"]);
-      if (expectedStateVersion === null) return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
+      if (expectedStateVersion === null)
+        return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
       const result = await deps.db.transaction(async (tx) =>
         resumeTask(tx as unknown as Exec, taskId, { actor: session.role, expectedStateVersion }),
       );
       if (!result.ok) {
         const reason = result.reason ?? "resume_failed";
         const status =
-          reason === "state_version_mismatch" ? 409 : reason === "actor_not_authorized" ? 403 : reason.includes("not_found") ? 404 : 400;
+          reason === "state_version_mismatch"
+            ? 409
+            : reason === "actor_not_authorized"
+              ? 403
+              : reason.includes("not_found")
+                ? 404
+                : 400;
         return fail(status, reason);
       }
       return ok({ taskId, fromState: result.fromState, toState: result.toState });
@@ -556,15 +667,26 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
     if (pauseMatch && method === "POST") {
       const taskId = decodeURIComponent(pauseMatch[1]!);
       const expectedStateVersion = int(req.body?.["expectedStateVersion"]);
-      if (expectedStateVersion === null) return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
+      if (expectedStateVersion === null)
+        return fail(400, "expected_state_version_required", "缺少 expectedStateVersion");
       const reason = typeof req.body?.["reason"] === "string" ? str(req.body?.["reason"]) : undefined;
       const result = await deps.db.transaction(async (tx) =>
-        pauseTask(tx as unknown as Exec, taskId, { actor: session.role, expectedStateVersion, ...(reason ? { reason } : {}) }),
+        pauseTask(tx as unknown as Exec, taskId, {
+          actor: session.role,
+          expectedStateVersion,
+          ...(reason ? { reason } : {}),
+        }),
       );
       if (!result.ok) {
         const r = result.reason ?? "pause_failed";
         const status =
-          r === "state_version_mismatch" ? 409 : r === "actor_not_authorized" ? 403 : r.includes("not_found") ? 404 : 400;
+          r === "state_version_mismatch"
+            ? 409
+            : r === "actor_not_authorized"
+              ? 403
+              : r.includes("not_found")
+                ? 404
+                : 400;
         return fail(status, r);
       }
       return ok({ taskId, fromState: result.fromState, toState: result.toState });
@@ -602,15 +724,18 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       if (!entry) {
         return ok({
           available: false,
-          reason: "该变更集未绑定已注册项目目录(创建于项目绑定功能之前,或项目未登记);本地 diff 不可用,请直接在项目仓库核对提交 " + c.gitCommitSha.slice(0, 12),
+          reason:
+            "该变更集未绑定已注册项目目录(创建于项目绑定功能之前,或项目未登记);本地 diff 不可用,请直接在项目仓库核对提交 " +
+            c.gitCommitSha.slice(0, 12),
         });
       }
       try {
-        const raw = execFileSync(
-          "git",
-          ["-C", entry.path, "diff", c.gitBaseCommitSha + ".." + c.gitCommitSha, "--"],
-          { encoding: "utf8", timeout: 15000, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] },
-        );
+        const raw = execFileSync("git", ["-C", entry.path, "diff", c.gitBaseCommitSha + ".." + c.gitCommitSha, "--"], {
+          encoding: "utf8",
+          timeout: 15000,
+          maxBuffer: 64 * 1024 * 1024,
+          stdio: ["ignore", "pipe", "ignore"],
+        });
         const LIMIT = 200_000;
         return ok({ available: true, source: entry.path, truncated: raw.length > LIMIT, diff: raw.slice(0, LIMIT) });
       } catch {

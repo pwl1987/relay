@@ -1,0 +1,101 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ❯ test/integration/goal-message-authorization.test.ts (7 tests | 6 failed) 374ms
+   × RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):COMPLETED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 45ms
+     → expected true to be false // Object.is equality
+   × RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):FAILED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 11ms
+     → expected true to be false // Object.is equality
+   × RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):EXHAUSTED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 10ms
+     → expected true to be false // Object.is equality
+   × RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):PAUSED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 10ms
+     → expected true to be false // Object.is equality
+   × RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > API 反馈:终态 Goal 发消息 ⇒ 201 held=true followUpTaskId=null + RELAY 已记录确认 + GOAL_MESSAGE_HELD 审计 + 零新任务 16ms
+     → expected undefined to be true // Object.is equality
+   ✓ RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > ACTIVE Goal 保留派生(冻结 §0 语义不变;修复不越权扩大拦截面) 10ms
+   × RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 消息事实保留:终态 Goal 的 held 消息保持未消费映射(append-only,不丢消息不假消费) 11ms
+     → expected +0 to be 1 // Object.is equality
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):COMPLETED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):FAILED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):EXHAUSTED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 反例(修复后 fail-closed):PAUSED Goal + 未消费 USER 消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/integration/goal-message-authorization.test.ts:57:26
+     55|       // 消费路径:非 ACTIVE Goal ⇒ 不消费、不派生(零副作用)
+     56|       const r = await consumeGoalMessages(t.db, goalId, { actor: "test…
+     57|       expect(r.consumed).toBe(false);
+       |                          ^
+     58|       expect(r.reason).toBe("goal_closed");
+     59|       expect(await taskCount(goalId)).toBe(before); // 零新 Task(修复前:此处 …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > API 反馈:终态 Goal 发消息 ⇒ 201 held=true followUpTaskId=null + RELAY 已记录确认 + GOAL_MESSAGE_HELD 审计 + 零新任务
+AssertionError: expected undefined to be true // Object.is equality
+
+- Expected: 
+true
+
++ Received: 
+undefined
+
+ ❯ test/integration/goal-message-authorization.test.ts:101:23
+     99|     const body = res.body as { ok: boolean; messageId: number; followU…
+    100|     expect(body.ok).toBe(true);
+    101|     expect(body.held).toBe(true); // 明确反馈:已记录(未创建任务)
+       |                       ^
+    102|     expect(body.followUpTaskId).toBeNull();
+    103|     expect(String(body.note)).toContain("已记录");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-SAFETY-CLOSE-02 P0-A:消息授权与终态 Goal(零模型) > 消息事实保留:终态 Goal 的 held 消息保持未消费映射(append-only,不丢消息不假消费)
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ test/integration/goal-message-authorization.test.ts:150:43
+    148|         AND NOT EXISTS (SELECT 1 FROM goal_message_consumptions c WHER…
+    149|     `);
+    150|     expect(Number(pending.rows[0]!["n"])).toBe(1); // 未消费(不伪造映射;at-mos…
+       |                                           ^
+    151|     const msg = await t.db.execute(sql`
+    152|       SELECT content FROM goal_messages WHERE goal_id = ${goalId} AND …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 1 passed (7)
+   Start at  17:57:27
+   Duration  1.61s (transform 314ms, setup 0ms, collect 962ms, tests 374ms, environment 0ms, prepare 74ms)
+

@@ -1,0 +1,30 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ✓ test/integration/gate-machine-evidence.test.ts (7 tests) 2697ms
+   ✓ Gate 最低机器证据(反例先行) > 反例 A(修复后):代码变更候选 + 零机器检查 + Reviewer 待命 ⇒ 保守停机 NEEDS_DECISION,不烧 Reviewer  348ms
+   ✓ Gate 最低机器证据(反例先行) > 反例 B:docs-only 候选 + 零机器检查 + Reviewer PASS ⇒ ACCEPTED(合法豁免,修复后保留)  589ms
+   ✓ Gate 最低机器证据(反例先行) > D6:gate_required=false + 代码变更 ⇒ 仍强制 Gate(豁免通道关闭;审计留 GATE_REQUIRED_OVERRIDE)  315ms
+   ✓ Gate 最低机器证据(反例先行) > 生产默认兜底:无显式检查 + manifestVerify 注入(候选一致)⇒ ACCEPTED,证据含 candidate_manifest_verify  575ms
+   ✓ Gate 最低机器证据(反例先行) > 生产默认兜底拦截:manifestVerify 复验失败(候选不一致)⇒ NEEDS_DECISION,不进 Reviewer  307ms
+
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  18:00:10
+   Duration  3.89s (transform 282ms, setup 0ms, collect 930ms, tests 2.70s, environment 0ms, prepare 74ms)
+

@@ -8,7 +8,10 @@
 //    外部写者用**正常快进**推送(不重写历史)。
 //  - **凭据门**:原始 PAT 文件缺失 ⇒ 整套真实远端用例显式 skip;存在但非法/经典宽权限 ⇒ 明确失败
 //    (绝不回退本机 gh 宽权限令牌;绝不读 ~/.config/gh/hosts.yml)。
-//  - 凭据有效时:一次真实 main 写入(远端 HEAD + 树内容 + GitHub API 三重核对)⇒ DELIVERED;
+//  - **授权门(RELAY-SAFETY-CLOSE-02 P1-D)**:真实远端**写入**用例还需显式授权开关
+//    RELAY_GITHUB_REAL_E2E=1 —— 默认全量测试不得仅因本地存在凭据就进行远端写入;
+//    缺授权时保留上方两组零远端写入的安全用例(夹具自证 + 凭据门事实,含只读探测)。
+//  - 凭据有效且授权时:一次真实 main 写入(远端 HEAD + 树内容 + GitHub API 三重核对)⇒ DELIVERED;
 //    远端漂移实验(外部写者快进)⇒ Relay 拒绝覆盖、远端保持外来头、历史完整。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
@@ -25,7 +28,11 @@ import { recordBoundGate } from "../setup/gate-helper.ts";
 import { proposeDelivery, executeDelivery, type DeliveryIO } from "../../src/core/delivery.ts";
 import { DEFAULT_DELIVERY_POLICY } from "../../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
-import { createCandidateCommit, makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
+import {
+  createCandidateCommit,
+  makeCommitBindingVerifier,
+  verifyRemoteCommitContent,
+} from "../../src/runtime/git-candidate.ts";
 import { makeCredentialStore, readTokenFile, tokenFileValid } from "../../src/runtime/github-credentials.ts";
 import { snapshotManifest } from "../../src/runtime/workspace-manifest.ts";
 import { makeWorkspaceRepo } from "../helpers/git-fixture.ts";
@@ -66,7 +73,13 @@ interface CredentialFacts {
 
 async function probeCredential(): Promise<CredentialFacts> {
   if (!tokenFileValid(TOKEN_FILE)) {
-    return { present: existsSync(TOKEN_FILE), mode: "absent", apiStatus: null, accepted: false, detail: "凭据文件缺失或非 0600 常规文件" };
+    return {
+      present: existsSync(TOKEN_FILE),
+      mode: "absent",
+      apiStatus: null,
+      accepted: false,
+      detail: "凭据文件缺失或非 0600 常规文件",
+    };
   }
   let token = "";
   try {
@@ -76,7 +89,13 @@ async function probeCredential(): Promise<CredentialFacts> {
   }
   // 经典令牌(ghp_/gho_/ghs_/ghu_)宽权限 ⇒ 明确禁止进入 Operator 面
   if (/^gh[pous]_/.test(token)) {
-    return { present: true, mode: "classic_forbidden", apiStatus: null, accepted: false, detail: "经典宽权限令牌:禁止供 Relay Operator 使用" };
+    return {
+      present: true,
+      mode: "classic_forbidden",
+      apiStatus: null,
+      accepted: false,
+      detail: "经典宽权限令牌:禁止供 Relay Operator 使用",
+    };
   }
   // 细粒度 PAT 形态:github_pat_ + 足够长度
   if (!token.startsWith("github_pat_") || token.length < 40) {
@@ -91,7 +110,11 @@ async function probeCredential(): Promise<CredentialFacts> {
   // 只读探测(不写入):200=GitHub 接受;401=拒绝
   try {
     const res = await fetch("https://api.github.com/user", {
-      headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "user-agent": "relay-p002b-probe" },
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: "application/vnd.github+json",
+        "user-agent": "relay-p002b-probe",
+      },
       signal: AbortSignal.timeout(20_000),
     });
     return {
@@ -102,12 +125,21 @@ async function probeCredential(): Promise<CredentialFacts> {
       detail: `GitHub /user 探测状态 ${res.status}`,
     };
   } catch (err) {
-    return { present: true, mode: "wellformed", apiStatus: null, accepted: false, detail: `探测异常:${(err as Error).message.slice(0, 120)}` };
+    return {
+      present: true,
+      mode: "wellformed",
+      apiStatus: null,
+      accepted: false,
+      detail: `探测异常:${(err as Error).message.slice(0, 120)}`,
+    };
   }
 }
 
 const credential = await probeCredential();
 const credentialUsable = credential.mode === "wellformed" && credential.accepted;
+// P1-D 授权门:真实远端**写入**用例独立于凭据存在性 —— 必须显式 RELAY_GITHUB_REAL_E2E=1。
+// quality 管线剥离该变量 ⇒ quality:full/release 永不隐式写远端(零外部副作用管线)。
+const REAL_WRITE_AUTHORIZED = process.env.RELAY_GITHUB_REAL_E2E === "1";
 
 const roots: string[] = [];
 const stores: Array<{ cleanup(): void }> = [];
@@ -126,7 +158,12 @@ function git(cwd: string, credentialFile: string | null, ...args: string[]): str
     maxBuffer: 32 * 1024 * 1024,
     // 显式超时:网络/凭据异常时不得无限挂起(可诊断地失败,而非整例超时)
     timeout: 60_000,
-    env: { PATH: "/usr/local/bin:/usr/bin:/bin", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", HOME: "/nonexistent" },
+    env: {
+      PATH: "/usr/local/bin:/usr/bin:/bin",
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_NOSYSTEM: "1",
+      HOME: "/nonexistent",
+    },
   }).trim();
 }
 
@@ -135,7 +172,11 @@ describe("P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入
     const self = stripComments(readFileSync(THIS_FILE, "utf8"));
     const executor = stripComments(readFileSync(EXECUTOR_FILE, "utf8"));
     const legacyExecutor = stripComments(readFileSync(LEGACY_EXECUTOR_FILE, "utf8"));
-    for (const [name, src] of [["github-real.test.ts", self], ["github-push.ts", executor], ["git-push.ts", legacyExecutor]] as const) {
+    for (const [name, src] of [
+      ["github-real.test.ts", self],
+      ["github-push.ts", executor],
+      ["git-push.ts", legacyExecutor],
+    ] as const) {
       expect(src.includes(FORCE_FLAG), `${name} 不得含强推标志`).toBe(false);
       expect(src.includes(FORCE_LEASE_FLAG), `${name} 不得含强推租约标志`).toBe(false);
     }
@@ -155,6 +196,9 @@ describe("P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入
       `CREDENTIAL_STATE mode=${credential.mode} present=${credential.present} apiStatus=${credential.apiStatus} detail=${credential.detail}` +
         ` (判定次序:形态检查先于 API 探测 —— 形态非法即短路,不打 API;形态合法但 API 401 ⇒ 凭据被拒)`,
     );
+    console.log(
+      `WRITE_AUTHORIZATION RELAY_GITHUB_REAL_E2E=${process.env.RELAY_GITHUB_REAL_E2E ?? "(未设置)"} ⇒ 真实远端写入用例${REAL_WRITE_AUTHORIZED ? "已授权" : "跳过(P1-D 默认零远端写入;quality 管线恒剥离该变量)"}`,
+    );
     if (credential.mode === "absent") {
       expect(credentialUsable).toBe(false); // 缺失 ⇒ 真实远端用例显式 skip
     } else if (credential.mode === "classic_forbidden") {
@@ -168,8 +212,8 @@ describe("P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入
   });
 });
 
-describe.skipIf(!credential.present)(
-  `真实远端写入与漂移实验(凭据 ${credential.mode};GitHub 认证 ${credential.apiStatus ?? "未探测"})`,
+describe.skipIf(!credential.present || !REAL_WRITE_AUTHORIZED)(
+  `真实远端写入与漂移实验(凭据 ${credential.mode};GitHub 认证 ${credential.apiStatus ?? "未探测"};写入授权 ${REAL_WRITE_AUTHORIZED ? "已授权" : "未授权 RELAY_GITHUB_REAL_E2E=1 ⇒ 默认跳过,P1-D"} )`,
   () => {
     let t: TestDb;
     let credentialFile: string;
@@ -241,7 +285,12 @@ describe.skipIf(!credential.present)(
           attempt: 1,
           base: baseManifest,
           candidate: candidateManifest,
-          requirement: { goalText: `deliver ${spec.taskId}`, taskId: spec.taskId, allowedScope: ["/workspace"], allowedCommands: [] },
+          requirement: {
+            goalText: `deliver ${spec.taskId}`,
+            taskId: spec.taskId,
+            allowedScope: ["/workspace"],
+            allowedCommands: [],
+          },
         }),
       );
       const staged = await createCandidateCommit({
@@ -275,7 +324,9 @@ describe.skipIf(!credential.present)(
         coderRunId: `run-${spec.taskId}`,
       });
       if (!gate.ok) throw new Error(`gate seed failed: ${gate.reason}`);
-      await t.db.execute(sql`UPDATE task_gate_verdicts SET consumed_at = now(), consumed_by = 'test' WHERE id = ${gate.id}`);
+      await t.db.execute(
+        sql`UPDATE task_gate_verdicts SET consumed_at = now(), consumed_by = 'test' WHERE id = ${gate.id}`,
+      );
       return { ws, cs, staged, remoteHeadAtBuild: head, baseSha };
     }
 
@@ -301,7 +352,11 @@ describe.skipIf(!credential.present)(
       { timeout: 300_000 },
       async () => {
         // 真实远端 + 当前(被拒)凭据:目标是验证**安全失败**而非成功写入。
-        const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-rejected", payload: "must never be written", fileName: "rejected.txt" });
+        const built = await buildCandidateOnRemoteHead({
+          taskId: "t-gh-rejected",
+          payload: "must never be written",
+          fileName: "rejected.txt",
+        });
         const proposed = await t.db.transaction(async (tx) =>
           proposeDelivery(tx as unknown as Exec, {
             taskId: "t-gh-rejected",
@@ -352,7 +407,11 @@ describe.skipIf(!credential.present)(
       `一次真实 main 写入:基于真实远端 HEAD 建候选 → DELIVERED → 远端/树/API 三重核对;历史只增不减(凭据 ${credential.mode},API ${credential.apiStatus})`,
       { timeout: 300_000 },
       async () => {
-        const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-real", payload: `p0-02b real remote write ${RUN_TAG}`, fileName: "delivered.txt" });
+        const built = await buildCandidateOnRemoteHead({
+          taskId: "t-gh-real",
+          payload: `p0-02b real remote write ${RUN_TAG}`,
+          fileName: "delivered.txt",
+        });
         const headBefore = built.remoteHeadAtBuild;
 
         const proposed = await t.db.transaction(async (tx) =>
@@ -381,18 +440,25 @@ describe.skipIf(!credential.present)(
         // 远端核对 1:git 协议 ls-remote(独立于交付执行器)
         expect(remoteHead(built.ws.dir)).toBe(built.staged.commitSha);
         // 远端核对 2:GitHub REST API(contents 按 commit SHA 取文件)
-        const api = await fetch(`https://api.github.com/repos/${SANDBOX_REPO}/contents/delivered.txt?ref=${built.staged.commitSha}`, {
-          headers: {
-            authorization: `Bearer ${readTokenFile(TOKEN_FILE)}`,
-            accept: "application/vnd.github+json",
-            "user-agent": "relay-p002b-test",
+        const api = await fetch(
+          `https://api.github.com/repos/${SANDBOX_REPO}/contents/delivered.txt?ref=${built.staged.commitSha}`,
+          {
+            headers: {
+              authorization: `Bearer ${readTokenFile(TOKEN_FILE)}`,
+              accept: "application/vnd.github+json",
+              "user-agent": "relay-p002b-test",
+            },
           },
-        });
+        );
         expect(api.ok, `GitHub API 状态 ${api.status}`).toBe(true);
         const body = (await api.json()) as { content?: string; encoding?: string; sha?: string };
         expect(body.encoding).toBe("base64");
-        expect(Buffer.from(body.content ?? "", "base64").toString("utf8")).toContain(`p0-02b real remote write ${RUN_TAG}`);
-        console.log(`GITHUB_API_VERIFY repo=${SANDBOX_REPO} ref=${built.staged.commitSha} api_status=${api.status} blob_sha=${body.sha}`);
+        expect(Buffer.from(body.content ?? "", "base64").toString("utf8")).toContain(
+          `p0-02b real remote write ${RUN_TAG}`,
+        );
+        console.log(
+          `GITHUB_API_VERIFY repo=${SANDBOX_REPO} ref=${built.staged.commitSha} api_status=${api.status} blob_sha=${body.sha}`,
+        );
 
         // 历史未丢:旧头仍是新头的祖先(快进),且提交数**恰好 +1**(非恒真比较)
         if (headBefore) {
@@ -402,9 +468,7 @@ describe.skipIf(!credential.present)(
           git(hist, credentialFile, "fetch", "--quiet", "origin", "main");
           expect(git(hist, credentialFile, "merge-base", "--is-ancestor", headBefore, built.staged.commitSha)).toBe("");
           const countAfter = Number(git(hist, credentialFile, "rev-list", "--count", "FETCH_HEAD"));
-          const countBefore = Number(
-            git(hist, credentialFile, "rev-list", "--count", headBefore),
-          );
+          const countBefore = Number(git(hist, credentialFile, "rev-list", "--count", headBefore));
           // 单调且精确:+1(快进写只追加一个提交;截断历史或复用旧提交都会被此断言抓住)
           expect(countAfter).toBe(countBefore + 1);
           // 旧头对象仍在远端历史中(未被裁剪)
@@ -422,7 +486,11 @@ describe.skipIf(!credential.present)(
       { timeout: 300_000 },
       async () => {
         // 候选基于**当前真实远端 HEAD**构建(此时远端头 R)
-        const built = await buildCandidateOnRemoteHead({ taskId: "t-gh-drift", payload: `p0-02b drift experiment ${RUN_TAG}`, fileName: "drift.txt" });
+        const built = await buildCandidateOnRemoteHead({
+          taskId: "t-gh-drift",
+          payload: `p0-02b drift experiment ${RUN_TAG}`,
+          fileName: "drift.txt",
+        });
 
         // 外部写者:自己的仓库、自己的提交(对象自洽;不借用其它仓库的对象)
         const other = workspaceIn("ws-drift-other");
@@ -435,7 +503,18 @@ describe.skipIf(!credential.present)(
         }
         other.apply({ "foreign.txt": `external writer was here ${RUN_TAG}\n` }); // 唯一载荷:重跑不为空 diff(R-1 首轮已推入同内容文件,硬编码会使命令空提交失败)
         git(other.dir, credentialFile, "add", "-A");
-        git(other.dir, credentialFile, "-c", "user.email=ext@l", "-c", "user.name=ext", "commit", "--quiet", "-m", "foreign");
+        git(
+          other.dir,
+          credentialFile,
+          "-c",
+          "user.email=ext@l",
+          "-c",
+          "user.name=ext",
+          "commit",
+          "--quiet",
+          "-m",
+          "foreign",
+        );
         // 远端为空时,外部写者用**自身提交**创建分支(普通推送;对象自洽 ⇒ 无 bad object)
         git(other.dir, credentialFile, "push", "origin", "HEAD:refs/heads/main"); // 非 FF 必被 git 拒
         const foreignHead = remoteHead(other.dir);

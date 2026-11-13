@@ -20,7 +20,7 @@ import {
   recordGateVerdict,
   consumeGateVerdict,
   isDocsOnlyChanges,
-  MACHINE_EVIDENCE_KINDS,
+  FUNCTIONAL_EVIDENCE_KINDS,
   type GateVerdict,
   type GateTestEnv,
 } from "./gates.ts";
@@ -166,16 +166,18 @@ export async function orchestrateGate(
     return { status: "FAILED", reason: "impact_scope_violations", changesetId: changeset.id, evidenceIds, violations };
   }
 
-  // 2.5) 机器证据配置预检(ADR-0012 #7;D1/D3):代码变更候选必须有机器检查证据。
-  // 优先级:显式 evidenceChecks > 注入的 manifestVerify(内建候选清单复验,生产默认)>
-  // 两者皆无 ⇒ 保守停机 NEEDS_DECISION(不进 Reviewer,不烧模型预算;恢复仅经 ops API)。
+  // 2.5) 机器证据配置预检(ADR-0012 #7;RELAY-QUALITY-LOCAL-01 D1/D3 + RELAY-SAFETY-CLOSE-02 P0-B):
+  // 代码变更候选必须配置**功能性**机器检查(deterministic_test/api_behavior)——候选完整性复验
+  // (manifestVerify)是硬门但不证明行为,单凭完整性 + Reviewer PASS 不得 ACCEPTED。
+  // 无功能检查 ⇒ 先跑完整性硬门(失败即 candidate_manifest_verify_failed),随后无论完整性
+  // 结果如何都保守停机 NEEDS_DECISION(不进 Reviewer,不烧模型预算;恢复仅经 ops API)。
   const evidenceSummaries: Array<{ id: string; kind: string; passed: boolean }> = [];
   const machineEvidenceRequired = !isDocsOnlyChanges(changeset.changedFiles);
   const changedFileCount =
     (changeset.changedFiles.added?.length ?? 0) +
     (changeset.changedFiles.modified?.length ?? 0) +
     (changeset.changedFiles.removed?.length ?? 0);
-  const hasMachineChecks = (gate.evidenceChecks ?? []).some((c) => MACHINE_EVIDENCE_KINDS.has(c.kind));
+  const hasFunctionalChecks = (gate.evidenceChecks ?? []).some((c) => FUNCTIONAL_EVIDENCE_KINDS.has(c.kind));
   /** 保守停机(Reviewer m-5 去重):VERIFYING→NEEDS_DECISION + D3 决策行 + 终止验证租约 + 审计。
    *  恢复仅经 ops API;永不自动批准。 */
   const conservativeStop = async (
@@ -215,9 +217,9 @@ export async function orchestrateGate(
     });
     return { status: "NEEDS_DECISION" as const, reason, changesetId: changeset.id, evidenceIds, violations: [] };
   };
-  if (machineEvidenceRequired && !hasMachineChecks) {
+  if (machineEvidenceRequired && !hasFunctionalChecks) {
     if (gate.manifestVerify && input.workspaceDir) {
-      // 内建兜底:候选清单复验(确定性;失败 ⇒ 候选与绑定面不一致/为空,不放行)
+      // 完整性硬门仍先执行(候选不一致/零编辑空提交 ⇒ 更精确的拦截原因):
       const mv = await gate.manifestVerify({
         taskId: input.taskId,
         attempt: input.attempt,
@@ -247,14 +249,20 @@ export async function orchestrateGate(
           { evidenceId: mvRow.id, note: "候选清单复验失败 ⇒ 不放行,保守停机" },
         );
       }
-    } else {
+      // 完整性通过但无功能检查 ⇒ 仍保守停机(P0-B:manifest + Reviewer PASS 不得 ACCEPTED)
       return await conservativeStop(
-        "machine_evidence_unconfigured",
-        "machine_evidence_unconfigured:代码变更候选未配置机器检查,保守停机(永不自动批准);需配置确定性检查后重验",
-        "MACHINE_EVIDENCE_UNCONFIGURED",
-        { note: "代码变更无机器检查 ⇒ 不放行,保守停机" },
+        "functional_evidence_unconfigured",
+        "functional_evidence_unconfigured:候选完整性复验通过,但未配置功能性机器检查(deterministic_test/api_behavior);完整性不证明行为,单凭 manifest + Reviewer PASS 不得 ACCEPTED ⇒ 保守停机(永不自动批准)",
+        "FUNCTIONAL_EVIDENCE_UNCONFIGURED",
+        { evidenceId: mvRow.id, note: "完整性通过但无功能证据 ⇒ 不放行,保守停机" },
       );
     }
+    return await conservativeStop(
+      "functional_evidence_unconfigured",
+      "functional_evidence_unconfigured:代码变更候选未配置功能性机器检查(deterministic_test/api_behavior),保守停机(永不自动批准);需配置确定性检查后重验",
+      "FUNCTIONAL_EVIDENCE_UNCONFIGURED",
+      { note: "代码变更无功能检查 ⇒ 不放行,保守停机" },
+    );
   }
 
   // 3) 证据采集(可信执行器)
@@ -272,6 +280,18 @@ export async function orchestrateGate(
     );
     evidenceIds.push(row.id);
     evidenceSummaries.push({ id: row.id, kind: row.kind, passed: row.passed });
+  }
+
+  // 3.5) 必需检查失败 ⇒ 保守停机(P0-B:证据不足不得 ACCEPTED;不烧 Reviewer —— 候选已注定
+  // 无法通过 record/consume 双侧校验,重试 Reviewer 只消耗模型预算)。
+  const failedCheck = evidenceSummaries.find((s) => !s.passed);
+  if (failedCheck) {
+    return await conservativeStop(
+      `evidence_failed:${failedCheck.kind}`,
+      `evidence_failed:${failedCheck.kind}:必需机器检查失败,证据不足 ⇒ 保守停机(永不自动批准;恢复仅经 ops API)`,
+      "REQUIRED_EVIDENCE_FAILED",
+      { evidenceId: failedCheck.id, kind: failedCheck.kind, note: "必需检查 FAILED ⇒ 不放行,保守停机" },
+    );
   }
 
   // goal 文本(Reviewer 上下文输入)

@@ -229,8 +229,10 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
         gate: {
           reviewAttempts: options.reviewAttempts ?? 2,
           ...(options.evidenceChecks ? { evidenceChecks: options.evidenceChecks } : {}),
-          // 内建候选清单复验(RELAY-QUALITY-LOCAL-01 D1):未配置显式机器检查时的生产默认
-          // 机器证据;重采工作区清单比对 candidate_sha,零编辑空提交/内容不一致 ⇒ 不放行。
+          // 内建候选清单复验(RELAY-QUALITY-LOCAL-01 D1 引入;RELAY-SAFETY-CLOSE-02 P0-B 降格为
+          // 完整性硬门):重采工作区清单比对 candidate_sha,零编辑空提交/内容不一致 ⇒ 拦截。
+          // 完整性不证明行为:未配置功能性机器检查(evidenceChecks)的代码变更候选 ⇒ 保守停机
+          // NEEDS_DECISION(需人工配置检查后重验),单凭 manifest + Reviewer PASS 不再 ACCEPTED。
           // 仅做纯验证(确定性);证据落库由 orchestrator 统一执行(单一记录点)。
           manifestVerify: async (spec) =>
             verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),

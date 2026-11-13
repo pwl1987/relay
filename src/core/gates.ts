@@ -18,8 +18,17 @@ import { expireVerificationLease } from "./verify-lease.ts";
 
 export type GateVerdict = "PASS" | "REWORK" | "BLOCK";
 
-/** 机器检查证据类别(区别于 reviewer_output;ADR-0012 #7/CONTRACTS §5)。
- *  candidate_manifest_verify = 内建候选清单复验(生产默认;RELAY-QUALITY-LOCAL-01 D1)。 */
+/** 证据四类(RELAY-SAFETY-CLOSE-02 P0-B;ADR-0012 #7/CONTRACTS §5 语义精确化):
+ *  1. candidate_manifest_verify = 候选完整性(确定性重采清单比对;完整性硬门,不证明行为);
+ *  2. deterministic_test        = 功能测试(工作区内确定性命令;证明行为);
+ *  3. api_behavior              = 接口行为(真实调用断言;证明行为);
+ *  4. reviewer_output           = 独立 Review(自然语言判断,永不充当机器证据)。
+ *  代码变更候选的 PASS 必须含 ≥1 条"功能性"证据(2/3);完整性(1)是硬门但不满足功能要求。 */
+export const FUNCTIONAL_EVIDENCE_KINDS: ReadonlySet<string> = new Set(["deterministic_test", "api_behavior"]);
+
+/** 全部机器检查类别(功能性 ∪ 完整性;区别于 reviewer_output)。
+ *  RELAY-QUALITY-LOCAL-01 引入 candidate_manifest_verify;RELAY-SAFETY-CLOSE-02 P0-B
+ *  将其降格为"完整性硬门":候选一致性通过 ≠ 行为正确,不得单独满足放行条件。 */
 export const MACHINE_EVIDENCE_KINDS: ReadonlySet<string> = new Set([
   "deterministic_test",
   "api_behavior",
@@ -114,12 +123,14 @@ export async function recordGateVerdict(exec: Exec, spec: RecordGateSpec): Promi
     evidenceKinds.add(ev.kind);
   }
 
-  // 最低机器证据(ADR-0012 #7/CONTRACTS §5;RELAY-QUALITY-LOCAL-01 D1/D2/D3):
-  // 代码变更候选的 PASS 必须引用至少一条机器检查证据;reviewer_output 不得单独充当。
+  // 最低机器证据(ADR-0012 #7/CONTRACTS §5;RELAY-QUALITY-LOCAL-01 D1/D2/D3 +
+  // RELAY-SAFETY-CLOSE-02 P0-B):代码变更候选的 PASS 必须引用至少一条**功能性**机器证据
+  // (deterministic_test/api_behavior);完整性复验(candidate_manifest_verify)是硬门但
+  // 不证明行为,单凭完整性 + Reviewer PASS 不得 ACCEPTED;reviewer_output 永不充当机器证据。
   // 豁免仅两条确定性路径:docs-only 变更(上方 N/A 规则)与无变更集纯分析(candidateSha=null)。
   if (spec.verdict === "PASS" && spec.candidateSha !== null && !isDocsOnlyChanges(changeset?.changedFiles ?? null)) {
-    const hasMachine = [...evidenceKinds].some((k) => MACHINE_EVIDENCE_KINDS.has(k));
-    if (!hasMachine) return { ok: false, reason: "machine_evidence_missing" };
+    const hasFunctional = [...evidenceKinds].some((k) => FUNCTIONAL_EVIDENCE_KINDS.has(k));
+    if (!hasFunctional) return { ok: false, reason: "functional_evidence_missing" };
   }
 
   const id = spec.id ?? `gate-${randomUUID()}`;
@@ -277,12 +288,13 @@ export async function consumeGateVerdict(
     }
     evidenceKinds.add(ev.kind);
   }
-  // 最低机器证据复验(与 recordGateVerdict 同规则;防绕过编排直录旧格式 PASS)
+  // 最低机器证据复验(与 recordGateVerdict 同规则;防绕过编排直录旧格式 PASS)。
+  // P0-B:功能性证据(deterministic_test/api_behavior)必需;完整性复验不满足功能要求。
   if (gate.verdict === "PASS" && gate.candidateSha !== null && !isDocsOnlyChanges(changeset?.changedFiles ?? null)) {
-    const hasMachine = [...evidenceKinds].some((k) => MACHINE_EVIDENCE_KINDS.has(k));
-    if (!hasMachine) {
-      await rejectConsume(exec, spec, gate, "machine_evidence_missing", taskState);
-      return { ok: false, gateId: spec.gateId, reason: "machine_evidence_missing", state: taskState };
+    const hasFunctional = [...evidenceKinds].some((k) => FUNCTIONAL_EVIDENCE_KINDS.has(k));
+    if (!hasFunctional) {
+      await rejectConsume(exec, spec, gate, "functional_evidence_missing", taskState);
+      return { ok: false, gateId: spec.gateId, reason: "functional_evidence_missing", state: taskState };
     }
   }
 

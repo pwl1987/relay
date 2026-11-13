@@ -82,3 +82,57 @@
 | E-8 Pi/pstack 边界 | 已符合设计 | 无 | P2 |
 
 后续大包建议：**"用户控制面最小实现"**（E-3 abort + E-4 takeover + E-2 终态提示，共享 ControlCommand 审计面），一个有界包覆盖三个 P1 项；E-7 supervisor executor 可并行独立小包。
+
+---
+
+## RELAY-SAFETY-CLOSE-02 复核纠偏附录(2026-11-13;独立复核,原文保留于上不改写)
+
+本包(RELAY-SAFETY-CLOSE-02)对上表逐项复核,纠正与代码不符的结论:
+
+### E-1 纠偏:结论"已符合设计(无自动派生)"**错误**
+
+- 代码实证:`consumeGoalMessages`(src/core/consumption.ts)仅有 task 在途守卫(IN_FLIGHT),
+  **无 Goal 状态守卫**;`POST /api/goals/:id/messages`(src/server/api.ts)对任何未消费 USER
+  消息都会经 `planFollowUpTask` 派生 READY Task(scope/commands 继承旧 Task)。
+  普通 USER 消息确实被自动派生为可执行任务 —— 上表"无任何 INSERT INTO tasks 路径"与代码不符。
+- 反例实证(修复前真实运行):p0-mvp/safety-close-02/evidence/counterexample-terminal-goal-derived.log
+- 处置:RELAY-SAFETY-CLOSE-02 P0-A 已实施非 ACTIVE Goal fail-closed;ACTIVE Goal 内消息分类
+  (普通交流/补充反馈/明确执行请求)涉及 WEB-UX-03C §0 冻结语义,方案与决策请求见
+  p0-mvp/safety-close-02/SEMANTICS-P0A.md §3(默认维持现状 C,等待用户裁决 A/B)。
+
+### E-2 纠偏:结论"终态 Goal 消息静默沉淀,无处消费"**错误**(且方向相反)
+
+- 代码实证:终态 Goal(COMPLETED/FAILED)上的消息同样被消费并派生 READY Task;且 Goal 终态后
+  `aggregateGoals`(src/core/goal-loop.ts)只聚合 ACTIVE Goal ⇒ 派生任务执行后 Goal 状态永不更新
+  = 孤儿执行(状态机外执行)。不是"体验缺口",而是**授权缺口**。
+- 处置:同 E-1(P0-A 已修复,反例 B 测试钉住终态四态)。
+
+### E-3/E-4 复核:结论正确(维持)
+
+- steer/abort/takeover/handback 在 src/server/ 与 src/core/ 零命中(2026-11-13 复核)。
+  runner 内部取消信号(runner.ts cancel→SIGTERM→SIGKILL)无用户入口;验证租约接管
+  (verify-lease.ts)非人工接管语义。本包不实施,后续切入点不变(E-3 abort 复用 runner cancel
+  信号 + ops API + ControlCommand 审计;E-4 takeover=显式撤销租约+fencing 失效)。
+
+### E-5/E-6/E-8 复核:结论正确(维持)
+
+- E-5 requirementSha 栅栏兜底、E-6 无子 Agent 暴露面、E-8 Pi 锁定与 pstack 方法复用边界 ——
+  与当前代码一致,无纠偏。
+
+### E-7 复核:结论正确(维持,补充精确化)
+
+- provider 未配置/不可达 ⇒ tick 返回 IDLE_PROVIDER_DOWN 不领取(worker.ts,fail-closed 零消耗);
+  ops API(resolve/defer/pause/resume)、迁移、对账为确定性路径不依赖模型 —— 已符合设计。
+- 精确化:Provider 离线时**可**执行的确定性维护=决策处置(expireStaleDecisions/defer/resolve)、
+  任务 pause/resume、验证租约过期回收、NEEDS_RECONCILE 人工 resume;
+  **不可**自动执行的=对 NEEDS_RECONCILE 的自愈重派(现需人工触发,缺口维持)。
+
+### 汇总修正
+
+| 项 | 原结论 | 复核后 | 处置 |
+| --- | --- | --- | --- |
+| E-1 | 已符合设计(P2 护栏) | **错误**:普通消息自动派生(授权缺口) | P0-A 部分修复(终态);分类待决策 |
+| E-2 | 体验缺口(P1) | **错误**:终态孤儿执行(授权缺口) | P0-A 已修复 |
+| E-3/E-4 | 缺失(P1) | 正确 | 维持后续切入点,本包不实施 |
+| E-5/E-6/E-8 | — | 正确 | 维持 |
+| E-7 | 已符合设计(P1) | 正确+精确化 | NEEDS_RECONCILE 自愈缺口维持 |
