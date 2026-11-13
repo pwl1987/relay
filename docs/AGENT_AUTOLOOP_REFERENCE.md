@@ -2,7 +2,7 @@
 
 - **状态**:审计/参考文档(AUTOLOOP-REFERENCE-00 交付物);不含任何代码变更建议的实现授权。
 - **参考仓库**:agent-autoloop(github.com/KKKKhazix/agent-autoloop),本地克隆 `/tmp/agent-autoloop-audit`,**HEAD=439be64**(2026-11-13 重新核实:`git rev-parse` = 439be64f319db47e1948c737a7d88c43940f72f5)。
-  - **READINESS-01 重核(2026-11-13)**:live HEAD 前进至 **1bd9aa2**(compare 439be64...HEAD = 仅 1 提交,"feat(rules): 别处的定时任务可以登记它用的模型和推理强度 #278";License 仍 MIT;改动面=kernel/rules.ts·host/state.ts·protocol/rules.ts·docs/protocol.md·两测试文件)。**不触及本报告 A–F 行与 REJECT×5 的任何机制语义**;唯一影响=docs/protocol.md 第 100 行起行号 +2(两处插入,390 行后无额外净偏移)——**下文 protocol.md 行号一律按 439be64 基线记录,在新基线读取时 ≥100 的行号需 +2**。
+  - **READINESS-01 重核(2026-11-13)**:live HEAD 前进至 **1bd9aa2**(compare 439be64...HEAD = 仅 1 提交,"feat(rules): 别处的定时任务可以登记它用的模型和推理强度 #278";License 仍 MIT;改动面=kernel/rules.ts·host/state.ts·protocol/rules.ts·docs/protocol.md·两测试文件)。**不触及本报告 A–F 行与 REJECT×5 的任何机制语义**;唯一影响=docs/protocol.md 行号偏移(patch 三 hunks:@@ -90 净 +2 / @@ -100 净 0 / @@ -390 净 0——即**单一插入点两行**,偏移自旧约 93 行起生效,390 行后无额外净偏移)——**下文 protocol.md 行号一律按 439be64 基线记录,在新基线读取时 ≥100 的行号需 +2**(本报告引用最小行号 105,全部落在偏移区)。
 - **License**:MIT(LICENSE,Copyright (c) 2026 数字生命卡兹克),已核实,借鉴无许可障碍。
 - **审计基线**:Relay 本地 `main` HEAD=**67c89f2**(工作区仅存在与本报告无关的未跟踪 `config/`、`p0-mvp/soak-r3b/`,未触碰)。
 - **审计方法**:通读 autoloop `README.md`、`docs/protocol.md`(570 行)、`docs/plugins.md`、`docs/state-machines.md`、`SECURITY.md`;核对其源码关键路径:`kernel/decide.ts`(派发/挂起/暂停/跳数)、`kernel/store.ts`(append-only 事实日志)、`kernel/http.ts`(why 端点)、`protocol/validate.ts` + `protocol/schema.json`(事件字段白名单)、`worker/worker.ts` + `worker/contract.ts`(资料文件与提示词构造)、`cli/why.ts`(因果链投影)、`docs/state-machines.md`(状态权威表)。Relay 侧逐一对照:`src/core/{lifecycle,ops,decisions,supervisor,audit,budget,gates,delivery,delivery-policy,intents,goal-loop,loop-safety,consumption,goals}.ts`、`src/worker-entry.ts`、`src/runtime/{context,pi-rpc,runner}.ts`、`src/server/api.ts`、`src/server/views/goal.ts`。全部引用为真实 `文件:行号`,未运行的判断均标注为文档级结论。
@@ -35,7 +35,7 @@
 
 ## READINESS-01 逐项裁决表(2026-11-13 增补;合同 §四 格式:已有/缺口/收益/复杂度/风险/建议)
 
-判断枚举(合同 §四):**ADOPT**(列入后续任务的最小候选,须代码证据支持且解决真实缺口)/ **DEFER**(条件成立再评估,现在不加机制)/ **REJECT**(不引入)。本表为裁决汇总,机制证据见主表 A–F 行;**本包零实施**。
+判断枚举(合同 §四):**ADOPT**(列入后续任务的最小候选,须代码证据支持且解决真实缺口)/ **DEFER**(条件成立再评估,现在不加机制)/ **REJECT**(不引入)。**NO-CHANGE**=继承主表枚举,语义=已覆盖且无新动作(等效于不 ADOPT 不新增)。本表为裁决汇总,机制证据见主表 A–F 行;**本包零实施**。
 
 | 重点 | Relay 已有? | 真实缺口 | 收益 | 复杂度 | 风险 | 建议 |
 |---|---|---|---|---|---|---|

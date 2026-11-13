@@ -85,7 +85,7 @@ models.json 实读断言+Pi contract 核验=复用现成字段);②真实模型�
 - **新一轮授权**:RELAY-MVP-READINESS-01 §三D(F1/F2 各最多一次;上限冻结不增;不换模型不自动重跑)。
 - **独立根因复核+最小收口**:见 `p0-mvp/readiness-01/R2-ROUND2-NOTE.md` §A/§B
   (`budgetEvidence` 三口径单源/contextWindow 常量共享/fail-closed 语义澄清/ADR 索引补 0011;单测 10/10;零产品语义变更)。
-- **窗口门控(未过)**:上游 api.z.ai 挂起(探针 3 次:30s 中止/60s 上游 499 零 token/45s 中止;
+- **窗口门控(未过)**:上游 api.z.ai 挂起持续 ≥42 分钟(探针 4 次 07:50~08:32:30s/60s/45s/40s 均客户端中止,**账本四行全落 status=499 in=0 out=0 零 token**;
   凭据面有效=网关受理转发,非 401/403;同期 Magpie hourly probe codex→chatgpt.com 连续 Forwarding failure=
   出口链路整体劣化)。按合同"无法确认⇒不发起":**F2-R2/F1-R2 均未发起、未消耗**,完整保留至窗口恢复。
 - **三结论分立(口径不变)**:输出配置修复=成功;F1 通过=未判定(未发起);F2 通过=未判定(未发起)。
