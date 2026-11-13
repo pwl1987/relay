@@ -67,7 +67,8 @@ export async function consumeGoalMessages(
     const exec = tx as unknown as Exec;
     // Goal 状态守卫(P0-A;AGENT_CONTROL §3/ADR-0012 #3):终态/暂停 Goal 不得静默派生
     // 可执行 Task。两级确定性规则(时间戳基准 = goals.updated_at,唯一更新源 = setGoalState):
-    //   ① 全部待消费消息创建于终态迁移之前 ⇒ 在途窗口的活会话补充(§0.1 冻结语义:
+    //   ① 全部待消费消息创建于终态迁移之前(含等值,>=;Reviewer Minor-1 消化:等值归入
+    //      终态后 ⇒ held,更保守)⇒ 在途窗口的活会话补充(§0.1 冻结语义:
     //      intake 时 API 已承诺"消息已记录并将在会话流中呈现")⇒ 边界消费:可审计重激活
     //      (GOAL_ACTIVE)后照常派生 —— 消息属于已授权的执行会话,非终态新请求;
     //   ② 任一待消费消息创建于终态迁移之后 ⇒ 终态 Goal 上的新请求 ⇒ 只记录不派生
@@ -81,7 +82,7 @@ export async function consumeGoalMessages(
         SELECT count(*)::int AS n FROM goal_messages gm
         WHERE gm.goal_id = ${goalId} AND gm.actor = 'USER'
           AND NOT EXISTS (SELECT 1 FROM goal_message_consumptions c WHERE c.message_id = gm.id)
-          AND gm.created_at > ${terminalAt}
+          AND gm.created_at >= ${terminalAt}
       `);
       if (Number(postTerminal.rows[0]!["n"]) > 0) {
         return { consumed: false, reason: "goal_closed", goalState };

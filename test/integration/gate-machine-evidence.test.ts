@@ -9,7 +9,8 @@
 // 反例 B(合法豁免,修复前后均 ACCEPTED):docs-only 候选 + 零机器检查 + Reviewer PASS
 //   ⇒ 确定性 N/A 规则豁免(纯文档变更无机器测试可跑)。
 // 修复后本文件断言翻转为 fail-closed 语义;修复前反例运行的原始输出(漏洞实证)存于
-// p0-mvp/quality-local-01/evidence/counterexample-prefix-run.log(入库证据)。
+// p0-mvp/quality-local-01/evidence/counterexample-prefix-run.log 与
+// p0-mvp/safety-close-02/evidence/counterexample-manifest-reviewer-accepted.log(均入库证据)。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
