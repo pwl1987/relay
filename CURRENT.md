@@ -1,5 +1,13 @@
 # Relay 当前执行契约
 
+- **当前唯一 ACTIVE：RELAY-QUALITY-LOCAL-01**（用户指令 2026-11-13；本行=唯一当前授权执行入口；前置=RELAY-ARCH-FREEZE-01 已收口，见下）。
+- **允许范围**：①统一代码格式与静态检查（先评估 Biome，未验证不引入复杂工具链，单一组合）；②本地可复现验证命令 `quality:quick/full/release`；③与 GitHub Actions 复用同一检查配置；④现有 Gate 最低机器证据要求的最小修复（反例测试先行）；⑤必要的测试与文档更新。
+- **不允许范围**：重做 Goal/Task/Run 生命周期；Session Fabric/多 Agent 调度平台；修改生产部署或主机网络；新建分支/常驻服务/第二 Gate/规则引擎/质量数据库；全仓无意义格式化；自动改变用户可见业务交互语义；启动 REAL-PILOT/MODEL-POLICY-01/R-3B；触碰 config/ 与 p0-mvp/soak-r3b/。
+- **质量命令要求（C1~C9）**：quick=格式只读检查+Lint+TypeScript+快速测试；full=单元+真 PG 集成+容器安全门+浏览器，必需项不得默默跳过；release=按变更风险触发安全/恢复/性能/真实环境，不虚构阈值不伪装通过；本地与 CI 同一配置；历史质量问题先建可审计基线不全仓重排，新增/修改代码必须达标；固定依赖可复现安装，禁不必要新依赖；证据绑定 SHA/环境/时间/命令/退出码/原始日志，NOT_RUN/SKIPPED/FAILED/PASS 区分清楚；隔离 DB/工作区/网络/资源，禁生产密钥与生产库；真实 Provider 测试独立授权开关，npm test 不得隐式消耗模型额度。
+- **Gate 修复要求（D1~D7）**：有代码变更的候选必须有对应机器检查证据；Reviewer 输出不得单独充当机器测试成功证据；空检查/缺失/失败/跳过不得 ACCEPTED；N/A 须有事先定义的确定性适用规则与审计依据；证据仍绑定候选 SHA/attempt/requirement/环境，不破坏租约与幂等；合法纯文档/只读豁免保留，gate_required=false 不得成为代码变更逃避验证通道；不新增第二套 Gate/规则引擎/独立质量数据库。测试必须覆盖：成功、失败、空证据、只有 Reviewer 输出、跳过、旧 SHA、错误环境、重复消费、合法豁免。若审计证明必须改变冻结 Policy/外部权限/核心生命周期才能实现 ⇒ 停止 D 并提交架构决策。
+- **执行顺序**：C 先审查现有 package.json/CI/Vitest/PG/Playwright → D 反例测试证明风险 → 最小修复 → E 差距登记（只读）→ F 自动测试与有界修复（最多两轮）→ G 独立 Reviewer（隔离上下文）→ H 提交/CI/收口。失败先归因（产品/测试/基础设施/Provider/权限/资源），不无上限循环不偷偷跳过。
+- **收口纪律**：完成后更新 CURRENT.md 与 docs/CONTINUATION.md；main-only 快进推送；网络失败优先 VM80 代理 127.0.0.1:8118，不改系统全局代理不输出凭据；核对 exact-head CI；报告真实 SHA/测试/未验证项，严禁虚构。
+
 - **RELAY-ARCH-FREEZE-01 ✅ 收口（2026-11-13 独立审计 PASS）**：新执行窗口冷启动独立复核（未沿用上轮自评）=A1~A5/A7/A8 PASS、A3/A4 设计层 PASS（OPEN 项如实标注）；A6 判 REWORK——但属**实现缺口非设计缺陷**（生产 worker-entry 不传 evidenceChecks、reviewer_output 可单独满足证据非空、gate_required=false 潜伏豁免通道、证据无 SKIPPED/NOT_RUN 区分），修复已列入新包阶段 D 授权范围。收口证据：live main=dcb26cd 与本地一致；exact-head CI 43372681642@dcb26cd=success（gh run list 亲测）；工作区仅受保护未跟踪 config/、p0-mvp/soak-r3b/；合同 7251ecb、设计 99ddb4b、实录 4a76c68/dcb26cd 全链推送且 CI 绿。本包为纯设计文档变更，不表示新功能已实现。
 - 权威起点：GitHub origin/main = dcb26cd18f7b407b9be0f30056669235cb465dd3；VM80 本地 main/远端一致，受跟踪文件无修改；未跟踪 config/ 与 p0-mvp/soak-r3b/ 为受保护遗留产物，严禁触碰或提交。
 - Writer：本窗口（RELAY-QUALITY-LOCAL-01 执行+前置独立审计）为唯一 Writer；main-only 快进推送，禁强推/建分支/改历史。
