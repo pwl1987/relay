@@ -1,6 +1,15 @@
 # Relay 当前执行契约
 
-- 状态:**RELAY-MVP-READINESS-01 ACTIVE**(用户指令 2026-11-13;**唯一当前授权执行入口=下表末行**;每子包流程=冷启动→审计→实现/研究→自动测试→有界修复→回归→独立 Reviewer→Evidence→提交→CI→快进推送→收口;一包遇外部授权阻断不阻他包)。历史叠加包(总五包/WEB-UX-01~03D/可用 MVP 最终收口大包/MODEL-POLICY-00/下一阶段完整执行大包)**均已收口或定格**,逐包状态、边界要点与验收裁决完整保留于下表各行及 docs/CONTINUATION.md 对应节,历史证据与裁决不改写。MODEL-POLICY-01 仍不得提前实施;REAL-PILOT 门未激活,不自行进入;R-3B 不启动(soak-r3b/ 保持未跟踪)。
+- 当前唯一 ACTIVE：**RELAY-ARCH-FREEZE-01**（用户 2026-11-13 授权继续顶层设计收敛；仅设计/治理文档，不授权产品代码、服务、数据库、模型或生产配置变化）。
+- 权威起点：GitHub origin/main = 51972cdeb89ac87a13e57215ac959d60b7d95c5c；VM80 本地 main/远端一致，受跟踪文件无修改；未跟踪 config/ 与 p0-mvp/soak-r3b/ 为受保护遗留产物，严禁触碰或提交。
+- 唯一 Writer：VM80 人工接管（Dev Agent Kit takeover=human，执行期间不得并行启动写任务）；main-only、禁止强推；提交前重核远端 SHA。
+- 结果边界：基于现有 ARCHITECTURE_BASELINE/CONTRACTS/DELIVERY/VALIDATION/INTEGRATIONS，新增或精简 Agent 控制、计划修订、多 Agent 权限、Pi/pstack 边界、本地质量检查/GitHub 外部复核、机器证据、性能与评分原则；保持唯一状态与治理事实源。
+- 质量出口：逐项说明既有代码事实与未实现合同；最小文档差异，检查 Markdown 引用、范围、测试与 HEAD 证据；独立 Reviewer 未完成不得将待验证合同标为实现 PASS。完成后更新 CURRENT/CONTINUATION，收口并释放 Writer。
+- 硬停止：不修改 src/web/package.json/CI 代码或生产服务；不安装 pstack、升级 Pi、启动自托管 GitHub Runner、启用真实模型调用；不新增服务/分支/第二调度或评分系统；不得修改 MVP REWORK、R2 PARTIAL/R3 PARTIAL 等历史裁决。
+
+## 历史执行记录（只供追溯，不是当前 ACTIVE 授权）
+
+- 历史状态（2026-11-13 当时）：**RELAY-MVP-READINESS-01 ACTIVE**(用户指令 2026-11-13;**唯一当前授权执行入口=下表末行**;每子包流程=冷启动→审计→实现/研究→自动测试→有界修复→回归→独立 Reviewer→Evidence→提交→CI→快进推送→收口;一包遇外部授权阻断不阻他包)。历史叠加包(总五包/WEB-UX-01~03D/可用 MVP 最终收口大包/MODEL-POLICY-00/下一阶段完整执行大包)**均已收口或定格**,逐包状态、边界要点与验收裁决完整保留于下表各行及 docs/CONTINUATION.md 对应节,历史证据与裁决不改写。MODEL-POLICY-01 仍不得提前实施;REAL-PILOT 门未激活,不自行进入;R-3B 不启动(soak-r3b/ 保持未跟踪)。
 - 写者:本窗口唯一 Writer(main-only;禁强推;不修改 PAT;不删除日志;生产凭据零打印;真实模型调用仅限 ACTIVE 行合同 §三D 门控下 F1/F2 各最多一次正式尝试,除此之外无模型授权不消耗新预算)。
 - 基线:RELAY-MVP-READINESS-01 合同登记提交 `9b05cfb`(开工冷启动 live main=`8fe0f7f` 与本地一致 0/0;exact-head CI 43280551759=success);此后各子包快进推进(最新见 git log);未跟踪仅受保护两项=`config/`(运行时 Project Registry)与 `p0-mvp/soak-r3b/`(R-3B 冻结预置)——保持未跟踪不入库;历史 soak-24h 证据已入库。
 - 运行态:**R-3 采集三进程已受控收口**(2026-11-12 17:33~17:37;365s 中断缝与 2 次 PG 采样异常全部保留于终验快照;证据冻结入库,skip-worktree 已解除;裁决 PARTIAL 定格,按 ADR-0010 不阻断 Usable MVP)。**生产实例=relay-web(PID 3242781)/relay-worker(PID 3242782),均 2026-11-13 02:00:08 起,systemd user service,WorkingDirectory=/home/ubuntu/dev/relay(部署 checkout=本工作树),LAN 10.30.5.80:8787 单接口,schema=relay_console,worker 横幅 maxOutputTokens=8192(默认);READINESS-01 子包①核实:web 近 12h 零 error、资源指纹三方一致、Chromium 双端冒烟 17/17**。
