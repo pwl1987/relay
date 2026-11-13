@@ -171,15 +171,20 @@ export function dockerCheckRunner(options: DockerCheckRunnerOptions = {}): Check
           const rawOutput = [`$ ${spec.command.join(" ")}`, stdout ?? "", stderr ?? ""].join("\n").trimEnd();
           if (err) {
             const killed = (err as { killed?: boolean }).killed === true;
-            const enobufs = (err as { code?: unknown }).code === "ENOBUFS";
-            if (killed) {
-              // 超时/输出溢出:docker client 被杀 ≠ 容器被杀 ⇒ 按容器名终止整进程组(幂等)
+            // Reviewer Minor-5/M2-1:Node 24 实测输出超 maxBuffer 的 err.code =
+            // ERR_CHILD_PROCESS_STDIO_MAXBUFFER(killed=undefined;旧版本曾为 ENOBUFS)。
+            // 该形态 ≠ 超时:标记如实 OUTPUT_OVERFLOW;结果安全(恒失败),容器无残留。
+            const overflow =
+              (err as { code?: unknown }).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" ||
+              (err as { code?: unknown }).code === "ENOBUFS";
+            if (killed || overflow) {
+              // docker client 被杀 ≠ 容器被杀 ⇒ 按容器名终止整进程组(幂等)
               killContainer(containerName);
             }
             const marker = abortSignal?.cancelled
               ? "ABORTED"
-              : enobufs
-                ? "OUTPUT_OVERFLOW" // Reviewer Minor-5:输出超 maxBuffer ≠ 超时;结果安全(失败),标记如实
+              : overflow
+                ? "OUTPUT_OVERFLOW"
                 : killed
                   ? "TIMEOUT"
                   : String((err as { code?: unknown }).code ?? "nonzero");
