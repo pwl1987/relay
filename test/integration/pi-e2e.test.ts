@@ -13,13 +13,14 @@ import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { claimTask, advanceTask } from "../../src/core/lease.ts";
 import { latestChangeset } from "../../src/core/changesets.ts";
 import { acquireVerificationLease } from "../../src/core/verify-lease.ts";
-import { collectCheckEvidence } from "../../src/core/evidence.ts";
+import { collectCheckEvidence, recordEvidence } from "../../src/core/evidence.ts";
 import { recordGateVerdict } from "../../src/core/gates.ts";
 import { seedReviewerRun } from "../setup/gate-helper.ts";
 import { reclaimExpiredLeases, claimNextReady, reconcilePendingTasks } from "../../src/core/supervisor.ts";
 import type { Exec } from "../../src/core/db.ts";
 import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
 import { executeRun, latestSession, readToolAudit } from "../../src/runtime/runner.ts";
+import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
 import { cleanupSandbox, dockerAvailable, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { probeProvider, type ProviderConfig } from "../helpers/provider.ts";
 import { assertOk } from "../setup/assert.ts";
@@ -153,6 +154,23 @@ describe.skipIf(!MODEL || !dockerAvailable() || !sudoIptablesAvailable())(
         hostTestCheckRunner,
       );
       expect(evCheck.passed).toBe(true);
+      // R2(INTEGRITY-04A 反例 C):直录 PASS 须引用完整性证据 —— 对真实工作区执行生产同源
+      // 候选清单复验并落 candidate_manifest_verify 证据(与功能性证据同绑定)。
+      const csFiles = csE2e!.changedFiles;
+      const changedCount =
+        (csFiles.added?.length ?? 0) + (csFiles.modified?.length ?? 0) + (csFiles.removed?.length ?? 0);
+      const mvVerify = verifyCandidateManifest(result.sandboxSpec.workspaceDir, csE2e!.candidateSha, changedCount);
+      expect(mvVerify.ok, `mvVerify=${mvVerify.rawOutput}`).toBe(true);
+      const evMv = await recordEvidence(t.db as unknown as Exec, {
+        taskId: "t-e2e",
+        attempt: c.attempt,
+        candidateSha: csE2e!.candidateSha,
+        kind: "candidate_manifest_verify",
+        passed: true,
+        rawOutput: mvVerify.rawOutput,
+        env: { mode: "docker", node: process.version, host: "vm80" },
+        producedBy: "verifier-e2e",
+      });
       const rvRun = await seedReviewerRun(t.db, { taskId: "t-e2e", attempt: c.attempt });
       const gateRec = await t.db.transaction(async (tx) =>
         recordGateVerdict(tx as unknown as Exec, {
@@ -165,7 +183,7 @@ describe.skipIf(!MODEL || !dockerAvailable() || !sudoIptablesAvailable())(
           testEnv: { mode: "docker", node: process.version, host: "vm80" },
           reviewerRunId: rvRun,
           coderRunId: result.runId,
-          evidenceIds: [evCheck.id],
+          evidenceIds: [evCheck.id, evMv.id],
         }),
       );
       expect(gateRec.ok).toBe(true);

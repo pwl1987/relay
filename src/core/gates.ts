@@ -131,6 +131,13 @@ export async function recordGateVerdict(exec: Exec, spec: RecordGateSpec): Promi
   if (spec.verdict === "PASS" && spec.candidateSha !== null && !isDocsOnlyChanges(changeset?.changedFiles ?? null)) {
     const hasFunctional = [...evidenceKinds].some((k) => FUNCTIONAL_EVIDENCE_KINDS.has(k));
     if (!hasFunctional) return { ok: false, reason: "functional_evidence_missing" };
+    // R2(反例 C,counterexample-r2.log):完整性证据硬规则 —— 防绕过编排直录"仅功能证据"PASS。
+    // record/consume 是防直录的权威边界(消费侧同规则),功能性证据不能代替完整性验证,反之亦然:
+    // 代码变更候选的 PASS 必须引用 ≥1 条 candidate_manifest_verify(编排层双门之外的第二道权威闸;
+    // docs-only 与无变更集豁免同上)。反例实证:直录"仅功能证据"PASS + consume ⇒ ACCEPTED(零完整性证据)。
+    if (!evidenceKinds.has("candidate_manifest_verify")) {
+      return { ok: false, reason: "integrity_evidence_missing" };
+    }
   }
 
   const id = spec.id ?? `gate-${randomUUID()}`;
@@ -290,11 +297,16 @@ export async function consumeGateVerdict(
   }
   // 最低机器证据复验(与 recordGateVerdict 同规则;防绕过编排直录旧格式 PASS)。
   // P0-B:功能性证据(deterministic_test/api_behavior)必需;完整性复验不满足功能要求。
+  // R2(反例 C):完整性证据同规则复验 —— 直录旧格式 PASS(仅功能证据)在消费侧同样拒绝。
   if (gate.verdict === "PASS" && gate.candidateSha !== null && !isDocsOnlyChanges(changeset?.changedFiles ?? null)) {
     const hasFunctional = [...evidenceKinds].some((k) => FUNCTIONAL_EVIDENCE_KINDS.has(k));
     if (!hasFunctional) {
       await rejectConsume(exec, spec, gate, "functional_evidence_missing", taskState);
       return { ok: false, gateId: spec.gateId, reason: "functional_evidence_missing", state: taskState };
+    }
+    if (!evidenceKinds.has("candidate_manifest_verify")) {
+      await rejectConsume(exec, spec, gate, "integrity_evidence_missing", taskState);
+      return { ok: false, gateId: spec.gateId, reason: "integrity_evidence_missing", state: taskState };
     }
   }
 

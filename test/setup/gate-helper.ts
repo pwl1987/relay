@@ -40,6 +40,8 @@ export async function recordBoundGate(db: RelayDb, spec: BoundGateSpec): Promise
   const reviewerRunId = spec.reviewerRunId ?? (await seedReviewerRun(db, { taskId: spec.taskId, attempt }));
   // PASS 必须引用证据(Gate 绑定铁律):未显式给 evidenceIds 时,播种一条真实的
   // 确定性证据行(内容即本辅助的执行事实;candidateSha 用 "" 哨兵对齐无候选流程)。
+  // R2(INTEGRITY-04A 反例 C):代码变更候选(candidateSha 非空)另播一条通过态
+  // candidate_manifest_verify —— record/consume 强制完整性证据,直录辅助与生产编排同构。
   let evidenceIds = spec.evidenceIds;
   if (spec.verdict === "PASS" && !evidenceIds) {
     const rawOutput = `gate-helper deterministic check: task=${spec.taskId} attempt=${attempt} ok`;
@@ -52,6 +54,18 @@ export async function recordBoundGate(db: RelayDb, spec: BoundGateSpec): Promise
         ${contentSha}, 'gate-helper')
     `);
     evidenceIds = [id];
+    if ((spec.candidateSha ?? null) !== null) {
+      const mvRaw = `gate-helper candidate manifest verify: task=${spec.taskId} attempt=${attempt} candidate=${spec.candidateSha} verify=ok`;
+      const mvId = `ev-mv-${randomUUID().slice(0, 8)}`;
+      const mvSha = createHash("sha256").update(mvRaw, "utf8").digest("hex");
+      await db.execute(sql`
+        INSERT INTO gate_evidence (id, task_id, attempt, candidate_sha, kind, passed, raw_output, env, content_sha256, produced_by)
+        VALUES (${mvId}, ${spec.taskId}, ${attempt}, ${spec.candidateSha}, 'candidate_manifest_verify',
+          true, ${mvRaw}, ${JSON.stringify({ mode: "host-fallback", node: process.version, host: "test" })}::jsonb,
+          ${mvSha}, 'gate-helper')
+      `);
+      evidenceIds = [id, mvId];
+    }
   }
   return db.transaction(async (tx) =>
     recordGateVerdict(tx as unknown as Exec, {

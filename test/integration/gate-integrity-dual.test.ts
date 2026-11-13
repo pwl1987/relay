@@ -2,26 +2,37 @@
 // p0-mvp/gate-integrity-04a/evidence/counterexample.log —— 修复前:
 //   A. 配置功能性检查 ⇒ candidate_manifest_verify 完整性门被完全跳过,候选内容漂移照样 ACCEPTED;
 //   B. workspaceDir 缺失 ⇒ process.cwd()(宿主仓库根)被用作检查工作区并真实挂载(mountinfo 实证)。
-// 修复后语义(合同§三/§四):
+// R2 补测(反例证据 counterexample-r2.log,对 bd53f9a 实测):
+//   C. 绕过编排直录 Gate ⇒ record/consume 双侧强制完整性证据(integrity_evidence_missing);
+//   D. "/tmp" 非本 Run 工作区(内容相同的外来目录)⇒ 工作区归属绑定校验 FAIL-CLOSED
+//      (workspace_provenance_mismatch;runs 行持久化 workspace_dir)。
+// 修复后语义(合同§三/§四 + R2):
 //   - 功能检查前必须复验候选与 candidate_sha 一致(功能测试不能代替完整性验证);
 //   - 功能检查后重新复验,测试期间修改候选工作区 ⇒ 漂移检出,保守停机;
 //   - manifestVerify 未注入/工作区缺失 ⇒ FAIL-CLOSED(不进 Reviewer,零模型);
 //   - 检查已配置但缺工作区 ⇒ 不启动任何检查(禁止 process.cwd() 隐式回退);
+//   - 代码变更候选 PASS 必须引用完整性证据(record/consume 双侧;直录不可绕过);
+//   - 提供的工作区与本 Run 记录不一致 ⇒ FAIL-CLOSED(外来目录内容相同也不放行);
 //   - docs-only 合法豁免不退化(无工作区时跳过可选检查,流程照常)。
 // 全部使用隔离测试库(p01a_ schema)+ 临时工作区 + 受控桩;零模型调用;零远端写入。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestDb, type TestDb } from "../setup/testdb.ts";
 import { claimTask } from "../../src/core/lease.ts";
 import { planGoal } from "../../src/core/goals.ts";
 import { orchestrateGate, type ReviewRunInput, type ReviewRunResult } from "../../src/core/gate-orchestrator.ts";
+import { recordEvidence } from "../../src/core/evidence.ts";
+import { consumeGateVerdict, recordGateVerdict } from "../../src/core/gates.ts";
+import { acquireVerificationLease } from "../../src/core/verify-lease.ts";
 import type { Exec } from "../../src/core/db.ts";
 import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
 import { executeRun } from "../../src/runtime/runner.ts";
 import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
+import { validateCheckWorkspace } from "../../src/runtime/check-sandbox.ts";
 import { assertOk } from "../setup/assert.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 import type { CheckSpec } from "../../src/core/evidence.ts";
@@ -401,5 +412,182 @@ describe("Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A)
     expect(runnerCalls[0]).toBe(result.sandboxSpec.workspaceDir);
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("ACCEPTED");
     void goalId;
+  });
+
+  // ---------- R2 补测(反例 C/D;counterexample-r2.log 对 bd53f9a 实证) ----------
+
+  it("R2-C:绕过编排直录 PASS(仅功能证据、零完整性证据)⇒ record/consume 双侧拒绝 integrity_evidence_missing", async () => {
+    const taskId = "t-gid-r2-direct-record";
+    const { result } = await coderRun(taskId, "result.txt:sum=87");
+    expect(result.outcome).toBe("SUCCEEDED");
+    const csRow = await t.db.execute(
+      sql`SELECT candidate_sha, requirement_sha FROM candidate_changesets WHERE task_id=${taskId} ORDER BY created_at DESC LIMIT 1`,
+    );
+    const candidateSha = String(csRow.rows[0]!["candidate_sha"]);
+    const requirementSha = String(csRow.rows[0]!["requirement_sha"]);
+    const reviewerRunId = `run-gid-r2-reviewer-${taskId}`;
+    await t.db.execute(sql`
+      INSERT INTO runs (id, task_id, attempt, model_ref, sandbox, detail)
+      VALUES (${reviewerRunId}, ${taskId}, 1, 'stub/gm', 'host-fallback', '{"role":"reviewer"}'::jsonb)
+      ON CONFLICT (id) DO NOTHING
+    `);
+    // 直录方仅采集功能性证据,不执行任何候选完整性复验(反例 C 的直录形态)
+    const funcEv = await recordEvidence(t.db as unknown as Exec, {
+      taskId,
+      attempt: 1,
+      candidateSha,
+      kind: "deterministic_test",
+      passed: true,
+      rawOutput: "direct-record functional only",
+      env: { mode: "worker-host", node: process.version, host: "test" },
+      producedBy: "r2-direct",
+    });
+    // record 侧:代码变更候选 PASS 必须引用完整性证据(功能测试不能代替完整性验证)
+    const rec = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, {
+        taskId,
+        verdict: "PASS",
+        reviewer: "r2-direct",
+        attempt: 1,
+        candidateSha,
+        requirementSha,
+        testEnv: { mode: "worker-host", node: process.version, host: "test" },
+        reviewerRunId,
+        coderRunId: result.runId,
+        evidenceIds: [funcEv.id],
+      }),
+    );
+    expect(rec.ok, `record.reason=${rec.ok ? "-" : (rec as { reason: string }).reason}`).toBe(false);
+    if (!rec.ok) expect(rec.reason).toBe("integrity_evidence_missing");
+    // consume 侧(旧格式直录 PASS 绕过 record 校验的形态):仅功能证据 ⇒ 同规则拒绝
+    await t.db.execute(sql`
+      INSERT INTO task_gate_verdicts (id, task_id, commit_ref, verdict, reviewer, attempt, candidate_sha, requirement_sha, evidence_ids)
+      VALUES ('gate-r2-direct', ${taskId}, NULL, 'PASS', 'r2-direct', 1, ${candidateSha}, ${requirementSha},
+        ${JSON.stringify([funcEv.id])}::jsonb)
+    `);
+    const vl = await t.db.transaction(async (tx) =>
+      acquireVerificationLease(tx as unknown as Exec, taskId, "r2-direct", 60),
+    );
+    if (!vl.ok) throw new Error(`verify lease: ${vl.reason}`);
+    const consumed = await t.db.transaction(async (tx) =>
+      consumeGateVerdict(tx as unknown as Exec, {
+        taskId,
+        gateId: "gate-r2-direct",
+        actor: "r2-direct",
+        ownerId: vl.ownerId,
+        fencingToken: vl.fencingToken,
+      }),
+    );
+    expect(consumed.ok, `consume.reason=${consumed.ok ? "-" : (consumed as { reason: string }).reason}`).toBe(false);
+    if (!consumed.ok) expect(consumed.reason).toBe("integrity_evidence_missing");
+    // 对照:补齐完整性证据后同一绑定 record+consume 照常放行(规则精确,不误伤)
+    const mvEv = await recordEvidence(t.db as unknown as Exec, {
+      taskId,
+      attempt: 1,
+      candidateSha,
+      kind: "candidate_manifest_verify",
+      passed: true,
+      rawOutput: "verify=ok",
+      env: { mode: "worker-host", node: process.version, host: "test" },
+      producedBy: "r2-direct",
+    });
+    const rec2 = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, {
+        taskId,
+        verdict: "PASS",
+        reviewer: "r2-direct",
+        attempt: 1,
+        candidateSha,
+        requirementSha,
+        testEnv: { mode: "worker-host", node: process.version, host: "test" },
+        reviewerRunId,
+        coderRunId: result.runId,
+        evidenceIds: [funcEv.id, mvEv.id],
+      }),
+    );
+    expect(rec2.ok, `record2.reason=${rec2.ok ? "-" : (rec2 as { reason: string }).reason}`).toBe(true);
+    const consumed2 = await t.db.transaction(async (tx) =>
+      consumeGateVerdict(tx as unknown as Exec, {
+        taskId,
+        gateId: (rec2 as { id: string }).id,
+        actor: "r2-direct",
+        ownerId: vl.ownerId,
+        fencingToken: vl.fencingToken,
+      }),
+    );
+    expect(consumed2.ok).toBe(true);
+    expect((consumed2 as { state: string }).state).toBe("ACCEPTED");
+  });
+
+  it("R2-D:非本 Run 工作区(内容相同的外来 /tmp 目录)⇒ workspace_provenance_mismatch FAIL-CLOSED(检查/Reviewer 零执行)", {
+    timeout: 90_000,
+  }, async () => {
+    const taskId = "t-gid-r2-foreign-ws";
+    const { result } = await coderRun(taskId, "result.txt:sum=87");
+    expect(result.outcome).toBe("SUCCEEDED");
+    const csRow = await t.db.execute(
+      sql`SELECT candidate_sha FROM candidate_changesets WHERE task_id=${taskId} ORDER BY created_at DESC LIMIT 1`,
+    );
+    const candidateSha = String(csRow.rows[0]!["candidate_sha"]);
+    // 外来目录:内容与本 Run 候选完全相同 ⇒ 既有层(边界校验+内容复验)全部放行(反例 D 实证)
+    const foreign = mkdtempSync(join(tmpdir(), "relay-test-foreign-"));
+    writeFileSync(join(foreign, "result.txt"), readFileSync(join(result.sandboxSpec.workspaceDir, "result.txt")));
+    try {
+      expect(validateCheckWorkspace(foreign).ok).toBe(true);
+      expect(verifyCandidateManifest(foreign, candidateSha, 1).ok).toBe(true);
+      const runnerCalls: string[] = [];
+      const spyRunner = async (spec: CheckSpec, workspaceDir: string) => {
+        runnerCalls.push(workspaceDir);
+        return hostTestCheckRunner(spec, workspaceDir);
+      };
+      const reviewer = reviewerPass(taskId);
+      const gate = await orchestrateGate(
+        t.db,
+        { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: foreign, actor: "t-gid" },
+        {
+          checkRunner: spyRunner,
+          evidenceChecks: PASSING_CHECK,
+          manifestVerify: builtinManifestVerify,
+          reviewRun: reviewer.fn,
+          reviewAttempts: 1,
+        },
+      );
+      expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
+      expect(gate.reason).toBe("workspace_provenance_mismatch");
+      expect(runnerCalls.length).toBe(0); // 检查不在外来目录执行
+      expect(reviewer.calls.length).toBe(0); // 不进 Reviewer
+      const audit = await t.db.execute(
+        sql`SELECT action FROM audit_events WHERE task_id=${taskId} AND action='GATE_WORKSPACE_PROVENANCE_MISMATCH'`,
+      );
+      expect(audit.rows.length).toBe(1);
+      const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
+      expect(String(st.rows[0]!["state"])).toBe("NEEDS_DECISION");
+    } finally {
+      rmSync(foreign, { recursive: true, force: true });
+    }
+  });
+
+  it("R2-D3:无归属绑定记录(旧格式 runs 行)⇒ 归属校验不可执行,由既有双门/边界把关(登记残留,不虚构拦截)", {
+    timeout: 90_000,
+  }, async () => {
+    const taskId = "t-gid-r2-no-binding";
+    const { result } = await coderRun(taskId, "result.txt:sum=87");
+    expect(result.outcome).toBe("SUCCEEDED");
+    // 剥离 runs 行的 workspace_dir(模拟旧格式/无绑定记录的 run 行)
+    await t.db.execute(sql`UPDATE runs SET detail = detail - 'workspace_dir' WHERE id=${result.runId}`);
+    const reviewer = reviewerPass(taskId);
+    const gate = await orchestrateGate(
+      t.db,
+      { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir, actor: "t-gid" },
+      {
+        checkRunner: hostTestCheckRunner,
+        evidenceChecks: PASSING_CHECK,
+        manifestVerify: builtinManifestVerify,
+        reviewRun: reviewer.fn,
+        reviewAttempts: 1,
+      },
+    );
+    // 无绑定记录 ⇒ 归属校验跳过(不虚构拦截),既有双门照常把关 ⇒ 放行(残留如实登记)
+    expect(gate.status, `gate.reason=${gate.reason}`).toBe("ACCEPTED");
   });
 });

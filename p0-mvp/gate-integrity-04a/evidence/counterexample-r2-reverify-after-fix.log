@@ -1,0 +1,18 @@
+=== 反例 C:recordGateVerdict 直录 PASS(代码变更候选,仅功能性证据,零完整性证据)+ consume ⇒ ACCEPTED ===
+C.setup: run=run-710a791a-fdbd-44c4-8775-7ee36d78e8c0 outcome=SUCCEEDED workspace=/tmp/relay-run-2omAb3/ws
+C.record: ok=false reason=integrity_evidence_missing
+C.consume: state=n/a(任务状态=VERIFYING)
+C.integrity-evidence: 任务证据中 candidate_manifest_verify 行数=0
+C.defect-verdict: 不成立(需人工核查)
+
+=== 反例 D:外来 /tmp 目录(内容与候选相同)通过既有全部层 ⇒ 编排 ACCEPTED,检查在外来目录执行 ===
+D.setup: run=run-2849588c-4751-4b34-8142-4579daa766e8 outcome=SUCCEEDED 本 Run 工作区=/tmp/relay-run-aNCYok/ws
+D.layer1-validateCheckWorkspace: ok=true reason=-(外来目录=/tmp/relay-foreign-ws-SkJvu9)
+D.layer2-verifyCandidateManifest: ok=true(内容与候选完全相同 ⇒ manifest_sha 一致;完整性只绑定内容不绑定归属)
+D.layer3-orchestrateGate: status=NEEDS_DECISION reason=workspace_provenance_mismatch
+D.checks-executed-in=null(是否外来目录=no;本 Run 工作区=/tmp/relay-run-aNCYok/ws 全程未被使用)
+D.integrity-evidence: 0 条复验证据,均对外来目录出具(mount/复验对象=外来目录而非本 Run 工作区)
+D.defect-verdict: 不成立(需人工核查)
+D.note: 归属绑定缺失=与反例 B 不同的独立残余(反例 B=缺工作区回退宿主 cwd,已修复;本反例=显式提供了**错误归属**的工作区,既有层全部放行)。缓解面如实记录:verifyCandidateManifest 只绑定内容哈希,内容相同的外来目录语义等价,但生产语义要求检查/复验/交付绑定本 Run 工作区(prepareRunDirs 为每 Run 独立创建)。
+
+R2 反例运行完成(对未修复代码 bd53f9a;隔离 p01a_ schema 已清理;零真实远端写入/零模型调用)。

@@ -35,7 +35,11 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     `);
     const c = await t.db.transaction(async (tx) => claimTask(tx as unknown as Exec, taskId, `worker-${taskId}`, 60));
     assertOk(c);
-    for (const [from, to] of [["LEASED", "RUNNING"], ["RUNNING", "SUBMITTED"], ["SUBMITTED", "VERIFYING"]] as const) {
+    for (const [from, to] of [
+      ["LEASED", "RUNNING"],
+      ["RUNNING", "SUBMITTED"],
+      ["SUBMITTED", "VERIFYING"],
+    ] as const) {
       const r = await t.db.transaction(async (tx) =>
         advanceTask(tx as unknown as Exec, taskId, c.ownerId, c.fencingToken, from, to),
       );
@@ -49,7 +53,11 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     );
     const cs = await t.db.transaction(async (tx) =>
       recordChangeset(tx as unknown as Exec, {
-        taskId, runId: coderRunId, attempt, base: BASE, candidate: CAND,
+        taskId,
+        runId: coderRunId,
+        attempt,
+        base: BASE,
+        candidate: CAND,
         requirement: { ...REQ, taskId, goalText: "g" },
       }),
     );
@@ -58,7 +66,19 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     );
     if (!vl.ok) throw new Error(`verify lease: ${vl.reason}`);
     const reviewerRunId = await seedReviewerRun(t.db, { taskId, attempt });
-    return { taskId, attempt, coderRunId, cs, verifier: vl, reviewerRunId };
+    // R2(INTEGRITY-04A 反例 C):预置完整性证据行 —— 代码变更候选 PASS 必须引用
+    // candidate_manifest_verify(record/consume 双侧硬规则),与功能性证据同绑定。
+    const mv = await recordEvidence(t.db as unknown as Exec, {
+      taskId,
+      attempt,
+      candidateSha: cs.candidateSha,
+      kind: "candidate_manifest_verify",
+      passed: true,
+      rawOutput: "verify=ok",
+      env: { mode: "worker-host", node: process.version, host: "test" },
+      producedBy: "verifier",
+    });
+    return { taskId, attempt, coderRunId, cs, verifier: vl, reviewerRunId, mv };
   }
 
   function passSpec(f: Awaited<ReturnType<typeof setupVerifying>>, evidenceIds: string[]): RecordGateSpec {
@@ -80,17 +100,27 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     const f = await setupVerifying("t-ok");
     const ev = await t.db.transaction(async (tx) =>
       recordEvidence(tx as unknown as Exec, {
-        taskId: f.taskId, attempt: f.attempt, candidateSha: f.cs.candidateSha,
-        kind: "deterministic_test", passed: true, rawOutput: "checks ok",
-        env: { mode: "worker-host", node: process.version, host: "test" }, producedBy: "verifier",
+        taskId: f.taskId,
+        attempt: f.attempt,
+        candidateSha: f.cs.candidateSha,
+        kind: "deterministic_test",
+        passed: true,
+        rawOutput: "checks ok",
+        env: { mode: "worker-host", node: process.version, host: "test" },
+        producedBy: "verifier",
       }),
     );
-    const rec = await t.db.transaction(async (tx) => recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id])));
+    const rec = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id, f.mv.id])),
+    );
     expect(rec.ok).toBe(true);
     const consumed = await t.db.transaction(async (tx) =>
       consumeGateVerdict(tx as unknown as Exec, {
-        taskId: f.taskId, gateId: (rec as { id: string }).id, actor: "verifier",
-        ownerId: f.verifier.ownerId, fencingToken: f.verifier.fencingToken,
+        taskId: f.taskId,
+        gateId: (rec as { id: string }).id,
+        actor: "verifier",
+        ownerId: f.verifier.ownerId,
+        fencingToken: f.verifier.fencingToken,
       }),
     );
     expect(consumed.ok).toBe(true);
@@ -100,8 +130,11 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     // 二次消费:already_consumed(双重裁决禁止)
     const again = await t.db.transaction(async (tx) =>
       consumeGateVerdict(tx as unknown as Exec, {
-        taskId: f.taskId, gateId: (rec as { id: string }).id, actor: "verifier",
-        ownerId: f.verifier.ownerId, fencingToken: f.verifier.fencingToken,
+        taskId: f.taskId,
+        gateId: (rec as { id: string }).id,
+        actor: "verifier",
+        ownerId: f.verifier.ownerId,
+        fencingToken: f.verifier.fencingToken,
       }),
     );
     expect(again.ok).toBe(false);
@@ -112,12 +145,19 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     const f = await setupVerifying("t-stale-attempt");
     const ev = await t.db.transaction(async (tx) =>
       recordEvidence(tx as unknown as Exec, {
-        taskId: f.taskId, attempt: f.attempt, candidateSha: f.cs.candidateSha,
-        kind: "deterministic_test", passed: true, rawOutput: "ok",
-        env: { mode: "worker-host", node: process.version, host: "test" }, producedBy: "verifier",
+        taskId: f.taskId,
+        attempt: f.attempt,
+        candidateSha: f.cs.candidateSha,
+        kind: "deterministic_test",
+        passed: true,
+        rawOutput: "ok",
+        env: { mode: "worker-host", node: process.version, host: "test" },
+        producedBy: "verifier",
       }),
     );
-    const rec = await t.db.transaction(async (tx) => recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id])));
+    const rec = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id, f.mv.id])),
+    );
     expect(rec.ok).toBe(true);
     const gateId = (rec as { id: string }).id;
     // 编排方崩溃前放弃裁决:VERIFYING→REWORK(离链释放租约)→ READY → 新 attempt 重验
@@ -125,20 +165,30 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
       advanceTask(tx as unknown as Exec, f.taskId, f.verifier.ownerId, f.verifier.fencingToken, "VERIFYING", "REWORK"),
     );
     expect(abandon.ok).toBe(true);
-    await t.db.execute(sql`UPDATE tasks SET state='READY', state_version=state_version+1 WHERE id=${f.taskId} AND state='REWORK'`);
+    await t.db.execute(
+      sql`UPDATE tasks SET state='READY', state_version=state_version+1 WHERE id=${f.taskId} AND state='REWORK'`,
+    );
     const c2 = await t.db.transaction(async (tx) => claimTask(tx as unknown as Exec, f.taskId, "worker-2", 60));
     assertOk(c2);
     expect(c2.attempt).toBe(2);
     // 新 attempt 下消费旧 PASS ⇒ stale_attempt
     const consume = await t.db.transaction(async (tx) =>
       consumeGateVerdict(tx as unknown as Exec, {
-        taskId: f.taskId, gateId, actor: "verifier", ownerId: c2.ownerId, fencingToken: c2.fencingToken,
+        taskId: f.taskId,
+        gateId,
+        actor: "verifier",
+        ownerId: c2.ownerId,
+        fencingToken: c2.fencingToken,
       }),
     );
     expect(consume.ok).toBe(false);
     expect((consume as { reason: string }).reason).toMatch(/stale_attempt/);
     // 状态层 backstop(F-1 处置):新 attempt 推进到 VERIFYING 后,gated 转移对旧 PASS 不可见
-    for (const [from, to] of [["LEASED", "RUNNING"], ["RUNNING", "SUBMITTED"], ["SUBMITTED", "VERIFYING"]] as const) {
+    for (const [from, to] of [
+      ["LEASED", "RUNNING"],
+      ["RUNNING", "SUBMITTED"],
+      ["SUBMITTED", "VERIFYING"],
+    ] as const) {
       const r = await t.db.transaction(async (tx) =>
         advanceTask(tx as unknown as Exec, f.taskId, c2.ownerId, c2.fencingToken, from, to),
       );
@@ -155,27 +205,42 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     const f = await setupVerifying("t-sha-drift");
     const ev = await t.db.transaction(async (tx) =>
       recordEvidence(tx as unknown as Exec, {
-        taskId: f.taskId, attempt: f.attempt, candidateSha: f.cs.candidateSha,
-        kind: "deterministic_test", passed: true, rawOutput: "ok",
-        env: { mode: "worker-host", node: process.version, host: "test" }, producedBy: "verifier",
+        taskId: f.taskId,
+        attempt: f.attempt,
+        candidateSha: f.cs.candidateSha,
+        kind: "deterministic_test",
+        passed: true,
+        rawOutput: "ok",
+        env: { mode: "worker-host", node: process.version, host: "test" },
+        producedBy: "verifier",
       }),
     );
-    const rec = await t.db.transaction(async (tx) => recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id])));
+    const rec = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id, f.mv.id])),
+    );
     expect(rec.ok).toBe(true);
     const gateId = (rec as { id: string }).id;
     // 候选漂移:同 attempt 新变更集(SHA 变化)
-    await t.db.execute(sql`INSERT INTO runs (id, task_id, attempt, runtime, model_ref, sandbox, outcome) VALUES (${'run-drift'}, ${f.taskId}, ${f.attempt}, 'stub', 'stub/gm', 'host-fallback', 'SUCCEEDED')`);
+    await t.db.execute(
+      sql`INSERT INTO runs (id, task_id, attempt, runtime, model_ref, sandbox, outcome) VALUES (${"run-drift"}, ${f.taskId}, ${f.attempt}, 'stub', 'stub/gm', 'host-fallback', 'SUCCEEDED')`,
+    );
     await t.db.transaction(async (tx) =>
       recordChangeset(tx as unknown as Exec, {
-        taskId: f.taskId, runId: "run-drift", attempt: f.attempt,
-        base: BASE, candidate: new Map([["a.txt", "3"]]),
+        taskId: f.taskId,
+        runId: "run-drift",
+        attempt: f.attempt,
+        base: BASE,
+        candidate: new Map([["a.txt", "3"]]),
         requirement: { ...REQ, taskId: f.taskId, goalText: "g" },
       }),
     );
     const consume = await t.db.transaction(async (tx) =>
       consumeGateVerdict(tx as unknown as Exec, {
-        taskId: f.taskId, gateId, actor: "verifier",
-        ownerId: f.verifier.ownerId, fencingToken: f.verifier.fencingToken,
+        taskId: f.taskId,
+        gateId,
+        actor: "verifier",
+        ownerId: f.verifier.ownerId,
+        fencingToken: f.verifier.fencingToken,
       }),
     );
     expect(consume.ok).toBe(false);
@@ -183,9 +248,14 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     // 旧证据对新 SHA 亦失效(绑定失配)
     const evNew = await t.db.transaction(async (tx) =>
       recordEvidence(tx as unknown as Exec, {
-        taskId: f.taskId, attempt: f.attempt, candidateSha: "different-sha",
-        kind: "deterministic_test", passed: true, rawOutput: "ok",
-        env: { mode: "worker-host", node: process.version, host: "test" }, producedBy: "verifier",
+        taskId: f.taskId,
+        attempt: f.attempt,
+        candidateSha: "different-sha",
+        kind: "deterministic_test",
+        passed: true,
+        rawOutput: "ok",
+        env: { mode: "worker-host", node: process.version, host: "test" },
+        producedBy: "verifier",
       }),
     );
     const rec2 = await t.db.transaction(async (tx) =>
@@ -204,29 +274,46 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     // 失败证据 ⇒ evidence_invalid:evidence_not_passed
     const failed = await t.db.transaction(async (tx) =>
       recordEvidence(tx as unknown as Exec, {
-        taskId: f.taskId, attempt: f.attempt, candidateSha: f.cs.candidateSha,
-        kind: "deterministic_test", passed: false, rawOutput: "1 test failed",
-        env: { mode: "worker-host", node: process.version, host: "test" }, producedBy: "verifier",
+        taskId: f.taskId,
+        attempt: f.attempt,
+        candidateSha: f.cs.candidateSha,
+        kind: "deterministic_test",
+        passed: false,
+        rawOutput: "1 test failed",
+        env: { mode: "worker-host", node: process.version, host: "test" },
+        producedBy: "verifier",
       }),
     );
-    const recFailed = await t.db.transaction(async (tx) => recordGateVerdict(tx as unknown as Exec, passSpec(f, [failed.id])));
+    const recFailed = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, passSpec(f, [failed.id])),
+    );
     expect(recFailed.ok).toBe(false);
     expect((recFailed as { reason: string }).reason).toContain("evidence_not_passed");
     // 通过证据但事后篡改原文 ⇒ digest 失配,消费拒绝
     const ev = await t.db.transaction(async (tx) =>
       recordEvidence(tx as unknown as Exec, {
-        taskId: f.taskId, attempt: f.attempt, candidateSha: f.cs.candidateSha,
-        kind: "deterministic_test", passed: true, rawOutput: "all green",
-        env: { mode: "worker-host", node: process.version, host: "test" }, producedBy: "verifier",
+        taskId: f.taskId,
+        attempt: f.attempt,
+        candidateSha: f.cs.candidateSha,
+        kind: "deterministic_test",
+        passed: true,
+        rawOutput: "all green",
+        env: { mode: "worker-host", node: process.version, host: "test" },
+        producedBy: "verifier",
       }),
     );
-    const rec = await t.db.transaction(async (tx) => recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id])));
+    const rec = await t.db.transaction(async (tx) =>
+      recordGateVerdict(tx as unknown as Exec, passSpec(f, [ev.id, f.mv.id])),
+    );
     expect(rec.ok).toBe(true);
     await t.db.execute(sql`UPDATE gate_evidence SET raw_output = 'tampered' WHERE id=${ev.id}`); // 模拟事后改写
     const consume = await t.db.transaction(async (tx) =>
       consumeGateVerdict(tx as unknown as Exec, {
-        taskId: f.taskId, gateId: (rec as { id: string }).id, actor: "verifier",
-        ownerId: f.verifier.ownerId, fencingToken: f.verifier.fencingToken,
+        taskId: f.taskId,
+        gateId: (rec as { id: string }).id,
+        actor: "verifier",
+        ownerId: f.verifier.ownerId,
+        fencingToken: f.verifier.fencingToken,
       }),
     );
     expect(consume.ok).toBe(false);
@@ -244,7 +331,7 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     // reviewer run 行不带 role=reviewer ⇒ 拒绝(coder run 冒充)
     await t.db.execute(sql`
       INSERT INTO runs (id, task_id, attempt, runtime, model_ref, sandbox, outcome, detail)
-      VALUES (${'run-pretend'}, ${f.taskId}, ${f.attempt}, 'stub', 'stub/gm', 'host-fallback', 'SUCCEEDED', '{}'::jsonb)
+      VALUES (${"run-pretend"}, ${f.taskId}, ${f.attempt}, 'stub', 'stub/gm', 'host-fallback', 'SUCCEEDED', '{}'::jsonb)
     `);
     const pretend = await t.db.transaction(async (tx) =>
       recordGateVerdict(tx as unknown as Exec, { ...passSpec(f, []), reviewerRunId: "run-pretend" }),
@@ -258,7 +345,9 @@ describe("绑定版 Gate(旧 PASS 不跨版本)", () => {
     expect(wrongReq.ok).toBe(false);
     expect((wrongReq as { reason: string }).reason).toBe("requirement_sha_mismatch");
     // 全程无任何 PASS 落库:coder 的 DONE 文本(handoff)不产生裁决行 —— 状态层断言
-    const passes = await t.db.execute(sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${f.taskId} AND verdict='PASS'`);
+    const passes = await t.db.execute(
+      sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${f.taskId} AND verdict='PASS'`,
+    );
     expect(Number(passes.rows[0]!["n"])).toBe(0);
   });
 });

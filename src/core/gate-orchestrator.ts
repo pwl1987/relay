@@ -299,6 +299,27 @@ export async function orchestrateGate(
     });
     return { status: "NEEDS_DECISION" as const, reason, changesetId: changeset.id, evidenceIds, violations: [] };
   };
+  // 2.45) 工作区归属绑定(RELAY-GATE-INTEGRITY-04A-R2;反例 D 实证:内容相同的外来 /tmp 目录
+  // 通过边界校验+内容级完整性复验 ⇒ 编排照常 ACCEPTED,检查在外来目录执行 —— 工作区与 Run
+  // 无归属绑定,verifyCandidateManifest 只绑定内容哈希不绑定归属)。修复:runs 行持久化
+  // workspace_dir(runner insertRun),编排层校验 input.workspaceDir 与本 Run 记录一致;
+  // 不一致 ⇒ FAIL-CLOSED 保守停机(外来目录即使内容与 candidate_sha 相同也不得挂载/复验)。
+  // runs 行无绑定记录(旧格式行/测试桩)⇒ 校验不可执行,由既有双门与工作区边界把关
+  // (不虚构拦截;残留如实登记)。
+  if (input.workspaceDir) {
+    const runRow = await db.execute(sql`
+      SELECT detail->>'workspace_dir' AS ws FROM runs WHERE id = ${input.coderRunId} AND task_id = ${input.taskId}
+    `);
+    const recordedWs = runRow.rows[0]?.["ws"];
+    if (typeof recordedWs === "string" && recordedWs.length > 0 && recordedWs !== input.workspaceDir) {
+      return await conservativeStop(
+        "workspace_provenance_mismatch",
+        "workspace_provenance_mismatch:提供的工作区与本 Run 记录的工作区不一致(非本 Run 工作区挂载),保守停机(永不自动批准)",
+        "GATE_WORKSPACE_PROVENANCE_MISMATCH",
+        { recordedWorkspaceDir: recordedWs, note: "工作区归属绑定失配 ⇒ 不启动任何检查/复验,保守停机" },
+      );
+    }
+  }
   if (machineEvidenceRequired && !hasFunctionalChecks) {
     if (gate.manifestVerify && input.workspaceDir) {
       // 完整性硬门仍先执行(候选不一致/零编辑空提交 ⇒ 更精确的拦截原因):

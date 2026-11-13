@@ -35,7 +35,14 @@ import { recordChangeset, bindCandidateCommit } from "../core/changesets.ts";
 import { snapshotManifest } from "./workspace-manifest.ts";
 import { createCandidateCommit, GitCandidateError } from "./git-candidate.ts";
 
-export type RunOutcome = "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMEOUT" | "CANCELLED" | "INTERRUPTED" | "BUDGET_EXHAUSTED";
+export type RunOutcome =
+  | "RUNNING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "TIMEOUT"
+  | "CANCELLED"
+  | "INTERRUPTED"
+  | "BUDGET_EXHAUSTED";
 
 export interface RunSpec {
   taskId: string;
@@ -96,9 +103,15 @@ export interface RunResult {
   candidateStageRepoDir?: string;
 }
 
-async function insertRun(exec: Exec, spec: RunSpec, model: ModelConfig, runId: string, sandbox: SandboxSpec): Promise<void> {
+async function insertRun(
+  exec: Exec,
+  spec: RunSpec,
+  model: ModelConfig,
+  runId: string,
+  sandbox: SandboxSpec,
+): Promise<void> {
   await exec.execute(sql`
-    INSERT INTO runs (id, task_id, attempt, runtime, model_ref, input_commit_sha, budget, sandbox, outcome)
+    INSERT INTO runs (id, task_id, attempt, runtime, model_ref, input_commit_sha, budget, sandbox, outcome, detail)
     VALUES (${runId}, ${spec.taskId}, ${spec.attempt}, 'pi-rpc',
       ${model.provider + "/" + model.model},
       ${detectInputCommitSha(sandbox.workspaceDir)},
@@ -108,7 +121,13 @@ async function insertRun(exec: Exec, spec: RunSpec, model: ModelConfig, runId: s
         // (READINESS-01 子包②:两字段单一来源=budgetEvidence,三口径同源)
         ...budgetEvidence(model),
       })}::jsonb,
-      ${sandbox.mode}, 'RUNNING')
+      ${sandbox.mode}, 'RUNNING',
+      ${JSON.stringify({
+        // GATE-INTEGRITY-04A-R2(反例 D):Run 工作区宿主路径持久化 —— Gate 编排层据此校验
+        // input.workspaceDir 与本 Run 记录一致(非本 Run 工作区 ⇒ FAIL-CLOSED;
+        // 内容相同的外来目录也不得挂载/复验)。
+        workspace_dir: sandbox.workspaceDir,
+      })}::jsonb)
   `);
 }
 
@@ -144,8 +163,10 @@ async function updateRun(
   outcome: RunOutcome,
   detail: Record<string, unknown>,
 ): Promise<void> {
+  // detail 合并语义(GATE-INTEGRITY-04A-R2):insertRun 写入的 workspace_dir 绑定键在收尾
+  // 更新时必须保留 —— 调用方 detail 键优先,既有键(工作区归属)不覆盖。
   await exec.execute(sql`
-    UPDATE runs SET outcome = ${outcome}, detail = ${JSON.stringify(detail)}::jsonb,
+    UPDATE runs SET outcome = ${outcome}, detail = COALESCE(detail, '{}'::jsonb) || ${JSON.stringify(detail)}::jsonb,
       ended_at = now()
     WHERE id = ${runId}
   `);
@@ -197,7 +218,13 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
   let model = spec.model;
   if (spec.sandbox === "docker") {
     const eg = spec.egress;
-    if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
+    if (
+      !eg?.ok ||
+      !eg.subnet ||
+      !eg.hostIp ||
+      !eg.modelPort ||
+      !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)
+    ) {
       throw new Error("egress_rules_missing:docker Run 需先 ensureEgress+verify,FAIL-CLOSED");
     }
     // localhost → 宿主出口 IP;端口 → 代理端口(共享重写助手;Review Run 同款,reviewer.ts)
@@ -230,7 +257,9 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
   const hbTimer = setInterval(() => {
     void Promise.resolve()
       .then(() => {
-        const hb = spec.heartbeatFn ?? ((tx: Exec) => heartbeat(tx, spec.taskId, spec.ownerId, spec.fencingToken, spec.heartbeatSeconds * 3));
+        const hb =
+          spec.heartbeatFn ??
+          ((tx: Exec) => heartbeat(tx, spec.taskId, spec.ownerId, spec.fencingToken, spec.heartbeatSeconds * 3));
         return db.transaction(async (tx) => hb(tx as unknown as Exec));
       })
       .then((r) => {
@@ -268,8 +297,10 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
       const reserveAmount = spec.budget.reserveCallsPerRun ?? 4;
       const reserve = await db.transaction(async (tx) =>
         reserveBudget(tx as unknown as Exec, {
-          kind: "model_calls", amount: reserveAmount,
-          scopeType: "goal", scopeId: spec.budget!.goalId,
+          kind: "model_calls",
+          amount: reserveAmount,
+          scopeType: "goal",
+          scopeId: spec.budget!.goalId,
           taskScope: { scopeType: "task", scopeId: spec.taskId },
         }),
       );
@@ -282,9 +313,12 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
         detail = { reason: reserve.reason, ledgerId: reserve.ledgerId };
         // 落库与审计统一由 finally 完成(此处 return,finally 写 BUDGET_EXHAUSTED)
         return {
-          runId, outcome, handoff,
+          runId,
+          outcome,
+          handoff,
           toolAuditPath: join(sandboxSpec.workspaceDir, ".relay", "tool-audit.jsonl"),
-          toolCallEvents: 0, detail,
+          toolCallEvents: 0,
+          detail,
           sandboxSpec,
           changesetId: null,
         };
@@ -293,12 +327,17 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
       reservedCalls = spec.budget.reserveCallsPerRun ?? 4;
       // tokens 预留(有行才限流,无行跳过):保守默认 50k(FAIL-CLOSED 方向);
       // 预算极紧的调用方显式传 tokenReserveIn/Out 调低。
-      for (const [kind, amount] of [["tokens_in", spec.budget.tokenReserveIn ?? 50_000], ["tokens_out", spec.budget.tokenReserveOut ?? 50_000]] as const) {
+      for (const [kind, amount] of [
+        ["tokens_in", spec.budget.tokenReserveIn ?? 50_000],
+        ["tokens_out", spec.budget.tokenReserveOut ?? 50_000],
+      ] as const) {
         if (amount <= 0) continue;
         const tr = await db.transaction(async (tx) =>
           reserveBudget(tx as unknown as Exec, {
-            kind, amount,
-            scopeType: "goal", scopeId: spec.budget!.goalId,
+            kind,
+            amount,
+            scopeType: "goal",
+            scopeId: spec.budget!.goalId,
             taskScope: { scopeType: "task", scopeId: spec.taskId },
           }),
         );
@@ -465,7 +504,17 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
             ),
           );
           changesetId = cs.id;
-          detail = { ...detail, changeset: { id: cs.id, baseSha: cs.baseSha, candidateSha: cs.candidateSha, requirementSha: cs.requirementSha, diff: cs.diff, violations: cs.violations } };
+          detail = {
+            ...detail,
+            changeset: {
+              id: cs.id,
+              baseSha: cs.baseSha,
+              candidateSha: cs.candidateSha,
+              requirementSha: cs.requirementSha,
+              diff: cs.diff,
+              violations: cs.violations,
+            },
+          };
           // 5.6) 候选 Git Commit(D-2):交付绑定任务在独立 stage 仓库构建并绑定(树==清单往返核验);
           // 失败 ⇒ 阻断交付(无绑定 ⇒ Proposal 拒 no_commit_binding),不影响 Run/Gate 质量链。
           if (spec.deliveryStaging) {
@@ -485,15 +534,19 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
                 stagingDir: spec.deliveryStaging.baseDir,
               });
               const bound = await db.transaction(async (tx) =>
-                bindCandidateCommit(tx as unknown as Exec, {
-                  changesetId: cs.id,
-                  taskId: spec.taskId,
-                  attempt: spec.attempt,
-                  baseCommitSha: staged.baseCommitSha,
-                  treeSha: staged.treeSha,
-                  commitSha: staged.commitSha,
-                  stageRepoDir: staged.stageRepoDir,
-                }, spec.ownerId),
+                bindCandidateCommit(
+                  tx as unknown as Exec,
+                  {
+                    changesetId: cs.id,
+                    taskId: spec.taskId,
+                    attempt: spec.attempt,
+                    baseCommitSha: staged.baseCommitSha,
+                    treeSha: staged.treeSha,
+                    commitSha: staged.commitSha,
+                    stageRepoDir: staged.stageRepoDir,
+                  },
+                  spec.ownerId,
+                ),
               );
               if (!bound.ok) {
                 detail = { ...detail, candidateCommitError: bound.reason };
@@ -511,7 +564,11 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
                 };
               }
             } catch (e) {
-              detail = { ...detail, candidateCommitError: e instanceof GitCandidateError ? `${e.reason}: ${e.message}` : (e as Error).message };
+              detail = {
+                ...detail,
+                candidateCommitError:
+                  e instanceof GitCandidateError ? `${e.reason}: ${e.message}` : (e as Error).message,
+              };
             }
           }
         } catch (e) {
@@ -581,7 +638,8 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
         ? session.allRecords().filter((r) => r.type === "message_end" && r.message?.role === "assistant")
         : [];
       const actualCalls = session ? Math.max(assistantEnds.length, 1) : 0;
-      if (actualCalls > reservedCalls) detail = { ...detail, budgetOvershoot: { reserved: reservedCalls, actual: actualCalls } };
+      if (actualCalls > reservedCalls)
+        detail = { ...detail, budgetOvershoot: { reserved: reservedCalls, actual: actualCalls } };
       const usage = assistantEnds.reduce(
         (acc, r) => {
           const u = (r.message as { usage?: { input?: number; output?: number } } | undefined)?.usage;
@@ -607,12 +665,12 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
       }
     } else if (tokenLedgers.length > 0) {
       for (const tl of tokenLedgers) {
-        await db.transaction(async (tx) => releaseBudget(tx as unknown as Exec, tl.ledgerId, tl.reserved)).catch(() => {});
+        await db
+          .transaction(async (tx) => releaseBudget(tx as unknown as Exec, tl.ledgerId, tl.reserved))
+          .catch(() => {});
       }
     }
-    await db
-      .transaction(async (tx) => updateRun(tx as unknown as Exec, runId, outcome, detail))
-      .catch(() => {});
+    await db.transaction(async (tx) => updateRun(tx as unknown as Exec, runId, outcome, detail)).catch(() => {});
     await appendAuditSafe(db, spec, runId, outcome, detail);
   }
 
