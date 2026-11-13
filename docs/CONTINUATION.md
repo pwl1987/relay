@@ -2,6 +2,10 @@
 
 状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09~11 完成 P0-00..P0-02C 与 P0-ACCEPT;2026-11-11 完成总授权执行包六阶段 + 收口包;2026-11-12 R-1 闭环解除(US-08/G6 VERIFIED)+ R-2/R-3 收口轮。**MVP 终判:REWORK 维持。R-2/R-3 现状:R-2 授权参数缺失 ⇒ 待授权清单已发出(`p0-mvp/r2-pending-authorization.md`,零真模型运行);R-3 采集于 06:05+0800@12.53h 被会话解体 SIGTERM 波及(缝 365s 落账),06:10 已按原始口径 setsid detached 续采(起点不重置;worker/sampler pid 文件已更新),期满 2026-11-12 17:32:52+0800 用 `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验——存在中断缝 ⇒ 终验口径 PARTIAL。勿动 `p0-mvp/soak-24h/` 两进程(现已脱离会话进程组);samples.csv/worker.log 保持 skip-worktree,终验后显式解除入库。明示:每次全量 vitest 触发 1 次真模型 A-4 实验(magpie,limit=8)。**(**2026-11-12 17:5x 收口注:R-3 终验已完成=PARTIAL 定格,三进程受控退出,证据已解除 skip-worktree 入库——见本文"三个 REWORK 解除项"§3 与 CURRENT.md 第一包行;本段前文为历史记录;R-2 亦已执行完毕=PARTIAL 双败+归因,见 §2 再注**)
 
+## RELAY-MVP-READINESS-01(2026-11-13 用户指令;**当前执行包,唯一续接入口**)
+
+合同与逐子包状态以 **CURRENT.md 末行(ACTIVE)** 为准;本节只放续接指针与关键风险。**已收口子包**:①WEB-UX-03D 部署一致性核实 ✅(`p0-mvp/readiness-01/DEPLOY-VERIFY-01.md`:资源指纹三方一致/HTTP 32/32/Chromium 双端 17/17/PWA 分端判定=Android 被非安全上下文阻断+iOS A2HS 基础可用/HTTPS 最小方案仅方案待用户裁决/回滚方法);②R2-REMEDIATION-01 剩余 =A 根因复核+B 最小收口(`budgetEvidence` 单源/contextWindow 常量共享/fail-closed 语义澄清/ADR 索引补 0011)+C 单测 10/10 ✅,**D 真实 F1/F2 对照未发起**(上游 api.z.ai 挂起窗口,探针 2 次零 token;一次正式尝试×2 完整保留,取值冻结 32768;详见 `p0-mvp/readiness-01/R2-ROUND2-NOTE.md`);③AUTOLOOP 重核+逐项 ADOPT/DEFER/REJECT 表(docs/AGENT_AUTOLOOP_REFERENCE.md 增补;HEAD 前进 439be64→1bd9aa2 单提交 MIT 不变,protocol.md ≥100 行号 +2 偏移注记);④CURRENT/CONTINUATION 整理=本节。**关键风险与续接点**:①上游窗口恢复后才能执行 F1/F2 正式尝试(收口前再探针;三结论分开口径);②HTTPS 方案待用户裁决后才可实施(涉设备信任与 TLS);③生产 NEEDS_RECONCILE 自愈+迁移自动化=后续候选包(P1-4/P1-0);④用户 Mac+手机 VPN 实机验收=本包收口后的产品体验裁决入口(docs/USAGE_MAC.md+USAGE_MOBILE.md;演练 Goal goal-73d01da0)。
+
 ## 唯一事实源及阅读
 
 仓库:`https://github.com/pwl1987/relay`,只用 `main`,禁止强推。启动时务必读取 **live** HEAD 和分支、`AGENTS.md`、`CURRENT.md`、`README.md`、架构/契约/ADR,以及:
@@ -68,4 +72,16 @@ ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模�
 
 ## 新窗口可复制指令
 
-> 继续 Relay / HIVE Next,全部使用中文。唯一事实源为 https://github.com/pwl1987/relay 的 live main。先核对 HEAD、分支、写者锁和脏工作区,读取 AGENTS.md、CURRENT.md、p0-mvp/REPORT-final.md、p0-mvp/final-coverage-matrix.md、p0-mvp/REVIEW-final.md 与 docs/CONTINUATION.md。**当前总包已收官(MVP=REWORK 维持;24h 长稳采集进行中,勿动 p0-mvp/soak-24h/ 两个进程)**。按用户指令处理三项 REWORK 解除项:①若用户已为 PAT 勾选沙箱仓+Contents RW → 跑 github-real.test.ts 闭环;②若用户授权业务模型路由 → 跑 RELAY_F1_E2E/F2_E2E 真模型闭环;③若 24h 已满 → 读 soak-final.json 判定并请 REVIEWer 确认。三项齐备后重生成终版矩阵+独立 Reviewer 终审,全过才可改判 ACCEPTED。严格 main-only、单 Writer、禁强推;每包 ACTIVE 合同先行;测试沿用 Vitest+独立 schema+safeRm;网络操作 env -u 代理变量、push 走 ssh.github.com:443。遇写者冲突、门禁失败或需要增加预算时阻断并说明,不自动扩大。完成后更新 CURRENT.md 与 docs/CONTINUATION.md,报告真实 SHA、CI 与风险。
+> 继续 Relay / HIVE Next,全部使用中文。唯一事实源为 https://github.com/pwl1987/relay 的 live main。冷启动:重新 fetch 核对 HEAD/分支/写者锁/脏工作区(禁止把历史 SHA 当当前事实),读取 AGENTS.md、CURRENT.md(唯一当前授权执行入口=ACTIVE 行)与 docs/CONTINUATION.md(当前执行包节+关键风险)。当前执行包=RELAY-MVP-READINESS-01(2026-11-13);逐子包状态以 CURRENT.md ACTIVE 行与本文件对应节为准。严格 main-only、单 Writer、禁强推;每包 ACTIVE 合同先行;测试沿用 Vitest+独立 schema+safeRm;网络操作 env -u 代理变量、push 走 ssh.github.com:443;生产凭据零打印;真实模型调用仅限 ACTIVE 行合同 §三D 门控(F1/F2 各最多一次,失败不重跑)。遇写者冲突、门禁失败或需要增加预算时阻断并说明,不自动扩大。完成后更新 CURRENT.md 与 docs/CONTINUATION.md,报告真实 SHA、CI 与风险。
+
+
+## RELAY-MVP-READINESS-01 最新进度（2026-11-13）
+
+- live GitHub `main`=`9b05cfb943f7d31bc1b60e31e359e1ad373e6c9d`，该提交仅登记本执行合同；exact-head `test` 与 `e2e` 均为 success。
+- 子包① `WEB-UX-03D` 部署一致性核实已完成，证据见 `p0-mvp/readiness-01/DEPLOY-VERIFY-01.md`。
+- VM80 运行 checkout 直接指向 `/home/ubuntu/dev/relay`，服务保持 `10.30.5.80:8787` LAN/VPN-only，未开放公网或 Tunnel。
+- HTTP 32/32；Playwright Chromium 桌面 `1440×900` 与移动 `390×844` 共 17/17；页面错误 0；本轮零消息发送、零模型消耗。截图与结果见 `p0-mvp/readiness-01/`。
+- Android Chrome PWA 仍被 HTTP 非安全上下文阻断；iOS Safari A2HS、键盘、safe-area、VPN 实机行为留待用户验收。HTTPS 仅保留方案，未改宿主网络配置。
+- 子包② R2 工程修复已由 `6d3eddb` 完成并经 Reviewer PASS-WITH-FINDINGS，`maxOutputTokens` 默认 8192、范围 1024–128000、超界 fail-closed。F2-R/F1-R 两次真实尝试均被上游 502 阻断，能力对照结论保持 UNRESOLVED，不自动重跑。
+- 子包③ AUTOLOOP-REFERENCE-00 审计与独立复核已完成，维持候选/延后/拒绝结论，不引入第二控制平面。
+- 当前停点是用户 Mac LAN 与手机 VPN 实机验收入口；REAL-PILOT、MODEL-POLICY-01、R-3B 仍未启动。

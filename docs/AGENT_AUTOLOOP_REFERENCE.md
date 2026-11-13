@@ -2,6 +2,7 @@
 
 - **状态**:审计/参考文档(AUTOLOOP-REFERENCE-00 交付物);不含任何代码变更建议的实现授权。
 - **参考仓库**:agent-autoloop(github.com/KKKKhazix/agent-autoloop),本地克隆 `/tmp/agent-autoloop-audit`,**HEAD=439be64**(2026-11-13 重新核实:`git rev-parse` = 439be64f319db47e1948c737a7d88c43940f72f5)。
+  - **READINESS-01 重核(2026-11-13)**:live HEAD 前进至 **1bd9aa2**(compare 439be64...HEAD = 仅 1 提交,"feat(rules): 别处的定时任务可以登记它用的模型和推理强度 #278";License 仍 MIT;改动面=kernel/rules.ts·host/state.ts·protocol/rules.ts·docs/protocol.md·两测试文件)。**不触及本报告 A–F 行与 REJECT×5 的任何机制语义**;唯一影响=docs/protocol.md 第 100 行起行号 +2(两处插入,390 行后无额外净偏移)——**下文 protocol.md 行号一律按 439be64 基线记录,在新基线读取时 ≥100 的行号需 +2**。
 - **License**:MIT(LICENSE,Copyright (c) 2026 数字生命卡兹克),已核实,借鉴无许可障碍。
 - **审计基线**:Relay 本地 `main` HEAD=**67c89f2**(工作区仅存在与本报告无关的未跟踪 `config/`、`p0-mvp/soak-r3b/`,未触碰)。
 - **审计方法**:通读 autoloop `README.md`、`docs/protocol.md`(570 行)、`docs/plugins.md`、`docs/state-machines.md`、`SECURITY.md`;核对其源码关键路径:`kernel/decide.ts`(派发/挂起/暂停/跳数)、`kernel/store.ts`(append-only 事实日志)、`kernel/http.ts`(why 端点)、`protocol/validate.ts` + `protocol/schema.json`(事件字段白名单)、`worker/worker.ts` + `worker/contract.ts`(资料文件与提示词构造)、`cli/why.ts`(因果链投影)、`docs/state-machines.md`(状态权威表)。Relay 侧逐一对照:`src/core/{lifecycle,ops,decisions,supervisor,audit,budget,gates,delivery,delivery-policy,intents,goal-loop,loop-safety,consumption,goals}.ts`、`src/worker-entry.ts`、`src/runtime/{context,pi-rpc,runner}.ts`、`src/server/api.ts`、`src/server/views/goal.ts`。全部引用为真实 `文件:行号`,未运行的判断均标注为文档级结论。
@@ -31,6 +32,21 @@
 | **Agent 控制面 / autoloop 作必需中间控制器** | 接单程序领活+驱动任意 CLI Agent,插件映射 access 三档(docs/plugins.md:25-58,111-127) | Relay 权威执行面=Runtime·Pi(ADR-0003:Pi 不拥有工作流状态,RPC 驱动+agent_settled 机器校验,src/runtime/pi-rpc.ts:1-7,139-147);在 Relay 与 Pi 之间再插 autoloop=双控制平面 | **REJECT** | 单控制平面;autoloop 仅作设计参照物,不进运行时依赖 |
 | (加行)**回执协议(末条消息 fenced 块,无 SDK 无连接)** | Agent 最后一条消息附 ```agent-autoloop``` JSON 回执,写错只重写回执不重做业务、最多两次(worker/contract.ts:11-22,97-99;docs/protocol.md:254-256) | 同构已有:```relay-handoff``` fenced 契约、畸形/缺失如实记录不虚构(src/runtime/context.ts:56-59,68-88) | **NO-CHANGE** | 两侧已同构;Relay 未做"回执重写"重试,当前由 attempt 重派覆盖,不构成缺口 |
 | (加行)**心跳失踪宽容(unknown 态,迟到结果照收)** | worker 5 分钟未报→unknown、放开组、迟到结果照样收(docs/protocol.md:148;state-machines.md:11) | Relay 取强 fencing:租约过期→NEEDS_RECONCILE,旧 owner 凭 fencing token 推进被拒,失效 Run 立即 SIGKILL 止损(supervisor.ts:18-54;runner.ts:238-249) | **NO-CHANGE** | 设计取舍差异:Relay 面向"外部副作用+强一致"故选 fencing 强安全,不采纳宽容语义;注意该路径依赖 F 行 Reconcile 自愈修复才闭环 |
+
+## READINESS-01 逐项裁决表(2026-11-13 增补;合同 §四 格式:已有/缺口/收益/复杂度/风险/建议)
+
+判断枚举(合同 §四):**ADOPT**(列入后续任务的最小候选,须代码证据支持且解决真实缺口)/ **DEFER**(条件成立再评估,现在不加机制)/ **REJECT**(不引入)。本表为裁决汇总,机制证据见主表 A–F 行;**本包零实施**。
+
+| 重点 | Relay 已有? | 真实缺口 | 收益 | 复杂度 | 风险 | 建议 |
+|---|---|---|---|---|---|---|
+| 等待人工时零模型消耗、恢复执行 | **有**(NEEDS_DECISION/PAUSED/BLOCKED 均不在租约链=零进程零消耗;恢复走 ops 授权单事务;恢复=重建上下文不假装续会话,ADR-0003) | 无运行时缺口;自愈缺口归下行 F | — | — | — | **NO-CHANGE**(无新动作) |
+| why / 执行因果解释 | 事实基础齐(audit_events append-only 全覆盖);**缺用户可读因果链投影**(运维需人肉串多表) | Explain/Why 只读投影(Task/Goal 级时间线) | 高:决策上下文可读化,运维成本显著降,后续外部接入可观测性地基 | 低-中(纯 SELECT 投影,仿 Goal Feed 模式;零新状态) | 低(只读层,零生命周期变更) | **ADOPT(列 P1-1 候选,后续包实施)** |
+| 外部数据与控制指令隔离 | 输入面全为 operator/owner 权威输入,暂无外部不可信面;同构思想已有(Policy+OS 强制/delivery-policy 白名单) | invariant 文档+对抗性测试未落地——**外部 Source 接入前的准入门槛缺位** | 高:为未来 GitHub Issue/Webhook/Crawler 预固信任边界,防提示注入面 | 中(文档+测试先行;实现随 Source 包) | 中(不先行固化,接入时易破) | **ADOPT(P1-2,invariant 先行=文档+测试,实现随后续 Source 包)** |
+| hop / TTL 防无限事件传播 | **有**(model_calls 预算 fail-closed/attempt 预算/指数退避上限/环路熔断/Gate 一次性消费);Relay 无 Agent 自派发事件链,链深风险现不存在 | 无(同类风险已多层覆盖) | — | 低 | 低 | **DEFER**(仅当未来引入 Agent 可发事件能力再评估轻量 provenance depth;禁为假设加机制) |
+| Source / Channel 接口边界 | Source:无外部 Source(最接近=Intent 两阶段+delivery-policy 默认全拒);Channel:通知面=Web UI 唯一,Decision 权威唯一 | Source=摄入接口缺位(与上行 C 同门槛);Channel=外部通知通道缺位(飞书/手机) | Source 中-高;Channel 中(手机 VPN 场景可达性) | Source 中;Channel 低-中 | Source 中(信任边界);Channel 低-中(**回答回流必须走 resolveDecision 授权路径,防旁路**) | **ADOPT(P1-2 Source invariant 与上行 C 合并;P1-3 Channel 轻量投递,控制面仍 Relay 唯一)** |
+| pause / resume / replay / skipped evidence | **有**(pauseTask 仅 READY 可置入+PAUSED 零消耗;D3 永不自动批准);**生产真实缺口=reclaim 后 NEEDS_RECONCILE 不自愈**(worker-entry supervisor 环路无 executor,supervisorTick 不跑 reconcilePendingTasks;Owner resume 实测为唯一恢复路径) | ①NEEDS_RECONCILE 自愈(Relay 自身修复项,非 autoloop 借鉴)②pause `until` 自动恢复/skipped 证据/replay 补跑语义(依赖外部事件源) | ①高(生产韧性)②中 | ①低(环路接 executor 或 reconcile 并入 goal 环路)②高(待 Source) | ①低 ②低 | **①ADOPT(P1-4,与 P1-1 并行的自身修复候选包)②DEFER(待 P1-2 Source 落地后一并设计)** |
+
+**合同原则符合声明**:REJECT×5 维持(事件溯源移植/SQLite 状态系统/第二 Rules Engine/第二 Delivery Pipeline/Relay→Pi 必需控制器);上表 ADOPT 项均为「代码证据支持+解决真实缺口」的最小候选,只列入**后续**任务,本包零实施、零新子系统。
 
 ## 借鉴后优先级建议(P1 候选排序;**最终以独立 Reviewer 结果为准**)
 
