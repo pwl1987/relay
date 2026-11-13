@@ -1,0 +1,18 @@
+=== 反例 C:recordGateVerdict 直录 PASS(代码变更候选,仅功能性证据,零完整性证据)+ consume ⇒ ACCEPTED ===
+C.setup: run=run-b3e9a33c-a23b-413d-a1d3-74b78387f911 outcome=SUCCEEDED workspace=/tmp/relay-run-lr7O16/ws
+C.record: ok=true gateId=gate-348db4f9-5e0e-428d-9003-add302ece876
+C.consume: state=ACCEPTED(任务状态=ACCEPTED)
+C.integrity-evidence: 任务证据中 candidate_manifest_verify 行数=0
+C.defect-verdict: 成立(缺陷实证:绕过编排直录"仅功能证据"PASS 被权威边界放行并消费至 ACCEPTED —— 全程零完整性证据,完整性失败/缺失不得 ACCEPTED 的语义在 record/consume 边界不成立)
+
+=== 反例 D:外来 /tmp 目录(内容与候选相同)通过既有全部层 ⇒ 编排 ACCEPTED,检查在外来目录执行 ===
+D.setup: run=run-70121bed-86ba-44ad-b845-53785b98f2d4 outcome=SUCCEEDED 本 Run 工作区=/tmp/relay-run-ikBfHP/ws
+D.layer1-validateCheckWorkspace: ok=true reason=-(外来目录=/tmp/relay-foreign-ws-uhHW1Y)
+D.layer2-verifyCandidateManifest: ok=true(内容与候选完全相同 ⇒ manifest_sha 一致;完整性只绑定内容不绑定归属)
+D.layer3-orchestrateGate: status=ACCEPTED reason=stub PASS
+D.checks-executed-in="/tmp/relay-foreign-ws-uhHW1Y"(是否外来目录=YES(检查在外来目录执行);本 Run 工作区=/tmp/relay-run-ikBfHP/ws 全程未被使用)
+D.integrity-evidence: 2 条复验证据,均对外来目录出具(mount/复验对象=外来目录而非本 Run 工作区)
+D.defect-verdict: 成立(缺陷实证:非本 Run 的外来 /tmp 工作区通过工作区边界校验+内容级完整性复验+完整编排 ⇒ ACCEPTED;工作区与 Run 无归属绑定,换挂任何内容相同的外来目录均能通过 —— 检查/复验/交付绑定面可被指向非本 Run 目录)
+D.note: 归属绑定缺失=与反例 B 不同的独立残余(反例 B=缺工作区回退宿主 cwd,已修复;本反例=显式提供了**错误归属**的工作区,既有层全部放行)。缓解面如实记录:verifyCandidateManifest 只绑定内容哈希,内容相同的外来目录语义等价,但生产语义要求检查/复验/交付绑定本 Run 工作区(prepareRunDirs 为每 Run 独立创建)。
+
+R2 反例运行完成(对未修复代码 bd53f9a;隔离 p01a_ schema 已清理;零真实远端写入/零模型调用)。
