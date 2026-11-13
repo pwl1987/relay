@@ -14,12 +14,16 @@ async function seedScenario(t: TestDb): Promise<void> {
     sql`INSERT INTO goals (id, raw_input, state) VALUES ('g-1','登录页不好用,自己检查并改好','ACTIVE')`,
     sql`INSERT INTO goals (id, raw_input, state) VALUES ('g-2','导出功能缺失,补上','ACTIVE')`,
     sql`INSERT INTO tasks (id, goal_id, state) VALUES ('t-1','g-1','ACCEPTED')`,
-    sql`INSERT INTO goal_messages (goal_id, actor, kind, content) VALUES
-        ('g-1','USER','USER_MESSAGE','登录页不好用,自己检查并改好'),
-        ('g-1','RELAY','RELAY_MESSAGE','收到。我先检查登录流程、页面结构和相关样式。'),
-        ('g-1','USER','USER_MESSAGE','按钮还是太浅,再明显一点。'),
-        ('g-1','USER','USER_MESSAGE','顺便把错误提示文字也调整一下。'),
-        ('g-2','USER','USER_MESSAGE','导出功能缺失,补上。')`,
+    // 方案 A(RELAY-CONTROL-READY-03):原始需求经 API 创建时即预映射到首 Task(false,已消费);
+    // 后续"执行请求"消息带 execution_request=true(普通消息永不派生;本种子无普通未消费行)。
+    sql`INSERT INTO goal_messages (goal_id, actor, kind, content, execution_request) VALUES
+        ('g-1','USER','USER_MESSAGE','登录页不好用,自己检查并改好', false),
+        ('g-1','RELAY','RELAY_MESSAGE','收到。我先检查登录流程、页面结构和相关样式。', false),
+        ('g-1','USER','USER_MESSAGE','按钮还是太浅,再明显一点。', true),
+        ('g-1','USER','USER_MESSAGE','顺便把错误提示文字也调整一下。', true),
+        ('g-2','USER','USER_MESSAGE','导出功能缺失,补上。', true)`,
+    sql`INSERT INTO goal_message_consumptions (message_id, goal_id, task_id)
+        SELECT id, 'g-1', 't-1' FROM goal_messages WHERE goal_id='g-1' AND content='登录页不好用,自己检查并改好'`,
   ];
   for (const s of stmts) await t.db.execute(s);
 }
@@ -41,12 +45,20 @@ describe("WEB-UX-03C 03B.1:消息消费语义闭环(零模型)", () => {
     `);
     const mid = Number(ph.rows[0]!["id"]);
     // UNIQUE(message_id) = at-most-once 的数据库级证明:同 message_id 第二条映射必拒
-    await t.db.execute(sql`INSERT INTO goal_message_consumptions (message_id, goal_id, task_id) VALUES (${mid},'g-1','t-1')`);
-    await expect(t.db.execute(sql`INSERT INTO goal_message_consumptions (message_id, goal_id, task_id) VALUES (${mid},'g-1','t-1')`)).rejects.toThrow();
+    await t.db.execute(
+      sql`INSERT INTO goal_message_consumptions (message_id, goal_id, task_id) VALUES (${mid},'g-1','t-1')`,
+    );
+    await expect(
+      t.db.execute(
+        sql`INSERT INTO goal_message_consumptions (message_id, goal_id, task_id) VALUES (${mid},'g-1','t-1')`,
+      ),
+    ).rejects.toThrow();
     // append-only:UPDATE/DELETE 拒绝
     const row = await t.db.execute(sql`SELECT id FROM goal_message_consumptions WHERE message_id = ${mid}`);
     const cid = String(row.rows[0]!["id"]);
-    await expect(t.db.execute(sql`UPDATE goal_message_consumptions SET task_id = 't-9' WHERE id = ${cid}`)).rejects.toThrow();
+    await expect(
+      t.db.execute(sql`UPDATE goal_message_consumptions SET task_id = 't-9' WHERE id = ${cid}`),
+    ).rejects.toThrow();
     await expect(t.db.execute(sql`DELETE FROM goal_message_consumptions WHERE id = ${cid}`)).rejects.toThrow();
   });
 
@@ -55,7 +67,7 @@ describe("WEB-UX-03C 03B.1:消息消费语义闭环(零模型)", () => {
     const r = await consumeGoalMessages(t.db, "g-1", { actor: "owner" });
     expect(r.consumed).toBe(true);
     expect(r.taskId).toMatch(/^task-/);
-    expect(r.messageIds!.length).toBe(3); // 原始需求 + 两条补充(第一条 USER 消息也未被消费过)
+    expect(r.messageIds!.length).toBe(2); // 仅两条显式执行补充(原始需求已预映射;方案 A 普通消息永不派生)
     const after = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM goals`);
     expect(Number(after.rows[0]!["n"])).toBe(Number(before.rows[0]!["n"])); // 不创建新 Goal
     const task = await t.db.execute(sql`SELECT goal_id, state, allowed_scope FROM tasks WHERE id = ${r.taskId}`);
@@ -64,7 +76,7 @@ describe("WEB-UX-03C 03B.1:消息消费语义闭环(零模型)", () => {
     const mapping = await t.db.execute(sql`
       SELECT message_id FROM goal_message_consumptions WHERE task_id = ${r.taskId} ORDER BY message_id ASC
     `);
-    expect(mapping.rows.length).toBe(3);
+    expect(mapping.rows.length).toBe(2);
     const auditRows = await t.db.execute(sql`
       SELECT action FROM audit_events WHERE detail->>'goalId' = 'g-1' AND action = 'GOAL_MESSAGES_CONSUMED'
     `);
@@ -72,7 +84,7 @@ describe("WEB-UX-03C 03B.1:消息消费语义闭环(零模型)", () => {
     const ack = await t.db.execute(sql`
       SELECT content FROM goal_messages WHERE goal_id = 'g-1' AND actor = 'RELAY' ORDER BY id DESC LIMIT 1
     `);
-    expect(String(ack.rows[0]!["content"])).toContain("已收到你的补充");
+    expect(String(ack.rows[0]!["content"])).toContain("已创建执行任务");
   });
 
   it("at-most-once:重启/重复 tick/重试不重复派生(再次消费 ⇒ nothing_pending)", async () => {
@@ -120,7 +132,14 @@ describe("WEB-UX-03C 03B.1:消息消费语义闭环(零模型)", () => {
     // 与 worker.ts 注入组合一致:Goal 原始需求 + follow-up 全部进入 prompt
     const goal = "登录页不好用,自己检查并改好";
     const extra = `# 用户后续补充(Goal 会话中消费绑定到本任务;按序合并)\n${msgs.map((m) => `- ${m.content}`).join("\n")}`;
-    const prompt = buildRunPrompt({ taskId, attempt: 1, goal, allowedScope: ["/workspace"], workspacePath: "/workspace", extraInstructions: extra });
+    const prompt = buildRunPrompt({
+      taskId,
+      attempt: 1,
+      goal,
+      allowedScope: ["/workspace"],
+      workspacePath: "/workspace",
+      extraInstructions: extra,
+    });
     expect(prompt).toContain(`goal: ${goal}`);
     expect(prompt).toContain("按钮还是太浅");
     expect(prompt).toContain("用户后续补充");

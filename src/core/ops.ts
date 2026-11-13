@@ -161,7 +161,10 @@ export async function pauseTask(
       authority: "OPERATOR",
       action: "TASK_PAUSED_REJECTED",
       taskId,
-      detail: { reason: `pause_requires_ready:${fromState}`, note: "仅 READY 可置入 PAUSED;租约链上的执行不打断(归租约/Intent/Reconcile)" },
+      detail: {
+        reason: `pause_requires_ready:${fromState}`,
+        note: "仅 READY 可置入 PAUSED;租约链上的执行不打断(归租约/Intent/Reconcile)",
+      },
     });
     return { ok: false, reason: `pause_requires_ready:${fromState}`, fromState };
   }
@@ -171,4 +174,92 @@ export async function pauseTask(
     action: "TASK_PAUSED",
     detail: opts.reason ? { reason: opts.reason } : {},
   });
+}
+
+// RELAY-CONTROL-READY-03 P1-3:紧急停止与人工接管最小切片。
+// 语义(AGENT_CONTROL §4;回执三分:REQUESTED=RECEIVED / 旗标生效=APPLIED /
+// run=CANCELLED+任务终态=STOP_CONFIRMED —— 三者不混淆,均落审计):
+//   - abort 旗标跨进程安全(无需触碰 worker 进程):worker 在 Run 期间心跳轮询
+//     tasks.abort_requested_at,命中 ⇒ 翻转 runner cancelSignal ⇒ SIGTERM→SIGKILL,
+//     run=CANCELLED,任务按合法转移 RUNNING→CANCELLED(租约权威不变);
+//   - 幂等:set-if-null,重复请求返回 alreadyRequested(重复点击不重复生效);
+//   - 仅在飞状态可 abort(READY/PAUSED 等无在飞执行 ⇒ 走既有 pause/decision 路径,不混语义);
+//   - takeover = 请求停止在飞 Run + 撤销其后续写入资格(旗标)+ 审计;STOP_CONFIRMED 由
+//     ABORT_CONFIRMED 审计承载;旧 Run 的 advance 在其自身租约下合法完成 CANCELLED,
+//     终态后任何旧 fencing 推进均被拒(lifecycle/isTerminal);
+//   - handback = 停止后由用户重新显式授权(方案 A 执行请求)或既有 resume(PAUSED),不新增第二恢复通道。
+
+const ABORTABLE_STATES = new Set(["LEASED", "RUNNING", "SUBMITTED", "VERIFYING"]);
+
+export interface AbortResult {
+  ok: boolean;
+  reason?: string;
+  alreadyRequested?: boolean;
+  fromState?: string;
+}
+
+/** 请求紧急停止(abort 旗标;幂等;仅在飞状态;OPERATOR 授权 + 可选 state_version 校验)。 */
+export async function requestTaskAbort(
+  exec: Exec,
+  taskId: string,
+  opts: { actor: string; expectedStateVersion?: number },
+): Promise<AbortResult> {
+  if (!operatorAllowed(opts.actor)) {
+    await appendAudit(exec, {
+      actor: opts.actor,
+      authority: "OPERATOR",
+      action: "TASK_ABORT_REJECTED",
+      taskId,
+      detail: { reason: "actor_not_authorized" },
+    });
+    return { ok: false, reason: "actor_not_authorized" };
+  }
+  const task = await lockTaskRow(exec, taskId);
+  if (!task) return { ok: false, reason: "task_not_found" };
+  const fromState = String(task["state"]);
+  if (isTerminal(fromState)) return { ok: false, reason: `state_terminal:${fromState}`, fromState };
+  if (opts.expectedStateVersion !== undefined && Number(task["state_version"]) !== opts.expectedStateVersion) {
+    await appendAudit(exec, {
+      actor: opts.actor,
+      authority: "OPERATOR",
+      action: "TASK_ABORT_REJECTED",
+      taskId,
+      detail: {
+        reason: "state_version_mismatch",
+        expected: opts.expectedStateVersion,
+        actual: Number(task["state_version"]),
+      },
+    });
+    return { ok: false, reason: "state_version_mismatch", fromState };
+  }
+  if (!ABORTABLE_STATES.has(fromState)) {
+    await appendAudit(exec, {
+      actor: opts.actor,
+      authority: "OPERATOR",
+      action: "TASK_ABORT_REJECTED",
+      taskId,
+      detail: { reason: `abort_requires_in_flight:${fromState}`, note: "非在飞任务走 pause/decision 路径(语义不混)" },
+    });
+    return { ok: false, reason: `abort_requires_in_flight:${fromState}`, fromState };
+  }
+  if (task["abort_requested_at"] !== null && task["abort_requested_at"] !== undefined) {
+    return { ok: true, alreadyRequested: true, fromState }; // 幂等:旗标已置,不重复审计生效
+  }
+  await exec.execute(sql`
+    UPDATE tasks SET abort_requested_at = now(), updated_at = now()
+    WHERE id = ${taskId} AND abort_requested_at IS NULL
+  `);
+  await appendAudit(exec, {
+    actor: opts.actor,
+    authority: "OPERATOR",
+    action: "TASK_ABORT_REQUESTED",
+    taskId,
+    beforeState: fromState,
+    afterState: fromState,
+    detail: {
+      fromState,
+      note: "abort 旗标置位(RECEIVED);worker 轮询生效(APPLIED);run=CANCELLED+任务终态=STOP_CONFIRMED",
+    },
+  });
+  return { ok: true, fromState };
 }

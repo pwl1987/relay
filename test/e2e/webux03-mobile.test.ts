@@ -6,7 +6,7 @@
 //   M3 Decision:内联卡+主按钮 ≥44px 触控 → 允许 → 原地更新(不跳页)+ 执行继续
 //   M4 Result:完成卡+查看修改;技术详情经 sheet(§11 主界面零工程术语)
 //   M5 完成后继续输入:同 Goal follow-up;新结果仍在同一 Conversation
-//   M6 运行中补充消息(硬门):不丢/在途不派生/不建匿名会话;安全边界消费 → 上下文可见
+//   M6 运行中消息(方案 A 硬门):普通发送永不派生/显式执行排队;安全边界消费 → 同会话新执行
 //   M7 Drawer:项目/会话切换 → 遮罩关闭回原会话(上下文不变,§4)
 //   M8 长会话 20+:贴底自动滚;向上查看不强制拉回;「回到最新」(§10)
 //   M9 断网恢复:横幅「连接暂时中断」+会话不清空;恢复自动轮询;写失败不假成功(§13)
@@ -438,6 +438,15 @@ describe.skipIf(!E2E)(
       expect(feed).toContain("按钮再明显一点"); // 消息事实保留(同一会话)
       expect(feed).toContain("已记录"); // RELAY held 反馈
       expect(feed).not.toContain("已形成"); // 不误导为新执行轮
+      // 方案 A:终态 Goal 上显式执行同样 held(不重开不派生;手机双操作按钮可见)
+      const execBtn = page.locator('[data-testid="ws-execute"]');
+      expect(await execBtn.isVisible()).toBe(true);
+      await page.fill('[data-testid="ws-input"]', "手机上请求再执行一轮。");
+      await page.click('[data-testid="ws-execute"]');
+      const heldAck = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "执行请求" }).first();
+      await heldAck.waitFor({ timeout: 15000 });
+      const tasksAfterExec = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
+      expect(Number(tasksAfterExec.rows[0]!["n"])).toBe(1); // 终态显式执行不派生
       await shot(page, "mj5-followup-terminal-held.png");
       s.errors.length = 0;
     });
@@ -684,7 +693,7 @@ describe.skipIf(!E2E)("WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈)", { t
     s.errors.length = 0;
   });
 
-  it("M6 运行中补充消息(硬门):本地回显即时/不丢/在途不派生/不建匿名会话;安全边界消费 → 上下文可见", async () => {
+  it("M6 运行中消息(方案 A 硬门):普通发送永不派生;显式执行排队 → 安全边界消费 → 同会话新执行", async () => {
     const { page, base, t } = s;
     const goalId = await createGoalViaWorkspace(page, base, "手机运行中追加需求的验证");
     const firstTaskRow = await t.db.execute(
@@ -703,11 +712,10 @@ describe.skipIf(!E2E)("WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈)", { t
       await page.waitForTimeout(200);
     }
     expect(running).toBe(true);
-    // 运行中发送:§9 点击发送后立即显示用户消息(本地回显)
+    // ① 方案 A:普通"发送"(§9 本地回显即时)⇒ 只记录;零派生
     await page.fill('[data-testid="ws-input"]', "顺便把空状态文案也调整一下。");
     await page.click('[data-testid="ws-send"]');
     await page.waitForSelector('[data-testid^="ws-msg-user"]', { timeout: 10000 });
-    // 在途 ⇒ 只记录:消息持久化;此刻不派生 follow-up(单 Task)
     await page.waitForTimeout(400);
     const msgRow = await t.db.execute(
       sql`SELECT id FROM goal_messages WHERE goal_id = ${goalId} AND content LIKE '%空状态文案%'`,
@@ -715,7 +723,18 @@ describe.skipIf(!E2E)("WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈)", { t
     expect(msgRow.rows.length).toBe(1);
     const midTasks = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
     expect(Number(midTasks.rows[0]!["n"])).toBe(1);
-    // 等第一拍完成 → 下一拍安全边界消费 → 派生同 Goal follow-up
+    const plainAck = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已记录" }).first();
+    await plainAck.waitFor({ timeout: 15000 });
+    // ② 方案 A:显式"交给 Relay 执行"(手机双操作;≥44px 触控)⇒ 排队到安全边界
+    await page.fill('[data-testid="ws-input"]', "顺便把图标也换掉。");
+    await page.click('[data-testid="ws-execute"]');
+    await page.waitForSelector('[data-testid^="ws-msg-user"]', { timeout: 10000 });
+    await page.waitForTimeout(400);
+    const queuedAck = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已记录执行请求" }).first();
+    await queuedAck.waitFor({ timeout: 15000 });
+    const queuedTasks = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
+    expect(Number(queuedTasks.rows[0]!["n"])).toBe(1);
+    // ③ 第一拍完成(Goal 随聚合终态)→ 下一拍边界消费:排队的显式执行 ⇒ 可审计重激活 + 派生
     await driveUntil(page, t, task1, "ACCEPTED");
     for (let i = 0; i < 20; i++) {
       const c = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
@@ -726,22 +745,29 @@ describe.skipIf(!E2E)("WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈)", { t
     const tasks = await t.db.execute(
       sql`SELECT id, state FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC`,
     );
-    expect(tasks.rows.length).toBe(2);
+    expect(tasks.rows.length).toBe(2); // 仅显式执行派生;普通消息不派生
     const mapRow = await t.db.execute(sql`
       SELECT c.task_id FROM goal_message_consumptions c
+      JOIN goal_messages gm ON gm.id = c.message_id WHERE gm.content LIKE '%图标也换掉%'
+    `);
+    expect(mapRow.rows.length).toBe(1); // at-most-once
+    expect(String(mapRow.rows[0]!["task_id"])).toBe(String(tasks.rows[1]!["id"]));
+    const plainMap = await t.db.execute(sql`
+      SELECT count(*)::int AS n FROM goal_message_consumptions c
       JOIN goal_messages gm ON gm.id = c.message_id WHERE gm.content LIKE '%空状态文案%'
     `);
-    expect(mapRow.rows.length).toBe(1); // at-most-once:恰好一条消费映射
-    expect(String(mapRow.rows[0]!["task_id"])).toBe(String(tasks.rows[1]!["id"]));
+    expect(Number(plainMap.rows[0]!["n"])).toBe(0); // 普通消息永不写映射(方案 A)
     // 不建匿名会话:Goal 数不变
     const goalsAfter = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM goals`);
     expect(Number(goalsAfter.rows[0]!["n"])).toBe(Number(goalsBefore.rows[0]!["n"]));
-    // 会话内可见:消息未丢 + RELAY 消费确认(等 Feed 4s 轮询刷出)
+    // 会话内可见:两条消息未丢 + RELAY"已创建执行任务"确认(旧 §0 文案不得回归)
     await page.waitForSelector('[data-testid^="ws-msg-user"]');
-    const ack2 = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已收到你的补充" }).first();
+    const ack2 = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已创建执行任务" }).first();
     await ack2.waitFor({ timeout: 15000 });
     const feed = await page.textContent('[data-testid="ws-feed"]');
     expect(feed).toContain("空状态文案");
+    expect(feed).toContain("图标也换掉");
+    expect(feed).not.toContain("已收到你的补充");
     s.errors.length = 0;
   });
 

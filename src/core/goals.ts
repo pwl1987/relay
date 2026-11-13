@@ -104,12 +104,15 @@ export interface FollowUpTaskSpec {
   maxAttempts?: number;
   allowedScope?: string[];
   allowedCommands?: string[];
+  /** 授权来源(RELAY-CONTROL-READY-03 方案 A:消费层传 explicit-execute;审计留痕,不可被模型推断顶替) */
+  origin?: string;
 }
 
 /**
- * WEB-UX-03 §9-J5:follow-up = 同 Goal 下的新受控执行动作(READY 复用;零生命周期变更)。
+ * follow-up = 同 Goal 下的新受控执行动作(READY 复用;零生命周期变更)。
+ * RELAY-CONTROL-READY-03 方案 A:派生只允许来自用户显式执行动作(消费层校验后传入,
+ * origin=explicit-execute);非 ACTIVE Goal 一律 fail-closed(SAFETY-CLOSE-02 P0-A 保留)。
  * 不创建脱离当前 Goal 的匿名会话,不绕 Relay Core;Task 形状与 planGoal 完全一致。
- * 调用方(API 层)负责先做在途检查(RUNNING/VERIFYING 在途 ⇒ 只记录不派生)。
  */
 export async function planFollowUpTask(exec: Exec, spec: FollowUpTaskSpec): Promise<{ taskId: string }> {
   if (!spec.goalText || !spec.goalText.trim()) throw new Error("goalText 必须为非空描述");
@@ -137,7 +140,7 @@ export async function planFollowUpTask(exec: Exec, spec: FollowUpTaskSpec): Prom
     taskId,
     beforeState: null,
     afterState: "READY",
-    detail: { goalId: spec.goalId, goalText: spec.goalText.trim(), origin: "follow-up" },
+    detail: { goalId: spec.goalId, goalText: spec.goalText.trim(), origin: spec.origin ?? "follow-up" },
   });
   await appendAudit(exec, {
     actor: spec.actor ?? "planner",

@@ -26,7 +26,7 @@ import { execFileSync } from "node:child_process";
 import type { RelayDb, Exec } from "../core/db.ts";
 import { planGoal } from "../core/goals.ts";
 import { consumeGoalMessages } from "../core/consumption.ts";
-import { operatorAllowed, resolveDecision, resumeTask, pauseTask } from "../core/ops.ts";
+import { operatorAllowed, resolveDecision, resumeTask, pauseTask, requestTaskAbort } from "../core/ops.ts";
 import { runGoalDiscovery } from "../core/discovery.ts";
 import { resolveVendoredPi } from "../runtime/pi-version.ts";
 import { ensureEgress } from "../runtime/egress.ts";
@@ -412,11 +412,13 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       if (!detail) return fail(404, "goal_not_found", "Goal 不存在");
       return ok({ goal: detail });
     }
-    // WEB-UX-03C §0/§0.1(03B.1):follow-up 用户消息。goal_messages 只追加;
-    // 消费语义唯一入口 core.consumeGoalMessages:不在途 ⇒ 本调用内派生同 Goal follow-up Task
-    // (READY;scope 继承该 Goal 最近 Task,浏览器不提交任何 scope/路径)+ 消费映射(message→task,
-    // UNIQUE(message_id) at-most-once)+ 审计 + RELAY 确认;在途 ⇒ 只记录,等待执行边界后
-    // 由 goalLoopTick 前置消费步自动派生(零 Core 生命周期变更)。
+    // RELAY-CONTROL-READY-03 P0-1(方案 A,用户 2026-11-13 裁决):follow-up 用户消息。
+    // 单输入框保留;服务器端显式 intent(executionRequest 严格布尔,缺省=false=普通"发送")
+    // 区分 交流/记录 与 交给 Relay 执行 —— **不经模型猜测、不依赖前端隐藏**(旧客户端缺省安全降级)。
+    // goal_messages 只追加;普通消息 ⇒ 只记录(任何状态,永不派生);显式执行 ⇒ 经
+    // core.consumeGoalMessages 校验(幂等/Goal 状态/在途/权限继承)后才派生受控 Task:
+    // 空闲 ACTIVE ⇒ 立即派生;在途 ⇒ 排队到安全边界;终态/PAUSED ⇒ 只记录不重开
+    //(SAFETY-CLOSE-02 P0-A 语义保留;PAUSED 绝对不自动重激活)。反馈三态=已记录/排队待执行/已创建任务。
     const msgMatch = /^\/api\/goals\/([^/]+)\/messages$/.exec(path);
     if (msgMatch && method === "POST") {
       const goalId = decodeURIComponent(msgMatch[1]!);
@@ -426,20 +428,18 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const goalRow = await deps.db.execute(sql`SELECT state FROM goals WHERE id = ${goalId}`);
       if (goalRow.rows.length === 0) return fail(404, "goal_not_found", "Goal 不存在");
       const goalState = String(goalRow.rows[0]!["state"]);
-      const inserted = await deps.db.execute(sql`
-        INSERT INTO goal_messages (goal_id, actor, kind, content)
-        VALUES (${goalId}, 'USER', 'USER_MESSAGE', ${content})
-        RETURNING id
-      `);
-      const messageId = Number(inserted.rows[0]!["id"]);
-      // RELAY-SAFETY-CLOSE-02 P0-A:非 ACTIVE Goal(终态/暂停)⇒ 消息只记录,不派生、不消费
-      // (AGENT_CONTROL §3/ADR-0012 #3:终态 Goal 上的新要求不得静默派生可执行 Task)。
-      // 消费层(consumption.ts goal_closed 守卫)为纵深防御;intake 层给出明确"已记录"反馈,
-      // 消息保持 append-only 会话事实(不伪造消费映射)。
-      const held = goalState !== "ACTIVE";
-      if (held) {
+      const executionRequest = req.body?.["executionRequest"] === true;
+
+      // 非 ACTIVE Goal(终态/暂停):一律只记录(含显式执行请求 —— 不重开不派生;消费层纵深防御)。
+      if (goalState !== "ACTIVE") {
+        const inserted = await deps.db.execute(sql`
+          INSERT INTO goal_messages (goal_id, actor, kind, content, execution_request)
+          VALUES (${goalId}, 'USER', 'USER_MESSAGE', ${content}, ${executionRequest})
+          RETURNING id
+        `);
+        const messageId = Number(inserted.rows[0]!["id"]);
         const stateLabel = goalState === "PAUSED" ? "该需求会话已暂停" : "该需求已完结";
-        const ackText = `已记录你的补充。${stateLabel},不会自动创建新执行任务;如需继续,请新建一个需求。`;
+        const ackText = `已记录${executionRequest ? "执行请求" : "你的补充"}。${stateLabel},不会自动创建新执行任务;如需继续,请新建一个需求。`;
         await deps.db.execute(sql`
           INSERT INTO goal_messages (goal_id, actor, kind, content)
           VALUES (${goalId}, 'RELAY', 'RELAY_MESSAGE', ${ackText})
@@ -447,7 +447,7 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         await audit(deps, {
           actor: session.role,
           action: "GOAL_MESSAGE_HELD",
-          detail: { goalId, messageId, goalState, contentLength: content.length },
+          detail: { goalId, messageId, goalState, executionRequest, contentLength: content.length },
         });
         await audit(deps, {
           actor: session.role,
@@ -458,6 +458,7 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
             followUpTaskId: null,
             inFlight: false,
             held: true,
+            executionRequest,
             goalState,
             contentLength: content.length,
           },
@@ -473,23 +474,146 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           201,
         );
       }
-      // WEB-UX-03C §0/§0.1(03B.1):消费语义唯一入口 core.consumeGoalMessages。
-      // 不在途 ⇒ 本调用内派生同 Goal follow-up Task + 消费映射(message→task,UNIQUE at-most-once)
-      //   + GOAL_MESSAGES_CONSUMED 审计 + RELAY 确认消息;在途 ⇒ 只记录(等待执行边界,loop 下一拍消费)。
+
+      // 普通"发送"(无执行意图,含旧客户端缺省):只交流/记录,任何情况下零派生(方案 A 核心)。
+      if (!executionRequest) {
+        const inserted = await deps.db.execute(sql`
+          INSERT INTO goal_messages (goal_id, actor, kind, content, execution_request)
+          VALUES (${goalId}, 'USER', 'USER_MESSAGE', ${content}, false)
+          RETURNING id
+        `);
+        const messageId = Number(inserted.rows[0]!["id"]);
+        const ackText = "已记录。要开始执行,请使用「交给 Relay 执行」。";
+        await deps.db.execute(sql`
+          INSERT INTO goal_messages (goal_id, actor, kind, content)
+          VALUES (${goalId}, 'RELAY', 'RELAY_MESSAGE', ${ackText})
+        `);
+        await audit(deps, {
+          actor: session.role,
+          action: "WEB_GOAL_MESSAGE",
+          detail: {
+            goalId,
+            messageId,
+            followUpTaskId: null,
+            inFlight: false,
+            recorded: true,
+            executionRequest: false,
+            goalState,
+            contentLength: content.length,
+          },
+        });
+        return ok(
+          {
+            messageId,
+            followUpTaskId: null,
+            inFlight: false,
+            recorded: true,
+            note: ackText,
+          },
+          201,
+        );
+      }
+
+      // 显式"交给 Relay 执行":原子幂等防重(单语句 check+insert)—— 同 Goal 相同内容的执行请求
+      // 若"未消费(排队中)"或"已派生且其任务仍在非终态(READY/…执行链)"⇒ 不再插入
+      //(重复点击/网络重发不重复创建;先前同内容任务已到终态 ⇒ 允许发起新一轮授权)。
+      const inserted = await deps.db.execute(sql`
+        INSERT INTO goal_messages (goal_id, actor, kind, content, execution_request)
+        SELECT ${goalId}, 'USER', 'USER_MESSAGE', ${content}, true
+        WHERE NOT EXISTS (
+          SELECT 1 FROM goal_messages g2
+          LEFT JOIN goal_message_consumptions c2 ON c2.message_id = g2.id
+          LEFT JOIN tasks t2 ON t2.id = c2.task_id
+          WHERE g2.goal_id = ${goalId} AND g2.actor = 'USER' AND g2.execution_request = true
+            AND g2.content = ${content}
+            AND (c2.id IS NULL OR t2.state IS NULL OR t2.state NOT IN ('ACCEPTED','FAILED','CANCELLED'))
+        )
+        RETURNING id
+      `);
+      if (inserted.rows.length === 0) {
+        const existing = await deps.db.execute(sql`
+          SELECT gm.id AS id, c.task_id AS task_id, t.state AS task_state FROM goal_messages gm
+          LEFT JOIN goal_message_consumptions c ON c.message_id = gm.id
+          LEFT JOIN tasks t ON t.id = c.task_id
+          WHERE gm.goal_id = ${goalId} AND gm.actor = 'USER' AND gm.execution_request = true
+            AND gm.content = ${content}
+          ORDER BY gm.id DESC LIMIT 1
+        `);
+        if (existing.rows.length === 0) {
+          // 防御:防重 SELECT 未命中(极端并发窗口)⇒ 按普通记录返回,不猜测
+          return ok(
+            { messageId: null, followUpTaskId: null, duplicate: true, note: "已有相同执行请求待处理;未重复创建。" },
+            201,
+          );
+        }
+        const messageId = Number(existing.rows[0]!["id"]);
+        const rawTaskId = existing.rows[0]!["task_id"];
+        const mappedTaskId = rawTaskId === null || rawTaskId === undefined ? null : String(rawTaskId);
+        await audit(deps, {
+          actor: session.role,
+          action: "WEB_GOAL_MESSAGE",
+          detail: {
+            goalId,
+            messageId,
+            followUpTaskId: mappedTaskId,
+            duplicate: true,
+            executionRequest: true,
+            goalState,
+            contentLength: content.length,
+          },
+        });
+        return ok(
+          {
+            messageId,
+            followUpTaskId: mappedTaskId,
+            duplicate: true,
+            note: mappedTaskId ? "已有相同执行请求,对应任务已创建;未重复创建。" : "已有相同执行请求待处理;未重复创建。",
+          },
+          201,
+        );
+      }
+      const messageId = Number(inserted.rows[0]!["id"]);
+      // 同步消费:空闲 ⇒ 立即派生;在途 ⇒ 排队(安全边界后由 goalLoopTick 前置步派生)。
       const consumption = await consumeGoalMessages(deps.db, goalId, { actor: session.role });
       const followUpTaskId = consumption.consumed ? (consumption.taskId ?? null) : null;
-      const inFlight = !consumption.consumed && consumption.reason === "in_flight";
+      const queuedExecute = !consumption.consumed && consumption.reason === "in_flight";
       await audit(deps, {
         actor: session.role,
         action: "WEB_GOAL_MESSAGE",
-        detail: { goalId, messageId, followUpTaskId, inFlight, goalState, contentLength: content.length },
+        detail: {
+          goalId,
+          messageId,
+          followUpTaskId,
+          inFlight: queuedExecute,
+          queuedExecute,
+          executionRequest: true,
+          goalState,
+          contentLength: content.length,
+        },
       });
+      if (queuedExecute) {
+        const ackText = "已记录执行请求;当前执行仍在进行,结束后将自动创建执行任务。";
+        await deps.db.execute(sql`
+          INSERT INTO goal_messages (goal_id, actor, kind, content)
+          VALUES (${goalId}, 'RELAY', 'RELAY_MESSAGE', ${ackText})
+        `);
+        return ok(
+          {
+            messageId,
+            followUpTaskId: null,
+            inFlight: true,
+            queuedExecute: true,
+            note: ackText,
+          },
+          201,
+        );
+      }
       return ok(
         {
           messageId,
           followUpTaskId,
-          inFlight,
-          note: inFlight ? "当前执行仍在进行,消息已记录并将在会话流中呈现" : null,
+          inFlight: false,
+          note: followUpTaskId ? "已创建执行任务,即将进入受控执行。" : "已记录执行请求。",
         },
         201,
       );
@@ -690,6 +814,76 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         return fail(status, r);
       }
       return ok({ taskId, fromState: result.fromState, toState: result.toState });
+    }
+    // RELAY-CONTROL-READY-03 P1-3:紧急停止(abort 旗标)+ 人工接管(takeover=停止在飞 Run + 撤销写入资格)。
+    // 回执三分:REQUESTED(RECEIVED)→ 旗标生效(APPLIED)→ run=CANCELLED+任务终态(STOP_CONFIRMED),
+    // 均落审计;幂等(重复请求 alreadyRequested);仅在飞状态;恢复经既有 ops 路径(不新增第二通道)。
+    const abortMatch = /^\/api\/tasks\/([^/]+)\/abort$/.exec(path);
+    if (abortMatch && method === "POST") {
+      const taskId = decodeURIComponent(abortMatch[1]!);
+      const expectedStateVersion = int(req.body?.["expectedStateVersion"]);
+      const result = await deps.db.transaction(async (tx) =>
+        requestTaskAbort(tx as unknown as Exec, taskId, {
+          actor: session.role,
+          ...(expectedStateVersion !== null ? { expectedStateVersion } : {}),
+        }),
+      );
+      if (!result.ok) {
+        const reason = result.reason ?? "abort_failed";
+        const status =
+          reason === "state_version_mismatch"
+            ? 409
+            : reason === "actor_not_authorized"
+              ? 403
+              : reason.startsWith("abort_requires_in_flight") || reason.startsWith("state_terminal")
+                ? 409
+                : 400;
+        return fail(status, reason);
+      }
+      return ok({
+        taskId,
+        alreadyRequested: result.alreadyRequested === true,
+        fromState: result.fromState,
+        note: "已请求紧急停止;执行端确认生效后任务进入 CANCELLED(STOP_CONFIRMED 以审计为准)",
+      });
+    }
+    const takeoverMatch = /^\/api\/tasks\/([^/]+)\/takeover$/.exec(path);
+    if (takeoverMatch && method === "POST") {
+      const taskId = decodeURIComponent(takeoverMatch[1]!);
+      const expectedStateVersion = int(req.body?.["expectedStateVersion"]);
+      const result = await deps.db.transaction(async (tx) =>
+        requestTaskAbort(tx as unknown as Exec, taskId, {
+          actor: session.role,
+          ...(expectedStateVersion !== null ? { expectedStateVersion } : {}),
+        }),
+      );
+      if (!result.ok) {
+        const reason = result.reason ?? "takeover_failed";
+        const status =
+          reason === "state_version_mismatch"
+            ? 409
+            : reason === "actor_not_authorized"
+              ? 403
+              : reason.startsWith("abort_requires_in_flight") || reason.startsWith("state_terminal")
+                ? 409
+                : 400;
+        return fail(status, reason);
+      }
+      await audit(deps, {
+        actor: session.role,
+        action: "TASK_TAKEOVER_REQUESTED",
+        taskId,
+        detail: {
+          fromState: result.fromState,
+          note: "人工接管=停止在飞 Run 并撤销其后续写入资格(abort 旗标);Run 确认 CANCELLED 后写权回归用户(STOP_CONFIRMED=ABORT_CONFIRMED 审计);交还 AI 经方案 A 显式执行请求或既有 resume",
+        },
+      });
+      return ok({
+        taskId,
+        alreadyRequested: result.alreadyRequested === true,
+        fromState: result.fromState,
+        note: "已请求人工接管(停止在飞执行并撤销其写入资格);Run 确认 CANCELLED 后写权回归用户",
+      });
     }
     if (path === "/api/changesets" && method === "GET") {
       return ok({ changesets: await changesetListView(deps.db) });

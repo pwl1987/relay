@@ -5,10 +5,11 @@
 //   - external : 独立 relay-worker 进程驱动,本进程不代跑
 // 本文件不复制状态机:推进全部交给 core.goalLoopTick(runtime 组合由本层注入)。
 import { sql } from "drizzle-orm";
-import type { RelayDb } from "../core/db.ts";
+import type { RelayDb, Exec } from "../core/db.ts";
 import type { GoalLoopTickReport } from "../core/goal-loop.ts";
 import type { ProposeDeliveryInput, DeliveryIO } from "../core/delivery.ts";
 import type { WorkspaceManifest } from "../core/changesets.ts";
+import { appendAudit } from "../core/audit.ts";
 import { executeRun } from "../runtime/runner.ts";
 import { runReviewerSession } from "../runtime/reviewer.ts";
 import { resolveVendoredPi, type PiInstallation } from "../runtime/pi-version.ts";
@@ -25,6 +26,15 @@ import type { CheckSpec } from "../core/evidence.ts";
 import { taskFollowUpMessagesView } from "./views/goal.ts";
 
 export type WorkerMode = "live" | "stub" | "external";
+
+/** 尽力而为审计(不改变 Run 结果;失败仅吞掉 —— 审计失败不得打断执行链)。 */
+async function appendAuditSafe(db: RelayDb, event: Parameters<typeof appendAudit>[1]): Promise<void> {
+  try {
+    await db.transaction(async (tx) => appendAudit(tx as unknown as Exec, event));
+  } catch {
+    /* 审计失败不改变 Run 结果 */
+  }
+}
 
 export interface WorkerDriver {
   mode: WorkerMode;
@@ -185,46 +195,77 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
             followups.length > 0
               ? `# 用户后续补充(Goal 会话中消费绑定到本任务;按序合并)\n${followups.map((m) => `- ${m.content}`).join("\n")}`
               : undefined;
+          // RELAY-CONTROL-READY-03 P1-3:跨进程紧急停止 —— Run 期间心跳轮询 abort 旗标
+          // (ops.requestTaskAbort/API /abort|/takeover 置位),命中即翻转 runner cancelSignal
+          // ⇒ SIGTERM→SIGKILL,run=CANCELLED;轮询器随 Run 结束清理(无残留定时器)。
+          const abortFlag = { cancelled: false };
+          const abortPoller = setInterval(() => {
+            options.db
+              .execute(sql`SELECT abort_requested_at FROM tasks WHERE id = ${claim.taskId}`)
+              .then((r) => {
+                const v = r.rows[0]?.["abort_requested_at"];
+                if (v !== null && v !== undefined) abortFlag.cancelled = true;
+              })
+              .catch(() => {
+                /* 轮询失败不翻转旗标(保守:不误停);下一轮重试 */
+              });
+          }, 1000);
           const injection = options.stubInjection;
-          const result = await executeRun(options.db, pi, {
-            taskId: claim.taskId,
-            goal: goalText,
-            allowedScope: whitelist.allowedScope,
-            allowedCommands: whitelist.allowedCommands,
-            attempt: claim.attempt,
-            ownerId: claim.ownerId,
-            fencingToken: claim.fencingToken,
-            model,
-            sandbox,
-            ...(extraInstructions ? { extraInstructions } : {}),
-            ...(options.egress ? { egress: options.egress } : {}),
-            wallSeconds: options.wallSeconds ?? 120,
-            heartbeatSeconds: options.heartbeatSeconds ?? 10,
-            ...(goalId ? { budget: { goalId, reserveCallsPerRun: options.reserveCallsPerRun ?? 4 } } : {}),
-            ...(options.stageBaseDir ? { deliveryStaging: { baseDir: options.stageBaseDir } } : {}),
-            ...(options.prepareWorkspace ? { prepareWorkspace: options.prepareWorkspace } : {}),
-            ...(injection ? { argvOverride: injection.argv, envOverride: injection.coderEnv } : {}),
-          });
-          sandboxes.push(result.sandboxSpec);
-          const cc = result.detail["candidateCommit"] as
-            | { commitSha?: string; baseCommitSha?: string; stageRepoDir?: string }
-            | undefined;
-          if (cc?.commitSha && cc.stageRepoDir) {
-            captured.set(claim.taskId, {
+          try {
+            const result = await executeRun(options.db, pi, {
               taskId: claim.taskId,
+              goal: goalText,
+              allowedScope: whitelist.allowedScope,
+              allowedCommands: whitelist.allowedCommands,
               attempt: claim.attempt,
-              stageRepoDir: cc.stageRepoDir,
-              manifest: snapshotManifest(result.sandboxSpec.workspaceDir),
-              baseCommitSha: cc.baseCommitSha ?? "",
-              commitSha: cc.commitSha,
+              ownerId: claim.ownerId,
+              fencingToken: claim.fencingToken,
+              model,
+              sandbox,
+              ...(extraInstructions ? { extraInstructions } : {}),
+              ...(options.egress ? { egress: options.egress } : {}),
+              wallSeconds: options.wallSeconds ?? 120,
+              heartbeatSeconds: options.heartbeatSeconds ?? 10,
+              ...(goalId ? { budget: { goalId, reserveCallsPerRun: options.reserveCallsPerRun ?? 4 } } : {}),
+              ...(options.stageBaseDir ? { deliveryStaging: { baseDir: options.stageBaseDir } } : {}),
+              ...(options.prepareWorkspace ? { prepareWorkspace: options.prepareWorkspace } : {}),
+              ...(injection ? { argvOverride: injection.argv, envOverride: injection.coderEnv } : {}),
+              cancelSignal: abortFlag,
             });
+            if (result.outcome === "CANCELLED") {
+              // STOP_CONFIRMED:旧执行资格已失效且有证据(run=CANCELLED + 任务终态);审计留痕
+              // (runner 已按合法转移 RUNNING→CANCELLED 推进;本审计为事后事实记录)
+              await appendAuditSafe(options.db, {
+                actor: workerId,
+                authority: "WORKER",
+                action: "TASK_ABORT_CONFIRMED",
+                taskId: claim.taskId,
+                detail: { runId: result.runId, note: "abort 旗标生效;run=CANCELLED(取消来源见 runs.detail.reason)" },
+              });
+            }
+            sandboxes.push(result.sandboxSpec);
+            const cc = result.detail["candidateCommit"] as
+              | { commitSha?: string; baseCommitSha?: string; stageRepoDir?: string }
+              | undefined;
+            if (cc?.commitSha && cc.stageRepoDir) {
+              captured.set(claim.taskId, {
+                taskId: claim.taskId,
+                attempt: claim.attempt,
+                stageRepoDir: cc.stageRepoDir,
+                manifest: snapshotManifest(result.sandboxSpec.workspaceDir),
+                baseCommitSha: cc.baseCommitSha ?? "",
+                commitSha: cc.commitSha,
+              });
+            }
+            return {
+              outcome: result.outcome,
+              taskId: claim.taskId,
+              runId: result.runId,
+              workspaceDir: result.sandboxSpec.workspaceDir,
+            };
+          } finally {
+            clearInterval(abortPoller);
           }
-          return {
-            outcome: result.outcome,
-            taskId: claim.taskId,
-            runId: result.runId,
-            workspaceDir: result.sandboxSpec.workspaceDir,
-          };
         },
         gate: {
           reviewAttempts: options.reviewAttempts ?? 2,

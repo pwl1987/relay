@@ -1,0 +1,215 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ❯ test/integration/goal-message-authorization.test.ts (16 tests | 9 failed) 462ms
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 方案 A 反例(修复前旧代码会派生):ACTIVE Goal + 普通 USER 消息(无执行意图)⇒ 只记录不派生(no_execution_request) 44ms
+     → expected true to be false // Object.is equality
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 旧客户端缺省安全降级:INSERT 不带 execution_request(迁移默认 false)⇒ 永不派生 11ms
+     → expected true to be false // Object.is equality
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 方案 A:显式执行消息(执行意图)⇒ 派生受控 Task + 消费映射 + 审计(origin=explicit-execute)+ RELAY 已创建执行任务确认 14ms
+     → expected '[object Object]' to contain 'explicit-execute'
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 混合意图批次:普通消息与执行消息并存 ⇒ 仅执行消息被消费派生;普通消息保持未消费 11ms
+     → expected 2 to be 1 // Object.is equality
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 在途与终态竞争:在途排队的显式执行(先于终态迁移)⇒ 边界消费派生 + 可审计重激活(GOAL_ACTIVE;授权来源=显式点击) 15ms
+     → expected '[object Object]' to contain 'execute_boundary'
+   ✓ RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 终态后送达的显式执行 ⇒ 不派生不重开(goal_closed;终态竞争的另一半) 8ms
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > PAUSED 绝对不重激活:暂停前遗留的显式执行消息 ⇒ 不派生不重激活(goal_closed) 14ms
+     → expected true to be false // Object.is equality
+   ✓ RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 终态/暂停守卫回归:COMPLETED Goal + 普通消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 8ms
+   ✓ RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 终态/暂停守卫回归:FAILED Goal + 普通消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 6ms
+   ✓ RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 终态/暂停守卫回归:EXHAUSTED Goal + 普通消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 6ms
+   ✓ RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 终态/暂停守卫回归:PAUSED Goal + 普通消息 ⇒ 只记录不派生(goal_closed);planFollowUpTask 直呼拒绝 6ms
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > API:ACTIVE 空闲 Goal 普通发送 ⇒ recorded=true 零新任务 + 指引反馈;旧客户端无 intent 字段同语义 13ms
+     → expected undefined to be true // Object.is equality
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > API:显式执行(executionRequest=true)⇒ 立即派生 + followUpTaskId + 已创建任务反馈 12ms
+     → expected 'null' to contain '已创建执行任务'
+   × RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 幂等防重:相同内容执行请求重复提交 ⇒ 单条消息单任务,第二次返回 duplicate(原子防重;非模型判断) 21ms
+     → expected undefined to be true // Object.is equality
+   ✓ RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > API:终态 Goal 显式执行 ⇒ held(执行请求已记录但不重开不派生)+ 明确反馈 10ms
+   ✓ RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 消息事实保留:held 消息保持未消费(append-only;不丢消息不假消费) 6ms
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 方案 A 反例(修复前旧代码会派生):ACTIVE Goal + 普通 USER 消息(无执行意图)⇒ 只记录不派生(no_execution_request)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/integration/goal-message-authorization.test.ts:99:24
+     97|     const before = await taskCount(goalId);
+     98|     const r = await consumeGoalMessages(t.db, goalId, { actor: "test-c…
+     99|     expect(r.consumed).toBe(false);
+       |                        ^
+    100|     expect(r.reason).toBe("no_execution_request");
+    101|     expect(await taskCount(goalId)).toBe(before); // 修复前:此处 +1(旧 §0 自动…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 旧客户端缺省安全降级:INSERT 不带 execution_request(迁移默认 false)⇒ 永不派生
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/integration/goal-message-authorization.test.ts:123:24
+    121|     expect(col.rows[0]!["execution_request"]).toBe(false); // 迁移默认 = 安…
+    122|     const r = await consumeGoalMessages(t.db, goalId, { actor: "test-c…
+    123|     expect(r.consumed).toBe(false);
+       |                        ^
+    124|     expect(r.reason).toBe("no_execution_request");
+    125|     expect(await taskCount(goalId)).toBe(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 方案 A:显式执行消息(执行意图)⇒ 派生受控 Task + 消费映射 + 审计(origin=explicit-execute)+ RELAY 已创建执行任务确认
+AssertionError: expected '[object Object]' to contain 'explicit-execute'
+
+Expected: "explicit-execute"
+Received: "[object Object]"
+
+ ❯ test/integration/goal-message-authorization.test.ts:146:46
+    144|       SELECT detail FROM audit_events WHERE task_id = ${r.taskId} AND …
+    145|     `);
+    146|     expect(String(audit.rows[0]!["detail"])).toContain("explicit-execu…
+       |                                              ^
+    147|     // RELAY 确认:明确"已创建执行任务"(非"已形成补充轮")
+    148|     const ack = await t.db.execute(sql`
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 混合意图批次:普通消息与执行消息并存 ⇒ 仅执行消息被消费派生;普通消息保持未消费
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ test/integration/goal-message-authorization.test.ts:161:34
+    159|     const r = await consumeGoalMessages(t.db, goalId, { actor: "test-c…
+    160|     expect(r.consumed).toBe(true);
+    161|     expect(r.messageIds!.length).toBe(1); // 仅执行消息
+       |                                  ^
+    162|     const pendingPlain = await t.db.execute(sql`
+    163|       SELECT count(*)::int AS n FROM goal_messages gm WHERE gm.goal_id…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 在途与终态竞争:在途排队的显式执行(先于终态迁移)⇒ 边界消费派生 + 可审计重激活(GOAL_ACTIVE;授权来源=显式点击)
+AssertionError: expected '[object Object]' to contain 'execute_boundary'
+
+Expected: "execute_boundary"
+Received: "[object Object]"
+
+ ❯ test/integration/goal-message-authorization.test.ts:186:46
+    184|       SELECT detail FROM audit_events WHERE detail->>'goalId' = ${goal…
+    185|     `);
+    186|     expect(String(react.rows[0]!["detail"])).toContain("execute_bounda…
+       |                                              ^
+    187|   });
+    188| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > PAUSED 绝对不重激活:暂停前遗留的显式执行消息 ⇒ 不派生不重激活(goal_closed)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/integration/goal-message-authorization.test.ts:212:24
+    210|     const before = await taskCount(goalId);
+    211|     const r = await consumeGoalMessages(t.db, goalId, { actor: "test-c…
+    212|     expect(r.consumed).toBe(false);
+       |                        ^
+    213|     expect(r.reason).toBe("goal_closed");
+    214|     expect(await taskCount(goalId)).toBe(before);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > API:ACTIVE 空闲 Goal 普通发送 ⇒ recorded=true 零新任务 + 指引反馈;旧客户端无 intent 字段同语义
+AssertionError: expected undefined to be true // Object.is equality
+
+- Expected: 
+true
+
++ Received: 
+undefined
+
+ ❯ test/integration/goal-message-authorization.test.ts:255:27
+    253|     expect(res.status).toBe(201);
+    254|     const body = res.body as { recorded?: boolean; followUpTaskId: str…
+    255|     expect(body.recorded).toBe(true);
+       |                           ^
+    256|     expect(body.followUpTaskId).toBeNull();
+    257|     expect(String(body.note)).toContain("已记录");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > API:显式执行(executionRequest=true)⇒ 立即派生 + followUpTaskId + 已创建任务反馈
+AssertionError: expected 'null' to contain '已创建执行任务'
+
+Expected: "已创建执行任务"
+Received: "null"
+
+ ❯ test/integration/goal-message-authorization.test.ts:269:31
+    267|     const body = res.body as { followUpTaskId: string | null; note?: s…
+    268|     expect(body.followUpTaskId).toMatch(/^task-/);
+    269|     expect(String(body.note)).toContain("已创建执行任务");
+       |                               ^
+    270|     expect(await taskCount(goalId)).toBe(2);
+    271|     const audit = await t.db.execute(sql`
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  test/integration/goal-message-authorization.test.ts > RELAY-CONTROL-READY-03 P0-1:消息授权方案 A(零模型) > 幂等防重:相同内容执行请求重复提交 ⇒ 单条消息单任务,第二次返回 duplicate(原子防重;非模型判断)
+AssertionError: expected undefined to be true // Object.is equality
+
+- Expected: 
+true
+
++ Received: 
+undefined
+
+ ❯ test/integration/goal-message-authorization.test.ts:287:34
+    285|     expect(second.status).toBe(201);
+    286|     const secondBody = second.body as { duplicate?: boolean; followUpT…
+    287|     expect(secondBody.duplicate).toBe(true);
+       |                                  ^
+    288|     expect(secondBody.followUpTaskId).toBe(firstBody.followUpTaskId); …
+    289|     expect(secondBody.messageId).toBe(firstBody.messageId); // 未插入第二条消息
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 7 passed (16)
+   Start at  19:38:50
+   Duration  1.74s (transform 331ms, setup 0ms, collect 1.01s, tests 462ms, environment 0ms, prepare 81ms)
+

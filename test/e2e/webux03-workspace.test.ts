@@ -424,6 +424,13 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
       SELECT action FROM audit_events WHERE detail->>'goalId' = ${goalId} AND action = 'GOAL_MESSAGE_HELD'
     `);
     expect(heldAudit.rows.length).toBe(1);
+    // 方案 A:终态 Goal 上显式执行同样 held(不重开不派生;桌面双操作按钮可见)
+    await page.fill('[data-testid="ws-input"]', "桌面请求再执行一轮。");
+    await page.click('[data-testid="ws-execute"]');
+    const heldAck2 = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "执行请求" }).first();
+    await heldAck2.waitFor({ timeout: 15000 });
+    const tasksAfterExec = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
+    expect(Number(tasksAfterExec.rows[0]!["n"])).toBe(1); // 终态显式执行不派生
     await shot(page, "c5-followup-terminal-held.png");
     s.errors.length = 0;
   });
@@ -523,7 +530,7 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     await stopStack(s);
   });
 
-  it("C6 运行中发送:消息不丢/不重复派生/不建匿名会话;安全边界(下一拍)消费 → 上下文含该消息", async () => {
+  it("C6 运行中消息(方案 A 硬门):普通发送永不派生;显式执行排队 → 安全边界消费 → 可审计重激活 → 同会话新执行", async () => {
     const { page, base, t } = s;
     await login(page, base);
     const goalId = await createGoalViaWorkspace(page, "目标:执行中追加需求也不丢消息");
@@ -549,25 +556,34 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
       await page.waitForTimeout(200);
     }
     expect(running).toBe(true);
+
+    // ① 方案 A:普通"发送"(无执行意图)⇒ 只记录;RELAY"已记录"反馈;零派生
     await page.fill('[data-testid="ws-input"]', "顺便把错误提示文字也调整一下。");
     await page.click('[data-testid="ws-send"]');
     await page.waitForSelector('[data-testid^="ws-msg-user"]');
     // C2 精神:执行中的 Feed 显示工作状态块(同页可见,不跳转)
     await page.waitForSelector('[data-testid="ws-work-block"]');
-    // UX4:运行中同阶段不得重复渲染(旧实现 LEASED/RUNNING/Run 三源叠加出现两条「正在修改代码」)
     const runningFeed = await page.textContent('[data-testid="ws-feed"]');
     expect((runningFeed!.match(/正在修改代码/g) || []).length).toBeLessThanOrEqual(1);
     expect(await page.locator('[data-testid="ws-work-block"]').count()).toBeLessThanOrEqual(1);
-
-    // 在途 ⇒ 只记录:消息持久化;此刻不得派生 follow-up(无新 Task)
     await page.waitForTimeout(400);
-    const msgRow = await t.db.execute(
-      sql`SELECT id FROM goal_messages WHERE goal_id = ${goalId} AND content LIKE '%错误提示文字%'`,
-    );
-    expect(msgRow.rows.length).toBe(1);
+    const plainAck = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已记录" }).first();
+    await plainAck.waitFor({ timeout: 15000 });
     const midTasks = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
-    expect(Number(midTasks.rows[0]!["n"])).toBe(1); // 在途不派生
-    // 等待该拍完成(task1 ACCEPTED)
+    expect(Number(midTasks.rows[0]!["n"])).toBe(1); // 普通消息在途不派生(方案 A:之后也永不派生)
+
+    // ② 方案 A:显式"交给 Relay 执行"(在途)⇒ 排队到安全边界(反馈=已记录执行请求;此刻零新任务)
+    await page.fill('[data-testid="ws-input"]', "顺便把图标也换掉。");
+    await page.click('[data-testid="ws-execute"]');
+    await page.waitForSelector('[data-testid^="ws-msg-user"]', { timeout: 10000 });
+    await page.waitForTimeout(400);
+    const queuedAck = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "已记录执行请求" }).first();
+    await queuedAck.waitFor({ timeout: 15000 });
+    const queuedTasks = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
+    expect(Number(queuedTasks.rows[0]!["n"])).toBe(1); // 排队未派生(安全边界前)
+
+    // ③ 等该拍完成(task1 ACCEPTED;Goal 随聚合进入终态)→ 下一拍边界消费:
+    //    在途排队的显式执行(先于终态迁移)⇒ 可审计重激活 + 派生 task2(在途与终态竞争的确定性收口)
     let accepted = false;
     for (let i = 0; i < 40; i++) {
       const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${task1}`);
@@ -578,31 +594,33 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
       await page.waitForTimeout(300);
     }
     expect(accepted).toBe(true);
-
-    // 安全边界后:下一拍自动消费 → 派生同 Goal follow-up → 本拍领取执行并完成
     await tickOnce(page, base);
     const tasks = await t.db.execute(
       sql`SELECT id, state FROM tasks WHERE goal_id = ${goalId} ORDER BY created_at ASC`,
     );
-    expect(tasks.rows.length).toBe(2);
+    expect(tasks.rows.length).toBe(2); // 仅排队执行请求派生;普通消息不派生
     const task2 = String(tasks.rows[1]!["id"]);
     const mapRow = await t.db.execute(sql`
       SELECT c.task_id FROM goal_message_consumptions c
+      JOIN goal_messages gm ON gm.id = c.message_id WHERE gm.content LIKE '%图标也换掉%'
+    `);
+    expect(mapRow.rows.length).toBe(1); // at-most-once:显式执行恰好一条映射
+    expect(String(mapRow.rows[0]!["task_id"])).toBe(task2);
+    const plainMap = await t.db.execute(sql`
+      SELECT count(*)::int AS n FROM goal_message_consumptions c
       JOIN goal_messages gm ON gm.id = c.message_id WHERE gm.content LIKE '%错误提示文字%'
     `);
-    expect(mapRow.rows.length).toBe(1); // at-most-once:恰好一条消费映射
-    expect(String(mapRow.rows[0]!["task_id"])).toBe(task2);
-    const auditRow = await t.db.execute(
-      sql`SELECT action FROM audit_events WHERE action = 'GOAL_MESSAGES_CONSUMED' AND detail->>'goalId' = ${goalId}`,
-    );
-    expect(auditRow.rows.length).toBe(1);
+    expect(Number(plainMap.rows[0]!["n"])).toBe(0); // 普通消息永不写映射(方案 A)
+    const react = await t.db.execute(sql`
+      SELECT detail->>'reason' AS reason FROM audit_events WHERE detail->>'goalId' = ${goalId} AND action = 'GOAL_ACTIVE'
+    `);
+    expect(String(react.rows[0]!["reason"])).toBe("execute_boundary"); // 可审计重激活
     // 不建匿名会话:Goal 数不变;新任务同 Goal
     const goalsAfter = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM goals`);
     expect(Number(goalsAfter.rows[0]!["n"])).toBe(Number(goalsBefore.rows[0]!["n"]));
     const goalOfTask2 = await t.db.execute(sql`SELECT goal_id FROM tasks WHERE id = ${task2}`);
     expect(String(goalOfTask2.rows[0]!["goal_id"])).toBe(goalId);
-    // 上下文可见性(端到端事实):消费审计 + 映射;buildRunPrompt 注入由单元测试钉住(§0.2)。
-    // task2 本拍领取并执行;循环守卫避免领取顺序抖动。
+    // task2 领取并执行(循环守卫避免领取顺序抖动)
     let task2Done = false;
     for (let i = 0; i < 3 && !task2Done; i++) {
       const r = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${task2}`);
@@ -616,8 +634,9 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门)"
     await page.goto(`${base}/workspace?goal=${goalId}`);
     await page.waitForSelector('[data-testid^="ws-msg-user"]');
     const feed = await page.textContent('[data-testid="ws-feed"]');
-    expect(feed).toContain("顺便把错误提示文字也调整一下。"); // 消息未丢,仍在会话
-    expect(feed).toContain("已收到你的补充"); // RELAY 消费确认
+    expect(feed).toContain("顺便把错误提示文字也调整一下。"); // 普通消息未丢,仍在会话
+    expect(feed).toContain("已创建执行任务"); // 显式执行 → RELAY 已创建执行任务确认
+    expect(feed).not.toContain("已收到你的补充"); // 旧 §0 文案不得回归
     await shot(page, "c6-inflight-followup.png");
     expect(s.errors).toEqual([]);
   });

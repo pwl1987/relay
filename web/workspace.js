@@ -44,17 +44,17 @@
 
   const state = {
     goalId: null,
-    cursor: 0,          // 已消费的最大消息 id(0=从头拉 200)
-    messages: [],       // 服务端会话事实(USER_MESSAGE/RELAY_MESSAGE)
-    decisions: [],      // 未决决策卡(feed.decisions 整体替换)
-    status: null,       // goalStatusView 快照(projectName=项目上下文唯一来源)
-    detail: null,       // goalDetailView(工作状态块/技术详情确定性推导源)
+    cursor: 0, // 已消费的最大消息 id(0=从头拉 200)
+    messages: [], // 服务端会话事实(USER_MESSAGE/RELAY_MESSAGE)
+    decisions: [], // 未决决策卡(feed.decisions 整体替换)
+    status: null, // goalStatusView 快照(projectName=项目上下文唯一来源)
+    detail: null, // goalDetailView(工作状态块/技术详情确定性推导源)
     sidebar: null,
     firstLoad: true,
-    pendingLocal: [],   // 发送中尚未落库确认的本地回显(失败即移除)
-    notices: [],        // 本会话内操作回执(批准/拒绝/失败;renderFeed 持久渲染,避免被刷新抹掉)
-    lastEventKeys: {},  // 原始事件去重(技术详情层)
-    paneOpen: true,     // P0-6:右栏整栏折叠
+    pendingLocal: [], // 发送中尚未落库确认的本地回显(失败即移除)
+    notices: [], // 本会话内操作回执(批准/拒绝/失败;renderFeed 持久渲染,避免被刷新抹掉)
+    lastEventKeys: {}, // 原始事件去重(技术详情层)
+    paneOpen: true, // P0-6:右栏整栏折叠
   };
 
   // ---------------- 项目上下文(P0-2:唯一来源 = feed.status.projectName,服务端与侧栏同规则) ----------------
@@ -101,7 +101,11 @@
         const dot = PHASE_DOT[g.phase] || PHASE_DOT.idle;
         const link = h(
           "a",
-          { class: "ws-goal-row" + (g.id === state.goalId ? " active" : ""), href: "/workspace?goal=" + encodeURIComponent(g.id), "data-testid": "ws-goal-row-" + g.id },
+          {
+            class: "ws-goal-row" + (g.id === state.goalId ? " active" : ""),
+            href: "/workspace?goal=" + encodeURIComponent(g.id),
+            "data-testid": "ws-goal-row-" + g.id,
+          },
           h("span", { class: "ws-dot " + dot[0], title: dot[1] }),
           h("span", { class: "ws-goal-title", text: goalTitle(g.title) }),
           Number(g.pendingDecisions) > 0 ? h("span", { class: "nav-badge", text: String(g.pendingDecisions) }) : null,
@@ -145,7 +149,9 @@
   function deriveWork(g) {
     if (!g) return null;
     const tasks = (g.tasks || []).slice().sort(function (a, b) {
-      return String(a.createdAt || "").localeCompare(String(b.createdAt || "")) || String(a.id).localeCompare(String(b.id));
+      return (
+        String(a.createdAt || "").localeCompare(String(b.createdAt || "")) || String(a.id).localeCompare(String(b.id))
+      );
     });
     const latest = tasks[tasks.length - 1];
     if (!latest) return null;
@@ -157,11 +163,23 @@
     const delivered = newestCs !== null && newestCs.deliveryState === "DELIVERED" ? newestCs : null;
     const undelivered = newestCs !== null && newestCs.deliveryState === "NONE"; // 候选已建但交付未完成(如 propose 失败挂 D3)
     const failedCs = newestCs !== null && ["FAILED", "CONFLICT"].indexOf(newestCs.deliveryState) >= 0 ? newestCs : null;
-    const coderRuns = (g.runs || []).filter(function (r) { return (r.role || "coder") === "coder"; });
-    const coderRunning = coderRuns.some(function (r) { return r.outcome === "RUNNING"; });
+    const coderRuns = (g.runs || []).filter(function (r) {
+      return (r.role || "coder") === "coder";
+    });
+    const coderRunning = coderRuns.some(function (r) {
+      return r.outcome === "RUNNING";
+    });
     // role=null ⇒ coder run(runs 表无 role 列;仅 reviewer 在 detail.role 锚定)——禁止 fallback 到 reviewer
-    const reviewerRunning = (g.runs || []).some(function (r) { return r.role === "reviewer" && r.outcome === "RUNNING"; });
-    const inFlight = tasks.some(function (t) { return IN_FLIGHT.indexOf(t.state) >= 0; }) || coderRunning || reviewerRunning || delivering;
+    const reviewerRunning = (g.runs || []).some(function (r) {
+      return r.role === "reviewer" && r.outcome === "RUNNING";
+    });
+    const inFlight =
+      tasks.some(function (t) {
+        return IN_FLIGHT.indexOf(t.state) >= 0;
+      }) ||
+      coderRunning ||
+      reviewerRunning ||
+      delivering;
     const latestBad = TERMINAL_BAD.indexOf(latest.state) >= 0;
 
     let mode;
@@ -169,11 +187,19 @@
     else if (inFlight) mode = "running";
     else if (latestBad) mode = "failed";
     else if (["READY", "PLANNED", "REWORK", "WAITING"].indexOf(latest.state) >= 0) mode = "queued";
-    else if (tasks.some(function (t) { return t.state === "ACCEPTED"; }) || delivered) mode = "done";
+    else if (
+      tasks.some(function (t) {
+        return t.state === "ACCEPTED";
+      }) ||
+      delivered
+    )
+      mode = "done";
     else return null;
 
     const evRows = g.evidence || [];
-    const evPass = evRows.filter(function (e) { return e.passed; }).length;
+    const evPass = evRows.filter(function (e) {
+      return e.passed;
+    }).length;
     const evFail = evRows.length - evPass;
     const gate = (g.gates || [])[0] || null; // gates 新在前(ORDER BY created_at DESC,与 buildGoalProgress 口径一致)
     const disc = g.discovery && g.discovery.latest;
@@ -181,39 +207,65 @@
 
     const stages = [];
     if (disc) {
-      stages.push(disc.outcome === "SUCCEEDED"
-        ? { key: "analyze", cls: "ok", label: active ? "已分析项目" : "项目分析" }
-        : { key: "analyze", cls: "warn", label: "自动分析未成功,按规则继续" });
+      stages.push(
+        disc.outcome === "SUCCEEDED"
+          ? { key: "analyze", cls: "ok", label: active ? "已分析项目" : "项目分析" }
+          : { key: "analyze", cls: "warn", label: "自动分析未成功,按规则继续" },
+      );
     } else if (active) {
       stages.push({ key: "analyze", cls: "idle", label: "项目分析" });
     }
     const newestCoder = coderRuns[0] || null;
     if (coderRunning) stages.push({ key: "code", cls: "run", label: "正在修改代码" });
-    else if (newestCoder && newestCoder.outcome === "SUCCEEDED") stages.push({ key: "code", cls: "ok", label: "代码修改" });
-    else if (newestCoder && ["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(newestCoder.outcome) >= 0) stages.push({ key: "code", cls: "bad", label: "代码修改未完成" });
+    else if (newestCoder && newestCoder.outcome === "SUCCEEDED")
+      stages.push({ key: "code", cls: "ok", label: "代码修改" });
+    else if (
+      newestCoder &&
+      ["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(newestCoder.outcome) >= 0
+    )
+      stages.push({ key: "code", cls: "bad", label: "代码修改未完成" });
     else if (mode === "done") stages.push({ key: "code", cls: "ok", label: "代码修改" });
     else stages.push({ key: "code", cls: "idle", label: "代码修改" });
     if (inFlight && latest.state === "VERIFYING") stages.push({ key: "test", cls: "run", label: "正在测试" });
-    else if (evRows.length) stages.push({ key: "test", cls: evFail ? (evPass ? "warn" : "bad") : "ok", label: evPass + " 项测试" + (evFail ? "(" + evFail + " 项未通过)" : ""), testid: "ws-result-tests" });
+    else if (evRows.length)
+      stages.push({
+        key: "test",
+        cls: evFail ? (evPass ? "warn" : "bad") : "ok",
+        label: evPass + " 项测试" + (evFail ? "(" + evFail + " 项未通过)" : ""),
+        testid: "ws-result-tests",
+      });
     else if (active) stages.push({ key: "test", cls: "idle", label: "自动测试" });
     if (reviewerRunning) stages.push({ key: "review", cls: "run", label: "正在复核" });
-    else if (gate && gate.verdict === "PASS") stages.push({ key: "review", cls: "ok", label: "独立复核通过", testid: "ws-result-review" });
-    else if (gate && gate.verdict === "BLOCK") stages.push({ key: "review", cls: "bad", label: "复核发现问题,需要处理" });
+    else if (gate && gate.verdict === "PASS")
+      stages.push({ key: "review", cls: "ok", label: "独立复核通过", testid: "ws-result-review" });
+    else if (gate && gate.verdict === "BLOCK")
+      stages.push({ key: "review", cls: "bad", label: "复核发现问题,需要处理" });
     else if (gate && gate.verdict === "REWORK") stages.push({ key: "review", cls: "warn", label: "复核要求返工" });
     else if (active) stages.push({ key: "review", cls: "idle", label: "独立复核" });
     if (delivering) stages.push({ key: "deliver", cls: "run", label: "正在交付" });
     else if (delivered) {
-      const n = delivered.changedFiles.added.length + delivered.changedFiles.modified.length + delivered.changedFiles.removed.length;
-      stages.push({ key: "deliver", cls: "ok", label: "已提交 GitHub", testid: "ws-result-delivery", extra: h("span", { class: "dim", "data-testid": "ws-result-files", text: n + " 个文件" }) });
-    } else if (failedCs) stages.push({ key: "deliver", cls: "bad", label: "GitHub 交付未成功,需要处理。" }); // P1-1:用户文案,内部原因见技术详情
-    else if (undelivered && !active) stages.push({ key: "deliver", cls: "warn", label: "交付未完成,需要处理" }); // 本轮候选未交付(如实;不冒充旧轮已提交)
+      const n =
+        delivered.changedFiles.added.length +
+        delivered.changedFiles.modified.length +
+        delivered.changedFiles.removed.length;
+      stages.push({
+        key: "deliver",
+        cls: "ok",
+        label: "已提交 GitHub",
+        testid: "ws-result-delivery",
+        extra: h("span", { class: "dim", "data-testid": "ws-result-files", text: n + " 个文件" }),
+      });
+    } else if (failedCs)
+      stages.push({ key: "deliver", cls: "bad", label: "GitHub 交付未成功,需要处理。" }); // P1-1:用户文案,内部原因见技术详情
+    else if (undelivered && !active)
+      stages.push({ key: "deliver", cls: "warn", label: "交付未完成,需要处理" }); // 本轮候选未交付(如实;不冒充旧轮已提交)
     else if (active) stages.push({ key: "deliver", cls: "idle", label: "交付" });
 
     return {
       mode: mode,
       stages: stages,
       rawInput: (g.goal && g.goal.rawInput) || "",
-      changesetId: delivered ? delivered.id : (csList[0] ? csList[0].id : null),
+      changesetId: delivered ? delivered.id : csList[0] ? csList[0].id : null,
     };
   }
 
@@ -229,29 +281,82 @@
 
   function workBlock(w) {
     const isDone = w.mode === "done";
-    const cls = isDone ? "ws-block-done" : w.mode === "failed" ? "ws-block-bad" : w.mode === "waiting" ? "ws-block-wait" : "ws-block-run";
-    const titleCls = isDone ? "ws-ok-text" : w.mode === "failed" ? "ws-bad-text" : w.mode === "waiting" ? "ws-warn-text" : "ws-run-text";
+    const cls = isDone
+      ? "ws-block-done"
+      : w.mode === "failed"
+        ? "ws-block-bad"
+        : w.mode === "waiting"
+          ? "ws-block-wait"
+          : "ws-block-run";
+    const titleCls = isDone
+      ? "ws-ok-text"
+      : w.mode === "failed"
+        ? "ws-bad-text"
+        : w.mode === "waiting"
+          ? "ws-warn-text"
+          : "ws-run-text";
     const block = h(
       "div",
       { class: "ws-block " + cls, "data-testid": isDone ? "ws-result-card" : "ws-work-block" },
-      h("div", { class: "ws-block-title " + titleCls, text: (isDone ? "✓ " : w.mode === "failed" ? "✗ " : "") + MODE_TITLE[w.mode] }),
+      h("div", {
+        class: "ws-block-title " + titleCls,
+        text: (isDone ? "✓ " : w.mode === "failed" ? "✗ " : "") + MODE_TITLE[w.mode],
+      }),
     );
     if (isDone && w.rawInput) {
-      block.appendChild(h("div", { class: "ws-card-question", text: w.rawInput.length > 120 ? w.rawInput.slice(0, 120) + "…" : w.rawInput }));
+      block.appendChild(
+        h("div", {
+          class: "ws-card-question",
+          text: w.rawInput.length > 120 ? w.rawInput.slice(0, 120) + "…" : w.rawInput,
+        }),
+      );
     }
     const rows = h("div", { class: "ws-stage-rows" });
-    w.stages.forEach(function (s) { rows.appendChild(stageRow(s)); });
+    w.stages.forEach(function (s) {
+      rows.appendChild(stageRow(s));
+    });
     block.appendChild(rows);
     if (w.mode === "failed") {
       // P1-1:失败只给用户文案 + 「查看原因」;内部错误码/路径/堆栈只在技术详情
-      block.appendChild(h("div", { class: "row mt8" }, h("button", { class: "btn btn-sm", type: "button", "data-testid": "ws-fail-reason", text: "查看原因", onclick: function () { toggleTech(true); } })));
+      block.appendChild(
+        h(
+          "div",
+          { class: "row mt8" },
+          h("button", {
+            class: "btn btn-sm",
+            type: "button",
+            "data-testid": "ws-fail-reason",
+            text: "查看原因",
+            onclick: function () {
+              toggleTech(true);
+            },
+          }),
+        ),
+      );
     }
     if (isDone) {
       const row = h("div", { class: "row mt8" });
       if (w.changesetId) {
-        row.appendChild(h("a", { class: "btn btn-sm", href: "/changeset.html?id=" + encodeURIComponent(w.changesetId), "data-testid": "ws-result-view", text: "查看修改" }));
+        row.appendChild(
+          h("a", {
+            class: "btn btn-sm",
+            href: "/changeset.html?id=" + encodeURIComponent(w.changesetId),
+            "data-testid": "ws-result-view",
+            text: "查看修改",
+          }),
+        );
       }
-      row.appendChild(h("button", { class: "btn btn-sm", type: "button", "data-testid": "ws-result-tech", text: "技术详情", onclick: function () { toggleTech(); } }));
+      row.appendChild(
+        h("button", {
+          class: "btn btn-sm",
+          type: "button",
+          "data-testid": "ws-result-tech",
+          text: "技术详情",
+          onclick: function () {
+            toggleTech();
+          },
+        }),
+      );
       block.appendChild(row);
     }
     return block;
@@ -272,39 +377,86 @@
       const s = t.state;
       const ts = t.updatedAt || t.createdAt || null;
       if (["READY", "PLANNED"].indexOf(s) >= 0) push("task-ready-" + t.id + "-" + s, ts, "st-wait", "已纳入执行队列");
-      else if (["LEASED", "RUNNING", "SUBMITTED"].indexOf(s) >= 0) push("task-run-" + t.id + "-" + s, ts, "st-run", "正在修改代码");
+      else if (["LEASED", "RUNNING", "SUBMITTED"].indexOf(s) >= 0)
+        push("task-run-" + t.id + "-" + s, ts, "st-run", "正在修改代码");
       else if (s === "VERIFYING") push("task-ver-" + t.id, ts, "st-run", "正在验证");
       else if (s === "ACCEPTED") push("task-acc-" + t.id, ts, "st-ok", "本轮执行完成,复核通过");
       else if (s === "REWORK") push("task-rw-" + t.id + "-" + t.attempt, ts, "st-warn", "正在返工");
-      else if (TERMINAL_BAD.indexOf(s) >= 0) push("task-fail-" + t.id + "-" + s, ts, "st-bad", "本轮执行未成功" + (t.blockedReason ? ":" + t.blockedReason : ""));
+      else if (TERMINAL_BAD.indexOf(s) >= 0)
+        push(
+          "task-fail-" + t.id + "-" + s,
+          ts,
+          "st-bad",
+          "本轮执行未成功" + (t.blockedReason ? ":" + t.blockedReason : ""),
+        );
       else if (s === "NEEDS_DECISION") push("task-dec-" + t.id, ts, "st-warn", "等待你的决定");
     });
     const evRows = (g.evidence || []).slice(0, 50);
-    const evPass = evRows.filter(function (e) { return e.passed; }).length;
+    const evPass = evRows.filter(function (e) {
+      return e.passed;
+    }).length;
     const evFail = evRows.length - evPass;
-    if (evRows.length && evPass) push("ev-pass-" + evRows.map(function (e) { return e.id; }).join(".").slice(0, 60), evRows[0] && evRows[0].createdAt, "st-ok", evPass + " 项验证通过");
-    if (evFail) push("ev-fail-" + evRows.map(function (e) { return e.id; }).join(".").slice(0, 60), evRows[0] && evRows[0].createdAt, "st-bad", evFail + " 项验证未通过");
+    if (evRows.length && evPass)
+      push(
+        "ev-pass-" +
+          evRows
+            .map(function (e) {
+              return e.id;
+            })
+            .join(".")
+            .slice(0, 60),
+        evRows[0] && evRows[0].createdAt,
+        "st-ok",
+        evPass + " 项验证通过",
+      );
+    if (evFail)
+      push(
+        "ev-fail-" +
+          evRows
+            .map(function (e) {
+              return e.id;
+            })
+            .join(".")
+            .slice(0, 60),
+        evRows[0] && evRows[0].createdAt,
+        "st-bad",
+        evFail + " 项验证未通过",
+      );
     (g.runs || []).forEach(function (r) {
       const role = r.role || "coder";
       const ts = r.startedAt || null;
       if (role === "coder") {
         if (r.outcome === "SUCCEEDED") push("run-ok-" + r.id, ts, "st-ok", "代码修改完成");
         else if (r.outcome === "RUNNING") push("run-go-" + r.id, ts, "st-run", "正在修改代码");
-        else if (["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(r.outcome) >= 0) push("run-bad-" + r.id + "-" + r.outcome, ts, "st-bad", "修改未成功" + (r.reason ? ":" + r.reason : ""));
+        else if (["FAILED", "TIMEOUT", "BUDGET_EXHAUSTED", "CANCELLED", "INTERRUPTED"].indexOf(r.outcome) >= 0)
+          push("run-bad-" + r.id + "-" + r.outcome, ts, "st-bad", "修改未成功" + (r.reason ? ":" + r.reason : ""));
       } else if (role === "reviewer" && r.outcome === "RUNNING") {
         push("rev-go-" + r.id, ts, "st-run", "独立复核进行中");
       }
     });
     (g.gates || []).forEach(function (gt) {
       const cls = gt.verdict === "PASS" ? "st-ok" : gt.verdict === "BLOCK" ? "st-bad" : "st-warn";
-      const text = gt.verdict === "PASS" ? "独立复核通过" : gt.verdict === "BLOCK" ? "独立复核发现问题,需要处理" : "独立复核要求返工";
+      const text =
+        gt.verdict === "PASS"
+          ? "独立复核通过"
+          : gt.verdict === "BLOCK"
+            ? "独立复核发现问题,需要处理"
+            : "独立复核要求返工";
       push("gate-" + gt.id + "-" + gt.verdict, gt.consumedAt || null, cls, text);
     });
     (g.changesets || []).forEach(function (c) {
-      const n = (c.changedFiles.added.length + c.changedFiles.modified.length + c.changedFiles.removed.length);
-      if (c.deliveryState === "DELIVERED") push("cs-ok-" + c.id + "-" + c.deliveryState, null, "st-ok", "修改已提交仓库(" + n + " 个文件)");
-      else if (c.deliveryState === "DELIVERING") push("cs-go-" + c.id + "-" + c.deliveryState, null, "st-run", "正在交付");
-      else if (["CONFLICT", "FAILED"].indexOf(c.deliveryState) >= 0) push("cs-bad-" + c.id + "-" + c.deliveryState, null, "st-bad", "交付未成功" + (c.failReason ? ":" + c.failReason : ""));
+      const n = c.changedFiles.added.length + c.changedFiles.modified.length + c.changedFiles.removed.length;
+      if (c.deliveryState === "DELIVERED")
+        push("cs-ok-" + c.id + "-" + c.deliveryState, null, "st-ok", "修改已提交仓库(" + n + " 个文件)");
+      else if (c.deliveryState === "DELIVERING")
+        push("cs-go-" + c.id + "-" + c.deliveryState, null, "st-run", "正在交付");
+      else if (["CONFLICT", "FAILED"].indexOf(c.deliveryState) >= 0)
+        push(
+          "cs-bad-" + c.id + "-" + c.deliveryState,
+          null,
+          "st-bad",
+          "交付未成功" + (c.failReason ? ":" + c.failReason : ""),
+        );
     });
     const disc = g.discovery && g.discovery.latest;
     if (disc && disc.outcome === "SUCCEEDED") push("disc-ok", null, "st-ok", "项目分析完成");
@@ -313,7 +465,8 @@
   }
 
   function eventLine(e) {
-    const mark = e.cls === "st-ok" ? "✓" : e.cls === "st-run" ? "●" : e.cls === "st-bad" ? "✗" : e.cls === "st-warn" ? "⚠" : "…";
+    const mark =
+      e.cls === "st-ok" ? "✓" : e.cls === "st-run" ? "●" : e.cls === "st-bad" ? "✗" : e.cls === "st-warn" ? "⚠" : "…";
     return h(
       "div",
       { class: "ws-event " + e.cls, "data-testid": "ws-event-" + e.key },
@@ -352,7 +505,9 @@
     const isDeliveryFail = q.indexOf("delivery_propose_failed") === 0;
     const qShown = isDeliveryFail
       ? "GitHub 交付未成功,需要处理。"
-      : q.length > 200 ? q.slice(0, 200) + "…(完整内容见「待我决定」页)" : q || "(系统未提供问题描述)";
+      : q.length > 200
+        ? q.slice(0, 200) + "…(完整内容见「待我决定」页)"
+        : q || "(系统未提供问题描述)";
     const card = h(
       "div",
       { class: "ws-card ws-card-decision", "data-testid": "ws-decision-card-" + d.id },
@@ -375,38 +530,48 @@
       return b;
     };
     function disableRow(dis) {
-      Array.prototype.forEach.call(row.querySelectorAll("button"), function (b) { b.disabled = dis !== false; });
+      Array.prototype.forEach.call(row.querySelectorAll("button"), function (b) {
+        b.disabled = dis !== false;
+      });
     }
-    row.appendChild(mk("允许 / 批准", "ws-decision-approve-" + d.id, async function () {
-      await A.apiPost("/api/decisions/" + encodeURIComponent(d.id) + "/resolve", {
-        taskId: d.taskId,
-        approve: true,
-        expectedStateVersion: await fetchTaskStateVersion(d.taskId),
-      });
-      feedNotice("✓ 已批准,Relay 继续执行", "st-ok");
-      await refreshAll(true);
-    }));
-    row.appendChild(mk("不允许", "ws-decision-reject-" + d.id, async function () {
-      await A.apiPost("/api/decisions/" + encodeURIComponent(d.id) + "/resolve", {
-        taskId: d.taskId,
-        approve: false,
-        expectedStateVersion: await fetchTaskStateVersion(d.taskId),
-      });
-      feedNotice("已拒绝:该操作不会执行,Relay 会按预案调整", "st-warn");
-      await refreshAll(true);
-    }));
-    row.appendChild(mk("稍后处理", "ws-decision-defer-" + d.id, async function () {
-      await A.apiPost("/api/decisions/" + encodeURIComponent(d.id) + "/defer", { taskId: d.taskId });
-      feedNotice("已推迟:稍后在「待我决定」处理", "st-wait");
-      await refreshAll(true);
-    }));
+    row.appendChild(
+      mk("允许 / 批准", "ws-decision-approve-" + d.id, async function () {
+        await A.apiPost("/api/decisions/" + encodeURIComponent(d.id) + "/resolve", {
+          taskId: d.taskId,
+          approve: true,
+          expectedStateVersion: await fetchTaskStateVersion(d.taskId),
+        });
+        feedNotice("✓ 已批准,Relay 继续执行", "st-ok");
+        await refreshAll(true);
+      }),
+    );
+    row.appendChild(
+      mk("不允许", "ws-decision-reject-" + d.id, async function () {
+        await A.apiPost("/api/decisions/" + encodeURIComponent(d.id) + "/resolve", {
+          taskId: d.taskId,
+          approve: false,
+          expectedStateVersion: await fetchTaskStateVersion(d.taskId),
+        });
+        feedNotice("已拒绝:该操作不会执行,Relay 会按预案调整", "st-warn");
+        await refreshAll(true);
+      }),
+    );
+    row.appendChild(
+      mk("稍后处理", "ws-decision-defer-" + d.id, async function () {
+        await A.apiPost("/api/decisions/" + encodeURIComponent(d.id) + "/defer", { taskId: d.taskId });
+        feedNotice("已推迟:稍后在「待我决定」处理", "st-wait");
+        await refreshAll(true);
+      }),
+    );
     card.appendChild(row);
     return card;
   }
 
   async function fetchTaskStateVersion(taskId) {
     const res = await A.apiGet("/api/goals/" + encodeURIComponent(state.goalId));
-    const t = (res.goal.tasks || []).find(function (x) { return x.id === taskId; });
+    const t = (res.goal.tasks || []).find(function (x) {
+      return x.id === taskId;
+    });
     if (!t) throw new Error("task_not_found");
     return t.stateVersion;
   }
@@ -429,10 +594,17 @@
     feed.appendChild(col);
     if (!state.goalId) {
       // 空白态(P0-1/P0-5):引导语居中;唯一输入 = 下方 Composer(项目选择+开始)
-      col.appendChild(h("div", { class: "ws-empty-hero" },
-        h("h1", { class: "ws-hero-title", text: "今天想让 Relay 做什么?" }),
-        h("p", { class: "ws-hero-sub", text: "在下方选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。" }),
-      ));
+      col.appendChild(
+        h(
+          "div",
+          { class: "ws-empty-hero" },
+          h("h1", { class: "ws-hero-title", text: "今天想让 Relay 做什么?" }),
+          h("p", {
+            class: "ws-hero-sub",
+            text: "在下方选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。",
+          }),
+        ),
+      );
       return;
     }
     const items = [];
@@ -442,13 +614,19 @@
     state.pendingLocal.forEach(function (m) {
       items.push({ sort: Number.MAX_SAFE_INTEGER, node: userBubble({ id: "local-" + m.n, content: m.content }) });
     });
-    items.sort(function (a, b) { return a.sort - b.sort; });
-    items.forEach(function (it) { col.appendChild(it.node); });
+    items.sort(function (a, b) {
+      return a.sort - b.sort;
+    });
+    items.forEach(function (it) {
+      col.appendChild(it.node);
+    });
     // 工作状态块(每 Goal 一个;随明细快照原位更新,不逐条追加日志)
     const w = deriveWork(state.detail);
     if (w) col.appendChild(workBlock(w));
     // Decision 卡(未决;内联于 Feed 末尾、Composer 之前)
-    (state.decisions || []).forEach(function (d) { col.appendChild(decisionCard(d)); });
+    (state.decisions || []).forEach(function (d) {
+      col.appendChild(decisionCard(d));
+    });
     // 本会话操作回执(批准/拒绝/失败提示;客户端回执,排在决策卡后)
     state.notices.forEach(function (n) {
       col.appendChild(h("div", { class: "ws-event " + n.cls, "data-testid": "ws-notice", text: n.text }));
@@ -485,9 +663,15 @@
 
   /** 技术详情入口:桌面=右栏折叠(03C.1 不回退);移动端(§11)=打开详情 sheet(secondary view)。 */
   function toggleTech(force) {
-    if (isMobileView()) { openSheet(); return; }
+    if (isMobileView()) {
+      openSheet();
+      return;
+    }
     techOpen = force === undefined ? !techOpen : !!force;
-    if (techOpen && !state.paneOpen) { state.paneOpen = true; applyPane(); }
+    if (techOpen && !state.paneOpen) {
+      state.paneOpen = true;
+      applyPane();
+    }
     renderDetail();
   }
 
@@ -522,43 +706,159 @@
     host.textContent = "";
     const st = state.status;
     const g = state.detail;
-    if (!state.goalId) { host.appendChild(h("div", { class: "empty" }, "未选择任务")); return; }
-    const ph = st && st.inFlight ? "正在处理" : st && st.pendingDecisions > 0 ? "等待你决定" : g && (g.progress || {}).phase ? A.zh((g.progress || {}).phase) : "—";
+    if (!state.goalId) {
+      host.appendChild(h("div", { class: "empty" }, "未选择任务"));
+      return;
+    }
+    const ph =
+      st && st.inFlight
+        ? "正在处理"
+        : st && st.pendingDecisions > 0
+          ? "等待你决定"
+          : g && (g.progress || {}).phase
+            ? A.zh((g.progress || {}).phase)
+            : "—";
     host.appendChild(h("div", { class: "ws-detail-head", text: "任务信息" }));
-    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "项目"), h("span", { "data-testid": "ws-detail-project", text: projectDisplay() })));
-    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "状态"), h("span", { "data-testid": "ws-detail-state", text: st ? A.zh(st.goalState) : "—" })));
-    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "当前阶段"), h("span", { "data-testid": "ws-detail-phase", text: ph })));
-    host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "是否等待用户"), h("span", { "data-testid": "ws-detail-waiting", text: st && st.pendingDecisions > 0 ? "是(需要你决定)" : "否" })));
+    host.appendChild(
+      h(
+        "div",
+        { class: "ws-detail-item" },
+        h("span", { class: "dim" }, "项目"),
+        h("span", { "data-testid": "ws-detail-project", text: projectDisplay() }),
+      ),
+    );
+    host.appendChild(
+      h(
+        "div",
+        { class: "ws-detail-item" },
+        h("span", { class: "dim" }, "状态"),
+        h("span", { "data-testid": "ws-detail-state", text: st ? A.zh(st.goalState) : "—" }),
+      ),
+    );
+    host.appendChild(
+      h(
+        "div",
+        { class: "ws-detail-item" },
+        h("span", { class: "dim" }, "当前阶段"),
+        h("span", { "data-testid": "ws-detail-phase", text: ph }),
+      ),
+    );
+    host.appendChild(
+      h(
+        "div",
+        { class: "ws-detail-item" },
+        h("span", { class: "dim" }, "是否等待用户"),
+        h("span", {
+          "data-testid": "ws-detail-waiting",
+          text: st && st.pendingDecisions > 0 ? "是(需要你决定)" : "否",
+        }),
+      ),
+    );
     const elapsed = g && g.progress && g.progress.elapsedSeconds;
     if (elapsed !== null && elapsed !== undefined && Number(elapsed) > 0) {
       // P0-6:已运行时间只在有意义时显示(有实际运行时长)
-      host.appendChild(h("div", { class: "ws-detail-item" }, h("span", { class: "dim" }, "已运行时间"), h("span", { "data-testid": "ws-detail-elapsed", text: A.fmtDuration(elapsed) })));
+      host.appendChild(
+        h(
+          "div",
+          { class: "ws-detail-item" },
+          h("span", { class: "dim" }, "已运行时间"),
+          h("span", { "data-testid": "ws-detail-elapsed", text: A.fmtDuration(elapsed) }),
+        ),
+      );
     }
     if (!sheetMode) {
-      host.appendChild(h("button", { class: "btn btn-sm ws-tech-toggle", type: "button", "data-testid": "ws-detail-toggle", text: techShown ? "收起技术详情" : "技术详情", onclick: function () { toggleTech(); } }));
+      host.appendChild(
+        h("button", {
+          class: "btn btn-sm ws-tech-toggle",
+          type: "button",
+          "data-testid": "ws-detail-toggle",
+          text: techShown ? "收起技术详情" : "技术详情",
+          onclick: function () {
+            toggleTech();
+          },
+        }),
+      );
     }
     if (techShown && g) {
       // §11:工程术语(Model/Run/Budget/Gate/Reviewer/SHA/Scope)只在此层;移动端 testid 独立避免桌面断言串扰
       const box = h("div", { class: "ws-tech", "data-testid": sheetMode ? "ws-sheet-tech" : "ws-detail-tech" });
       const rows = [];
       rows.push(h("dt", { text: "Goal ID" }), h("dd", { class: "mono-sm", text: g.goal.id }));
-      rows.push(h("dt", { text: "当前任务" }), h("dd", { class: "mono-sm", text: (g.progress || {}).currentTaskId || "—" }));
-      rows.push(h("dt", { text: "模型" }), h("dd", { class: "mono-sm", text: (g.progress || {}).currentModelRef || "尚无运行" }));
-      const mc = (g.budget || []).find(function (b) { return b.kind === "model_calls"; });
-      rows.push(h("dt", { text: "预算(模型调用)" }), h("dd", { class: "small", text: mc ? "已用 " + mc.used + (mc.limit !== null ? " / 上限 " + mc.limit : " / 无上限") : "无账本行" }));
-      const coder = (g.runs || []).filter(function (r) { return (r.role || "coder") === "coder"; }).slice(0, 5);
-      rows.push(h("dt", { text: "Run(最近)" }), h("dd", { class: "small" }, coder.length ? coder.map(function (r) { return h("div", { class: "mono-sm", text: r.id.slice(0, 14) + " · " + r.outcome + (r.reason ? " · " + r.reason : "") }); }) : "—"));
+      rows.push(
+        h("dt", { text: "当前任务" }),
+        h("dd", { class: "mono-sm", text: (g.progress || {}).currentTaskId || "—" }),
+      );
+      rows.push(
+        h("dt", { text: "模型" }),
+        h("dd", { class: "mono-sm", text: (g.progress || {}).currentModelRef || "尚无运行" }),
+      );
+      const mc = (g.budget || []).find(function (b) {
+        return b.kind === "model_calls";
+      });
+      rows.push(
+        h("dt", { text: "预算(模型调用)" }),
+        h("dd", {
+          class: "small",
+          text: mc ? "已用 " + mc.used + (mc.limit !== null ? " / 上限 " + mc.limit : " / 无上限") : "无账本行",
+        }),
+      );
+      const coder = (g.runs || [])
+        .filter(function (r) {
+          return (r.role || "coder") === "coder";
+        })
+        .slice(0, 5);
+      rows.push(
+        h("dt", { text: "Run(最近)" }),
+        h(
+          "dd",
+          { class: "small" },
+          coder.length
+            ? coder.map(function (r) {
+                return h("div", {
+                  class: "mono-sm",
+                  text: r.id.slice(0, 14) + " · " + r.outcome + (r.reason ? " · " + r.reason : ""),
+                });
+              })
+            : "—",
+        ),
+      );
       const gates = (g.gates || []).slice(0, 5);
-      rows.push(h("dt", { text: "Gate / Reviewer" }), h("dd", { class: "small" }, gates.length ? gates.map(function (x) { return h("div", { class: "small", text: x.verdict + " · " + x.reviewer }); }) : "—"));
+      rows.push(
+        h("dt", { text: "Gate / Reviewer" }),
+        h(
+          "dd",
+          { class: "small" },
+          gates.length
+            ? gates.map(function (x) {
+                return h("div", { class: "small", text: x.verdict + " · " + x.reviewer });
+              })
+            : "—",
+        ),
+      );
       const cs = (g.changesets || [])[0];
-      rows.push(h("dt", { text: "交付 / SHA" }), h("dd", { class: "mono-sm", text: cs ? (cs.deliveryState + " · " + A.short(cs.gitCommitSha || cs.candidateSha)) : "—" }));
-      rows.push(h("dt", { text: "作用域" }), h("dd", { class: "small", text: (g.tasks[0] && g.tasks[0].allowedScope.join(", ")) || "—" }));
+      rows.push(
+        h("dt", { text: "交付 / SHA" }),
+        h("dd", {
+          class: "mono-sm",
+          text: cs ? cs.deliveryState + " · " + A.short(cs.gitCommitSha || cs.candidateSha) : "—",
+        }),
+      );
+      rows.push(
+        h("dt", { text: "作用域" }),
+        h("dd", { class: "small", text: (g.tasks[0] && g.tasks[0].allowedScope.join(", ")) || "—" }),
+      );
       box.appendChild(h("dl", { class: "kv" }, rows));
       // P0-4:完整原始执行事件保留在技术详情(审计事实不删;P1-1:内部码/路径只在此层)
-      box.appendChild(h("div", { class: "ws-tech-events", "data-testid": sheetMode ? "ws-sheet-events" : "ws-tech-events" },
-        h("div", { class: "ws-detail-head", text: "执行事件(原始)" }),
-        deriveEvents(g).map(eventLine).concat([h("div", { class: "ws-event dim", text: "更早事件与完整审计见系统状态/技术证据。" })]),
-      ));
+      box.appendChild(
+        h(
+          "div",
+          { class: "ws-tech-events", "data-testid": sheetMode ? "ws-sheet-events" : "ws-tech-events" },
+          h("div", { class: "ws-detail-head", text: "执行事件(原始)" }),
+          deriveEvents(g)
+            .map(eventLine)
+            .concat([h("div", { class: "ws-event dim", text: "更早事件与完整审计见系统状态/技术证据。" })]),
+        ),
+      );
       host.appendChild(box);
     }
   }
@@ -577,43 +877,61 @@
   function renderComposer() {
     const input = $("#ws-input");
     const btn = $("#ws-send");
+    const execBtn = $("#ws-execute");
     const projRow = $("#ws-composer-project");
     if (!input || !btn) return;
     if (!state.goalId) {
       input.placeholder = "告诉 Relay 你想做什么……";
       btn.textContent = "开始";
       if (projRow) projRow.hidden = false;
+      if (execBtn) execBtn.hidden = true; // 空白态=显式创建入口(开始);无"执行"语义
     } else {
       input.placeholder = "继续告诉 Relay……";
       btn.textContent = "发送";
       if (projRow) projRow.hidden = true;
+      // 方案 A:任务态=双操作(发送=只交流/记录;交给 Relay 执行=显式创建受控任务)
+      if (execBtn) execBtn.hidden = false;
     }
   }
 
-  async function sendMessage() {
+  async function sendMessage(executionRequest) {
     const input = $("#ws-input");
-    const btn = $("#ws-send");
+    const btn = executionRequest ? $("#ws-execute") : $("#ws-send");
     if (!input || !state.goalId) return;
     const content = input.value.trim();
     if (!content) return;
-    if (content.length > 2000) { feedNotice("内容过长(上限 2000 字)", "st-bad"); return; }
+    if (content.length > 2000) {
+      feedNotice("内容过长(上限 2000 字)", "st-bad");
+      return;
+    }
     input.value = "";
     growInput(); // 发送后输入框收回单行(§9)
     const localN = state.pendingLocal.length;
     state.pendingLocal.push({ n: localN, content: content });
     renderFeed(true); // §6:发送后立即在 Feed 显示 USER_MESSAGE(本地回显)
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
+    const sendBtn = $("#ws-send");
+    const execBtn = $("#ws-execute");
+    if (sendBtn) sendBtn.disabled = true;
+    if (execBtn) execBtn.disabled = true;
     try {
-      await A.apiPost("/api/goals/" + encodeURIComponent(state.goalId) + "/messages", { content: content });
-      state.pendingLocal = []; // 单发送在途(btn 已禁用);服务端事实将经刷新落 Feed
+      // 方案 A:普通发送不携带执行字段(旧客户端兼容路径);显式执行带 executionRequest=true
+      const payload = { content: content };
+      if (executionRequest) payload.executionRequest = true;
+      await A.apiPost("/api/goals/" + encodeURIComponent(state.goalId) + "/messages", payload);
+      state.pendingLocal = []; // 单发送在途(按钮已禁用);服务端事实将经刷新落 Feed
       await refreshAll(true); // §14:发送后立即刷新
     } catch (err) {
-      state.pendingLocal = state.pendingLocal.filter(function (m) { return m.content !== content; });
+      state.pendingLocal = state.pendingLocal.filter(function (m) {
+        return m.content !== content;
+      });
       input.value = content; // 失败还原文稿;显式报错,不假成功(§13 写操作)
       growInput();
       feedNotice("发送失败,请稍后重试", "st-bad"); // P1-1:内部异常文案不直出
     } finally {
-      btn.disabled = false;
+      if (btn) btn.disabled = false;
+      if (sendBtn) sendBtn.disabled = false;
+      if (execBtn) execBtn.disabled = false;
       input.focus();
     }
   }
@@ -626,8 +944,14 @@
     if (!input || !btn) return;
     const raw = input.value.trim();
     if (msg) msg.textContent = "";
-    if (!raw) { if (msg) msg.textContent = "先写一句你想让 Relay 做的事"; return; }
-    if (raw.length > 2000) { if (msg) msg.textContent = "内容过长(上限 2000 字)"; return; }
+    if (!raw) {
+      if (msg) msg.textContent = "先写一句你想让 Relay 做的事";
+      return;
+    }
+    if (raw.length > 2000) {
+      if (msg) msg.textContent = "内容过长(上限 2000 字)";
+      return;
+    }
     btn.disabled = true;
     try {
       const payload = { rawInput: raw };
@@ -640,8 +964,9 @@
     }
   }
 
-  function composerSubmit() {
-    if (state.goalId) return sendMessage();
+  function composerSubmit(executionRequest) {
+    if (state.goalId) return sendMessage(executionRequest === true);
+    if (executionRequest) return; // 空白态无"执行"语义(创建走 POST /api/goals)
     return createFromComposer();
   }
 
@@ -656,7 +981,15 @@
   function wireComposer() {
     const input = $("#ws-input");
     const btn = $("#ws-send");
-    if (btn) btn.addEventListener("click", composerSubmit);
+    const execBtn = $("#ws-execute");
+    if (btn)
+      btn.addEventListener("click", function () {
+        return composerSubmit(false);
+      });
+    if (execBtn)
+      execBtn.addEventListener("click", function () {
+        return composerSubmit(true);
+      }); // 方案 A:显式执行
     if (input) {
       input.addEventListener("input", growInput);
       // §9:移动端(coarse pointer)Enter=换行,发送走「发送」按钮;桌面保持 03C.1 语义(Enter 发送/Shift+Enter 换行)
@@ -664,7 +997,7 @@
       input.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
-          composerSubmit();
+          composerSubmit(false); // Enter=普通发送(只交流/记录;方案 A)
         }
       });
     }
@@ -673,17 +1006,27 @@
   function populateProjectSelect() {
     const sel = $("#ws-project");
     if (!sel) return;
-    A.apiGet("/api/projects").then(function (res) {
-      const v = res.projects || {};
-      const list = (v.projects || []).filter(function (p) { return p && p.name && p.path; });
-      sel.textContent = "";
-      if (!list.length) {
-        sel.appendChild(h("option", { value: "", text: v.configured ? "暂无项目 — 直接开始" : "尚未配置项目 — 直接开始" }));
-      } else {
-        sel.appendChild(h("option", { value: "", text: "请选择一个项目" }));
-        list.forEach(function (p) { sel.appendChild(h("option", { value: p.name, text: p.name })); });
-      }
-    }).catch(function () { sel.appendChild(h("option", { value: "", text: "项目列表读取失败,可直接开始" })); });
+    A.apiGet("/api/projects")
+      .then(function (res) {
+        const v = res.projects || {};
+        const list = (v.projects || []).filter(function (p) {
+          return p && p.name && p.path;
+        });
+        sel.textContent = "";
+        if (!list.length) {
+          sel.appendChild(
+            h("option", { value: "", text: v.configured ? "暂无项目 — 直接开始" : "尚未配置项目 — 直接开始" }),
+          );
+        } else {
+          sel.appendChild(h("option", { value: "", text: "请选择一个项目" }));
+          list.forEach(function (p) {
+            sel.appendChild(h("option", { value: p.name, text: p.name }));
+          });
+        }
+      })
+      .catch(function () {
+        sel.appendChild(h("option", { value: "", text: "项目列表读取失败,可直接开始" }));
+      });
   }
 
   // ---------------- 顶栏 / 数据刷新(§14:Feed 增量 + 明细/侧栏整体替换;4s 可见 / 30s 后台) ----------------
@@ -726,14 +1069,18 @@
   async function refreshFeed(immediate) {
     if (!state.goalId) return;
     const after = state.cursor > 0 ? state.cursor : "";
-    const res = await A.apiGet("/api/goals/" + encodeURIComponent(state.goalId) + "/feed" + (after ? "?after=" + after : ""));
+    const res = await A.apiGet(
+      "/api/goals/" + encodeURIComponent(state.goalId) + "/feed" + (after ? "?after=" + after : ""),
+    );
     const f = res.feed;
     if (state.firstLoad || after === "") {
       state.messages = f.items.slice();
       state.cursor = f.nextCursor || 0;
       state.firstLoad = false;
     } else if (f.items.length) {
-      f.items.forEach(function (m) { state.messages.push(m); });
+      f.items.forEach(function (m) {
+        state.messages.push(m);
+      });
       state.cursor = f.nextCursor || state.cursor;
     }
     state.decisions = f.decisions || [];
@@ -759,8 +1106,8 @@
         await Promise.all([refreshFeed(immediate), refreshDetail()]);
       }
       renderFeed(immediate); // 空白态=引导语;任务态=消息+工作块
-      renderComposer();       // P0-1:模式随 goal 选择切换(占位/按钮/项目选择)
-      renderDetail();         // 空白态右栏=「未选择任务」(不留整列空白——Reviewer Minor-6)
+      renderComposer(); // P0-1:模式随 goal 选择切换(占位/按钮/项目选择)
+      renderDetail(); // 空白态右栏=「未选择任务」(不留整列空白——Reviewer Minor-6)
       if (state.goalId) {
         renderHeader();
       }
@@ -775,8 +1122,15 @@
   function setConn(message) {
     const el = $("#ws-conn");
     if (!el) return;
-    if (message) { el.textContent = message; el.hidden = false; el.setAttribute("data-state", "offline"); }
-    else { el.textContent = ""; el.hidden = true; el.setAttribute("data-state", "online"); }
+    if (message) {
+      el.textContent = message;
+      el.hidden = false;
+      el.setAttribute("data-state", "offline");
+    } else {
+      el.textContent = "";
+      el.hidden = true;
+      el.setAttribute("data-state", "online");
+    }
   }
 
   function scheduleLoop() {
@@ -787,61 +1141,94 @@
       timer = setTimeout(tick, hidden ? 30000 : 4000);
     };
     document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "visible") { clearTimeout(timer); timer = setTimeout(tick, 300); }
+      if (document.visibilityState === "visible") {
+        clearTimeout(timer);
+        timer = setTimeout(tick, 300);
+      }
     });
     timer = setTimeout(tick, 400);
   }
 
   // ---------------- 启动 ----------------
 
-  A.boot("workspace", async function () {
-    const params = new URLSearchParams(window.location.search);
-    state.goalId = params.get("goal");
-    const logout = $("#ws-logout");
-    if (logout) {
-      logout.addEventListener("click", async function () {
-        try {
-          await fetch("/api/session", { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json", "x-relay-csrf": A.state.csrf || "" } });
-        } catch (e) { /* 无论成功与否都跳登录页 */ }
-        window.location.href = "/login.html";
+  A.boot(
+    "workspace",
+    async function () {
+      const params = new URLSearchParams(window.location.search);
+      state.goalId = params.get("goal");
+      const logout = $("#ws-logout");
+      if (logout) {
+        logout.addEventListener("click", async function () {
+          try {
+            await fetch("/api/session", {
+              method: "DELETE",
+              credentials: "same-origin",
+              headers: { accept: "application/json", "x-relay-csrf": A.state.csrf || "" },
+            });
+          } catch (e) {
+            /* 无论成功与否都跳登录页 */
+          }
+          window.location.href = "/login.html";
+        });
+      }
+      const newTask = $("#ws-new-task");
+      if (newTask) {
+        newTask.addEventListener("click", function () {
+          // P0-1:新建任务 = 回空白工作区(唯一 Composer 承载创建;§5 手机同样进入该 sheet 式空白页),不再有第二表单
+          if (state.goalId || window.location.search) window.location.href = "/workspace";
+          else {
+            setDrawer(false);
+            const input = $("#ws-input");
+            if (input) input.focus();
+          }
+        });
+      }
+      // WEB-UX-03D §4:导航抽屉(移动端;桌面 CSS 隐藏菜单键,行为不存在)
+      const menuBtn = $("#ws-menu-btn");
+      if (menuBtn)
+        menuBtn.addEventListener("click", function () {
+          setDrawer(!drawerOpen());
+        });
+      const backdrop = $("#ws-backdrop");
+      if (backdrop)
+        backdrop.addEventListener("click", function () {
+          setDrawer(false);
+        });
+      // WEB-UX-03D §11:详情 sheet 关闭(按钮 + 遮罩 + Esc)
+      const sheetClose = $("#ws-sheet-close");
+      if (sheetClose) sheetClose.addEventListener("click", closeSheet);
+      const sheetBackdrop = $("#ws-sheet-backdrop");
+      if (sheetBackdrop) sheetBackdrop.addEventListener("click", closeSheet);
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (sheetOpen) closeSheet();
+        else if (drawerOpen()) setDrawer(false);
       });
-    }
-    const newTask = $("#ws-new-task");
-    if (newTask) {
-      newTask.addEventListener("click", function () {
-        // P0-1:新建任务 = 回空白工作区(唯一 Composer 承载创建;§5 手机同样进入该 sheet 式空白页),不再有第二表单
-        if (state.goalId || window.location.search) window.location.href = "/workspace";
-        else { setDrawer(false); const input = $("#ws-input"); if (input) input.focus(); }
-      });
-    }
-    // WEB-UX-03D §4:导航抽屉(移动端;桌面 CSS 隐藏菜单键,行为不存在)
-    const menuBtn = $("#ws-menu-btn");
-    if (menuBtn) menuBtn.addEventListener("click", function () { setDrawer(!drawerOpen()); });
-    const backdrop = $("#ws-backdrop");
-    if (backdrop) backdrop.addEventListener("click", function () { setDrawer(false); });
-    // WEB-UX-03D §11:详情 sheet 关闭(按钮 + 遮罩 + Esc)
-    const sheetClose = $("#ws-sheet-close");
-    if (sheetClose) sheetClose.addEventListener("click", closeSheet);
-    const sheetBackdrop = $("#ws-sheet-backdrop");
-    if (sheetBackdrop) sheetBackdrop.addEventListener("click", closeSheet);
-    document.addEventListener("keydown", function (e) {
-      if (e.key !== "Escape") return;
-      if (sheetOpen) closeSheet();
-      else if (drawerOpen()) setDrawer(false);
-    });
-    // WEB-UX-03D §10:回到最新
-    const jump = $("#ws-jump-latest");
-    if (jump) jump.addEventListener("click", jumpToLatest);
-    const paneToggle = $("#ws-pane-toggle");
-    if (paneToggle) paneToggle.addEventListener("click", function () { state.paneOpen = !state.paneOpen; applyPane(); });
-    applyPane();
-    wireComposer();
-    watchViewport();
-    if (window.location.hash === "#new-task") { const input = $("#ws-input"); if (input) input.focus(); } // 旧锚点兼容:聚焦唯一 Composer
-    if (!state.goalId) populateProjectSelect();
-    await refreshAll(true);
-    // 移动端(coarse pointer)不自动弹键盘(页面加载即开键盘体验差);桌面保持 03C.1 聚焦行为
-    if (!state.goalId && !mqMatches(COARSE_MQ)) { const input = $("#ws-input"); if (input) input.focus(); }
-    scheduleLoop();
-  }, { bare: true });
+      // WEB-UX-03D §10:回到最新
+      const jump = $("#ws-jump-latest");
+      if (jump) jump.addEventListener("click", jumpToLatest);
+      const paneToggle = $("#ws-pane-toggle");
+      if (paneToggle)
+        paneToggle.addEventListener("click", function () {
+          state.paneOpen = !state.paneOpen;
+          applyPane();
+        });
+      applyPane();
+      wireComposer();
+      watchViewport();
+      if (window.location.hash === "#new-task") {
+        const input = $("#ws-input");
+        if (input) input.focus();
+      } // 旧锚点兼容:聚焦唯一 Composer
+      if (!state.goalId) populateProjectSelect();
+      await refreshAll(true);
+      // 移动端(coarse pointer)不自动弹键盘(页面加载即开键盘体验差);桌面保持 03C.1 聚焦行为
+      if (!state.goalId && !mqMatches(COARSE_MQ)) {
+        const input = $("#ws-input");
+        if (input) input.focus();
+      }
+      scheduleLoop();
+    },
+    { bare: true },
+  );
 })();

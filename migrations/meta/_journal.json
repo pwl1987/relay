@@ -57,6 +57,20 @@
       "when": 1794470000000,
       "tag": "0007_goal_message_consumptions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794480000000,
+      "tag": "0008_goal_messages_execution_request",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794490000000,
+      "tag": "0009_tasks_abort_requested",
+      "breakpoints": true
     }
   ]
 }

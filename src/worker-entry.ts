@@ -16,6 +16,8 @@ import { createLiveWorkerDriver, type WorkerDriver } from "./server/worker.ts";
 import { resolveMaxOutputTokens, DEFAULT_MAX_OUTPUT_TOKENS } from "./runtime/sandbox.ts";
 import { appendAudit } from "./core/audit.ts";
 import { ensureEgress, type EgressStatus } from "./runtime/egress.ts";
+import { FUNCTIONAL_EVIDENCE_KINDS } from "./core/gates.ts";
+import type { CheckSpec } from "./core/evidence.ts";
 import type { Exec } from "./core/db.ts";
 
 export interface WorkerEntryOptions {
@@ -28,8 +30,66 @@ export interface WorkerEntryHandle {
   stop(): Promise<void>;
 }
 
+/** RELAY-CONTROL-READY-03 P0-2:生产 Gate 可用性 —— 功能性机器检查的环境配置入口。
+ *  RELAY_EVIDENCE_CHECKS_JSON = CheckSpec[](确定性 CheckSpec/沙箱执行,同一 Gate 证据链):
+ *  kind 限功能性证据(deterministic_test/api_behavior;SAFETY-CLOSE-02 P0-B),command=argv
+ *  字符串数组(直启无 shell),cwdWorkspace 缺省 true(在候选工作区执行),timeoutMs 1s~600s。
+ *  严格校验 fail-closed:非法配置 ⇒ 启动即抛(同 RELAY_MAX_OUTPUT_TOKENS 语义);未配置 ⇒
+ *  不注入 ⇒ Gate 编排保守停机(不得由任意用户消息、模型文本或 manifestVerify 顶替)。
+ *  生产重启/配置变更不在本包授权范围(仅提供机制与校验;实际取值=部署包决策)。 */
+export function resolveEvidenceChecks(raw: string | undefined): CheckSpec[] | undefined {
+  if (raw === undefined || raw === "") return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`RELAY_EVIDENCE_CHECKS_JSON 非法 JSON(fail-closed):${(err as Error).message}`);
+  }
+  if (!Array.isArray(parsed)) throw new Error("RELAY_EVIDENCE_CHECKS_JSON 必须为 CheckSpec 数组(fail-closed)");
+  if (parsed.length === 0) {
+    throw new Error("RELAY_EVIDENCE_CHECKS_JSON 空数组(fail-closed):留空=不配置=保守停机;请清除该变量而非传空数组");
+  }
+  const out: CheckSpec[] = [];
+  for (const item of parsed) {
+    const s = (item ?? {}) as Record<string, unknown>;
+    const kind = String(s["kind"] ?? "");
+    if (!FUNCTIONAL_EVIDENCE_KINDS.has(kind)) {
+      throw new Error(
+        `RELAY_EVIDENCE_CHECKS_JSON.kind 必须为功能性证据(${[...FUNCTIONAL_EVIDENCE_KINDS].join("/")});得到 ${kind}(fail-closed)`,
+      );
+    }
+    const cmd = s["command"];
+    if (!Array.isArray(cmd) || cmd.length === 0 || !cmd.every((c) => typeof c === "string" && c.length > 0)) {
+      throw new Error("RELAY_EVIDENCE_CHECKS_JSON.command 必须为非空字符串数组(argv 直启,无 shell;fail-closed)");
+    }
+    const timeoutMs = s["timeoutMs"];
+    if (
+      timeoutMs !== undefined &&
+      (!Number.isFinite(Number(timeoutMs)) || Number(timeoutMs) < 1000 || Number(timeoutMs) > 600_000)
+    ) {
+      throw new Error("RELAY_EVIDENCE_CHECKS_JSON.timeoutMs 必须在 1000~600000(fail-closed)");
+    }
+    out.push({
+      kind: kind as CheckSpec["kind"],
+      command: cmd as string[],
+      ...(s["cwdWorkspace"] === false ? {} : { cwdWorkspace: true }),
+      ...(timeoutMs !== undefined ? { timeoutMs: Number(timeoutMs) } : {}),
+      ...(typeof s["expectOutputContains"] === "string" && (s["expectOutputContains"] as string).length > 0
+        ? { expectOutputContains: s["expectOutputContains"] as string }
+        : {}),
+    });
+  }
+  return out;
+}
+
 /** 启动独立 worker(测试与生产同入口;调用方负责 closeDb)。 */
-export function startWorkerEntry(opts: WorkerEntryOptions = {}): { handle: WorkerEntryHandle; driver: WorkerDriver; dbUrl: string } {
+export function startWorkerEntry(opts: WorkerEntryOptions = {}): {
+  handle: WorkerEntryHandle;
+  driver: WorkerDriver;
+  dbUrl: string;
+} {
+  // P0-2:检查配置在连接 DB 之前解析(非法 ⇒ 启动即抛,零连接零副作用)
+  const evidenceChecks = resolveEvidenceChecks(process.env.RELAY_EVIDENCE_CHECKS_JSON);
   const intervalMs = opts.intervalMs ?? Number(process.env.RELAY_WORKER_INTERVAL_MS ?? "15000");
   const workerId = opts.workerId ?? process.env.RELAY_WORKER_ID ?? "relay-worker-1";
   const { pool, db } = connectDb(opts.dbUrl ?? process.env.RELAY_DB_URL, process.env.RELAY_DB_SCHEMA || undefined);
@@ -41,11 +101,12 @@ export function startWorkerEntry(opts: WorkerEntryOptions = {}): { handle: Worke
     workerId,
     sandbox: process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker",
     stageBaseDir: process.env.RELAY_WEB_STAGE_DIR ?? join(homedir(), ".relay", "stage"),
+    ...(evidenceChecks ? { evidenceChecks } : {}),
   };
   const driver = createLiveWorkerDriver(driverOptions);
   // R2-REMEDIATION-01:输出上限配置横幅(非法配置 ⇒ 启动即抛=fail-closed;未配置=默认 8192)
   const maxOutputTokensConfigured = resolveMaxOutputTokens(process.env.RELAY_MAX_OUTPUT_TOKENS);
-  const banner = `[relay-worker] started workerId=${workerId} intervalMs=${intervalMs} sandbox=${process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker"} maxOutputTokens=${maxOutputTokensConfigured ?? DEFAULT_MAX_OUTPUT_TOKENS}${maxOutputTokensConfigured === undefined ? "(默认)" : "(配置)"} pid=${process.pid}`;
+  const banner = `[relay-worker] started workerId=${workerId} intervalMs=${intervalMs} sandbox=${process.env.RELAY_WEB_SANDBOX === "host-fallback" ? "host-fallback" : "docker"} maxOutputTokens=${maxOutputTokensConfigured ?? DEFAULT_MAX_OUTPUT_TOKENS}${maxOutputTokensConfigured === undefined ? "(默认)" : "(配置)"} evidenceChecks=${evidenceChecks ? evidenceChecks.length : "未配置(Gate 保守停机)"} pid=${process.pid}`;
   console.log(banner);
 
   // supervisor 环路:租约回收/Reconcile/REWORK 释放(独立于 goal 环路,间隔可不同)
@@ -62,14 +123,20 @@ export function startWorkerEntry(opts: WorkerEntryOptions = {}): { handle: Worke
           try {
             const eg: EgressStatus = await ensureEgress(base);
             driverOptions.egress = eg.ok ? eg : undefined;
-            console.log(`[relay-worker] egress ${eg.ok ? `ready(network=${eg.network})` : `unavailable:${eg.reason ?? "?"}`}`);
+            console.log(
+              `[relay-worker] egress ${eg.ok ? `ready(network=${eg.network})` : `unavailable:${eg.reason ?? "?"}`}`,
+            );
           } catch (err) {
-            console.log(`[relay-worker] egress init failed:${err instanceof Error ? err.message : String(err)}(FAIL-CLOSED 不领取)`);
+            console.log(
+              `[relay-worker] egress init failed:${err instanceof Error ? err.message : String(err)}(FAIL-CLOSED 不领取)`,
+            );
           }
         }
       }
       const report = await driver.tick();
-      console.log(`[relay-worker] tick status=${report.status} claimed=${report.tick?.claimed?.taskId ?? "-"} at=${new Date().toISOString()}`);
+      console.log(
+        `[relay-worker] tick status=${report.status} claimed=${report.tick?.claimed?.taskId ?? "-"} at=${new Date().toISOString()}`,
+      );
       return report;
     },
     { intervalMs },

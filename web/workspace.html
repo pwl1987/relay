@@ -66,6 +66,10 @@
             </div>
             <div class="ws-composer-row">
               <textarea id="ws-input" rows="1" placeholder="告诉 Relay 你想做什么……" data-testid="ws-input"></textarea>
+              <!-- RELAY-CONTROL-READY-03 方案 A:单输入框 + 明确双操作。
+                   普通"发送"=只交流/记录(永不创建任务);"交给 Relay 执行"=显式请求(经服务器授权后创建受控任务)。
+                   空白态(未选会话)只显示"开始"(POST /api/goals 显式创建入口,语义不变)。 -->
+              <button class="btn btn-primary" id="ws-execute" type="button" data-testid="ws-execute" hidden>交给 Relay 执行</button>
               <button class="btn btn-primary" id="ws-send" type="button" data-testid="ws-send">开始</button>
             </div>
             <div class="ws-composer-foot">
