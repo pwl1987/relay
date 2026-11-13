@@ -93,3 +93,9 @@ ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模�
 - 子包② R2 工程修复已由 `6d3eddb` 完成并经 Reviewer PASS-WITH-FINDINGS，`maxOutputTokens` 默认 8192、范围 1024–128000、超界 fail-closed。F2-R/F1-R 两次真实尝试均被上游 502 阻断，能力对照结论保持 UNRESOLVED，不自动重跑。
 - 子包③ AUTOLOOP-REFERENCE-00 审计与独立复核已完成，维持候选/延后/拒绝结论，不引入第二控制平面。
 - 当前停点是用户 Mac LAN 与手机 VPN 实机验收入口；REAL-PILOT、MODEL-POLICY-01、R-3B 仍未启动。
+
+## RELAY-ARCH-FREEZE-01 收口（2026-11-13）
+
+- 独立审计（新窗口冷启动，未沿用上轮自评）：A1~A5/A7/A8 PASS；A3/A4 设计层 PASS（接管/PlanRevision 等明示 OPEN，代码无虚假宣称）；A6=REWORK 但属实现缺口非设计缺陷。
+- A6 缺口定位（交新包阶段 D 反例测试）：①生产 worker-entry 不传 evidenceChecks（src/server/worker.ts:205 条件展开）⇒ 生产 Gate PASS 仅 reviewer_output 证据；②src/core/gates.ts:80 PASS 仅要求 evidenceIds 非空，reviewer_output 计入 ⇒ Reviewer 输出可单独满足；③gate-orchestrator.ts:110+lease.ts:212 gate_required=false 豁免通道（当前无写入点，goals.ts INSERT 省略列默认 true，属潜伏逃生口）；④证据无 SKIPPED/NOT_RUN 状态，"缺席"不可见。
+- 收口证据：live main=dcb26cd 与本地一致；exact-head CI 43372681642@dcb26cd=success；纯设计文档变更（99ddb4b 10 文件 +227/-8），不表示新功能已实现。

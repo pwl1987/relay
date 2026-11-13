@@ -1,11 +1,12 @@
 # Relay 当前执行契约
 
-- 当前唯一待复核包：**RELAY-ARCH-FREEZE-01 REVIEW_PENDING（已快进推送，尚未独立验收）**；当前没有新的 ACTIVE 实施授权。合同 7251ecb、设计文档/ADR 99ddb4b、阻断实录 4a76c68 均已推送 GitHub main；后续本次更正提交本身仍须验证 exact-head CI。
-- 权威起点：GitHub origin/main = 51972cdeb89ac87a13e57215ac959d60b7d95c5c；VM80 本地 main/远端一致，受跟踪文件无修改；未跟踪 config/ 与 p0-mvp/soak-r3b/ 为受保护遗留产物，严禁触碰或提交。
-- Writer：本轮人工接管用于受控文档编辑；在记录阻断后释放给自动控制器。受保护未跟踪目录仍保留，未触碰。严禁为恢复推送创建其他分支、重置工作区或强推。
+- **RELAY-ARCH-FREEZE-01 ✅ 收口（2026-11-13 独立审计 PASS）**：新执行窗口冷启动独立复核（未沿用上轮自评）=A1~A5/A7/A8 PASS、A3/A4 设计层 PASS（OPEN 项如实标注）；A6 判 REWORK——但属**实现缺口非设计缺陷**（生产 worker-entry 不传 evidenceChecks、reviewer_output 可单独满足证据非空、gate_required=false 潜伏豁免通道、证据无 SKIPPED/NOT_RUN 区分），修复已列入新包阶段 D 授权范围。收口证据：live main=dcb26cd 与本地一致；exact-head CI 43372681642@dcb26cd=success（gh run list 亲测）；工作区仅受保护未跟踪 config/、p0-mvp/soak-r3b/；合同 7251ecb、设计 99ddb4b、实录 4a76c68/dcb26cd 全链推送且 CI 绿。本包为纯设计文档变更，不表示新功能已实现。
+- 权威起点：GitHub origin/main = dcb26cd18f7b407b9be0f30056669235cb465dd3；VM80 本地 main/远端一致，受跟踪文件无修改；未跟踪 config/ 与 p0-mvp/soak-r3b/ 为受保护遗留产物，严禁触碰或提交。
+- Writer：本窗口（RELAY-QUALITY-LOCAL-01 执行+前置独立审计）为唯一 Writer；main-only 快进推送，禁强推/建分支/改历史。
+- 旧包历史结论：RELAY-ARCH-FREEZE-01 收口前状态（REVIEW_PENDING/推送阻断）见 git 历史 4a76c68、dcb26cd 及 docs/CONTINUATION.md 对应节，不改写。
 - 结果边界：基于现有 ARCHITECTURE_BASELINE/CONTRACTS/DELIVERY/VALIDATION/INTEGRATIONS，新增或精简 Agent 控制、计划修订、多 Agent 权限、Pi/pstack 边界、本地质量检查/GitHub 外部复核、机器证据、性能与评分原则；保持唯一状态与治理事实源。
-- 核查：文档相对链接/章节契约检查 PASS，git diff --check PASS，npm run typecheck PASS；没有修改产品代码/部署。独立 Reviewer、变更后的 exact-head GitHub CI 和真实接管/质量 E2E 均 NOT_RUN，不能宣称全面验收。
-- 推送恢复：2026-11-13 通过 VM80 本地 HTTP 代理 127.0.0.1:8118 完成快进推送，GitHub API 确认远端 HEAD=4a76c68a8798b66cfcd3c71024304488a598dc10；Actions https://github.com/pwl1987/relay/actions/runs/43372512499 已启动，最终结论及当前更正提交的 exact-head CI 待核实。独立只读 Reviewer 尚未执行；设计原则可保持 FROZEN，整包不能报 PASS。旧 MVP REWORK、R-2/R-3 PARTIAL 不变。
+- 核查（收口时点）：独立复核=A1~A8 逐项有代码证据；exact-head CI 43372681642@dcb26cd=success；typecheck/doc 检查沿用上包记录。真实接管/质量 E2E 与新质量入口实现属新包范围，未实施不宣称。
+- 旧 MVP REWORK、R-2/R-3 PARTIAL 历史裁决不变；MODEL-POLICY-01、REAL-PILOT、R-3B 仍不启动。
 
 ## 历史执行记录（只供追溯，不是当前 ACTIVE 授权）
 
