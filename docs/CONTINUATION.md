@@ -128,3 +128,15 @@ ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模�
 - **明确用户决策**：选择 ACTIVE Goal 消息分类方案 A：一个输入框；“发送”只交流/记录，显式“交给 Relay 执行”才可创建新的受控 Task/Run。此前 C 方案是尚未迁移的旧代码行为，不是新授权；详情见 CURRENT.md 唯一 ACTIVE 合同、CONTRACTS.md §2 与 safety-close-02/SEMANTICS-P0A.md §3。
 - **有界顺序**：先审计+实现聊天/执行显式意图和 PAUSED/终态安全守卫 → 受控功能性 Gate 配置与隔离实测 → abort/人工接管/交还的最小闭环 → 确定性反例、浏览器回归、独立复核、GitHub exact-head CI。生产部署、真实模型调用与远端写入不自动授权。
 - **本次提交性质**：只登记已批准的产品决策及下一阶段范围；不代表任何功能已经实现或真实生产验收通过。最新 SHA/CI 以 live GitHub main 为准；Writer 由本次文档登记操作临时接管，随后释放给本地开发 Agent。
+
+## RELAY-CONTROL-READY-03（2026-11-13，✅ 收口，裁决 PASS）
+
+- 合同冻结 bf68a65（用户方案 A 裁决:单输入框;普通发送=只交流/记录;显式「交给 Relay 执行」=经后端授权才建 Task;**撤销 WEB-UX-03C §0 自动派生旧约定**;三子项=P0 对话授权闭环/P0 生产 Gate 可用性/P1 停止接管最小切片）。实施 079b97d（18 文件 +2086/-528）→ Reviewer REWORK 消化 6b8dcb1 → CI 失败修复 7ede3b4;exact-head CI **43430354996@7ede3b4 双 job success**(诚实记录 43429519863@6b8dcb1 test failure=时间戳 String(Date) 丢毫秒真实缺陷,已修复);独立 Reviewer 两轮:REWORK(1 Major F-1+6 Minor)→ 修复 → **PASS**(独立探针交叉验证;报告 p0-mvp/control-ready-03/REVIEW-CONTROL-READY-03.md)。
+- **P0-1 方案 A**:迁移 0008 goal_messages.execution_request(INSERT 落库,append-only 覆盖新列[探针 A]);普通消息任何状态永不派生永不映射(旧客户端缺省 false 安全降级);显式执行=原子幂等防重(单语句 INSERT...WHERE NOT EXISTS:同内容未消费或其任务非终态 ⇒ 拒绝;10 并发探针 1 消息 1 任务 9 duplicate)+Goal 状态守卫(ACTIVE 空闲立即派生/在途排队安全边界/终态不重开 goal_closed/**PAUSED 绝对不自动重激活[Minor-3 收口,探针 E]**)+在途排队边界消费=可审计重激活(GOAL_ACTIVE reason=execute_boundary);API 反馈三态;Web 单输入框双操作(ws-execute ≥44px);旅程 C5/C6/M5/M6 更新并真实浏览器绿;反例留证=旧代码 9 用例失败日志。
+- **P1-3 停止/接管**:迁移 0009 tasks.abort_requested_at;requestTaskAbort(幂等 set-if-null/仅在飞/OPERATOR/版本校验)+API /abort|/takeover(TASK_TAKEOVER_REQUESTED 审计;无 force-revoke 竞争);worker Run 期 1s 轮询旗标→runner cancelSignal→SIGTERM→SIGKILL→run=CANCELLED→任务合法转移;**F-1 修复=orchestrateGate 前置(2.4)+后置(4.5)双检查 isAbortRequested⇒VERIFYING→CANCELLED+TASK_ABORT_CONFIRMED(STOP_CONFIRMED)+裁决不记录不消费;goal-loop 交付防线(DELIVERY_ABORT_SKIPPED)**;反例回归 3 用例(前置拦截 Reviewer 零调用/后置拦截裁决作废/交付防线 propose 零调用);跨进程真实信号测试(SIGKILL/残余子进程死亡/旧 fencing 拒绝/重复幂等/403)。
+- **P0-2**:worker-entry RELAY_EVIDENCE_CHECKS_JSON 严格 fail-closed(功能性 kind 白名单 deterministic_test/api_behavior;坏配置启动即抛;解析先于 DB 连接;未配置=Gate 保守停机不降级)。
+- 实测:quality:quick PASS;quality:release PASS ×2(304+30 过/52+2 门控 skip;备份恢复;github-real 授权门 2 过 3 skip);tsc/biome 0 error。
+- **生产影响**:worker/web 未重启 ⇒ 线上行为不变;重启后方案 A 与 abort/takeover 生效、Gate 未配置检查时保守停机(P0-2 取值待部署配置授权)。**回滚=revert 7ede3b4 6b8dcb1 079b97d**。
+- **登记后续包义务(Reviewer M 项)**:M-1 幂等并发唯一索引兜底;M-3 TASK_ABORT_CONFIRMED 审计失败告警;M-4 handback 专端点与 AGENT_CONTROL §4 交还核对流程;M-5 ControlCommand 结构化审计 detail(幂等键/计划版本/控制权版本);微窗口 B 可选收紧(proposeDelivery 事务内再查旗标)。
+- 显式 NOT_RUN:模型门禁 e2e(需授权)/真实远端写入(需授权,零远端写入)/生产部署验证与 worker 重启(未触碰)/abort 真实模型 Run 演练(零模型约束)。
+- 下一包建议:生产部署配置包(RELAY_EVIDENCE_CHECKS_JSON 取值+重启窗口,需独立授权)→ E-7 NEEDS_RECONCILE 自愈 → M-5 ControlCommand 结构化。
