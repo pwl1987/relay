@@ -36,7 +36,7 @@
 
 ## 5. 生产 DB schema 面(只读)
 
-relay_console 17 表全部在位(含 0006_goal_messages/0007_goal_message_consumptions);goal_messages=1 行/goal_message_consumptions=1 行(演练 Goal 首消息+消费记录)。03B 会话事实特性生产可用(与 DEPLOY-03D 迁移修复后状态一致,无回归)。
+relay_console **16 表**全部在位(含 0006_goal_messages/0007_goal_message_consumptions;~~原记 17 系本报告误数~~,经用户独立复核实测 16 普通表,已于复核消化节更正);goal_messages=1 行/goal_message_consumptions=1 行(演练 Goal 首消息+消费记录)。03B 会话事实特性生产可用(与 DEPLOY-03D 迁移修复后状态一致,无回归)。
 
 ## 6. Chromium 真实双端冒烟(Playwright Chromium;零发送=零模型消耗)
 
@@ -91,3 +91,17 @@ relay_console 17 表全部在位(含 0006_goal_messages/0007_goal_message_consum
 4. 生产真实 Decision 处置动作(当前无未决 Decision 可操作;组件级由 e2e 覆盖)。
 5. GitHub raw 指纹仅抽查 2 资产(其余 4 资产以本地=served 双方一致+工作树=origin/main 等价推得)。
 6. CI @`9b05cfb`(合同登记提交,仅 CURRENT.md 文字变更;推送后 CI 结果待确认,不影响产品代码结论)。
+
+## 11. 用户独立复核发现消化(复核提交 3dea3fa;PASS-WITH-FINDINGS 零 REWORK)
+
+用户于本包执行期间并行独立复核子包①(重新核对 live main/进程/监听/HTTP/Chromium 亲跑 17/17/截图亲看/生产 PG 直查),五发现逐项消化:
+
+| 发现 | 消化 |
+| --- | --- |
+| F-1 表计数 17 系误数 | ✅ 已更正 §5 为 16 表(独立复核实测口径;后续报告以此为准) |
+| F-2 证据应记结果提交 SHA | ✅ 结果提交=02c19f2(子包①证据);本报告形成时 HEAD=9b05cfb 属时序如实;后续证据一律优先记结果 SHA(本节即结果提交内) |
+| F-3 exact-head CI 不可独立确认 | ✅ **已确认:CI 43330123942 = success(2m36s)@02c19f2**(gh run list 实证;用户连接器空返回系查询通道问题,非 CI 缺失) |
+| F-4 未验证项保持有效 | ✅ 如实维持(真机 A2HS/Android HTTPS 后安装/生产 Follow-up 发送/真实 Decision 动作留用户实机) |
+| F-5 d-04 截图命名 | ✅ 注记:d-04=桌面右栏折叠态截图,移动技术详情以 m-04 sheet 为准(不影响结论) |
+
+复核裁决遵从:子包①进入收口不改产品代码;不升级为 UX/PWA 已验收;R2 工程修复保留,F1/F2 对照 UNRESOLVED 维持;不启动 REAL-PILOT/MODEL-POLICY-01/公网开放。
