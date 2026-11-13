@@ -200,17 +200,39 @@ export async function orchestrateGate(
       };
     }
     await expireVerificationLease(db as unknown as Exec, input.taskId, actor);
-    await appendAudit(db as unknown as Exec, {
-      actor,
-      authority: "GATE",
-      action: "TASK_ABORT_CONFIRMED",
-      taskId: input.taskId,
-      detail: {
-        changesetId: changeset.id,
-        candidateSha: changeset.candidateSha,
-        note: "紧急停止旗标生效:VERIFYING→CANCELLED;裁决不记录不消费,交付不发生(STOP_CONFIRMED=本审计)",
-      },
-    });
+    // P1-C C4:STOP_CONFIRMED 权威事实不得静默丢失 —— 重试一次后仍失败 ⇒ 结构化可观察告警
+    //(状态推进已生效;审计失败如实告警,需人工补记,绝不无声吞掉)
+    const confirmAudit = (): Promise<unknown> =>
+      appendAudit(db as unknown as Exec, {
+        actor,
+        authority: "GATE",
+        action: "TASK_ABORT_CONFIRMED",
+        taskId: input.taskId,
+        detail: {
+          changesetId: changeset.id,
+          candidateSha: changeset.candidateSha,
+          note: "紧急停止旗标生效:VERIFYING→CANCELLED;裁决不记录不消费,交付不发生(STOP_CONFIRMED=本审计)",
+        },
+      });
+    try {
+      await confirmAudit();
+    } catch {
+      await new Promise((r) => setTimeout(r, 250));
+      try {
+        await confirmAudit();
+      } catch (err) {
+        console.error(
+          `[gate-orchestrator] AUDIT_WRITE_FAILED(审计写入失败,已重试 1 次;事件未落库,需人工补记) ${JSON.stringify({
+            level: "AUDIT_WRITE_FAILED",
+            action: "TASK_ABORT_CONFIRMED",
+            taskId: input.taskId,
+            changesetId: changeset.id,
+            error: err instanceof Error ? err.message : String(err),
+            at: new Date().toISOString(),
+          })}`,
+        );
+      }
+    }
     return {
       status: "CANCELLED" as const,
       reason: "abort_requested",

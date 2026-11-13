@@ -171,15 +171,18 @@ export function dockerCheckRunner(options: DockerCheckRunnerOptions = {}): Check
           const rawOutput = [`$ ${spec.command.join(" ")}`, stdout ?? "", stderr ?? ""].join("\n").trimEnd();
           if (err) {
             const killed = (err as { killed?: boolean }).killed === true;
+            const enobufs = (err as { code?: unknown }).code === "ENOBUFS";
             if (killed) {
-              // 超时:docker client 被杀 ≠ 容器被杀 ⇒ 按容器名终止整进程组(幂等)
+              // 超时/输出溢出:docker client 被杀 ≠ 容器被杀 ⇒ 按容器名终止整进程组(幂等)
               killContainer(containerName);
             }
             const marker = abortSignal?.cancelled
               ? "ABORTED"
-              : killed
-                ? "TIMEOUT"
-                : String((err as { code?: unknown }).code ?? "nonzero");
+              : enobufs
+                ? "OUTPUT_OVERFLOW" // Reviewer Minor-5:输出超 maxBuffer ≠ 超时;结果安全(失败),标记如实
+                : killed
+                  ? "TIMEOUT"
+                  : String((err as { code?: unknown }).code ?? "nonzero");
             resolve({
               passed: false,
               rawOutput: `${rawOutput}\n[exit=${marker}]`,

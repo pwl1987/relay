@@ -297,13 +297,15 @@ describe("P0-B B4:外部动作已在途 ⇒ 诚实回执,不虚假 STOP_CONFIRME
     expect(req.ok).toBe(true);
     expect(req.phase).toBe("delivery");
     expect(req.controlState).toBe("already_delivered");
-    // 无停止对象 ⇒ 不置旗(旗标保持 NULL)、不产生新的生效审计
+    // 无停止对象 ⇒ 不置旗(旗标保持 NULL);C3 命令回执审计如实(actualResult=no_op,零状态变更)
     const flag = await t.db.execute(sql`SELECT abort_requested_at FROM tasks WHERE id = ${taskId}`);
     expect(flag.rows[0]!["abort_requested_at"]).toBeNull();
-    const audits = await t.db.execute(
-      sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id = ${taskId} AND action = 'TASK_ABORT_REQUESTED'`,
-    );
-    expect(Number(audits.rows[0]!["n"])).toBe(0);
+    const audits = await t.db.execute(sql`
+      SELECT detail FROM audit_events WHERE task_id = ${taskId} AND action = 'TASK_ABORT_REQUESTED' ORDER BY seq DESC LIMIT 1`);
+    const detail = (audits.rows[0]!["detail"] ?? {}) as Record<string, unknown>;
+    expect(detail["actualResult"]).toBe("no_op");
+    expect(detail["controlState"]).toBe("already_delivered");
+    expect(String(detail["note"])).toContain("不撤销已发生的外部提交");
     // B2:已发生的外部提交不可撤销 —— 远端保持 DELIVERED 事实
     expect(seeded.remote.head()).toBe(seeded.candidateSha);
   });
@@ -348,7 +350,7 @@ describe("P0-B B7:确定性竞争处理(版本/幂等/相位)", () => {
     expect(rej.reason).toBe("state_terminal:ACCEPTED");
   });
 
-  it("deliveryStopPhase 五态判别:none/not_started/external_in_progress/already_delivered", async () => {
+  it("deliveryStopPhase 相位判别:none/not_started/external_in_progress/external_write_done/external_outcome_unknown/already_delivered", async () => {
     const taskId = `t-stop-${randomUUID().slice(0, 8)}`;
     const goalId = `g-${randomUUID().slice(0, 8)}`;
     await t.db.execute(sql`INSERT INTO goals (id, raw_input, state) VALUES (${goalId}, 'phase probe', 'ACTIVE')`);
@@ -375,8 +377,89 @@ describe("P0-B B7:确定性竞争处理(版本/幂等/相位)", () => {
     expect(await deliveryStopPhase(t.db as unknown as Exec, taskId)).toBe("not_started");
     await t.db.execute(sql`UPDATE action_intents SET state='EXECUTING' WHERE id='i-x'`);
     expect(await deliveryStopPhase(t.db as unknown as Exec, taskId)).toBe("external_in_progress");
+    // Reviewer Major-1 回归:perform 完成回执未落(intent COMPLETED)≠ 未开始 ⇒ external_write_done
+    await t.db.execute(sql`UPDATE action_intents SET state='COMPLETED' WHERE id='i-x'`);
+    expect(await deliveryStopPhase(t.db as unknown as Exec, taskId)).toBe("external_write_done");
+    // 执行失败/冲突:副作用是否发生不确定 ⇒ external_outcome_unknown(Reconcile 语义)
+    await t.db.execute(sql`UPDATE action_intents SET state='FAILED' WHERE id='i-x'`);
+    expect(await deliveryStopPhase(t.db as unknown as Exec, taskId)).toBe("external_outcome_unknown");
+    await t.db.execute(sql`UPDATE action_intents SET state='CONFLICT' WHERE id='i-x'`);
+    expect(await deliveryStopPhase(t.db as unknown as Exec, taskId)).toBe("external_outcome_unknown");
     await t.db.execute(sql`UPDATE candidate_changesets SET delivery_state='DELIVERED' WHERE id=${csId}`);
     expect(await deliveryStopPhase(t.db as unknown as Exec, taskId)).toBe("already_delivered");
+  });
+});
+
+describe("P0-B Major-1 修复回归:perform 完成回执未落窗口 ⇒ 诚实回执,交付收尾不受阻断", () => {
+  it("DELIVERING + intent COMPLETED 停止请求 ⇒ controlState=external_write_done + 零'尚未发生'虚假陈述 + 不置旗 + 重执行完成 DELIVERED", async () => {
+    const taskId = `t-stop-${randomUUID().slice(0, 8)}`;
+    const seeded = await seedAcceptedDelivery({ taskId });
+    const proposal = await proposeOk({
+      taskId,
+      remote: seeded.remote,
+      ws: seeded.ws,
+      expectedRemoteSha: seeded.remote.head(),
+    });
+    // 构造真实窗口:外部提交已发生(push 完成)、intent COMPLETED、changeset 仍 DELIVERING
+    execFileSync("git", ["-C", seeded.ws.dir, "push", "--quiet", seeded.remote.url, "main:main"], { encoding: "utf8" });
+    await t.db.execute(sql`
+      INSERT INTO action_intents (id, task_id, idempotency_key, capability, target, branch, state)
+      VALUES ('i-m1', ${taskId}, 'k-m1', 'github.push', ${seeded.remote.url}, 'main', 'COMPLETED')`);
+    await t.db.execute(
+      sql`UPDATE candidate_changesets SET delivery_state='DELIVERING', delivery_intent_id='i-m1' WHERE task_id=${taskId}`,
+    );
+    const req = await requestTaskAbort(t.db as unknown as Exec, taskId, { actor: "owner" });
+    expect(req.ok).toBe(true);
+    expect(req.phase).toBe("delivery");
+    expect(req.controlState).toBe("external_write_done");
+    // 虚假陈述面:该窗口审计绝不声称"尚未发生外部写入"(Reviewer Major-1 反例)
+    const audits = await t.db.execute(sql`
+      SELECT detail FROM audit_events WHERE task_id = ${taskId} AND action = 'TASK_ABORT_REQUESTED' ORDER BY seq DESC LIMIT 1`);
+    const note = String(((audits.rows[0]!["detail"] ?? {}) as Record<string, unknown>)["note"] ?? "");
+    expect(note).not.toContain("尚未发生外部写入");
+    expect(note).toContain("外部提交已发生");
+    // 旗标未置 ⇒ 交付收尾不被阻断:重执行经 CONSUMED 恢复路径核对补记 DELIVERED
+    const flag = await t.db.execute(sql`SELECT abort_requested_at FROM tasks WHERE id = ${taskId}`);
+    expect(flag.rows[0]!["abort_requested_at"]).toBeNull();
+    await t.db.execute(sql`UPDATE action_proposals SET state='CONSUMED' WHERE id=${proposal!.id}`);
+    const res = await executeDelivery(t.db, makeIo(seeded), proposal!.id, { actor: "stop-test" });
+    expect(res.ok).toBe(true);
+    const csRow = await latestChangeset(t.db as unknown as Exec, taskId);
+    expect(csRow?.deliveryState).toBe("DELIVERED");
+  });
+
+  it("DELIVERING + intent FAILED 停止请求 ⇒ controlState=external_outcome_unknown + 置旗(阻止后续外部写入)+ 如实审计", async () => {
+    const taskId = `t-stop-${randomUUID().slice(0, 8)}`;
+    const seeded = await seedAcceptedDelivery({ taskId });
+    await proposeOk({ taskId, remote: seeded.remote, ws: seeded.ws, expectedRemoteSha: seeded.remote.head() });
+    await t.db.execute(sql`
+      INSERT INTO action_intents (id, task_id, idempotency_key, capability, target, branch, state)
+      VALUES ('i-m1b', ${taskId}, 'k-m1b', 'github.push', ${seeded.remote.url}, 'main', 'FAILED')`);
+    await t.db.execute(
+      sql`UPDATE candidate_changesets SET delivery_state='DELIVERING', delivery_intent_id='i-m1b' WHERE task_id=${taskId}`,
+    );
+    const req = await requestTaskAbort(t.db as unknown as Exec, taskId, { actor: "owner" });
+    expect(req.ok).toBe(true);
+    expect(req.controlState).toBe("external_outcome_unknown");
+    const note = await t.db.execute(sql`
+      SELECT detail FROM audit_events WHERE task_id = ${taskId} AND action = 'TASK_ABORT_REQUESTED' ORDER BY seq DESC LIMIT 1`);
+    const detail = (note.rows[0]!["detail"] ?? {}) as Record<string, unknown>;
+    expect(String(detail["note"])).toContain("不能确定");
+    const flag = await t.db.execute(sql`SELECT abort_requested_at FROM tasks WHERE id = ${taskId}`);
+    expect(flag.rows[0]!["abort_requested_at"]).not.toBeNull();
+    // 置旗 ⇒ 重执行被入口边界拦截(操作者明确要求停止后续外部写入)
+    const res = await executeDelivery(
+      t.db,
+      makeIo(seeded),
+      (
+        await t.db.execute(
+          sql`SELECT id FROM action_proposals WHERE task_id=${taskId} ORDER BY updated_at DESC LIMIT 1`,
+        )
+      ).rows[0]!["id"] as string,
+      { actor: "stop-test" },
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.state).toBe("STOPPED");
   });
 });
 

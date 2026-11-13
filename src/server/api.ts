@@ -848,7 +848,8 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         return fail(status, reason);
       }
       // RELAY-CONTROL-SAFETY-04 P1-C C1/C2:回执显式区分相位与控制权状态 —— 停止确认前
-      // 不构成"获得人工控制权";交付相位回执按真实交付态(external_in_progress 不声称已停止)。
+      // 不构成"获得人工控制权";交付相位回执按真实交付态(Reviewer Major-1 分档:每个相位
+      // 的陈述必须与远端事实一致,绝不声称"尚未发生外部写入"除非确属 not_started)。
       const isDeliveryPhase = result.phase === "delivery";
       return ok({
         taskId,
@@ -859,9 +860,13 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         note: isDeliveryPhase
           ? result.controlState === "external_in_progress"
             ? "已登记交付停止请求;外部写入已在进行,不声称已停止——最终结果以远端核对为准(可能 NEEDS_RECONCILE)。"
-            : result.controlState === "already_delivered"
-              ? "交付已完成,停止请求不撤销已发生的外部提交(如实告知)。"
-              : "已登记交付停止请求;外部写入尚未开始,边界检查将阻止其发生。"
+            : result.controlState === "external_write_done"
+              ? "外部提交已完成,停止请求无法撤销已发生的写入;交付收尾将照常核对(DELIVERED 或 NEEDS_RECONCILE)。"
+              : result.controlState === "external_outcome_unknown"
+                ? "交付执行已失败/冲突,外部副作用是否发生不能确定;停止请求已阻止后续外部写入,结果以核对/Reconcile 为准。"
+                : result.controlState === "already_delivered"
+                  ? "交付已完成,停止请求不撤销已发生的外部提交(如实告知)。"
+                  : "已登记交付停止请求;外部写入尚未开始,边界检查将阻止其发生。"
           : "已请求紧急停止;执行端确认生效后任务进入 CANCELLED;停止确认前不构成获得人工控制权(STOP_CONFIRMED 以审计为准)。",
       });
     }
@@ -909,9 +914,13 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         note: isDeliveryPhase
           ? result.controlState === "external_in_progress"
             ? "接管请求已接收;交付外部写入已在进行,不声称接管完成——最终结果以远端核对为准。"
-            : result.controlState === "already_delivered"
-              ? "交付已完成;接管请求不撤销已发生的外部提交(如实告知)。"
-              : "接管请求已接收;交付外部写入尚未开始,边界检查将阻止其发生。"
+            : result.controlState === "external_write_done"
+              ? "外部提交已完成,接管请求无法撤销已发生的写入;交付收尾将照常核对。"
+              : result.controlState === "external_outcome_unknown"
+                ? "交付执行已失败/冲突,外部副作用是否发生不能确定;接管请求已阻止后续外部写入,结果以核对/Reconcile 为准。"
+                : result.controlState === "already_delivered"
+                  ? "交付已完成;接管请求不撤销已发生的外部提交(如实告知)。"
+                  : "接管请求已接收;交付外部写入尚未开始,边界检查将阻止其发生。"
           : "接管请求已接收(停止在飞执行并撤销其写入资格);控制权转移以 STOP_CONFIRMED 审计为准,当前状态=stop_pending_confirmation。",
       });
     }

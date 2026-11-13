@@ -212,10 +212,16 @@ export interface AbortResult {
 
 /**
  * 交付阶段相位查询(P0-B B1 五态判别;基于既有 changeset.delivery_state + proposal +
- * intent 状态,不复制状态机):not_started(未开始)/ external_in_progress(外部动作已在进行)/
- * already_delivered(已交付)/ none(无可停止交付)。
+ * intent 状态,不复制状态机):
+ *   not_started(未开始)/ external_in_progress(外部动作已在进行)/
+ *   external_write_done(外部提交已发生、交付回执未落 —— perform 完成至 markDelivered 之间
+ *   的真实窗口,含两次远端核对;停止请求不可撤销已发生的提交)/
+ *   external_outcome_unknown(执行失败/冲突:副作用是否发生不确定 ⇒ Reconcile 语义)/
+ *   already_delivered(已交付)/ none(无可停止交付)。
  * 注意:proposeDelivery 只建 action_proposals 行,changeset.delivery_state 在 executeDelivery
  * 才推进 —— "已批准未执行"的相位必须同时查 proposal 面(P0-B B7 竞争测试实证)。
+ * Reviewer Major-1 修复:DELIVERING + intent COMPLETED 绝不判 not_started —— 外部提交已落
+ * 远端,回执/审计不得声称"尚未发生外部写入"。
  */
 export async function deliveryStopPhase(exec: Exec, taskId: string): Promise<string> {
   const res = await exec.execute(sql`
@@ -231,8 +237,11 @@ export async function deliveryStopPhase(exec: Exec, taskId: string): Promise<str
   const ds = String(row["delivery_state"] ?? "NONE");
   if (ds === "DELIVERED") return "already_delivered";
   if (ds === "DELIVERING") {
-    // intent 已 EXECUTING = 外部动作可能已在进行(诚实相位;绝不声称已停止)
-    return String(row["intent_state"] ?? "") === "EXECUTING" ? "external_in_progress" : "not_started";
+    const intentState = String(row["intent_state"] ?? "");
+    if (intentState === "EXECUTING") return "external_in_progress";
+    if (intentState === "COMPLETED") return "external_write_done";
+    if (intentState === "FAILED" || intentState === "CONFLICT") return "external_outcome_unknown";
+    return "not_started"; // RESERVED/无 intent 行:perform 未开始 ⇒ 真实"未开始"
   }
   if (ds === "PROPOSED") return "not_started";
   if (ds === "NONE") {
@@ -244,7 +253,7 @@ export async function deliveryStopPhase(exec: Exec, taskId: string): Promise<str
     `);
     return p.rows.length > 0 ? "not_started" : "none";
   }
-  return "none"; // CONFLICT/FAILED:无在飞外部写入,不混停止语义(D3 人工处置既有路径)
+  return "none"; // changeset CONFLICT/FAILED:无在飞外部写入,不混停止语义(D3 人工处置既有路径)
 }
 
 /** 最新 run id(ControlCommand 审计字段 C3;无 run 为 null)。 */
@@ -304,9 +313,33 @@ export async function requestTaskAbort(
       });
       return { ok: false, reason: "state_terminal:ACCEPTED", fromState };
     }
-    if (phase === "already_delivered") {
-      // B2/B4:外部提交已发生 ⇒ 停止请求不撤销已发生的事实;诚实回执(不置旗、不虚报停止)
-      return { ok: true, fromState, phase: "delivery", controlState: "already_delivered" };
+    // B2/B4(Reviewer Major-1 分档):外部提交已发生(含"已交付"与"perform 完成回执未落"窗口)
+    // ⇒ 停止请求不撤销已发生的事实、不置旗(交付收尾核对须继续)、诚实回执 + C3 命令回执审计。
+    if (phase === "already_delivered" || phase === "external_write_done") {
+      const runId = await latestRunId(exec, taskId);
+      await appendAudit(exec, {
+        actor: opts.actor,
+        authority: "OPERATOR",
+        action: "TASK_ABORT_REQUESTED",
+        taskId,
+        beforeState: fromState,
+        afterState: fromState,
+        detail: {
+          fromState,
+          phase: "delivery",
+          runId,
+          expectedStateVersion: opts.expectedStateVersion ?? null,
+          idempotencyKey,
+          requestTime: new Date().toISOString(),
+          actualResult: "no_op",
+          controlState: phase,
+          note:
+            phase === "already_delivered"
+              ? "交付已完成:停止请求不撤销已发生的外部提交(零状态变更,诚实回执)"
+              : "外部提交已发生(perform 完成、交付回执未落):停止请求不撤销已发生的提交,不置旗;交付收尾照常核对(DELIVERED 或 NEEDS_RECONCILE)",
+        },
+      });
+      return { ok: true, fromState, phase: "delivery", controlState: phase };
     }
     if (task["abort_requested_at"] !== null && task["abort_requested_at"] !== undefined) {
       // 幂等:旗标已置;回执仍按当前真实相位(重复点击不重复生效,不虚报)
@@ -334,10 +367,11 @@ export async function requestTaskAbort(
         actualResult: "requested",
         controlState: phase,
         note:
-          "交付阶段停止请求(RECEIVED):边界检查将阻止未开始的外部写入;" +
-          (phase === "external_in_progress"
+          phase === "external_in_progress"
             ? "外部动作已在进行,不声称 STOP_CONFIRMED,结果以远端核对为准"
-            : "尚未发生外部写入"),
+            : phase === "external_outcome_unknown"
+              ? "交付执行已失败/冲突:外部副作用是否发生不能确定(结果以核对/Reconcile 为准);停止请求阻止后续外部写入"
+              : "尚未发生外部写入(边界检查将阻止其发生)",
       },
     });
     return { ok: true, fromState, phase: "delivery", controlState: phase };
