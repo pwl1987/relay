@@ -309,11 +309,11 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
             : sandbox === "docker"
               ? { checkRunner: dockerCheckRunner({ egress: options.egress }) }
               : {}),
-          // 内建候选清单复验(RELAY-QUALITY-LOCAL-01 D1 引入;RELAY-SAFETY-CLOSE-02 P0-B 降格为
-          // 完整性硬门):重采工作区清单比对 candidate_sha,零编辑空提交/内容不一致 ⇒ 拦截。
-          // 完整性不证明行为:未配置功能性机器检查(evidenceChecks)的代码变更候选 ⇒ 保守停机
-          // NEEDS_DECISION(需人工配置检查后重验),单凭 manifest + Reviewer PASS 不再 ACCEPTED。
-          // 仅做纯验证(确定性);证据落库由 orchestrator 统一执行(单一记录点)。
+          // 内建候选清单复验(完整性硬门;RELAY-GATE-INTEGRITY-04A 双门):重采工作区清单比对
+          // candidate_sha。配置功能性机器检查的代码变更候选 ⇒ 编排在功能检查前/后各复验一次
+          // (功能测试不能代替完整性验证;检查期间漂移 ⇒ candidate_drift_after_checks 拦截);
+          // 未配置机器检查 ⇒ 完整性门为唯一硬门,随后保守停机 NEEDS_DECISION(单凭 manifest +
+          // Reviewer PASS 不 ACCEPTED)。仅做纯验证(确定性);证据落库由 orchestrator 统一执行。
           manifestVerify: async (spec) =>
             verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
           reviewRun: async (input) => {

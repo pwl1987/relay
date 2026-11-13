@@ -6,7 +6,7 @@
 // docker 不可用 ⇒ FAIL-CLOSED(绝不退回宿主);allowEgressNetwork 未验证 ⇒ FAIL-CLOSED。
 // 全部使用无敏感信息测试变量与临时目录;零真实凭据泄露实验。
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, chmodSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, chmodSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -343,6 +343,101 @@ d("P0-A Gate 编排接线:未注入 runner ⇒ FAIL-CLOSED(检查按失败落库
       rmSync(ws, { recursive: true, force: true });
     } finally {
       await t.cleanup();
+    }
+  });
+});
+
+// ==========================================================================
+// RELAY-GATE-INTEGRITY-04A:检查工作区安全边界(反例 p0-mvp/gate-integrity-04a/evidence/
+// counterexample.log 反例 B —— workspaceDir 缺失 ⇒ process.cwd()(宿主仓库根)被真实挂载)。
+// 修复后语义:候选检查必须挂载有效的显式 Run 工作区;缺失/越界/符号链接/相对路径 ⇒
+// FAIL-CLOSED(WORKSPACE_INVALID,零 docker 交互);合法 tmpdir 工作区不受影响。
+// ==========================================================================
+d("GATE-INTEGRITY-04A 检查工作区安全边界(真实 docker;越界挂载 FAIL-CLOSED)", () => {
+  it("反例 B 修复:workspaceDir=宿主仓库根(越界)⇒ WORKSPACE_INVALID FAIL-CLOSED,零 docker 交互", async () => {
+    const dockerSpyCalls: number[] = [];
+    const runner = dockerCheckRunner({ dockerAvailableFn: () => (dockerSpyCalls.push(1), true) });
+    const r = await runner(
+      { kind: "deterministic_test", command: ["node", "-e", "console.log('should-not-run')"], cwdWorkspace: true },
+      process.cwd(), // 宿主仓库根 —— 不属于 Run 工作区范围
+    );
+    expect(r.passed).toBe(false);
+    expect(r.env.mode).toBe("sandbox-fail-closed");
+    expect(r.rawOutput).toContain("[exit=WORKSPACE_INVALID]");
+    expect(r.rawOutput).toContain("workspace_out_of_scope");
+    expect(dockerSpyCalls.length).toBe(0); // 校验先于 docker 探测:零 docker 交互
+    expect(existsSync(join(process.cwd(), "should-not-run.txt"))).toBe(false);
+  });
+
+  it("符号链接工作区 ⇒ 拒绝(不追随链接)", async () => {
+    const real = mkdtempSync(join(tmpdir(), "sbx-ws-real-"));
+    chmodSync(real, 0o777);
+    const link = join(tmpdir(), `sbx-ws-link-${randomUUID().slice(0, 8)}`);
+    symlinkSync(real, link, "dir");
+    try {
+      const runner = dockerCheckRunner({ dockerAvailableFn: () => true });
+      const r = await runner(
+        { kind: "deterministic_test", command: ["node", "-e", "console.log('x')"], cwdWorkspace: true },
+        link,
+      );
+      expect(r.passed).toBe(false);
+      expect(r.rawOutput).toContain("[exit=WORKSPACE_INVALID]");
+      expect(r.rawOutput).toContain("workspace_symlink");
+    } finally {
+      rmSync(link, { force: true });
+      rmSync(real, { recursive: true, force: true });
+    }
+  });
+
+  it("不存在的目录 / 相对路径 ⇒ 拒绝", async () => {
+    const runner = dockerCheckRunner({ dockerAvailableFn: () => true });
+    const missing = join(tmpdir(), `sbx-ws-missing-${randomUUID().slice(0, 8)}`);
+    const r1 = await runner(
+      { kind: "deterministic_test", command: ["node", "-e", "console.log('x')"], cwdWorkspace: true },
+      missing,
+    );
+    expect(r1.passed).toBe(false);
+    expect(r1.rawOutput).toContain("workspace_missing");
+    const r2 = await runner(
+      { kind: "deterministic_test", command: ["node", "-e", "console.log('x')"], cwdWorkspace: true },
+      "relative/ws",
+    );
+    expect(r2.passed).toBe(false);
+    expect(r2.rawOutput).toContain("workspace_not_absolute");
+  });
+
+  it("合法 tmpdir 工作区不受影响 ⇒ 正常执行(边界不误伤合法 Run 工作区)", async () => {
+    const ws = mkdtempSync(join(tmpdir(), "sbx-ws-"));
+    chmodSync(ws, 0o777);
+    try {
+      const runner = dockerCheckRunner();
+      const r = await runner(
+        { kind: "deterministic_test", command: ["node", "-e", "console.log('ws-ok')"], cwdWorkspace: true },
+        ws,
+      );
+      expect(r.passed).toBe(true);
+      expect(r.env.mode).toBe("docker");
+    } finally {
+      rmSync(ws, { recursive: true, force: true });
+    }
+  });
+
+  it("validateCheckWorkspace 边界断言:realpath/所属范围/符号链接/存在性", async () => {
+    const { validateCheckWorkspace } = await import("../../src/runtime/check-sandbox.ts");
+    expect(validateCheckWorkspace(process.cwd()).ok).toBe(false); // 仓库根越界
+    expect(validateCheckWorkspace("rel/path").reason).toBe("workspace_not_absolute");
+    expect(validateCheckWorkspace(join(tmpdir(), `no-such-${randomUUID().slice(0, 8)}`)).reason).toBe(
+      "workspace_missing",
+    );
+    const real = mkdtempSync(join(tmpdir(), "sbx-ws-real-"));
+    const link = join(tmpdir(), `sbx-ws-link-${randomUUID().slice(0, 8)}`);
+    symlinkSync(real, link, "dir");
+    try {
+      expect(validateCheckWorkspace(link).reason).toBe("workspace_symlink");
+      expect(validateCheckWorkspace(real).ok).toBe(true);
+    } finally {
+      rmSync(link, { force: true });
+      rmSync(real, { recursive: true, force: true });
     }
   });
 });

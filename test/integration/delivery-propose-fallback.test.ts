@@ -16,6 +16,7 @@ import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import type { ReviewRunInput, ReviewRunResult } from "../../src/core/gate-orchestrator.ts";
 import type { Exec } from "../../src/core/db.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
+import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
 
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 const MODEL = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
@@ -100,6 +101,8 @@ describe("P0-ACCEPT R-1:propose 装配失败 ⇒ D3 兜底(不冒泡/不回滚 A
         };
       },
       gate: {
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           {

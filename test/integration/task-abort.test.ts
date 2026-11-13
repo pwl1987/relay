@@ -253,6 +253,7 @@ import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
 import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { goalLoopTick } from "../../src/core/goal-loop.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
+import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
 
 const STUB_PI = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 
@@ -319,6 +320,8 @@ describe("RELAY-CONTROL-READY-03 F-1 修复:VERIFYING/Gate 阶段紧急停止真
       t2.db,
       { taskId, attempt: run.attempt, coderRunId: run.runId, workspaceDir: run.workspaceDir, actor: "test-f1" },
       {
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "console.log('ok')"], cwdWorkspace: true },
@@ -354,6 +357,8 @@ describe("RELAY-CONTROL-READY-03 F-1 修复:VERIFYING/Gate 阶段紧急停止真
       t2.db,
       { taskId, attempt: run.attempt, coderRunId: run.runId, workspaceDir: run.workspaceDir, actor: "test-f1" },
       {
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "console.log('ok')"], cwdWorkspace: true },
@@ -423,6 +428,8 @@ describe("RELAY-CONTROL-READY-03 F-1 修复:VERIFYING/Gate 阶段紧急停止真
         return { outcome: result.outcome, taskId, runId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir };
       },
       gate: {
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "console.log('ok')"], cwdWorkspace: true },

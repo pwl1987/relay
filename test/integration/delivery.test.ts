@@ -38,6 +38,7 @@ import {
 import type { SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { manifestOf, makeWorkspaceRepo, makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
+import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
 
 const roots: string[] = [];
 function tmpRoot(prefix: string): string {
@@ -612,6 +613,8 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
       },
       gate: {
         // RELAY-QUALITY-LOCAL-01:代码变更候选必须配机器检查(恒真检查满足门槛,不改变被测交付语义)
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "console.log('check ok')"], cwdWorkspace: true },

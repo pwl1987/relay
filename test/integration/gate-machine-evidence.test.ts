@@ -26,6 +26,7 @@ import { runReviewerSession } from "../../src/runtime/reviewer.ts";
 import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { assertOk } from "../setup/assert.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
+import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
 
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 const MODEL = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
@@ -379,6 +380,8 @@ describe("Gate 最低机器证据(反例先行)", () => {
         actor: "test-dme",
       },
       {
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "console.log('check ok')"], cwdWorkspace: true },
@@ -411,6 +414,8 @@ describe("Gate 最低机器证据(反例先行)", () => {
         actor: "test-dme",
       },
       {
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         checkRunner: hostTestCheckRunner,
         evidenceChecks: [
           { kind: "deterministic_test", command: ["node", "-e", "process.exit(3)"], cwdWorkspace: true },
@@ -421,11 +426,17 @@ describe("Gate 最低机器证据(反例先行)", () => {
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
     expect(gate.reason).toBe("evidence_failed:deterministic_test");
-    // 失败证据留档;Reviewer 未启动
-    const ev = await t.db.execute(sql`SELECT kind, passed FROM gate_evidence WHERE task_id=${taskId}`);
-    expect(ev.rows.length).toBe(1);
-    expect(String(ev.rows[0]!["kind"])).toBe("deterministic_test");
-    expect(ev.rows[0]!["passed"]).toBe(false);
+    // 失败证据留档;Reviewer 未启动。GATE-INTEGRITY-04A 双门:功能检查前的完整性复验
+    // 已执行并通过留档(pre_checks)—— 双门并行,完整性门不掩盖功能失败
+    const ev = await t.db.execute(sql`
+      SELECT kind, passed, env->>'phase' AS phase FROM gate_evidence WHERE task_id=${taskId} ORDER BY created_at
+    `);
+    expect(ev.rows.length).toBe(2);
+    expect(String(ev.rows[0]!["kind"])).toBe("candidate_manifest_verify");
+    expect(ev.rows[0]!["passed"]).toBe(true);
+    expect(String(ev.rows[0]!["phase"])).toBe("pre_checks");
+    expect(String(ev.rows[1]!["kind"])).toBe("deterministic_test");
+    expect(ev.rows[1]!["passed"]).toBe(false);
     const verdicts = await t.db.execute(sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${taskId}`);
     expect(Number(verdicts.rows[0]!["n"])).toBe(0);
   });

@@ -13,12 +13,18 @@
 //   - 默认 --network none;allowEgressNetwork=true 须 egress 白名单已验证
 //     (未验证 ⇒ FAIL-CLOSED,网络能力必须单独授权);
 //   - CPU/内存/进程数上限 + timeoutMs 上限(worker-entry 校验 1s~600s);
-//   - 超时或 abortSignal 翻转 ⇒ docker kill 整容器(全进程组,含孙进程;A4)。
+//   - 超时或 abortSignal 翻转 ⇒ docker kill 整容器(全进程组,含孙进程;A4);
+//   - 工作区校验(GATE-INTEGRITY-04A §四):挂载源必须为有效的显式 Run 工作区
+//     (绝对路径/存在/目录/非符号链接/realpath 属允许根范围),越界 ⇒ FAIL-CLOSED 零 docker 交互
+//     —— 绝不把宿主仓库根/生产配置/不受控目录挂为候选工作区(反例 B 实证挂载面)。
 // 沙箱不可用 ⇒ FAIL-CLOSED:检查按失败处理,**绝不退回宿主执行**(A6)。
 // 证据绑定(A7):env 如实记录 mode/image/user/network/limits/container;rawOutput 含命令原文
 // 与退出码(TIMEOUT/SANDBOX_UNAVAILABLE/EGRESS_UNAUTHORIZED 同为失败退出语义);A8 Gate 标准不变。
 import { execFile, execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { lstatSync, realpathSync, type Stats } from "node:fs";
+import { tmpdir } from "node:os";
+import { isAbsolute, sep } from "node:path";
 import { DOCKER_BIN, SANDBOX_IMAGE, SANDBOX_UID, dockerAvailable } from "./sandbox.ts";
 import { EGRESS_NETWORK, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import { workerEnv, type CheckRunner, type CheckSpec } from "../core/evidence.ts";
@@ -32,6 +38,54 @@ export const CHECK_TMPFS_SPEC = "/tmp:rw,size=134217728,mode=1777";
 /** 检查容器内固定挂载点与 cwd。 */
 export const CHECK_WORKSPACE_MOUNT = "/workspace";
 export const CHECK_TMP_CWD = "/tmp";
+
+// ---------------------------------------------------------------------------
+// 检查工作区安全边界(RELAY-GATE-INTEGRITY-04A §四;反例 B 实证:workspaceDir 缺失曾被
+// 上层以 process.cwd() 隐式回退 —— 容器 mountinfo 实证宿主仓库根被真实挂载 /workspace rw)。
+// ---------------------------------------------------------------------------
+
+/** 允许作为候选检查工作区的根范围(生产 Run 工作区一律由 prepareRunDirs(tmpdir(),…) 创建)。 */
+export function defaultWorkspaceRoots(): string[] {
+  return [tmpdir()];
+}
+
+/**
+ * 候选检查工作区校验(FAIL-CLOSED;§四.3):绝对路径 / 存在 / 目录 / 自身非符号链接 /
+ * realpath 后属于允许根范围。任何不满足 ⇒ 拒绝 —— 绝不把宿主仓库根、生产配置或不受控
+ * 目录挂为候选测试工作区。
+ */
+export function validateCheckWorkspace(
+  workspaceDir: string,
+  allowedRoots?: string[],
+): { ok: boolean; reason?: string } {
+  if (typeof workspaceDir !== "string" || workspaceDir.length === 0 || !isAbsolute(workspaceDir)) {
+    return { ok: false, reason: "workspace_not_absolute" };
+  }
+  let st: Stats;
+  try {
+    st = lstatSync(workspaceDir);
+  } catch {
+    return { ok: false, reason: "workspace_missing" };
+  }
+  if (st.isSymbolicLink()) return { ok: false, reason: "workspace_symlink" };
+  if (!st.isDirectory()) return { ok: false, reason: "workspace_not_directory" };
+  let real: string;
+  try {
+    real = realpathSync(workspaceDir);
+  } catch {
+    return { ok: false, reason: "workspace_realpath_failed" };
+  }
+  const roots = (allowedRoots ?? defaultWorkspaceRoots()).map((root) => {
+    try {
+      return realpathSync(root);
+    } catch {
+      return root;
+    }
+  });
+  const inside = roots.some((root) => real === root || real.startsWith(root + sep));
+  if (!inside) return { ok: false, reason: "workspace_out_of_scope" };
+  return { ok: true };
+}
 
 /** docker run argv(与执行器同源;导出仅供测试断言边界/挂载/env 面,如 P0-A 反例回归)。 */
 export function buildCheckDockerArgs(
@@ -97,6 +151,8 @@ export interface DockerCheckRunnerOptions {
   egress?: EgressStatus;
   /** docker 探测注入口(测试模拟不可用;缺省 = 真实探测) */
   dockerAvailableFn?: () => boolean;
+  /** 允许挂载源根白名单(realpath 后前缀匹配;缺省 = [tmpdir()],与 prepareRunDirs 同范围) */
+  allowedWorkspaceRoots?: string[];
 }
 
 /** 生产候选功能检查执行器:docker 沙箱(边界见文件头;FAIL-CLOSED 不退回宿主)。 */
@@ -115,6 +171,22 @@ export function dockerCheckRunner(options: DockerCheckRunnerOptions = {}): Check
       pidsLimit: CHECK_PIDS_LIMIT,
       container: containerName,
     };
+
+    // GATE-INTEGRITY-04A §四:显式 Run 工作区校验 —— 缺失/越界/符号链接 ⇒ FAIL-CLOSED,
+    // 零 docker 交互(校验先于 docker 探测);绝不挂载宿主仓库根/生产配置/不受控目录
+    const wsv = validateCheckWorkspace(workspaceDir, options.allowedWorkspaceRoots);
+    if (!wsv.ok) {
+      return {
+        passed: false,
+        rawOutput: [
+          `$ ${spec.command.join(" ")}`,
+          `[exit=WORKSPACE_INVALID] 检查工作区不可用(${wsv.reason}):候选功能检查必须挂载有效的显式 Run 工作区` +
+            "(绝对路径/存在/目录/非符号链接/属于允许根范围);禁止挂载宿主仓库根或不受控目录" +
+            "(FAIL-CLOSED,未执行任何命令;RELAY-GATE-INTEGRITY-04A §四)",
+        ].join("\n"),
+        env: workerEnv("sandbox-fail-closed", { ...envBase, workspace: workspaceDir, workspaceReason: wsv.reason }),
+      };
+    }
 
     // A6:沙箱不可用 ⇒ FAIL-CLOSED(检查失败,不退回宿主执行)
     if (!dockerOk()) {

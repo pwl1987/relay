@@ -32,6 +32,7 @@ import {
 } from "../../src/runtime/egress.ts";
 import { probeProvider, type ProviderConfig } from "../helpers/provider.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
+import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
 
 function sudoIptablesAvailable(): boolean {
   try {
@@ -150,6 +151,8 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_GATE_E2E !== 
         ttlSeconds: 120,
         runTask,
         gate: {
+          manifestVerify: async (spec) =>
+            verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
           checkRunner: hostTestCheckRunner,
           evidenceChecks: [
             // 确定性检查:候选文件内容核验(Worker 侧执行;退出码即 passed)

@@ -68,7 +68,9 @@ export interface GateOrchestrationOptions {
    */
   checkRunner?: CheckRunner;
   /** 内建候选清单复验(runtime 注入;core 不 import runtime)。
-   *  生产默认机器证据:重采工作区清单比对 candidate_sha;未配置机器检查时的兜底(D1)。 */
+   *  完整性硬门(GATE-INTEGRITY-04A 双门):代码变更候选在功能检查**前/后**各复验一次
+   *  (功能测试不能代替完整性验证);未配置机器检查时为唯一完整性门(D1 兜底)。
+   *  配置功能性检查但未注入 ⇒ FAIL-CLOSED(integrity_verify_unavailable,不进 Reviewer)。 */
   manifestVerify?: (spec: {
     taskId: string;
     attempt: number;
@@ -92,7 +94,8 @@ export interface GateOrchestrationInput {
   taskId: string;
   attempt: number;
   coderRunId: string;
-  /** Run 工作区宿主路径(证据检查 cwdWorkspace 用;缺省 = 检查在宿主 cwd 执行) */
+  /** Run 工作区宿主路径(证据检查挂载源/完整性复验对象;**必填语义**:代码变更候选 +
+   *  功能检查 ⇒ 缺失即 FAIL-CLOSED(workspace_missing,绝不回退 process.cwd() —— 反例 B) */
   workspaceDir?: string;
   actor?: string;
 }
@@ -344,43 +347,118 @@ export async function orchestrateGate(
     );
   }
 
+  // 2.6) 完整性双门·前置复验(RELAY-GATE-INTEGRITY-04A §三;反例 A 实证:配置功能性检查时
+  // candidate_manifest_verify 完整性门被完全跳过,候选内容漂移 + 功能检查通过 + Reviewer PASS
+  // ⇒ ACCEPTED)。修复后语义:配置功能性检查的代码变更候选,**功能检查前**必须复验候选工作区
+  // 与 candidate_sha 一致 —— 功能测试不能代替完整性验证,完整性通过也不能代替功能测试(双门并行)。
+  // manifestVerify 未注入 ⇒ FAIL-CLOSED(功能证据不能顶替完整性验证);工作区缺失 ⇒ FAIL-CLOSED
+  // (检查不得以宿主 cwd 隐式回退,反例 B)。两者均不进 Reviewer(零模型预算,恢复仅经 ops API)。
+  const integrityGateApplies = machineEvidenceRequired && hasFunctionalChecks;
+  if (integrityGateApplies && !input.workspaceDir) {
+    return await conservativeStop(
+      "workspace_missing",
+      "workspace_missing:代码变更候选未提供显式 Run 工作区,功能检查与完整性复验不得以宿主 cwd 隐式回退执行 ⇒ 保守停机(永不自动批准)",
+      "GATE_WORKSPACE_MISSING",
+      { note: "缺显式工作区 ⇒ 不启动任何检查,保守停机" },
+    );
+  }
+  if (integrityGateApplies && !gate.manifestVerify) {
+    return await conservativeStop(
+      "integrity_verify_unavailable",
+      "integrity_verify_unavailable:功能检查不能代替完整性验证,候选完整性复验器(manifestVerify)未注入 ⇒ FAIL-CLOSED 保守停机(永不自动批准)",
+      "GATE_INTEGRITY_UNVERIFIABLE",
+      { note: "完整性复验器缺失 ⇒ 功能证据不充分,保守停机" },
+    );
+  }
+  if (integrityGateApplies) {
+    const mvPre = await gate.manifestVerify!({
+      taskId: input.taskId,
+      attempt: input.attempt,
+      candidateSha: changeset.candidateSha,
+      changedFileCount,
+      workspaceDir: input.workspaceDir!,
+    });
+    const mvPreRow = await recordEvidence(db as unknown as Exec, {
+      taskId: input.taskId,
+      attempt: input.attempt,
+      candidateSha: changeset.candidateSha,
+      kind: "candidate_manifest_verify",
+      passed: mvPre.ok,
+      rawOutput: mvPre.rawOutput,
+      env: workerEnv("worker-host", {
+        command: "builtin:candidate_manifest_verify",
+        cwd: input.workspaceDir!,
+        phase: "pre_checks",
+      }),
+      producedBy: verifierId,
+    });
+    evidenceIds.push(mvPreRow.id);
+    evidenceSummaries.push({ id: mvPreRow.id, kind: mvPreRow.kind, passed: mvPreRow.passed });
+    if (!mvPre.ok) {
+      return await conservativeStop(
+        "candidate_manifest_verify_failed",
+        "candidate_manifest_verify_failed:功能检查前复验失败(候选内容与绑定面不一致或零编辑空提交),保守停机(永不自动批准)",
+        "CANDIDATE_MANIFEST_VERIFY_FAILED",
+        { evidenceId: mvPreRow.id, note: "功能检查前候选漂移 ⇒ 不放行,保守停机" },
+      );
+    }
+  }
+
   // 3) 证据采集(可信执行器;P0-A:经 CheckRunner 端口在沙箱内执行,未注入 ⇒ FAIL-CLOSED;
   //    采集期 abort 轮询 —— 旗标翻转 ⇒ 终止执行进程组并立即 STOP,不进 Reviewer)
-  const checkAbortFlag = { cancelled: false };
-  const checkAbortPoller = setInterval(() => {
-    isAbortRequested(db as unknown as Exec, input.taskId)
-      .then((v) => {
-        if (v) checkAbortFlag.cancelled = true;
-      })
-      .catch(() => {
-        /* 轮询失败不翻转旗标(保守);下一轮重试 */
-      });
-  }, 1000);
-  try {
-    const runner = gate.checkRunner ?? failClosedCheckRunner;
-    for (const check of gate.evidenceChecks ?? []) {
-      const row = await collectCheckEvidence(
-        db as unknown as Exec,
-        {
-          ...check,
-          taskId: input.taskId,
-          attempt: input.attempt,
-          candidateSha: changeset.candidateSha,
-          producedBy: verifierId,
-        },
-        input.workspaceDir ?? process.cwd(),
-        runner,
-        { abortSignal: checkAbortFlag },
-      );
-      evidenceIds.push(row.id);
-      evidenceSummaries.push({ id: row.id, kind: row.kind, passed: row.passed });
-      if (checkAbortFlag.cancelled) {
-        // 采集期间旗标到达 ⇒ 立即 STOP(裁决不记录不消费,Reviewer 不烧 —— F-1 同语义延伸)
-        return await abortStop();
+  //    工作区守卫(GATE-INTEGRITY-04A §四):检查已配置但缺显式工作区 ⇒ 不启动任何检查
+  //    (禁止 process.cwd() 隐式回退挂载宿主目录;到达此处且缺工作区 ⇒ docs-only 豁免路径 ——
+  //    代码变更候选已在 2.6 FAIL-CLOSED 拦截;机器证据非必需,零证据由 record/consume 把关)。
+  const checksToRun = gate.evidenceChecks ?? [];
+  if (checksToRun.length > 0 && !input.workspaceDir) {
+    await appendAudit(db as unknown as Exec, {
+      actor,
+      authority: "GATE",
+      action: "GATE_WORKSPACE_MISSING",
+      taskId: input.taskId,
+      detail: {
+        changesetId: changeset.id,
+        candidateSha: changeset.candidateSha,
+        note: "检查已配置但缺显式 Run 工作区 ⇒ 检查未执行(禁止 process.cwd() 隐式回退;docs-only 豁免路径继续)",
+      },
+    });
+  } else if (checksToRun.length > 0 && input.workspaceDir) {
+    const checkAbortFlag = { cancelled: false };
+    const checkAbortPoller = setInterval(() => {
+      isAbortRequested(db as unknown as Exec, input.taskId)
+        .then((v) => {
+          if (v) checkAbortFlag.cancelled = true;
+        })
+        .catch(() => {
+          /* 轮询失败不翻转旗标(保守);下一轮重试 */
+        });
+    }, 1000);
+    try {
+      const runner = gate.checkRunner ?? failClosedCheckRunner;
+      for (const check of checksToRun) {
+        const row = await collectCheckEvidence(
+          db as unknown as Exec,
+          {
+            ...check,
+            taskId: input.taskId,
+            attempt: input.attempt,
+            candidateSha: changeset.candidateSha,
+            producedBy: verifierId,
+          },
+          input.workspaceDir,
+          runner,
+          { abortSignal: checkAbortFlag },
+        );
+        evidenceIds.push(row.id);
+        evidenceSummaries.push({ id: row.id, kind: row.kind, passed: row.passed });
+        if (checkAbortFlag.cancelled) {
+          // 采集期间旗标到达 ⇒ 立即 STOP(裁决不记录不消费,Reviewer 不烧 —— F-1 同语义延伸)
+          return await abortStop();
+        }
       }
+    } finally {
+      clearInterval(checkAbortPoller);
     }
-  } finally {
-    clearInterval(checkAbortPoller);
   }
 
   // 3.5) 必需检查失败 ⇒ 保守停机(P0-B:证据不足不得 ACCEPTED;不烧 Reviewer —— 候选已注定
@@ -393,6 +471,43 @@ export async function orchestrateGate(
       "REQUIRED_EVIDENCE_FAILED",
       { evidenceId: failedCheck.id, kind: failedCheck.kind, note: "必需检查 FAILED ⇒ 不放行,保守停机" },
     );
+  }
+
+  // 3.6) 完整性双门·后置复验(RELAY-GATE-INTEGRITY-04A §三.5/6):功能检查可能在检查期间修改
+  // 候选工作区 ⇒ 任何漂移必须被识别,进 Reviewer 前重新验证候选内容;与 candidate_sha 不一致
+  // ⇒ 已测内容 ≠ Gate 绑定面,完整性失败不得 ACCEPTED(保守停机;漂移细节入证据与审计)。
+  if (integrityGateApplies) {
+    const mvPost = await gate.manifestVerify!({
+      taskId: input.taskId,
+      attempt: input.attempt,
+      candidateSha: changeset.candidateSha,
+      changedFileCount,
+      workspaceDir: input.workspaceDir!,
+    });
+    const mvPostRow = await recordEvidence(db as unknown as Exec, {
+      taskId: input.taskId,
+      attempt: input.attempt,
+      candidateSha: changeset.candidateSha,
+      kind: "candidate_manifest_verify",
+      passed: mvPost.ok,
+      rawOutput: mvPost.rawOutput,
+      env: workerEnv("worker-host", {
+        command: "builtin:candidate_manifest_verify",
+        cwd: input.workspaceDir!,
+        phase: "post_checks",
+      }),
+      producedBy: verifierId,
+    });
+    evidenceIds.push(mvPostRow.id);
+    evidenceSummaries.push({ id: mvPostRow.id, kind: mvPostRow.kind, passed: mvPostRow.passed });
+    if (!mvPost.ok) {
+      return await conservativeStop(
+        "candidate_drift_after_checks",
+        "candidate_drift_after_checks:功能检查后检测到候选内容漂移(测试期间修改候选工作区),已测内容与 Gate 绑定面不一致 ⇒ 保守停机(永不自动批准)",
+        "CANDIDATE_DRIFT_AFTER_CHECKS",
+        { evidenceId: mvPostRow.id, note: "检查期间候选漂移 ⇒ 不放行,保守停机" },
+      );
+    }
   }
 
   // goal 文本(Reviewer 上下文输入)

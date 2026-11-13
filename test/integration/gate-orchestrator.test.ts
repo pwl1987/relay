@@ -18,6 +18,7 @@ import { runReviewerSession } from "../../src/runtime/reviewer.ts";
 import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { assertOk } from "../setup/assert.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
+import { verifyCandidateManifest } from "../../src/runtime/workspace-manifest.ts";
 
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 const MODEL = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
@@ -122,6 +123,8 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
       },
       {
         checkRunner: hostTestCheckRunner,
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         evidenceChecks: [
           // 真实确定性检查:候选文件内容核验(Worker 侧执行,非模型判定)
           {
@@ -177,6 +180,8 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
       {
         checkRunner: hostTestCheckRunner,
         evidenceChecks: PASSING_CHECK,
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         reviewRun: reviewerStub("REWORK"),
         reviewAttempts: 1,
       },
@@ -203,6 +208,8 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
       {
         checkRunner: hostTestCheckRunner,
         evidenceChecks: PASSING_CHECK,
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         reviewRun: reviewerStub("BLOCK"),
         reviewAttempts: 1,
       },
@@ -232,6 +239,8 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
       {
         checkRunner: hostTestCheckRunner,
         evidenceChecks: PASSING_CHECK,
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         reviewRun: reviewerStub(null),
         reviewAttempts: 2,
       },
@@ -261,6 +270,8 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
       {
         checkRunner: hostTestCheckRunner,
         evidenceChecks: PASSING_CHECK,
+        manifestVerify: async (spec) =>
+          verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
         reviewRun: reviewerStub("BLOCK"),
         reviewAttempts: 1,
       },
