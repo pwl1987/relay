@@ -1,0 +1,10 @@
+A1 env-leak: passed=true env.mode=worker-host leak=YES(缺陷:候选读到 Worker 哨兵变量)
+A1 rawOutput="$ node -e console.log('LEAK=' + (process.env.RELAY_CX_SENTINEL ?? 'absent'))\nLEAK=cx-secret-05c18403"
+A2 host-cwd: 实际cwd="CWD=/home/ubuntu/dev/relay" 宿主仓库根=YES(缺陷) env.mode=worker-host
+A3 outside-write: passed=true 宿主哨兵文件落盘=YES(缺陷:候选检查可写宿主任意路径)
+A4 timeout-residue: passed=false timeoutMarker=true 孙进程宿主残留=YES(缺陷:超时后孙进程仍活在宿主)
+B1 abort-on-ACCEPTED: ok=false reason=state_terminal:ACCEPTED (缺陷:验收后交付阶段无法请求停止)
+B2 propose: ok=true state=POLICY_APPROVED
+B2 execute-with-abort-flag: state=DELIVERED reason=- 远端已被写入=YES(缺陷:旗标已置仍完成外部提交)
+C1 control-audit-fields: 现有字段=["note","fromState"] 缺失=["runId","expectedStateVersion","idempotencyKey","requestTime","actualResult","controlState"] (缺陷:ControlCommand 审计字段不全)
+C5 concurrent-dup-insert: A 插入=1 B 插入=1 (缺陷:同一内容真并发下双插=重复授权面)
