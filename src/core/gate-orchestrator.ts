@@ -24,6 +24,7 @@ import {
   type GateVerdict,
   type GateTestEnv,
 } from "./gates.ts";
+import { isAbortRequested } from "./ops.ts";
 
 export interface ReviewRunInput {
   taskId: string;
@@ -82,7 +83,7 @@ export interface GateOrchestrationInput {
 }
 
 export interface GateOrchestrationResult {
-  status: "ACCEPTED" | "REWORK" | "NEEDS_DECISION" | "SKIPPED" | "FAILED";
+  status: "ACCEPTED" | "REWORK" | "NEEDS_DECISION" | "SKIPPED" | "FAILED" | "CANCELLED";
   reason?: string;
   gateId?: string;
   changesetId?: string;
@@ -164,6 +165,47 @@ export async function orchestrateGate(
       detail: { violations, changesetId: changeset.id },
     });
     return { status: "FAILED", reason: "impact_scope_violations", changesetId: changeset.id, evidenceIds, violations };
+  }
+
+  // 2.4) 紧急停止接入(RELAY-CONTROL-READY-03 F-1 修复):abort 旗标在 VERIFYING 阶段(含
+  // Run 成功后至 Gate 编排窗口)被置位 ⇒ Gate 编排立即 STOP:VERIFYING→CANCELLED(验证租约
+  // 权威)+TASK_ABORT_CONFIRMED 审计;不采证/不烧 Reviewer/不记录/不消费/不交付 —— 授权来源=
+  // 操作者显式 abort/takeover(AGENT_CONTROL §4"立即撤销后续执行资格")。
+  const abortStop = async (): Promise<GateOrchestrationResult> => {
+    const adv = await db.transaction(async (tx) =>
+      advanceTask(tx as unknown as Exec, input.taskId, verifierId, lease.fencingToken, "VERIFYING", "CANCELLED"),
+    );
+    if (!adv.ok) {
+      return {
+        status: "FAILED" as const,
+        reason: `abort_advance_rejected:${(adv as { reason?: string }).reason}`,
+        changesetId: changeset.id,
+        evidenceIds,
+        violations: [],
+      };
+    }
+    await expireVerificationLease(db as unknown as Exec, input.taskId, actor);
+    await appendAudit(db as unknown as Exec, {
+      actor,
+      authority: "GATE",
+      action: "TASK_ABORT_CONFIRMED",
+      taskId: input.taskId,
+      detail: {
+        changesetId: changeset.id,
+        candidateSha: changeset.candidateSha,
+        note: "紧急停止旗标生效:VERIFYING→CANCELLED;裁决不记录不消费,交付不发生(STOP_CONFIRMED=本审计)",
+      },
+    });
+    return {
+      status: "CANCELLED" as const,
+      reason: "abort_requested",
+      changesetId: changeset.id,
+      evidenceIds,
+      violations: [],
+    };
+  };
+  if (await isAbortRequested(db as unknown as Exec, input.taskId)) {
+    return await abortStop();
   }
 
   // 2.5) 机器证据配置预检(ADR-0012 #7;RELAY-QUALITY-LOCAL-01 D1/D3 + RELAY-SAFETY-CLOSE-02 P0-B):
@@ -386,6 +428,12 @@ export async function orchestrateGate(
       evidenceIds,
       violations: [],
     };
+  }
+
+  // 4.5) 紧急停止后置检查(F-1 修复:Reviewer 可能已烧但旗标在编排骨内到达)⇒ 裁决不记录
+  // 不消费、交付不发生;Reviewer 证据留档(已烧事实),任务 STOP:CANCELLED。
+  if (await isAbortRequested(db as unknown as Exec, input.taskId)) {
+    return await abortStop();
   }
 
   // 5) 记录 + 消费(绑定版)

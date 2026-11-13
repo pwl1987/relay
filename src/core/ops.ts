@@ -263,3 +263,11 @@ export async function requestTaskAbort(
   });
   return { ok: true, fromState };
 }
+
+/** 紧急停止旗标读取(RELAY-CONTROL-READY-03 F-1 修复:Gate 编排链接入旗标 —— 独立函数供
+ *  gate-orchestrator 前置/后置检查与 goal-loop 交付防线共用;单点语义,零第二控制面)。 */
+export async function isAbortRequested(exec: Exec, taskId: string): Promise<boolean> {
+  const r = await exec.execute(sql`SELECT abort_requested_at FROM tasks WHERE id = ${taskId}`);
+  const v = r.rows[0]?.["abort_requested_at"];
+  return v !== null && v !== undefined;
+}

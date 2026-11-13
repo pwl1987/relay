@@ -18,6 +18,7 @@ import { supervisorTick, releaseRework, type TickReport } from "./supervisor.ts"
 import { expireStaleDecisions } from "./decisions.ts";
 import { setGoalState } from "./goals.ts";
 import { consumeAllPendingGoals } from "./consumption.ts";
+import { isAbortRequested } from "./ops.ts";
 import { startSafeLoop, type SafeLoopHandle } from "./loop-safety.ts";
 import { orchestrateGate, type GateOrchestrationOptions, type GateOrchestrationResult } from "./gate-orchestrator.ts";
 import {
@@ -45,7 +46,12 @@ export interface GoalLoopTickOptions {
   ttlSeconds?: number;
   executor?: NonNullable<Parameters<typeof supervisorTick>[1]>["executor"];
   /** 注入的实际 Run 执行(组合 runner;loop 不 import runtime)。返回后本层处置状态。 */
-  runTask?: (claim: { taskId: string; ownerId: string; fencingToken: number; attempt: number }) => Promise<RunOutcomeDigest>;
+  runTask?: (claim: {
+    taskId: string;
+    ownerId: string;
+    fencingToken: number;
+    attempt: number;
+  }) => Promise<RunOutcomeDigest>;
   /** 模型断供探测(不烧 token;TCP/HEAD 级)。返回 false ⇒ 本拍 IDLE(不领取)。 */
   providerProbe?: () => Promise<boolean>;
   /** 相同失败签名熔断阈值(默认 3) */
@@ -71,7 +77,10 @@ export interface GoalLoopTickReport {
   gate?: GateOrchestrationResult;
   delivery?: { propose: { ok: boolean; reason?: string }; execute: DeliveryExecutionResult | { skipped: string } };
   /** WEB-UX-03C §0.1 安全边界消费(03B.1):本拍派生的 follow-up 消费结果(未消费时含 reason) */
-  consumption?: { results: Array<{ consumed: boolean; reason?: string; taskId?: string }>; failedGoals: Array<{ goalId: string; error: string }> };
+  consumption?: {
+    results: Array<{ consumed: boolean; reason?: string; taskId?: string }>;
+    failedGoals: Array<{ goalId: string; error: string }>;
+  };
   goalStates?: Array<{ goalId: string; state: string }>;
   idleHintSeconds?: number;
 }
@@ -205,7 +214,10 @@ async function aggregateGoals(exec: Exec): Promise<Array<{ goalId: string; state
  * - D3:READY→NEEDS_DECISION(合法转移),移出候选池,等待人工;**永不自动批准**;
  *   其余任务不受影响(claim 按任务独立)。
  */
-export async function handleOpenDecisions(db: RelayDb, actor = "goal-loop"): Promise<{ d2Resolved: number; d3Blocked: number }> {
+export async function handleOpenDecisions(
+  db: RelayDb,
+  actor = "goal-loop",
+): Promise<{ d2Resolved: number; d3Blocked: number }> {
   const rows = await db.execute(sql`
     SELECT d.id, d.level, d.task_id, d.fallback FROM decisions d
     JOIN tasks t ON t.id = d.task_id
@@ -338,13 +350,22 @@ export async function goalLoopTick(db: RelayDb, options: GoalLoopTickOptions = {
       // 交付层任何失败不回滚质量结论(ACCEPTED 终态);CONFLICT/FAILED 落 D3 决策行(人工处置)。
       // P0-ACCEPT 缺口 A 收口:propose 装配阶段(候选未捕获/IO 异常)同样不冒泡——
       // 落 D3 + 审计(与 markConflict/markFailed 同语义),tick 其余结果照常返回。
-      if (options.delivery && gateReport?.status === "ACCEPTED") {
+      // RELAY-CONTROL-READY-03 F-1 防线(纵深):旗标在 Gate 消费与交付之间置位 ⇒ 不交付
+      //(紧急停止回执之后,GitHub 写入不得发生;未知副作用归 Reconcile 语义)。
+      if (options.delivery && gateReport?.status === "ACCEPTED" && (await isAbortRequested(db, claim.taskId))) {
+        deliveryReport = { propose: { ok: false, reason: "abort_requested" }, execute: { skipped: "abort_requested" } };
+        await appendAudit(db as unknown as Exec, {
+          actor,
+          authority: "WORKER",
+          action: "DELIVERY_ABORT_SKIPPED",
+          taskId: claim.taskId,
+          detail: { note: "abort 旗标置位 ⇒ Gate ACCEPTED 不交付;人工处置(Reconcile/恢复语义)" },
+        });
+      } else if (options.delivery && gateReport?.status === "ACCEPTED") {
         const deliveryActor = actor;
         try {
           const proposeInput = await options.delivery.propose({ taskId: claim.taskId, attempt: claim.attempt });
-          const proposed = await db.transaction(async (tx) =>
-            proposeDelivery(tx as unknown as Exec, proposeInput),
-          );
+          const proposed = await db.transaction(async (tx) => proposeDelivery(tx as unknown as Exec, proposeInput));
           deliveryReport = {
             propose: proposed.ok ? { ok: true } : { ok: false, reason: proposed.reason },
             execute: proposed.ok

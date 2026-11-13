@@ -39,12 +39,15 @@ export interface PendingGoalRef {
   goalId: string;
 }
 
-/** 有待消费 USER 消息的 Goal 集合(消费前置扫描;不区分在途,在途守卫在 consumeGoalMessages 内)。 */
+/** 有待消费**显式执行**消息的 Goal 集合(消费前置扫描;M-2 消化:仅含普通消息的 Goal 不入扫描
+ *  —— 普通消息永不派生,扫入只会得到 no_execution_request 零副作用;在途/终态守卫仍在
+ *  consumeGoalMessages 内,本扫描不区分状态)。 */
 export async function pendingConsumptionGoals(db: RelayDb): Promise<PendingGoalRef[]> {
   const res = await db.execute(sql`
     SELECT gm.goal_id AS goal_id
     FROM goal_messages gm
     WHERE gm.actor = 'USER'
+      AND gm.execution_request = true
       AND NOT EXISTS (SELECT 1 FROM goal_message_consumptions c WHERE c.message_id = gm.id)
     GROUP BY gm.goal_id
     ORDER BY gm.goal_id ASC

@@ -245,3 +245,211 @@ describe("RELAY-CONTROL-READY-03 P1-3:abort 旗标与接管(零模型;真实进�
     expect(Number(takeoverAudit.rows[0]!["n"])).toBe(1);
   });
 });
+
+// ---------- F-1 修复回归(REVIEW-CONTROL-READY-03):VERIFYING 阶段 abort 必须真实闭环 ----------
+import { orchestrateGate, type ReviewRunResult } from "../../src/core/gate-orchestrator.ts";
+import { executeRun } from "../../src/runtime/runner.ts";
+import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
+import { cleanupSandbox, type SandboxSpec } from "../../src/runtime/sandbox.ts";
+import { goalLoopTick } from "../../src/core/goal-loop.ts";
+
+const STUB_PI = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
+
+describe("RELAY-CONTROL-READY-03 F-1 修复:VERIFYING/Gate 阶段紧急停止真实闭环(零模型;反例先行)", () => {
+  let t2: TestDb;
+  const sandboxes: SandboxSpec[] = [];
+  beforeAll(async () => {
+    t2 = await createTestDb("control-ready-03-f1");
+  });
+  afterAll(async () => {
+    for (const s of sandboxes) cleanupSandbox(s);
+    await t2.cleanup();
+  });
+
+  /** coder Run(stub ok)至 VERIFYING(runner 合法推进);候选=result.txt(代码变更)。 */
+  async function coderRunToVerifying(
+    taskId: string,
+  ): Promise<{ runId: string; workspaceDir: string; attempt: number }> {
+    const goalId = `goal-${taskId}`;
+    await t2.db.transaction(async (tx) =>
+      planGoal(tx as unknown as Exec, {
+        id: goalId,
+        rawInput: "F-1 反例目标",
+        budget: { modelCalls: 8 },
+        tasks: [{ id: taskId, goalText: "执行", priority: 2, allowedScope: ["/workspace"], allowedCommands: ["echo"] }],
+      }),
+    );
+    const c = await t2.db.transaction(async (tx) => claimTask(tx as unknown as Exec, taskId, "w-f1", 60));
+    if (!c.ok) throw new Error(`claim failed: ${JSON.stringify(c)}`);
+    const result = await executeRun(t2.db, resolveVendoredPi(), {
+      taskId,
+      goal: "F-1 反例目标",
+      allowedScope: ["/workspace"],
+      attempt: c.attempt,
+      ownerId: c.ownerId,
+      fencingToken: c.fencingToken,
+      model: MODEL,
+      sandbox: "host-fallback",
+      wallSeconds: 60,
+      heartbeatSeconds: 2,
+      budget: { goalId, reserveCallsPerRun: 4 },
+      argvOverride: [process.execPath, STUB_PI],
+      envOverride: { STUB_MODE: "ok", STUB_WRITE_FILE: "result.txt:sum=87" },
+    });
+    if (result.outcome !== "SUCCEEDED") throw new Error(`run outcome=${result.outcome}`);
+    sandboxes.push(result.sandboxSpec);
+    return { runId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir, attempt: c.attempt };
+  }
+
+  it("前置拦截:VERIFYING abort 后 Gate 编排 ⇒ status=CANCELLED;Reviewer 零调用;任务 VERIFYING→CANCELLED;CONFIRMED 审计;零裁决行", {
+    timeout: 90_000,
+  }, async () => {
+    const taskId = "t-f1-pre";
+    const run = await coderRunToVerifying(taskId);
+    const before = await t2.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
+    expect(String(before.rows[0]!["state"])).toBe("VERIFYING"); // Run 成功后至 Gate 编排窗口(Reviewer 原反例场景)
+    // 操作者(另一进程)请求紧急停止
+    const req = await t2.db.transaction(async (tx) =>
+      requestTaskAbort(tx as unknown as Exec, taskId, { actor: "owner" }),
+    );
+    expect(req.ok).toBe(true);
+    let reviewerCalls = 0;
+    const gate = await orchestrateGate(
+      t2.db,
+      { taskId, attempt: run.attempt, coderRunId: run.runId, workspaceDir: run.workspaceDir, actor: "test-f1" },
+      {
+        evidenceChecks: [
+          { kind: "deterministic_test", command: ["node", "-e", "console.log('ok')"], cwdWorkspace: true },
+        ],
+        reviewRun: async () => {
+          reviewerCalls += 1;
+          throw new Error("reviewer_must_not_run_after_abort");
+        },
+        reviewAttempts: 1,
+      },
+    );
+    expect(gate.status).toBe("CANCELLED");
+    expect(gate.reason).toBe("abort_requested");
+    expect(reviewerCalls).toBe(0); // Reviewer 零烧
+    const st = await t2.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
+    expect(String(st.rows[0]!["state"])).toBe("CANCELLED");
+    const verdicts = await t2.db.execute(
+      sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${taskId}`,
+    );
+    expect(Number(verdicts.rows[0]!["n"])).toBe(0);
+    const confirmed = await t2.db.execute(
+      sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id=${taskId} AND action='TASK_ABORT_CONFIRMED'`,
+    );
+    expect(Number(confirmed.rows[0]!["n"])).toBe(1);
+  });
+
+  it("后置拦截:Reviewer 期间置旗(旗标在编排内到达)⇒ 裁决不记录不消费,任务 CANCELLED;Reviewer 证据留档", {
+    timeout: 90_000,
+  }, async () => {
+    const taskId = "t-f1-mid";
+    const run = await coderRunToVerifying(taskId);
+    const gate = await orchestrateGate(
+      t2.db,
+      { taskId, attempt: run.attempt, coderRunId: run.runId, workspaceDir: run.workspaceDir, actor: "test-f1" },
+      {
+        evidenceChecks: [
+          { kind: "deterministic_test", command: ["node", "-e", "console.log('ok')"], cwdWorkspace: true },
+        ],
+        reviewRun: async (input): Promise<ReviewRunResult> => {
+          // 模拟旗标在 Reviewer Run 之后、裁决记录之前到达(真实场景=另一进程 abort)
+          await t2.db.transaction(async (tx) => requestTaskAbort(tx as unknown as Exec, taskId, { actor: "owner" }));
+          return {
+            ok: true,
+            verdict: "PASS",
+            findings: "stub pass",
+            reviewerRunId: input.taskId + "-rv",
+            rawOutput: "stub pass",
+          };
+        },
+        reviewAttempts: 1,
+      },
+    );
+    expect(gate.status).toBe("CANCELLED");
+    const st = await t2.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
+    expect(String(st.rows[0]!["state"])).toBe("CANCELLED");
+    const verdicts = await t2.db.execute(
+      sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${taskId}`,
+    );
+    expect(Number(verdicts.rows[0]!["n"])).toBe(0); // PASS 裁决不记录不消费(停止优先)
+    const confirmed = await t2.db.execute(
+      sql`SELECT count(*)::int AS n FROM audit_events WHERE task_id=${taskId} AND action='TASK_ABORT_CONFIRMED'`,
+    );
+    expect(Number(confirmed.rows[0]!["n"])).toBe(1);
+  });
+
+  it("交付防线(goalLoop):Run 成功 → Reviewer 期间置旗 ⇒ Gate CANCELLED ⇒ 交付防线跳过(propose 零调用)", {
+    timeout: 120_000,
+  }, async () => {
+    const taskId = "t-f1-delivery";
+    const goalId = `goal-${taskId}`;
+    await t2.db.transaction(async (tx) =>
+      planGoal(tx as unknown as Exec, {
+        id: goalId,
+        rawInput: "F-1 反例目标",
+        budget: { modelCalls: 8 },
+        tasks: [{ id: taskId, goalText: "执行", priority: 2, allowedScope: ["/workspace"], allowedCommands: ["echo"] }],
+      }),
+    );
+    let proposeCalls = 0;
+    const report = await goalLoopTick(t2.db, {
+      actor: "w-f1",
+      workerId: "w-f1",
+      runTask: async (claim) => {
+        const result = await executeRun(t2.db, resolveVendoredPi(), {
+          taskId,
+          goal: "F-1 反例目标",
+          allowedScope: ["/workspace"],
+          attempt: claim.attempt,
+          ownerId: claim.ownerId,
+          fencingToken: claim.fencingToken,
+          model: MODEL,
+          sandbox: "host-fallback",
+          wallSeconds: 60,
+          heartbeatSeconds: 2,
+          budget: { goalId, reserveCallsPerRun: 4 },
+          argvOverride: [process.execPath, STUB_PI],
+          envOverride: { STUB_MODE: "ok", STUB_WRITE_FILE: "result.txt:sum=87" },
+        });
+        sandboxes.push(result.sandboxSpec);
+        if (result.outcome !== "SUCCEEDED") throw new Error(`outcome=${result.outcome}`);
+        return { outcome: result.outcome, taskId, runId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir };
+      },
+      gate: {
+        evidenceChecks: [
+          { kind: "deterministic_test", command: ["node", "-e", "console.log('ok')"], cwdWorkspace: true },
+        ],
+        reviewRun: async (input): Promise<ReviewRunResult> => {
+          // 模拟旗标在 Reviewer Run 之后、裁决记录之前到达(另一进程 abort)
+          await t2.db.transaction(async (tx) => requestTaskAbort(tx as unknown as Exec, taskId, { actor: "owner" }));
+          return {
+            ok: true,
+            verdict: "PASS",
+            findings: "stub pass",
+            reviewerRunId: input.taskId + "-rv",
+            rawOutput: "stub pass",
+          };
+        },
+        reviewAttempts: 1,
+      },
+      delivery: {
+        propose: async () => {
+          proposeCalls += 1;
+          throw new Error("delivery_propose_must_not_run_after_abort");
+        },
+        io: async () => {
+          throw new Error("delivery_io_must_not_run_after_abort");
+        },
+      },
+    });
+    expect(report.gate?.status).toBe("CANCELLED"); // 编排后置检查拦截(4.5)
+    expect(report.delivery).toBeUndefined(); // Gate 非 ACCEPTED ⇒ 交付分支整体未进入
+    expect(proposeCalls).toBe(0); // 紧急停止后零交付动作(零 GitHub 写入)
+    const st = await t2.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
+    expect(String(st.rows[0]!["state"])).toBe("CANCELLED");
+  });
+});
