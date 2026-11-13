@@ -79,7 +79,7 @@ export async function consumeGoalMessages(
 
     // 方案 A:仅"显式执行"消息可进入派生面(普通消息永不派生/永不写映射)。
     const pendingExecRows = await exec.execute(sql`
-      SELECT gm.id AS id, gm.content AS content, gm.created_at AS created_at
+      SELECT gm.id AS id, gm.content AS content
       FROM goal_messages gm
       WHERE gm.goal_id = ${goalId} AND gm.actor = 'USER' AND gm.execution_request = true
         AND NOT EXISTS (SELECT 1 FROM goal_message_consumptions c WHERE c.message_id = gm.id)
@@ -92,15 +92,24 @@ export async function consumeGoalMessages(
       // - 终态(COMPLETED/FAILED/EXHAUSTED):终态后送达的执行请求 ⇒ held;
       //   唯一例外 = 在途排队(先于终态迁移落库)的显式执行 ⇒ 边界消费(可审计重激活;
       //   授权来源=用户显式点击「交给 Relay 执行」,非隐式;按消息独立授权,仅消费该子集)。
+      // 时间戳比较下沉到 SQL(µs 精度;严禁 String(Date) 往返 —— toString 丢毫秒,
+      // 同秒窗口会把"先于终态"误判为"终态后"(CI 43429519863 实测反例)。
       if (goalState === "PAUSED") return { consumed: false, reason: "goal_closed", goalState };
-      const terminalAt = new Date(String(goalRow.rows[0]!["updated_at"]));
-      const queued = pendingExecRows.rows.filter((r) => new Date(String(r["created_at"])) < terminalAt);
-      if (queued.length === 0) return { consumed: false, reason: "goal_closed", goalState };
+      const terminalAt = goalRow.rows[0]!["updated_at"];
+      const queuedRows = await exec.execute(sql`
+        SELECT gm.id AS id, gm.content AS content
+        FROM goal_messages gm
+        WHERE gm.goal_id = ${goalId} AND gm.actor = 'USER' AND gm.execution_request = true
+          AND NOT EXISTS (SELECT 1 FROM goal_message_consumptions c WHERE c.message_id = gm.id)
+          AND gm.created_at < ${terminalAt}
+        ORDER BY gm.id ASC
+      `);
+      if (queuedRows.rows.length === 0) return { consumed: false, reason: "goal_closed", goalState };
       await setGoalState(exec, goalId, "ACTIVE", {
         reason: "execute_boundary",
         note: "在途排队的显式执行请求(先于终态迁移落库;授权来源=用户显式点击「交给 Relay 执行」)⇒ 边界消费;重激活以恢复聚合(非隐式重开;PAUSED 不适用本例外)",
       });
-      return await deriveFromExecuteMessages(exec, goalId, queued, actor);
+      return await deriveFromExecuteMessages(exec, goalId, queuedRows.rows, actor);
     }
 
     // 在途守卫(安全边界):任何 LEASED/RUNNING/SUBMITTED/VERIFYING 任务存在 ⇒ 不消费
