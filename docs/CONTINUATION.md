@@ -108,3 +108,16 @@ ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模�
 - 基线：历史 format 偏差 123 处/20 文件（不全仓重排，清单入库 evidence/format-baseline-files.txt）；lint 93 warn+3 info 降级留痕于 biome.jsonc 注释；新增/修改代码 0 error 0 format 差异。
 - 差距登记：p0-mvp/quality-local-01/GAP-REGISTER.md（8 项只读；P1=E-2 终态 Goal 消息/E-3 steer·abort/E-4 接管交还/E-7 NEEDS_RECONCILE 自愈；建议下包=用户控制面最小实现）。
 - 显式 NOT_RUN：性能（无基线不虚构阈值）、模型门禁 e2e（RELAY_A4_E2E/RELAY_GATE_E2E/RELAY_EGRESS_E2E 需独立授权）、生产部署验证。
+
+## RELAY-SAFETY-CLOSE-02（2026-11-13，✅ 收口，裁决 PASS）
+
+- 合同登记 3033c14（CI 43405022833 success）；实施 d04eae5（21 文件 +2042/-571）+ Reviewer Minor 消化 b7fe040；exact-head CI 43412391302@b7fe040 双 job success（test 2m14s/e2e 1m56s）；独立 Reviewer 终裁 PASS（0 Major 7 Minor,隔离上下文亲手读码+复跑 49/49,记录 p0-mvp/safety-close-02/REVIEW-SAFETY-CLOSE-02.md）。
+- **P0-A 消息授权与终态 Goal**（纠偏 GAP-REGISTER E-1/E-2 错误结论,反例实证入库）：consumeGoalMessages 原无 Goal 状态守卫 ⇒ 普通/终态消息均自动派生 READY Task（终态=孤儿执行）。修复=两级确定性守卫：终态后新消息（created_at >= 终态迁移时刻）⇒ goal_closed 只记录不派生 + API held:true 反馈"已记录…请新建需求" + GOAL_MESSAGE_HELD 审计；在途窗口补充（先于终态迁移,§0.1 冻结语义）⇒ 可审计重激活（GOAL_ACTIVE）边界消费；混合批次整批保守 held；planFollowUpTask 非 ACTIVE fail-closed。**ACTIVE Goal 内消息分类（普通交流/补充反馈/明确执行请求）涉 WEB-UX-03C §0 冻结语义,按合同停止条件未实施——决策请求=p0-mvp/safety-close-02/SEMANTICS-P0A.md §3（方案 A 意图字段/B 确认流/C 维持现状,待用户裁决）**。e2e C5/M5 旅程更新为新语义并真实浏览器通过。
+- **P0-B Gate 功能验证区分**：四类证据语义（manifest=完整性硬门不证明行为;deterministic_test/api_behavior=功能性必需;reviewer_output=永不充当机器证据）；record/consume 双侧 + 编排预检三重关闭 —— 单凭 manifest+Reviewer PASS 不得 ACCEPTED（反例=修复前 ACCEPTED 实证 counterexample-manifest-reviewer-accepted.log）；必需检查 FAILED ⇒ Reviewer 之前保守停机 evidence_failed；docs-only/无变更集豁免保留。
+- **P0-C 测试库守卫**：assertAuthorizedTestDatabaseUrl（授权三元组 loopback:55433/relayp000,任何连接/写之前拒绝）+ p01a_ schema 前缀钉死 + redactDbUrl 密码脱敏；**生产 relay_console 与测试共享同一 PG 实例仅 schema 隔离（2026-11-13 只读核实）**；故障注入=可达错误目标零写入机器证据（pg_namespace 探测）；quality 前置校验同三元组（exit 2）。
+- **P1-D 质量语义与外部副作用**：release 必需项 NOT_RUN ⇒ INCOMPLETE + exit 1（format 例外）；release 禁继承 RELAY_QUALITY_SKIP_BROWSER（exit 2）；full 模式浏览器 NOT_RUN 强制携带"须独立 e2e job 补足"警示；github-real 显式授权门 RELAY_GITHUB_REAL_E2E=1（默认仅凭本地凭据零远端写入;quality 管线剥离该变量并登记 github-real-write NOT_RUN）。
+- **P1-E**：GAP-REGISTER 纠偏附录（E-1/E-2 推翻,E-3~E-8 维持/精确化,原文保留）。
+- 实测：quality:quick PASS；quality:release PASS（288+30 过/52+2 门控 skip/github-real 2 过 3 授权 skip/备份恢复 13 表一致/含 C5 新语义真实浏览器验证）；故障注入实测（quality exit 2×2、testdb-guard 5/5）。
+- **生产影响（未触碰生产进程）**：生产 worker 重启后将按新语义运行——代码变更候选无功能性机器检查 ⇒ 保守停机 NEEDS_DECISION（需配置 evidenceChecks 或 ops 处置 D3 后恢复 Gate 放行）。**回滚=revert b7fe040 d04eae5**。
+- 显式 NOT_RUN：性能（无基线）/模型门禁 e2e（需授权）/真实远端写入验证（RELAY_GITHUB_REAL_E2E=1 需授权,本包零远端写入）/生产部署验证。
+- **登记义务（Reviewer Minor-3/5）**：未来实施 Goal 级暂停的包必须验收"PAUSED 不自动重激活"；下包准入建议=用户裁决消息分类方案（SEMANTICS §3）→ 用户控制面最小实现（E-3 abort+E-4 takeover,含 PAUSED 验收项）→ 生产 worker evidenceChecks 配置策略 → E-7 NEEDS_RECONCILE 自愈。
