@@ -14,6 +14,12 @@ Task 至少声明：目标与验收、依赖、允许仓库/路径/Operator、�
 
 Session 是 Run 的上下文引用，不承诺可复活同一模型内部隐状态。Handoff 必须结构化：`objective / requirement / current_state / decisions / changed_files / known_risks / failed_attempts / evidence / open_questions / next_action`。设大小上限、来源链接及完整性摘要；恢复应重建上下文，而不是复读全聊天。
 
+### 用户控制与计划修订新增契约（ADR-0012）
+
+观察、指导、暂停、紧急停止、人工接管和交还 AI 分开定义。ControlCommand 记录发起者、目标、预期状态、计划/控制权版本、幂等键、ACK、生效结果。
+旧计划执行资格先撤销，核对可能发生的外部副作用，然后才能给予人工或新 Run 写权限；子 Agent 预算/能力只可收紧。
+普通 Goal 消息不得默认派生可写任务；终态 Goal 的追加要求须明确授权新 Goal 或可追溯的重开。具体见 docs/AGENT_CONTROL_LOCAL_QUALITY.md。
+
 ## 3. Operator 权限
 
 **Agent → Action Proposal → Policy → Scoped Executor → Observation**。每次动作包括：
@@ -35,6 +41,12 @@ Agent 不能拿到 GitHub/SSH/生产写凭据。Shell 权限不得由于模型�
 Gate 输入：需求/验收版本、Task/ChangeSet、变更 commit、运行环境、Reviewer 身份隔离方式及带来源的 Evidence。输出：`PASS / REWORK / BLOCK / ESCALATE` + reason。适用 G0 需求、G1 影响、G2 构建、G3 独立 Review、G4 测试、G5 Reality、G6 Release、G7 Runtime（按风险裁剪）。
 
 Review Agent 不得直接批准自己的代码；执行者和 Reviewer 必须是**独立的运行/上下文**，关键规则仍由确定性检查与真实环境观察兜底。Gate 结果与具体 commit 绑定，代码变更后相关门禁重新验证。Task Gate → ChangeSet Gate → Project Acceptance，不允许“全 Task PASS”直接推导最终发布成功。
+
+### 机器质量门新增契约（ADR-0012）
+
+代码变更要有按影响面确定的最低机器证据集合；只有 Reviewer 输出时不得通过必需测试 Gate。
+必需检查 FAILED/SKIPPED/NOT_RUN 均不能放行；N/A 仅可由有证据的确定性适用性规则给出。候选 SHA、环境或要求变化需重新审查。
+本地与 GitHub 复用相同验证配置；专项性能在可比基线下执行。评分、代码行数及 Token 节省均不得抵消安全/功能硬门。
 
 ## 6. Protocol / Extension
 

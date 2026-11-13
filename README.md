@@ -1,6 +1,6 @@
 # Relay / HIVE Next
 
-**状态：FROZEN（顶层原则、完整 PRD、建设路线与验收要求）；代码未实现、关键技术 POC 仍 OPEN。** 更新：2026-11-09。
+**状态：顶层原则 FROZEN；已有 Core、Worker、Pi RPC、Web、Gate 与自动测试；MVP 总体验收保持 REWORK，新增 Agent 接管与本地质量能力仅设计收敛、实现 OPEN。** 更新：2026-11-13。
 
 Relay 是轻量、可独立运行、证据驱动、可恢复地持续推进的自主软件交付系统（Autonomous Software Delivery Engine）。用户提出模糊或明确目标，Relay 负责质疑、调查、规划、开发、独立验证、受控交付与持续反馈。ChatGPT 是**可选入口**，不是运行依赖。
 
@@ -17,6 +17,7 @@ Relay 是轻量、可独立运行、证据驱动、可恢复地持续推进的�
 
 **架构/安全/扩展**：
 - [架构基线](ARCHITECTURE_BASELINE.md) 和 [详细架构](docs/DETAILED_ARCHITECTURE.md)。
+- [Agent 控制与本地质量专项契约](docs/AGENT_CONTROL_LOCAL_QUALITY.md)：会话、人工接管、多 Agent、计划修订、机器质量门和本地 CI。
 - [领域模型](DOMAIN_MODEL.md)、[核心契约](CONTRACTS.md)、[安全威胁模型](docs/SECURITY_MODEL.md)。
 - [生命周期与质量](docs/DELIVERY.md)、[24×7 自治原则](docs/OPERATIONS.md)、[Runtime/插件/技术候选](docs/INTEGRATIONS.md)。
 - [路线图](P0_P1_ROADMAP.md)、[ADR](ADR/README.md)、[最终审计](docs/FINAL_AUDIT.md)。
@@ -30,4 +31,4 @@ Relay 是轻量、可独立运行、证据驱动、可恢复地持续推进的�
 - **DEFERRED**：明确延期。
 - **REJECTED**：明确否决。
 
-**当前状态**：设计达到可拆分可验收的施工基线，尚无 Relay 实现或 24×7 实际运行证据。下一唯一包是 `P0-00` 的 Pi 隔离/恢复语义 POC，不能跳过。
+**当前状态**：代码已实现最小交付链，但用户体验与模型对照仍有未完成验证；R-2、R-3 历史保持 PARTIAL。当前唯一授权任务以 [CURRENT.md](CURRENT.md) 为准，不能从此 README 推断可直接运行新开发。

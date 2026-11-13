@@ -19,6 +19,12 @@ Pi 提供 Agent 能力，Relay 提供 Goal/权限/调度/验收。优先评估 P
 - **Session/Handoff**：P0 提供持久化 Run Context、来源/摘要/Checkpoint 引用和 Resume（必要时重建上下文）。Session↔Session 的 spawn/send/ask/steer/interrupt/observe/terminate 属 P1+，仅作为可测试设计契约，不是 P0 的并行 Agent 总线。
 - **Durable Workflow**：Relay 定义状态机及恢复语义；具体底层 PostgreSQL 事务/lease 或 DBOS，需 POC 选择，**绝不两套引擎同时调度同一 Task**。
 
+### 已有 Pi RPC 与 pstack 复用边界（ADR-0012）
+
+Relay 当前实现已选择固定版本 Pi RPC 与双层沙箱；文档中的 Pi SDK/RPC 取舍是历史 POC，不代表现在还未选型。
+生产 Pi 精确锁定，候选升级需验证/回滚；扩展可以运行代码，必须审核网络、挂载、子进程、许可证和权限。当前短 Run 不等于已支持实时附着。
+pstack 的需求质疑、独立 Review、根因分析等方法可按需引用；不得启用第二调度、自动循环、自动新建分支或自行扩大执行权限。
+
 ## Skill / Capability / Plugin / 传输
 
 ```text

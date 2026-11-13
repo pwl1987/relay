@@ -1,6 +1,6 @@
 # Relay 顶层架构基线
 
-状态：**FROZEN（原则与所有权）**；实现、服务可用性及性能尚未验证。
+状态：**FROZEN（原则与所有权）**；新增 Agent 控制、本地质量门和性能阈值仍需专项实现与验收，代码现实以 live main 和证据为准。
 
 ## 1. 使命及非目标
 
@@ -27,6 +27,16 @@ Web(最小界面) / CLI / HTTP API / 可选 ChatGPT Client
 只有 Relay 的状态机负责 Lifecycle、任务就绪、Lease、Retry/Replan、Gate、接受与最终状态。Worker 执行运行步骤，**不私有化另一套任务调度**；Pi/ACP 及 Plugin 不能自行批准交付或越权。Session Persistence/Handoff 是运行上下文能力，**不是第二个 Workflow Engine**。
 
 默认服务边界：`relay-server`、`relay-worker`、PostgreSQL；P0 允许 server/worker 同进程起步，证明确有故障隔离需求再拆。Chromium 等按需启动。不得因未来扩展提前部署消息总线或服务网格。
+
+## 2.1 用户干预、多 Agent 与质量边界（ADR-0012）
+
+- Relay Core 继续拥有唯一持久工作流、计划版本、权限、预算、Lease 和 Gate；Pi 子 Agent 不能创建第二调度器。
+- 用户可以查看、指导、暂停、紧急停止、接管与交还；ACK 不等于操作生效，接管前必须撤销旧 Writer 并核查副作用。
+- 用户聊天不能自动变为有写权限的 Task；变更方向需要 PlanRevision 栅栏，终态 Goal 不得静默重启。
+- 本地独立验证与 GitHub 云端复核使用同一质量标准；最低机器测试证据不能被 Reviewer 自评替代。
+- 最小必要代码与确定性 Policy 优先，性能基线实测后校准，pstack 仅复用经许可的工程方法，不接管编排。
+
+详细合同：[Agent 控制与本地质量契约](docs/AGENT_CONTROL_LOCAL_QUALITY.md)；裁决：[ADR-0012](ADR/0012-agent-control-local-quality.md)。本设计不等于已实现或验收通过。
 
 ## 3. 六阶段与风险裁剪
 

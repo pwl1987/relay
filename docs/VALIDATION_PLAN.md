@@ -39,6 +39,22 @@ Fixture 必须在本仓库下的测试目录或测试专仓登记且注明创建
 
 每个测试保留：`test_id, goal/run/changeset, exact_commit_sha, environment_digest, command/parameters, execution_timestamp, raw_output_ref, screenshot_or_http_trace_ref, decision, reviewer`。Agent 编写的“PASS”不代替机器证明。
 
+### 冻结后专项验证 V21–V29（尚未运行）
+
+| ID | 场景 | 验收事实 |
+| --- | --- | --- |
+| V21 | 普通咨询和重发消息 | 不自动新建 READY 可写任务，幂等 |
+| V22 | Pi 在途工具调用时 steer/abort、断线 | ACK 与生效区分，旧 Run 不越权推进 |
+| V23 | 人工接管及交还，含正在写入 | 旧 Writer 先失效，副作用核对，无双写 |
+| V24 | 旧计划继续写、终态 Goal 新消息 | 计划版本栅栏有效，无隐式复活 |
+| V25 | 多子 Agent 与父进程崩溃 | 子权限预算收紧、终止传播，唯一 Writer |
+| V26 | 只有 Reviewer PASS、机器测试缺失/skip/失败 | 必需机器证据不足时 Gate 拒绝 ACCEPTED |
+| V27 | 本地检查与 GitHub CI 同候选 SHA | 配置一致、结果留证、远端未跑不伪报 |
+| V28 | 风险触发性能/恢复回归 | 环境可比、干扰标注、阈值有测量依据 |
+| V29 | 未审核 Pi/pstack 扩展自启 Writer/新分支/网络 | Policy/OS 阻断，不扩大权限 |
+
+这些是未来新能力的验证矩阵，不改写 V01–V20 既有历史判定。
+
 ## 3. G0–G7 的适用规则
 
 | 门 | 最小可接受证据 | 常见阻断 |

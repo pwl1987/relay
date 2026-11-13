@@ -2,6 +2,13 @@
 
 状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09~11 完成 P0-00..P0-02C 与 P0-ACCEPT;2026-11-11 完成总授权执行包六阶段 + 收口包;2026-11-12 R-1 闭环解除(US-08/G6 VERIFIED)+ R-2/R-3 收口轮。**MVP 终判:REWORK 维持。R-2/R-3 现状:R-2 授权参数缺失 ⇒ 待授权清单已发出(`p0-mvp/r2-pending-authorization.md`,零真模型运行);R-3 采集于 06:05+0800@12.53h 被会话解体 SIGTERM 波及(缝 365s 落账),06:10 已按原始口径 setsid detached 续采(起点不重置;worker/sampler pid 文件已更新),期满 2026-11-12 17:32:52+0800 用 `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验——存在中断缝 ⇒ 终验口径 PARTIAL。勿动 `p0-mvp/soak-24h/` 两进程(现已脱离会话进程组);samples.csv/worker.log 保持 skip-worktree,终验后显式解除入库。明示:每次全量 vitest 触发 1 次真模型 A-4 实验(magpie,limit=8)。**(**2026-11-12 17:5x 收口注:R-3 终验已完成=PARTIAL 定格,三进程受控退出,证据已解除 skip-worktree 入库——见本文"三个 REWORK 解除项"§3 与 CURRENT.md 第一包行;本段前文为历史记录;R-2 亦已执行完毕=PARTIAL 双败+归因,见 §2 再注**)
 
+## RELAY-ARCH-FREEZE-01（2026-11-13）
+
+当前唯一设计工作合同以 CURRENT.md 顶部为准；历史 ACTIVE 记录仅供追溯。本轮设计基于 GitHub main 51972cdeb89a，由受控 VM80 Writer 修改文档与 ADR，不改产品代码、依赖、CI 实现、生产配置或模型调用。
+冻结原则：Relay Core 唯一编排/状态/Gate 权威、Pi First、唯一 Writer；人工接管与方向纠偏的版本化控制见 docs/AGENT_CONTROL_LOCAL_QUALITY.md；本地独立质量检查与 GitHub 外部复核、机器测试证据硬门见 ADR-0012。
+实现尚需独立 POC 和 Reviewer：会话重入、PlanRevision、子 Agent 权限、质量脚本、风险分级证据、性能阈值与 pstack 适配均不得宣称已交付。MVP REWORK 与 R-2/R-3 PARTIAL 历史状态不变。
+Writer 完成后需释放 Dev Agent Kit 的人类接管；任何新代码包需另立 CURRENT 合同并获得授权。
+
 ## RELAY-MVP-READINESS-01(2026-11-13 用户指令;**当前执行包,唯一续接入口**)
 
 合同与逐子包状态以 **CURRENT.md 末行(ACTIVE)** 为准;本节只放续接指针与关键风险。**已收口子包**:①WEB-UX-03D 部署一致性核实 ✅(`p0-mvp/readiness-01/DEPLOY-VERIFY-01.md`:资源指纹三方一致/HTTP 32/32/Chromium 双端 17/17/PWA 分端判定=Android 被非安全上下文阻断+iOS A2HS 基础可用/HTTPS 最小方案仅方案待用户裁决/回滚方法);②R2-REMEDIATION-01 剩余 =A 根因复核+B 最小收口(`budgetEvidence` 单源/contextWindow 常量共享/fail-closed 语义澄清/ADR 索引补 0011)+C 单测 10/10 ✅,**D 真实 F1/F2 对照未发起**(上游 api.z.ai 挂起窗口 ≥42 分钟,探针 4 次账本全落 499 零 token;一次正式尝试×2 完整保留,取值冻结 32768;详见 `p0-mvp/readiness-01/R2-ROUND2-NOTE.md`);③AUTOLOOP 重核+逐项 ADOPT/DEFER/REJECT 表(docs/AGENT_AUTOLOOP_REFERENCE.md 增补;HEAD 前进 439be64→1bd9aa2 单提交 MIT 不变,protocol.md ≥100 行号 +2 偏移注记);④CURRENT/CONTINUATION 整理=本节。**关键风险与续接点**:①上游窗口恢复后才能执行 F1/F2 正式尝试(收口前再探针;三结论分开口径);②HTTPS 方案待用户裁决后才可实施(涉设备信任与 TLS);③生产 NEEDS_RECONCILE 自愈(P1-4 候选)+迁移自动化(DEPLOY-03D 报告 §5 候选,未编号)=后续候选包;④用户 Mac+手机 VPN 实机验收=本包收口后的产品体验裁决入口(docs/USAGE_MAC.md+USAGE_MOBILE.md;演练 Goal goal-73d01da0)。

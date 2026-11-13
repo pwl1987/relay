@@ -14,4 +14,6 @@
 - [0010 MVP 验收口径调整](0010-mvp-acceptance-repositioning.md) — **ACCEPTED(2026-11-12；连续 24h 重定位为 Operational/Pilot Readiness Gate；原 R-3 保持 PARTIAL 历史事实不改；R-3B 暂缓并入 PILOT-24H)**
 - [0011 模型输出上限运行时配置化](0011-max-output-tokens.md) — **ACCEPTED(2026-11-13；maxOutputTokens 运行时配置项，默认 8192 行为兼容，界 1024~128000，超界 fail-closed；不属于 MODEL-POLICY-01；READINESS-01 子包②补语义澄清+budgetEvidence 单一来源)**
 
+- [0012 Agent 控制与本地优先质量](0012-agent-control-local-quality.md) — **ACCEPTED：架构原则；新会话/CI 与数值门槛实现 OPEN**
+
 修改 FROZEN 决策须说明替代方案、验证和迁移影响；不要删除旧 ADR 或建立第二个权威目录。
