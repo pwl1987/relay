@@ -18,6 +18,30 @@ import { expireVerificationLease } from "./verify-lease.ts";
 
 export type GateVerdict = "PASS" | "REWORK" | "BLOCK";
 
+/** 机器检查证据类别(区别于 reviewer_output;ADR-0012 #7/CONTRACTS §5)。
+ *  candidate_manifest_verify = 内建候选清单复验(生产默认;RELAY-QUALITY-LOCAL-01 D1)。 */
+export const MACHINE_EVIDENCE_KINDS: ReadonlySet<string> = new Set([
+  "deterministic_test",
+  "api_behavior",
+  "candidate_manifest_verify",
+]);
+
+/**
+ * 确定性 N/A 适用规则(ADR-0012 #7/CONTRACTS §5 机器质量门;RELAY-QUALITY-LOCAL-01 D4):
+ * docs-only 变更(全部 .md/.markdown)豁免机器测试证据 —— 纯文档无机器测试可跑,
+ * 豁免由本规则确定性给出,不需要模型或人工判断。
+ * 刻意不含 .txt 等通用文本:任务产物(如 result.txt)不是文档,按代码变更处理(fail-closed)。
+ * 空文件清单视同代码变更(fail-closed):零编辑空提交正是要拦截的异常,不得借"无文件"逃逸。
+ */
+export function isDocsOnlyChanges(
+  changedFiles: { added?: string[]; modified?: string[]; removed?: string[] } | null | undefined,
+): boolean {
+  if (!changedFiles) return false;
+  const all = [...(changedFiles.added ?? []), ...(changedFiles.modified ?? []), ...(changedFiles.removed ?? [])];
+  if (all.length === 0) return false;
+  return all.every((f) => /\.(md|markdown)$/i.test(f));
+}
+
 export interface GateTestEnv {
   mode: string;
   node: string;
@@ -51,10 +75,12 @@ export async function recordGateVerdict(exec: Exec, spec: RecordGateSpec): Promi
   // 绑定一致性(记录时即校验,消费时二次校验)
   if (spec.candidateSha !== null || changeset !== null) {
     if (!changeset) return { ok: false, reason: "changeset_missing" };
-    if (changeset.attempt !== spec.attempt) return { ok: false, reason: `changeset_attempt_mismatch:${changeset.attempt}!=${spec.attempt}` };
+    if (changeset.attempt !== spec.attempt)
+      return { ok: false, reason: `changeset_attempt_mismatch:${changeset.attempt}!=${spec.attempt}` };
     if (changeset.candidateSha !== spec.candidateSha) return { ok: false, reason: "candidate_sha_mismatch" };
     if (changeset.requirementSha !== spec.requirementSha) return { ok: false, reason: "requirement_sha_mismatch" };
-    if (spec.coderRunId !== null && changeset.runId !== spec.coderRunId) return { ok: false, reason: "coder_run_mismatch" };
+    if (spec.coderRunId !== null && changeset.runId !== spec.coderRunId)
+      return { ok: false, reason: "coder_run_mismatch" };
   }
 
   // Reviewer 独立性:reviewer_run 必须存在且 role=reviewer,且不得等于 coder run
@@ -78,12 +104,22 @@ export async function recordGateVerdict(exec: Exec, spec: RecordGateSpec): Promi
   // 证据绑定 candidateSha 用 "" 哨兵对齐无候选流程(evidence.candidate_sha NOT NULL)。
   const evidenceIds = spec.evidenceIds ?? [];
   if (spec.verdict === "PASS" && evidenceIds.length === 0) return { ok: false, reason: "evidence_missing" };
+  const evidenceKinds = new Set<string>();
   for (const eid of evidenceIds) {
     const ev = await getEvidence(exec, eid);
     if (!ev) return { ok: false, reason: `evidence_not_found:${eid}` };
     const binding = { taskId: spec.taskId, attempt: spec.attempt, candidateSha: spec.candidateSha ?? "" };
     const integrity = verifyEvidenceIntegrity(ev, binding);
     if (!integrity.ok) return { ok: false, reason: `evidence_invalid:${eid}:${integrity.reason}` };
+    evidenceKinds.add(ev.kind);
+  }
+
+  // 最低机器证据(ADR-0012 #7/CONTRACTS §5;RELAY-QUALITY-LOCAL-01 D1/D2/D3):
+  // 代码变更候选的 PASS 必须引用至少一条机器检查证据;reviewer_output 不得单独充当。
+  // 豁免仅两条确定性路径:docs-only 变更(上方 N/A 规则)与无变更集纯分析(candidateSha=null)。
+  if (spec.verdict === "PASS" && spec.candidateSha !== null && !isDocsOnlyChanges(changeset?.changedFiles ?? null)) {
+    const hasMachine = [...evidenceKinds].some((k) => MACHINE_EVIDENCE_KINDS.has(k));
+    if (!hasMachine) return { ok: false, reason: "machine_evidence_missing" };
   }
 
   const id = spec.id ?? `gate-${randomUUID()}`;
@@ -165,7 +201,14 @@ export type ConsumeGateResult =
  */
 export async function consumeGateVerdict(
   exec: Exec,
-  spec: { taskId: string; gateId: string; actor: string; ownerId: string; fencingToken: number; backoffSeconds?: number },
+  spec: {
+    taskId: string;
+    gateId: string;
+    actor: string;
+    ownerId: string;
+    fencingToken: number;
+    backoffSeconds?: number;
+  },
 ): Promise<ConsumeGateResult> {
   const gate = await getGateRow(exec, spec.gateId);
   if (!gate) return { ok: false, gateId: spec.gateId, reason: "gate_not_found" };
@@ -183,14 +226,24 @@ export async function consumeGateVerdict(
   // 绑定二次校验:attempt / candidate / requirement 全部对当前事实
   if (gate.attempt === null || gate.attempt !== taskAttempt) {
     await rejectConsume(exec, spec, gate, `stale_attempt:${gate.attempt}!=${taskAttempt}`, taskState);
-    return { ok: false, gateId: spec.gateId, reason: `stale_attempt:${gate.attempt}!=${taskAttempt}`, state: taskState };
+    return {
+      ok: false,
+      gateId: spec.gateId,
+      reason: `stale_attempt:${gate.attempt}!=${taskAttempt}`,
+      state: taskState,
+    };
   }
   const changeset = await latestChangeset(exec, spec.taskId);
   const curSha = changeset?.candidateSha ?? null;
   const curReq = changeset?.requirementSha ?? null;
   if (gate.candidateSha !== curSha) {
     await rejectConsume(exec, spec, gate, `stale_candidate:${gate.candidateSha}!=${curSha}`, taskState);
-    return { ok: false, gateId: spec.gateId, reason: `stale_candidate:${gate.candidateSha}!=${curSha}`, state: taskState };
+    return {
+      ok: false,
+      gateId: spec.gateId,
+      reason: `stale_candidate:${gate.candidateSha}!=${curSha}`,
+      state: taskState,
+    };
   }
   if (gate.requirementSha !== curReq) {
     await rejectConsume(exec, spec, gate, "requirement_sha_mismatch", taskState);
@@ -201,16 +254,35 @@ export async function consumeGateVerdict(
     return { ok: false, gateId: spec.gateId, reason: "reviewer_independence_violation", state: taskState };
   }
   // 证据完整性复验(测试失败/证据失效 ⇒ 不得绿色)
+  const evidenceKinds = new Set<string>();
   for (const eid of gate.evidenceIds) {
     const ev = await getEvidence(exec, eid);
     if (!ev) {
       await rejectConsume(exec, spec, gate, `evidence_not_found:${eid}`, taskState);
       return { ok: false, gateId: spec.gateId, reason: `evidence_not_found:${eid}`, state: taskState };
     }
-    const integrity = verifyEvidenceIntegrity(ev, { taskId: spec.taskId, attempt: taskAttempt, candidateSha: gate.candidateSha ?? "" });
+    const integrity = verifyEvidenceIntegrity(ev, {
+      taskId: spec.taskId,
+      attempt: taskAttempt,
+      candidateSha: gate.candidateSha ?? "",
+    });
     if (!integrity.ok) {
       await rejectConsume(exec, spec, gate, `evidence_invalid:${eid}:${integrity.reason}`, taskState);
-      return { ok: false, gateId: spec.gateId, reason: `evidence_invalid:${eid}:${integrity.reason}`, state: taskState };
+      return {
+        ok: false,
+        gateId: spec.gateId,
+        reason: `evidence_invalid:${eid}:${integrity.reason}`,
+        state: taskState,
+      };
+    }
+    evidenceKinds.add(ev.kind);
+  }
+  // 最低机器证据复验(与 recordGateVerdict 同规则;防绕过编排直录旧格式 PASS)
+  if (gate.verdict === "PASS" && gate.candidateSha !== null && !isDocsOnlyChanges(changeset?.changedFiles ?? null)) {
+    const hasMachine = [...evidenceKinds].some((k) => MACHINE_EVIDENCE_KINDS.has(k));
+    if (!hasMachine) {
+      await rejectConsume(exec, spec, gate, "machine_evidence_missing", taskState);
+      return { ok: false, gateId: spec.gateId, reason: "machine_evidence_missing", state: taskState };
     }
   }
 
@@ -303,6 +375,12 @@ async function rejectConsume(
     taskId: spec.taskId,
     beforeState: state,
     afterState: state,
-    detail: { gateId: gate.id, verdict: gate.verdict, reason, gateAttempt: gate.attempt, gateCandidateSha: gate.candidateSha },
+    detail: {
+      gateId: gate.id,
+      verdict: gate.verdict,
+      reason,
+      gateAttempt: gate.attempt,
+      gateCandidateSha: gate.candidateSha,
+    },
   });
 }

@@ -13,7 +13,12 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb, seedTask, type TestDb } from "../setup/testdb.ts";
 import type { Exec } from "../../src/core/db.ts";
-import { recordChangeset, bindCandidateCommit, latestChangeset, type WorkspaceManifest } from "../../src/core/changesets.ts";
+import {
+  recordChangeset,
+  bindCandidateCommit,
+  latestChangeset,
+  type WorkspaceManifest,
+} from "../../src/core/changesets.ts";
 import { recordBoundGate } from "../setup/gate-helper.ts";
 import {
   proposeDelivery,
@@ -25,7 +30,11 @@ import {
 import { reserveIntent } from "../../src/core/intents.ts";
 import { DEFAULT_DELIVERY_POLICY, type DeliveryPolicyConfig } from "../../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
-import { createCandidateCommit, makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
+import {
+  createCandidateCommit,
+  makeCommitBindingVerifier,
+  verifyRemoteCommitContent,
+} from "../../src/runtime/git-candidate.ts";
 import type { SandboxSpec } from "../../src/runtime/sandbox.ts";
 import { manifestOf, makeWorkspaceRepo, makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
 
@@ -130,7 +139,11 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     return { ws, remote, candidateManifest, changeset: cs, staged };
   }
 
-  function deliveryIO(staged: { stageRepoDir: string }, remote: BareRemoteFixture, manifest: WorkspaceManifest): DeliveryIO {
+  function deliveryIO(
+    staged: { stageRepoDir: string },
+    remote: BareRemoteFixture,
+    manifest: WorkspaceManifest,
+  ): DeliveryIO {
     return {
       executor: createGitHubPushExecutor({ sourceRepo: staged.stageRepoDir, credentialFile: null }),
       verifyRemoteContent: async (commitSha: string) => {
@@ -172,7 +185,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     );
   }
 
-  it("D-8 正链:Proposal→Intent→推送→远端核对 ⇒ DELIVERED;远端头==payload;审计齐备;三 SHA 区分", { timeout: 60_000 }, async () => {
+  it("D-8 正链:Proposal→Intent→推送→远端核对 ⇒ DELIVERED;远端头==payload;审计齐备;三 SHA 区分", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-ok";
     const seeded = await seedDeliveryReady({ taskId });
     const proposed = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
@@ -229,7 +244,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(String(denied.rows[0]!["state"])).toBe("POLICY_DENIED");
   });
 
-  it("反例2a Token 缺失 ⇒ credential_missing(0 intent);反例2b 远端 401 ⇒ intent FAILED,changeset 非 DELIVERED,远端未被触碰", { timeout: 60_000 }, async () => {
+  it("反例2a Token 缺失 ⇒ credential_missing(0 intent);反例2b 远端 401 ⇒ intent FAILED,changeset 非 DELIVERED,远端未被触碰", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-noauth";
     const seeded = await seedDeliveryReady({ taskId });
     const proposed = await t.db.transaction(async (tx) =>
@@ -280,7 +297,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     }
   });
 
-  it("反例3 未经 Gate PASS 的候选不得推送:无已消费 PASS ⇒ no_gate_authorization;任务非 ACCEPTED ⇒ task_not_accepted", { timeout: 60_000 }, async () => {
+  it("反例3 未经 Gate PASS 的候选不得推送:无已消费 PASS ⇒ no_gate_authorization;任务非 ACCEPTED ⇒ task_not_accepted", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-nogate";
     const seeded = await seedDeliveryReady({ taskId, consumedPass: false });
     const proposed = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
@@ -311,7 +330,11 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     execFileSync("git", ["-C", other.dir, "fetch", "--quiet", "r"], { encoding: "utf8" });
     execFileSync("git", ["-C", other.dir, "reset", "--quiet", "--hard", seeded.remote.head()], { encoding: "utf8" });
     execFileSync("git", ["-C", other.dir, "add", "-A"], { encoding: "utf8" });
-    execFileSync("git", ["-C", other.dir, "-c", "user.email=f@l", "-c", "user.name=f", "commit", "--quiet", "-m", "foreign"], { encoding: "utf8" });
+    execFileSync(
+      "git",
+      ["-C", other.dir, "-c", "user.email=f@l", "-c", "user.name=f", "commit", "--quiet", "-m", "foreign"],
+      { encoding: "utf8" },
+    );
     execFileSync("git", ["-C", other.dir, "push", "--quiet", "r", "HEAD:refs/heads/main"], { encoding: "utf8" });
     const foreignHead = seeded.remote.head();
     expect(foreignHead).not.toBe(seeded.ws.baseCommitSha);
@@ -324,7 +347,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(seeded.remote.head()).toBe(foreignHead); // 拒绝覆盖:远端仍是外来提交
     const csRow = await latestChangeset(t.db as unknown as Exec, taskId);
     expect(csRow?.deliveryState).toBe("CONFLICT");
-    const dec = await t.db.execute(sql`SELECT level, state FROM decisions WHERE task_id = ${taskId} AND state = 'OPEN'`);
+    const dec = await t.db.execute(
+      sql`SELECT level, state FROM decisions WHERE task_id = ${taskId} AND state = 'OPEN'`,
+    );
     expect(dec.rows.length).toBe(1);
     expect(String(dec.rows[0]!["level"])).toBe("D3");
     const intentState = await t.db.execute(sql`SELECT state FROM action_intents WHERE id = ${done.intentId}`);
@@ -334,7 +359,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(String(st.rows[0]!["state"])).toBe("ACCEPTED");
   });
 
-  it("反例5 push 成功但回执丢失:Reconcile 先查真实状态 ⇒ SIDE_EFFECT_CONFIRMED ⇒ DELIVERED,绝不重复推送", { timeout: 60_000 }, async () => {
+  it("反例5 push 成功但回执丢失:Reconcile 先查真实状态 ⇒ SIDE_EFFECT_CONFIRMED ⇒ DELIVERED,绝不重复推送", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-receipt";
     const seeded = await seedDeliveryReady({ taskId });
     const p = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
@@ -356,8 +383,13 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     );
     await t.db.execute(sql`UPDATE action_intents SET state = 'EXECUTING' WHERE id = ${reserved.id}`);
     await io.executor.perform({
-      id: reserved.id, taskId, capability: "github.push", target: seeded.remote.url,
-      branch: "main", expectedRemoteSha: seeded.ws.baseCommitSha, payloadSha: seeded.staged.commitSha,
+      id: reserved.id,
+      taskId,
+      capability: "github.push",
+      target: seeded.remote.url,
+      branch: "main",
+      expectedRemoteSha: seeded.ws.baseCommitSha,
+      payloadSha: seeded.staged.commitSha,
     });
     expect(seeded.remote.head()).toBe(seeded.staged.commitSha); // 副作用已在远端
     const countAfterPush = seeded.remote.commitCount();
@@ -372,7 +404,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(String(intentState.rows[0]!["state"])).toBe("COMPLETED");
   });
 
-  it("反例6 候选内容与实际 Git Commit 不一致 ⇒ 阻断(commit 绑定重核 tree_sha_drift;Proposal 拒绝)", { timeout: 60_000 }, async () => {
+  it("反例6 候选内容与实际 Git Commit 不一致 ⇒ 阻断(commit 绑定重核 tree_sha_drift;Proposal 拒绝)", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-tamper";
     const seeded = await seedDeliveryReady({ taskId });
     // 绑定记录漂移(内容承诺失真)⇒ Proposal 重核拒绝 ⇒ 必须重新验证
@@ -385,7 +419,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(Number(intents.rows[0]!["n"])).toBe(0);
   });
 
-  it("反例8 重复触发交付请求:同 changeset 单 proposal;已 CONSUMED ⇒ no-op,单提交单 intent", { timeout: 60_000 }, async () => {
+  it("反例8 重复触发交付请求:同 changeset 单 proposal;已 CONSUMED ⇒ no-op,单提交单 intent", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-idem";
     const seeded = await seedDeliveryReady({ taskId });
     const p1 = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
@@ -399,13 +435,17 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     const d1 = await executeDelivery(t.db, io, p1.proposal.id);
     expect(d1.ok && d1.state === "DELIVERED").toBe(true);
     const countAfterFirst = seeded.remote.commitCount();
-    const intentsAfterFirst = await t.db.execute(sql`SELECT count(*)::int AS n FROM action_intents WHERE task_id = ${taskId}`);
+    const intentsAfterFirst = await t.db.execute(
+      sql`SELECT count(*)::int AS n FROM action_intents WHERE task_id = ${taskId}`,
+    );
     expect(Number(intentsAfterFirst.rows[0]!["n"])).toBe(1);
 
     const d2 = await executeDelivery(t.db, io, p1.proposal.id); // 重复触发:CONSUMED ⇒ 核对后 no-op
     expect(d2.ok && d2.state === "DELIVERED").toBe(true);
     expect(seeded.remote.commitCount()).toBe(countAfterFirst);
-    const intentsAfterSecond = await t.db.execute(sql`SELECT count(*)::int AS n FROM action_intents WHERE task_id = ${taskId}`);
+    const intentsAfterSecond = await t.db.execute(
+      sql`SELECT count(*)::int AS n FROM action_intents WHERE task_id = ${taskId}`,
+    );
     expect(Number(intentsAfterSecond.rows[0]!["n"])).toBe(1);
 
     // 记录面完整性:已 CONSUMED 的 proposal 重复 propose 不得翻转状态(幂等读回)
@@ -416,7 +456,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(p3.proposal.state).toBe("CONSUMED");
   });
 
-  it("反例9 远端提交失败 ⇒ ChangeSet 不得标 DELIVERED(pre-receive 拒绝 ⇒ FAILED + 审计)", { timeout: 60_000 }, async () => {
+  it("反例9 远端提交失败 ⇒ ChangeSet 不得标 DELIVERED(pre-receive 拒绝 ⇒ FAILED + 审计)", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-reject";
     const seeded = await seedDeliveryReady({ taskId });
     writeFileSync(join(seeded.remote.dir, "hooks", "pre-receive"), "#!/bin/sh\nexit 1\n", "utf8");
@@ -433,11 +475,15 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(csRow?.deliveryState).toBe("FAILED");
     expect(csRow?.deliveryState).not.toBe("DELIVERED");
     expect(seeded.remote.head()).toBe(seeded.ws.baseCommitSha);
-    const audits = await t.db.execute(sql`SELECT action FROM audit_events WHERE task_id = ${taskId} AND action = 'DELIVERY_FAILED'`);
+    const audits = await t.db.execute(
+      sql`SELECT action FROM audit_events WHERE task_id = ${taskId} AND action = 'DELIVERY_FAILED'`,
+    );
     expect(audits.rows.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("写后内容核验抛错 ⇒ NEEDS_RECONCILE(不误标 DELIVERED);Reconcile 先查真实状态补 DELIVERED", { timeout: 60_000 }, async () => {
+  it("写后内容核验抛错 ⇒ NEEDS_RECONCILE(不误标 DELIVERED);Reconcile 先查真实状态补 DELIVERED", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-verifythrow";
     const seeded = await seedDeliveryReady({ taskId });
     const p = await propose({ taskId, remote: seeded.remote, staged: seeded.staged });
@@ -445,7 +491,12 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     if (!p.ok) return;
     const io = deliveryIO(seeded.staged, seeded.remote, seeded.candidateManifest);
     // 注入核验实现抛错(模拟 push 成功后核验面瞬断)
-    const throwing: DeliveryIO = { ...io, verifyRemoteContent: async () => { throw new Error("remote_fetch_failed: 模拟网络瞬断"); } };
+    const throwing: DeliveryIO = {
+      ...io,
+      verifyRemoteContent: async () => {
+        throw new Error("remote_fetch_failed: 模拟网络瞬断");
+      },
+    };
     const done = await executeDelivery(t.db, throwing, p.proposal.id, { actor: "test-throw" });
     expect(done.ok).toBe(false);
     if (done.ok) return;
@@ -462,7 +513,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(csRow?.deliveryState).toBe("DELIVERED");
   });
 
-  it("F-5 收敛反例:候选 base 与 runs.input_commit_sha 失配 ⇒ 提案拒绝 base_commit_mismatch(0 intent、不推送)", { timeout: 60_000 }, async () => {
+  it("F-5 收敛反例:候选 base 与 runs.input_commit_sha 失配 ⇒ 提案拒绝 base_commit_mismatch(0 intent、不推送)", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-dl-basemismatch";
     const seeded = await seedDeliveryReady({ taskId });
     // 把 coder Run 的输入 commit 改成其它值(记录面失真)⇒ 候选 base 与之不一致
@@ -477,7 +530,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(seeded.remote.head()).toBe(seeded.ws.baseCommitSha);
   });
 
-  it("全链(goal-loop 接线):stub Run(git 工作区)→ 变更集+候选 commit → Reviewer PASS → ACCEPTED → 交付 DELIVERED → goal COMPLETED", { timeout: 120_000 }, async () => {
+  it("全链(goal-loop 接线):stub Run(git 工作区)→ 变更集+候选 commit → Reviewer PASS → ACCEPTED → 交付 DELIVERED → goal COMPLETED", {
+    timeout: 120_000,
+  }, async () => {
     const { planGoal } = await import("../../src/core/goals.ts");
     const { goalLoopTick } = await import("../../src/core/goal-loop.ts");
     const { executeRun } = await import("../../src/runtime/runner.ts");
@@ -555,6 +610,10 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
         return { outcome: result.outcome, taskId, runId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir };
       },
       gate: {
+        // RELAY-QUALITY-LOCAL-01:代码变更候选必须配机器检查(恒真检查满足门槛,不改变被测交付语义)
+        evidenceChecks: [
+          { kind: "deterministic_test", command: ["node", "-e", "console.log('check ok')"], cwdWorkspace: true },
+        ],
         reviewRun: async (input) =>
           runReviewerSession(t.db, resolveVendoredPi(), {
             taskId: input.taskId,
@@ -624,7 +683,9 @@ describe("P0-02B 交付链(bare Git + 真 PG)", () => {
     expect(String(goalRow.rows[0]!["state"])).toBe("COMPLETED");
     const stRow = await t.db.execute(sql`SELECT state FROM tasks WHERE id = ${taskId}`);
     expect(String(stRow.rows[0]!["state"])).toBe("ACCEPTED");
-    const audits = await t.db.execute(sql`SELECT action FROM audit_events WHERE task_id = ${taskId} AND action = 'DELIVERY_DELIVERED'`);
+    const audits = await t.db.execute(
+      sql`SELECT action FROM audit_events WHERE task_id = ${taskId} AND action = 'DELIVERY_DELIVERED'`,
+    );
     expect(audits.rows.length).toBe(1);
     for (const s of sandboxes) cleanupSandbox(s);
   });

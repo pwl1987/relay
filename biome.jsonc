@@ -1,0 +1,51 @@
+{
+  // RELAY-QUALITY-LOCAL-01:统一格式/Lint 基线(唯一检查配置;本地与 GitHub Actions 复用)。
+  // 基线原则(C5):配置以"现有代码风格"为准,不做全仓重排;历史偏差以规则降级方式在此
+  // 留痕(可审计),新增/修改代码必须通过本配置的全部 error 级检查。
+  "$schema": "https://biomejs.dev/schemas/2.6.7/schema.json",
+  "vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": false },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["src/**", "web/**", "test/**", "scripts/**", "bin/**"]
+  },
+  "formatter": {
+    "enabled": true,
+    // 与现有代码一致:2 空格缩进(Biome 默认 tab 是 153/154 文件差异的根因,不是代码问题)
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "assist": {
+    "enabled": false,
+    "actions": { "source": { "organizeImports": "off" } }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        // 基线降级(2026-11-13 登记):历史遗留 unused 变量/导入 ~55 处,集中在 test/ 与 web/ 旧脚本;
+        // 属历史基线不阻断,保持 warn 可见;清理列为后续独立小包,不在本包做全仓清理。
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn"
+      },
+      "suspicious": {
+        // 显式 any let 禁止(2026-11-13:历史 3 处已按最小修复补类型注解,保持 error)
+        "noImplicitAnyLet": "error"
+      },
+      "complexity": {
+        // 基线降级:仓库惯用 function 声明与括号取列名(sql rows),不改历史语义
+        "useArrowFunction": "off",
+        "useLiteralKeys": "off",
+        "useOptionalChain": "off"
+      },
+      "style": {
+        // 基线降级:runner/测试大量非空断言与模板串偏好,属既有惯用法
+        "noNonNullAssertion": "off",
+        "useTemplate": "off",
+        "useImportType": "warn"
+      }
+    }
+  },
+  "javascript": { "formatter": { "quoteStyle": "double" } }
+}

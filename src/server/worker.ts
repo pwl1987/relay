@@ -12,8 +12,14 @@ import type { WorkspaceManifest } from "../core/changesets.ts";
 import { executeRun } from "../runtime/runner.ts";
 import { runReviewerSession } from "../runtime/reviewer.ts";
 import { resolveVendoredPi, type PiInstallation } from "../runtime/pi-version.ts";
-import { snapshotManifest } from "../runtime/workspace-manifest.ts";
-import { cleanupSandbox, dockerAvailable, resolveMaxOutputTokens, type ModelConfig, type SandboxSpec } from "../runtime/sandbox.ts";
+import { snapshotManifest, verifyCandidateManifest } from "../runtime/workspace-manifest.ts";
+import {
+  cleanupSandbox,
+  dockerAvailable,
+  resolveMaxOutputTokens,
+  type ModelConfig,
+  type SandboxSpec,
+} from "../runtime/sandbox.ts";
 import type { EgressStatus } from "../runtime/egress.ts";
 import type { CheckSpec } from "../core/evidence.ts";
 import { taskFollowUpMessagesView } from "./views/goal.ts";
@@ -104,8 +110,7 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
   const workerId = options.workerId ?? "relay-worker-1";
   // P0-ACCEPT 缺口 A:live(真实模型)执行默认要求 Docker OS 隔离(ADR-0003);
   // host-fallback 非安全边界,仅 stub 测试注入口可用——live 下必须显式证明隔离,否则 FAIL-CLOSED。
-  const sandbox: "docker" | "host-fallback" =
-    options.sandbox ?? (options.stubInjection ? "host-fallback" : "docker");
+  const sandbox: "docker" | "host-fallback" = options.sandbox ?? (options.stubInjection ? "host-fallback" : "docker");
 
   const goalTextFor = async (taskId: string): Promise<string> => {
     if (options.goalTextFor) return options.goalTextFor(taskId);
@@ -128,20 +133,38 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
     async tick(): Promise<GoalLoopTickReport> {
       const model = options.model ?? envModel();
       if (!model) {
-        last = { at: new Date().toISOString(), status: "provider_not_configured", summary: { note: "未配置 RELAY_PI_* ⇒ 本拍不领取任务" } };
+        last = {
+          at: new Date().toISOString(),
+          status: "provider_not_configured",
+          summary: { note: "未配置 RELAY_PI_* ⇒ 本拍不领取任务" },
+        };
         return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
       }
       // P0-ACCEPT 缺口 A:隔离 FAIL-CLOSED——非 docker 隔离的 live 执行不领取任务(不得静默降级 host-fallback)。
       if (sandbox !== "docker" && !options.stubInjection) {
-        last = { at: new Date().toISOString(), status: "sandbox_not_isolated", summary: { note: "live 执行要求 Docker OS 隔离(ADR-0003 双层边界);host-fallback 非安全边界 ⇒ FAIL-CLOSED 不领取" } };
+        last = {
+          at: new Date().toISOString(),
+          status: "sandbox_not_isolated",
+          summary: {
+            note: "live 执行要求 Docker OS 隔离(ADR-0003 双层边界);host-fallback 非安全边界 ⇒ FAIL-CLOSED 不领取",
+          },
+        };
         return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
       }
       if (sandbox === "docker" && !dockerAvailable()) {
-        last = { at: new Date().toISOString(), status: "docker_unavailable", summary: { note: "docker 不可用 ⇒ 拒绝执行(不得静默降级)" } };
+        last = {
+          at: new Date().toISOString(),
+          status: "docker_unavailable",
+          summary: { note: "docker 不可用 ⇒ 拒绝执行(不得静默降级)" },
+        };
         return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
       }
       if (sandbox === "docker" && !options.egress?.ok) {
-        last = { at: new Date().toISOString(), status: "egress_not_ready", summary: { note: "docker 模式需先 ensureEgress(FAIL-CLOSED)" } };
+        last = {
+          at: new Date().toISOString(),
+          status: "egress_not_ready",
+          summary: { note: "docker 模式需先 ensureEgress(FAIL-CLOSED)" },
+        };
         return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
       }
       const { goalLoopTick } = await import("../core/goal-loop.ts");
@@ -158,9 +181,10 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
           // (经 buildRunPrompt extraInstructions;Goal 原始需求仍为 goal,补充为追加指令。
           // 保证"UI 显示已收到"的下一 Run 真正看到该消息——C5/C6 硬门)。
           const followups = await taskFollowUpMessagesView(options.db, claim.taskId);
-          const extraInstructions = followups.length > 0
-            ? `# 用户后续补充(Goal 会话中消费绑定到本任务;按序合并)\n${followups.map((m) => `- ${m.content}`).join("\n")}`
-            : undefined;
+          const extraInstructions =
+            followups.length > 0
+              ? `# 用户后续补充(Goal 会话中消费绑定到本任务;按序合并)\n${followups.map((m) => `- ${m.content}`).join("\n")}`
+              : undefined;
           const injection = options.stubInjection;
           const result = await executeRun(options.db, pi, {
             taskId: claim.taskId,
@@ -182,7 +206,9 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
             ...(injection ? { argvOverride: injection.argv, envOverride: injection.coderEnv } : {}),
           });
           sandboxes.push(result.sandboxSpec);
-          const cc = result.detail["candidateCommit"] as { commitSha?: string; baseCommitSha?: string; stageRepoDir?: string } | undefined;
+          const cc = result.detail["candidateCommit"] as
+            | { commitSha?: string; baseCommitSha?: string; stageRepoDir?: string }
+            | undefined;
           if (cc?.commitSha && cc.stageRepoDir) {
             captured.set(claim.taskId, {
               taskId: claim.taskId,
@@ -203,6 +229,11 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
         gate: {
           reviewAttempts: options.reviewAttempts ?? 2,
           ...(options.evidenceChecks ? { evidenceChecks: options.evidenceChecks } : {}),
+          // 内建候选清单复验(RELAY-QUALITY-LOCAL-01 D1):未配置显式机器检查时的生产默认
+          // 机器证据;重采工作区清单比对 candidate_sha,零编辑空提交/内容不一致 ⇒ 不放行。
+          // 仅做纯验证(确定性);证据落库由 orchestrator 统一执行(单一记录点)。
+          manifestVerify: async (spec) =>
+            verifyCandidateManifest(spec.workspaceDir, spec.candidateSha, spec.changedFileCount),
           reviewRun: async (input) => {
             const goalId = await goalIdFor(input.taskId);
             const injection = options.stubInjection;

@@ -1,4 +1,7 @@
-# Relay 最小 CI(P0-02B 合同第四节):类型检查 + 非模型测试 + PostgreSQL 集成。
+# Relay 最小 CI(P0-02B 合同第四节;RELAY-QUALITY-LOCAL-01 起与本地 quality 入口同源):
+# test job = quality:full 去浏览器(RELAY_QUALITY_SKIP_BROWSER=1,浏览器由 e2e job 覆盖);
+# e2e job = 浏览器旅程(与 quality.mjs browser 步骤同一命令面)。
+# 格式检查只作用于本次推送变更文件(RELAY_QUALITY_BASE_SHA=push 事件 before;历史基线见 biome.jsonc)。
 # 模型/真实 provider 相关用例按既有探测门自动 skip(probeProvider 探不到 ⇒ skip,不假装);
 # egress 类容器门需要宿主 iptables + 本地模型路由,CI 环境不可用 ⇒ 自动 skip。
 # 容器层确定性测试(OS 沙箱/只读挂载)在 runner 自带 docker 上真实执行。
@@ -28,20 +31,23 @@ jobs:
     env:
       RELAY_DB_URL: postgresql://postgres:relayp000local@127.0.0.1:55433/relayp000
       RELAY_PI_BASE_URL: http://127.0.0.1:1/v1 # 模型 E2E 显式不可达 ⇒ skip(非模型测试不受影响)
+      RELAY_QUALITY_SKIP_BROWSER: "1" # 浏览器由独立 e2e job 覆盖;runner 内显式落 NOT_RUN
+      RELAY_QUALITY_BASE_SHA: ${{ github.event.before }} # 格式只读检查范围=本次推送变更
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # format 变更集需要 before..HEAD 区间
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: typecheck
-        run: npx tsc --noEmit
-      - name: tests(非模型 + 真 PG + 确定性容器门)
-        run: npx vitest run
+      - name: quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)
+        run: npm run quality:full
 
   e2e:
     # P0-02C D-10:真实浏览器用户旅程(Playwright Chromium + 真 PG;模型用确定性桩)。
+    # 与 quality.mjs browser 步骤同一命令(npx vitest run test/e2e + RELAY_E2E=1)。
     runs-on: ubuntu-latest
     services:
       postgres:

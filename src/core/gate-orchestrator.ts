@@ -14,18 +14,16 @@ import type { RelayDb, Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
 import { advanceTask } from "./lease.ts";
 import { latestChangeset, type ChangesetRow } from "./changesets.ts";
+import { collectCheckEvidence, recordEvidence, workerEnv, type CheckSpec, type EvidenceRow } from "./evidence.ts";
+import { acquireVerificationLease, heartbeatVerificationLease, expireVerificationLease } from "./verify-lease.ts";
 import {
-  collectCheckEvidence,
-  recordEvidence,
-  type CheckSpec,
-  type EvidenceRow,
-} from "./evidence.ts";
-import {
-  acquireVerificationLease,
-  heartbeatVerificationLease,
-  expireVerificationLease,
-} from "./verify-lease.ts";
-import { recordGateVerdict, consumeGateVerdict, type GateVerdict, type GateTestEnv } from "./gates.ts";
+  recordGateVerdict,
+  consumeGateVerdict,
+  isDocsOnlyChanges,
+  MACHINE_EVIDENCE_KINDS,
+  type GateVerdict,
+  type GateTestEnv,
+} from "./gates.ts";
 
 export interface ReviewRunInput {
   taskId: string;
@@ -53,6 +51,15 @@ export interface GateOrchestrationOptions {
   verificationTtlSeconds?: number;
   /** Worker 侧可信检查(确定性测试/真实 API 行为);在 Run 工作区执行 */
   evidenceChecks?: Array<CheckSpec>;
+  /** 内建候选清单复验(runtime 注入;core 不 import runtime)。
+   *  生产默认机器证据:重采工作区清单比对 candidate_sha;未配置机器检查时的兜底(D1)。 */
+  manifestVerify?: (spec: {
+    taskId: string;
+    attempt: number;
+    candidateSha: string;
+    changedFileCount: number;
+    workspaceDir: string;
+  }) => Promise<{ ok: boolean; rawOutput: string }>;
   /** 独立 Reviewer Run(runtime 注入;core 不 import runtime) */
   reviewRun: (input: ReviewRunInput) => Promise<ReviewRunResult>;
   /** Review 有界重试次数(默认 2;耗尽 ⇒ NEEDS_DECISION) */
@@ -108,14 +115,31 @@ export async function orchestrateGate(
   const trow = taskRes.rows[0];
   if (!trow) return noEvidence("FAILED", "task_not_found");
   if (trow["gate_required"] !== true) {
+    // D6:gate_required=false 不得成为代码变更逃避验证的通道 —— 代码变更候选仍强制编排;
+    // 仅 docs-only/无变更集候选保留 SKIPPED(合法豁免;覆盖事实审计留痕)。
+    const csPre = await latestChangeset(db as unknown as Exec, input.taskId);
+    const codeChange =
+      csPre !== null &&
+      csPre.attempt === input.attempt &&
+      csPre.runId === input.coderRunId &&
+      !isDocsOnlyChanges(csPre.changedFiles);
+    if (!codeChange) {
+      await appendAudit(db as unknown as Exec, {
+        actor,
+        authority: "GATE",
+        action: "GATE_SKIPPED",
+        taskId: input.taskId,
+        detail: { reason: "gate_not_required" },
+      });
+      return noEvidence("SKIPPED", "gate_not_required");
+    }
     await appendAudit(db as unknown as Exec, {
       actor,
       authority: "GATE",
-      action: "GATE_SKIPPED",
+      action: "GATE_REQUIRED_OVERRIDE",
       taskId: input.taskId,
-      detail: { reason: "gate_not_required" },
+      detail: { reason: "gate_required_false_but_code_change", changesetId: csPre.id },
     });
-    return noEvidence("SKIPPED", "gate_not_required");
   }
 
   // 1) 验证租约接管(C-5)
@@ -142,12 +166,108 @@ export async function orchestrateGate(
     return { status: "FAILED", reason: "impact_scope_violations", changesetId: changeset.id, evidenceIds, violations };
   }
 
-  // 3) 证据采集(可信执行器)
+  // 2.5) 机器证据配置预检(ADR-0012 #7;D1/D3):代码变更候选必须有机器检查证据。
+  // 优先级:显式 evidenceChecks > 注入的 manifestVerify(内建候选清单复验,生产默认)>
+  // 两者皆无 ⇒ 保守停机 NEEDS_DECISION(不进 Reviewer,不烧模型预算;恢复仅经 ops API)。
   const evidenceSummaries: Array<{ id: string; kind: string; passed: boolean }> = [];
+  const machineEvidenceRequired = !isDocsOnlyChanges(changeset.changedFiles);
+  const changedFileCount =
+    (changeset.changedFiles.added?.length ?? 0) +
+    (changeset.changedFiles.modified?.length ?? 0) +
+    (changeset.changedFiles.removed?.length ?? 0);
+  const hasMachineChecks = (gate.evidenceChecks ?? []).some((c) => MACHINE_EVIDENCE_KINDS.has(c.kind));
+  /** 保守停机(Reviewer m-5 去重):VERIFYING→NEEDS_DECISION + D3 决策行 + 终止验证租约 + 审计。
+   *  恢复仅经 ops API;永不自动批准。 */
+  const conservativeStop = async (
+    reason: string,
+    question: string,
+    auditAction: string,
+    auditDetail: Record<string, unknown>,
+  ) => {
+    const adv = await db.transaction(async (tx) =>
+      advanceTask(tx as unknown as Exec, input.taskId, verifierId, lease.fencingToken, "VERIFYING", "NEEDS_DECISION"),
+    );
+    if (!adv.ok) {
+      return {
+        status: "FAILED" as const,
+        reason: `needs_decision_advance_rejected:${(adv as { reason?: string }).reason}`,
+        changesetId: changeset.id,
+        evidenceIds,
+        violations: [],
+      };
+    }
+    const goalId = trow["goal_id"] === null ? null : String(trow["goal_id"]);
+    await db.transaction(async (tx) =>
+      (tx as unknown as Exec).execute(sql`
+        INSERT INTO decisions (id, task_id, goal_id, level, question, state)
+        VALUES (${"dec-" + randomUUID()}, ${input.taskId}, ${goalId}, 'D3', ${question}, 'OPEN')
+      `),
+    );
+    await expireVerificationLease(db as unknown as Exec, input.taskId, actor);
+    await appendAudit(db as unknown as Exec, {
+      actor,
+      authority: "GATE",
+      action: auditAction,
+      taskId: input.taskId,
+      beforeState: "VERIFYING",
+      afterState: "NEEDS_DECISION",
+      detail: { changesetId: changeset.id, candidateSha: changeset.candidateSha, ...auditDetail },
+    });
+    return { status: "NEEDS_DECISION" as const, reason, changesetId: changeset.id, evidenceIds, violations: [] };
+  };
+  if (machineEvidenceRequired && !hasMachineChecks) {
+    if (gate.manifestVerify && input.workspaceDir) {
+      // 内建兜底:候选清单复验(确定性;失败 ⇒ 候选与绑定面不一致/为空,不放行)
+      const mv = await gate.manifestVerify({
+        taskId: input.taskId,
+        attempt: input.attempt,
+        candidateSha: changeset.candidateSha,
+        changedFileCount,
+        workspaceDir: input.workspaceDir,
+      });
+      const mvRow = await recordEvidence(db as unknown as Exec, {
+        taskId: input.taskId,
+        attempt: input.attempt,
+        candidateSha: changeset.candidateSha,
+        kind: "candidate_manifest_verify",
+        passed: mv.ok,
+        rawOutput: mv.rawOutput,
+        env: workerEnv("worker-host", { command: "builtin:candidate_manifest_verify", cwd: input.workspaceDir }),
+        producedBy: verifierId,
+      });
+      evidenceIds.push(mvRow.id);
+      // 复验事实同步进入 Reviewer 证据摘要(Reviewer m-6;不影响裁决,纯一致性)
+      evidenceSummaries.push({ id: mvRow.id, kind: mvRow.kind, passed: mvRow.passed });
+      if (!mv.ok) {
+        // 复验失败 ⇒ 保守停机(候选完整性问题,不进 Reviewer)
+        return await conservativeStop(
+          "candidate_manifest_verify_failed",
+          "candidate_manifest_verify_failed:候选清单复验失败(内容不一致或零编辑空提交),保守停机(永不自动批准)",
+          "CANDIDATE_MANIFEST_VERIFY_FAILED",
+          { evidenceId: mvRow.id, note: "候选清单复验失败 ⇒ 不放行,保守停机" },
+        );
+      }
+    } else {
+      return await conservativeStop(
+        "machine_evidence_unconfigured",
+        "machine_evidence_unconfigured:代码变更候选未配置机器检查,保守停机(永不自动批准);需配置确定性检查后重验",
+        "MACHINE_EVIDENCE_UNCONFIGURED",
+        { note: "代码变更无机器检查 ⇒ 不放行,保守停机" },
+      );
+    }
+  }
+
+  // 3) 证据采集(可信执行器)
   for (const check of gate.evidenceChecks ?? []) {
     const row = await collectCheckEvidence(
       db as unknown as Exec,
-      { ...check, taskId: input.taskId, attempt: input.attempt, candidateSha: changeset.candidateSha, producedBy: verifierId },
+      {
+        ...check,
+        taskId: input.taskId,
+        attempt: input.attempt,
+        candidateSha: changeset.candidateSha,
+        producedBy: verifierId,
+      },
       input.workspaceDir ?? process.cwd(),
     );
     evidenceIds.push(row.id);
@@ -231,9 +351,21 @@ export async function orchestrateGate(
         afterState: "NEEDS_DECISION",
         detail: { reason: review?.reason ?? "no_verdict", note: "Review 失败保守停机;恢复仅经 ops API" },
       });
-      return { status: "NEEDS_DECISION", reason: review?.reason ?? "no_verdict", changesetId: changeset.id, evidenceIds, violations: [] };
+      return {
+        status: "NEEDS_DECISION",
+        reason: review?.reason ?? "no_verdict",
+        changesetId: changeset.id,
+        evidenceIds,
+        violations: [],
+      };
     }
-    return { status: "FAILED", reason: `needs_decision_advance_rejected:${(adv as { reason?: string }).reason}`, changesetId: changeset.id, evidenceIds, violations: [] };
+    return {
+      status: "FAILED",
+      reason: `needs_decision_advance_rejected:${(adv as { reason?: string }).reason}`,
+      changesetId: changeset.id,
+      evidenceIds,
+      violations: [],
+    };
   }
 
   // 5) 记录 + 消费(绑定版)
@@ -252,7 +384,13 @@ export async function orchestrateGate(
     }),
   );
   if (!recorded.ok) {
-    return { status: "FAILED", reason: `gate_record_rejected:${recorded.reason}`, changesetId: changeset.id, evidenceIds, violations: [] };
+    return {
+      status: "FAILED",
+      reason: `gate_record_rejected:${recorded.reason}`,
+      changesetId: changeset.id,
+      evidenceIds,
+      violations: [],
+    };
   }
   const consumed = await db.transaction(async (tx) =>
     consumeGateVerdict(tx as unknown as Exec, {
@@ -265,10 +403,24 @@ export async function orchestrateGate(
     }),
   );
   if (!consumed.ok) {
-    return { status: "FAILED", reason: `gate_consume_rejected:${consumed.reason}`, gateId: recorded.id, changesetId: changeset.id, evidenceIds, violations: [] };
+    return {
+      status: "FAILED",
+      reason: `gate_consume_rejected:${consumed.reason}`,
+      gateId: recorded.id,
+      changesetId: changeset.id,
+      evidenceIds,
+      violations: [],
+    };
   }
   const status = consumed.state === "ACCEPTED" ? "ACCEPTED" : consumed.state === "READY" ? "REWORK" : "NEEDS_DECISION";
-  return { status, gateId: recorded.id, changesetId: changeset.id, evidenceIds, violations: [], ...(review!.findings ? { reason: review!.findings } : {}) };
+  return {
+    status,
+    gateId: recorded.id,
+    changesetId: changeset.id,
+    evidenceIds,
+    violations: [],
+    ...(review!.findings ? { reason: review!.findings } : {}),
+  };
 }
 
 /** 变更集断言辅助(测试/编排方复用)。 */

@@ -13,7 +13,7 @@ import type { Exec } from "./db.ts";
 import { appendAudit } from "./audit.ts";
 import { sha256Hex } from "./changesets.ts";
 
-export type EvidenceKind = "deterministic_test" | "api_behavior" | "reviewer_output";
+export type EvidenceKind = "deterministic_test" | "api_behavior" | "reviewer_output" | "candidate_manifest_verify";
 
 export interface EvidenceEnv {
   mode: string; // docker | host-fallback | worker-host(检查执行面)
@@ -58,9 +58,23 @@ export async function recordEvidence(exec: Exec, input: EvidenceInput): Promise<
     authority: "WORKER",
     action: `EVIDENCE_${input.kind.toUpperCase()}`,
     taskId: input.taskId,
-    detail: { evidenceId: id, kind: input.kind, passed: input.passed, contentSha256: contentSha, candidateSha: input.candidateSha, attempt: input.attempt },
+    detail: {
+      evidenceId: id,
+      kind: input.kind,
+      passed: input.passed,
+      contentSha256: contentSha,
+      candidateSha: input.candidateSha,
+      attempt: input.attempt,
+    },
   });
-  return { id, kind: input.kind, passed: input.passed, contentSha256: contentSha, candidateSha: input.candidateSha, attempt: input.attempt };
+  return {
+    id,
+    kind: input.kind,
+    passed: input.passed,
+    contentSha256: contentSha,
+    candidateSha: input.candidateSha,
+    attempt: input.attempt,
+  };
 }
 
 export function workerEnv(mode: string, extra: Record<string, unknown> = {}): EvidenceEnv {

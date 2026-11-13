@@ -10,7 +10,19 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
-import { mkdirSync, chmodSync, copyFileSync, rmSync, existsSync, statSync, readdirSync, lstatSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  chmodSync,
+  copyFileSync,
+  rmSync,
+  existsSync,
+  statSync,
+  readdirSync,
+  lstatSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import type { Dirent } from "node:fs";
 import { markRunDir, safeRm, RUN_SENTINEL } from "./safe-rm.ts";
 import { join, dirname, relative, sep } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -40,7 +52,10 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
     return stdout;
   } catch (err) {
     const e = err as { stderr?: string; message?: string };
-    throw new GitCandidateError("git_failed", `git ${args[0]} failed: ${(e.stderr ?? e.message ?? "").trim().slice(-500)}`);
+    throw new GitCandidateError(
+      "git_failed",
+      `git ${args[0]} failed: ${(e.stderr ?? e.message ?? "").trim().slice(-500)}`,
+    );
   }
 }
 
@@ -60,7 +75,7 @@ function sha256Buffer(buf: Buffer): string {
 
 /** 递归移除 stage 工作树内的符号链接(对齐清单语义:不追随、不入候选树)。 */
 function stripSymlinks(root: string, dir: string): void {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
@@ -77,7 +92,11 @@ function stripSymlinks(root: string, dir: string): void {
 }
 
 /** 把候选清单语义的内容同步进 stage 工作树:应用 diff(增/改/删),源是 Run 工作区。 */
-function applyCandidate(stageDir: string, workspaceDir: string, diff: { added: string[]; modified: string[]; removed: string[] }): void {
+function applyCandidate(
+  stageDir: string,
+  workspaceDir: string,
+  diff: { added: string[]; modified: string[]; removed: string[] },
+): void {
   for (const rel of [...diff.added, ...diff.modified]) {
     const src = join(workspaceDir, ...rel.split("/"));
     const dst = join(stageDir, ...rel.split("/"));
@@ -142,21 +161,32 @@ export async function createCandidateCommit(input: CreateCandidateCommitInput): 
     await git(stageRepoDir, "add", "-A");
     await git(
       stageRepoDir,
-      "-c", "user.name=Relay Candidate Builder",
-      "-c", "user.email=relay@localhost",
-      "commit", "--quiet", "-m", `relay: task ${input.taskId} attempt ${input.attempt} (changeset ${input.changesetId})`,
+      "-c",
+      "user.name=Relay Candidate Builder",
+      "-c",
+      "user.email=relay@localhost",
+      "commit",
+      "--quiet",
+      "-m",
+      `relay: task ${input.taskId} attempt ${input.attempt} (changeset ${input.changesetId})`,
     );
     const commitSha = (await git(stageRepoDir, "rev-parse", "HEAD")).trim();
     const treeSha = (await git(stageRepoDir, "rev-parse", "HEAD^{tree}")).trim();
     // 候选 commit 必须恰以 base 为父(克隆分支 HEAD == base;防御未来改动破坏此前提)
     const parentSha = (await git(stageRepoDir, "rev-parse", `${commitSha}~1`)).trim();
     if (parentSha !== input.baseCommitSha) {
-      throw new GitCandidateError("base_parent_mismatch", `candidate parent ${parentSha} != base ${input.baseCommitSha}`);
+      throw new GitCandidateError(
+        "base_parent_mismatch",
+        `candidate parent ${parentSha} != base ${input.baseCommitSha}`,
+      );
     }
     // 树==清单往返核验(D-2):路径集合相等 + 每文件内容 sha256 相等;不一致即阻断
     const roundTrip = await verifyTreeAgainstManifest(stageRepoDir, commitSha, input.candidateManifest);
     if (!roundTrip.ok) {
-      throw new GitCandidateError("content_mismatch", `candidate tree != manifest: ${roundTrip.mismatches.slice(0, 5).join(",")}`);
+      throw new GitCandidateError(
+        "content_mismatch",
+        `candidate tree != manifest: ${roundTrip.mismatches.slice(0, 5).join(",")}`,
+      );
     }
     // 本地引用防 gc(commit 由 detached worktree 语义产生,不在任何分支上;refs/relay-candidates/* 非分支,不推送)
     await git(stageRepoDir, "update-ref", `refs/relay-candidates/${input.changesetId}`, commitSha);
@@ -177,7 +207,9 @@ export async function createCandidateCommit(input: CreateCandidateCommitInput): 
       if (!existsSync(join(stageRepoDir, RUN_SENTINEL))) {
         writeFileSync(join(stageRepoDir, RUN_SENTINEL), JSON.stringify({ kind: "stage-repo", failed: true }), "utf8");
       }
-    } catch { /* 尽力而为 */ }
+    } catch {
+      /* 尽力而为 */
+    }
     safeRm(stageRepoDir, { roots: [stageRepoDir], sentinel: RUN_SENTINEL });
     throw err;
   }
@@ -275,7 +307,10 @@ export async function verifyRemoteCommitContent(input: {
   }).catch(async (err) => {
     // 远端未协商 allow-any-sha 时按 sha 抓取可能被拒;失败如实上抛(调用方 CONFLICT/FAILED 处置)
     const e = err as { stderr?: string };
-    throw new GitCandidateError("remote_fetch_failed", `fetch ${input.commitSha}: ${(e.stderr ?? "").trim().slice(-300)}`);
+    throw new GitCandidateError(
+      "remote_fetch_failed",
+      `fetch ${input.commitSha}: ${(e.stderr ?? "").trim().slice(-300)}`,
+    );
   });
   const remoteHead = (await git(repo, "rev-parse", "FETCH_HEAD")).trim();
   const tree = await listTreeBlobPaths(repo, "FETCH_HEAD^{tree}");

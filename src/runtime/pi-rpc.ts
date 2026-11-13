@@ -41,11 +41,7 @@ export class PiRpcSession {
     expected: false,
   };
   private exitStatusValue: { code: number | null; signal: string | null; expected: boolean } | null = null;
-  private exitResolve!: (v: {
-    code: number | null;
-    signal: string | null;
-    expected: boolean;
-  }) => void;
+  private exitResolve!: (v: { code: number | null; signal: string | null; expected: boolean }) => void;
   private killedByUs = false;
 
   private constructor(opts: PiSpawnOptions) {
@@ -59,8 +55,9 @@ export class PiRpcSession {
     });
     this.child.stdout!.on("data", (d: Buffer) => {
       this.buffer += d.toString();
-      let idx: number;
-      while ((idx = this.buffer.indexOf("\n")) >= 0) {
+      for (;;) {
+        const idx = this.buffer.indexOf("\n");
+        if (idx < 0) break;
         const line = this.buffer.slice(0, idx).replace(/\r$/, "").trim();
         this.buffer = this.buffer.slice(idx + 1);
         if (!line) continue;

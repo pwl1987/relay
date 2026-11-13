@@ -65,7 +65,11 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
   }
 
   /** Reviewer stub 注入(独立 Run/沙箱;role=reviewer 行由 runReviewerSession 落库)。 */
-  function reviewerStub(verdict: string | null, goalId?: string, workspaceOverride?: string): (input: ReviewRunInput) => Promise<ReviewRunResult> {
+  function reviewerStub(
+    verdict: string | null,
+    goalId?: string,
+    workspaceOverride?: string,
+  ): (input: ReviewRunInput) => Promise<ReviewRunResult> {
     return async (input) => {
       const r = await runReviewerSession(t.db, resolveVendoredPi(), {
         taskId: input.taskId,
@@ -93,7 +97,9 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     };
   }
 
-  it("全链 PASS:coder(stub)→ 证据(真实检查)→ Reviewer(stub PASS)→ ACCEPTED;Reviewer 与 Coder 为不同 Run", { timeout: 60_000 }, async () => {
+  it("全链 PASS:coder(stub)→ 证据(真实检查)→ Reviewer(stub PASS)→ ACCEPTED;Reviewer 与 Coder 为不同 Run", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-orch-pass";
     const { result, goalId } = await coderRun(taskId, "ok");
     // coder stub 不写文件 —— 让 Reviewer 检查的确定性检查走"文件存在性"路径:
@@ -106,11 +112,25 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
 
     const gate = await orchestrateGate(
       t.db,
-      { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir, actor: "test-orch" },
+      {
+        taskId,
+        attempt: 1,
+        coderRunId: result.runId,
+        workspaceDir: result.sandboxSpec.workspaceDir,
+        actor: "test-orch",
+      },
       {
         evidenceChecks: [
           // 真实确定性检查:候选文件内容核验(Worker 侧执行,非模型判定)
-          { kind: "deterministic_test", command: ["node", "-e", "const fs=require('fs');const t=fs.readFileSync('result.txt','utf8');if(!t.includes('87'))process.exit(1);console.log('result ok: sum present')"], cwdWorkspace: true },
+          {
+            kind: "deterministic_test",
+            command: [
+              "node",
+              "-e",
+              "const fs=require('fs');const t=fs.readFileSync('result.txt','utf8');if(!t.includes('87'))process.exit(1);console.log('result ok: sum present')",
+            ],
+            cwdWorkspace: true,
+          },
         ],
         reviewRun: reviewerStub("PASS", goalId, result.sandboxSpec.workspaceDir),
         reviewAttempts: 2,
@@ -139,6 +159,12 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     expect(existsSync(result.sandboxSpec.workspaceDir)).toBe(true);
   });
 
+  /** 恒真确定性检查(RELAY-QUALITY-LOCAL-01 起:代码变更候选必须配置机器检查才能进 Reviewer;
+   *  本文件各用例关注裁决/消费路径,用恒真检查满足机器证据门槛,不改变被测语义)。 */
+  const PASSING_CHECK = [
+    { kind: "deterministic_test" as const, command: ["node", "-e", "console.log('check ok')"], cwdWorkspace: true },
+  ];
+
   it("REWORK 流:Reviewer REWORK ⇒ VERIFYING→REWORK→READY(带退避);旧 PASS 不残留", { timeout: 60_000 }, async () => {
     const taskId = "t-orch-rework";
     const { result } = await coderRun(taskId, "ok");
@@ -146,13 +172,17 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { reviewRun: reviewerStub("REWORK"), reviewAttempts: 1 },
+      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub("REWORK"), reviewAttempts: 1 },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("REWORK");
-    const st = await t.db.execute(sql`SELECT state, retry_not_before IS NOT NULL AS backed FROM tasks WHERE id=${taskId}`);
+    const st = await t.db.execute(
+      sql`SELECT state, retry_not_before IS NOT NULL AS backed FROM tasks WHERE id=${taskId}`,
+    );
     expect(String(st.rows[0]!["state"])).toBe("READY");
     expect(st.rows[0]!["backed"]).toBe(true);
-    const passes = await t.db.execute(sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${taskId} AND verdict='PASS'`);
+    const passes = await t.db.execute(
+      sql`SELECT count(*)::int AS n FROM task_gate_verdicts WHERE task_id=${taskId} AND verdict='PASS'`,
+    );
     expect(Number(passes.rows[0]!["n"])).toBe(0);
   });
 
@@ -163,7 +193,7 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { reviewRun: reviewerStub("BLOCK"), reviewAttempts: 1 },
+      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub("BLOCK"), reviewAttempts: 1 },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
@@ -176,7 +206,9 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     expect(lease.rows[0]!["live"]).toBe(false);
   });
 
-  it("反例:Coder 自宣 PASS 围栏(fake-self-approve)不构成验收;Review 无围栏有界失败 ⇒ NEEDS_DECISION", { timeout: 90_000 }, async () => {
+  it("反例:Coder 自宣 PASS 围栏(fake-self-approve)不构成验收;Review 无围栏有界失败 ⇒ NEEDS_DECISION", {
+    timeout: 90_000,
+  }, async () => {
     const taskId = "t-orch-fakedone";
     const { result } = await coderRun(taskId, "fake-self-approve");
     expect(result.outcome).toBe("SUCCEEDED"); // coder 的 DONE 文本如实落库……
@@ -185,7 +217,7 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { reviewRun: reviewerStub(null), reviewAttempts: 2 },
+      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub(null), reviewAttempts: 2 },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);
@@ -193,19 +225,23 @@ describe("Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动
     // coder 的自宣围栏从未进入裁决表(无任何 PASS;reviewer_output 证据 passed=false)
     const verdicts = await t.db.execute(sql`SELECT verdict FROM task_gate_verdicts WHERE task_id=${taskId}`);
     expect(verdicts.rows.length).toBe(0);
-    const ev = await t.db.execute(sql`SELECT passed FROM gate_evidence WHERE task_id=${taskId} AND kind='reviewer_output'`);
+    const ev = await t.db.execute(
+      sql`SELECT passed FROM gate_evidence WHERE task_id=${taskId} AND kind='reviewer_output'`,
+    );
     expect(ev.rows.length).toBe(2); // 有界:恰好 2 次尝试
     for (const r of ev.rows) expect(r["passed"]).toBe(false);
   });
 
-  it("Reviewer BLOCK 压过 Coder 自宣:fake-self-approve + Reviewer BLOCK ⇒ NEEDS_DECISION", { timeout: 60_000 }, async () => {
+  it("Reviewer BLOCK 压过 Coder 自宣:fake-self-approve + Reviewer BLOCK ⇒ NEEDS_DECISION", {
+    timeout: 60_000,
+  }, async () => {
     const taskId = "t-orch-fakeblock";
     const { result } = await coderRun(taskId, "fake-self-approve");
     expect(result.outcome).toBe("SUCCEEDED");
     const gate = await orchestrateGate(
       t.db,
       { taskId, attempt: 1, coderRunId: result.runId, workspaceDir: result.sandboxSpec.workspaceDir },
-      { reviewRun: reviewerStub("BLOCK"), reviewAttempts: 1 },
+      { evidenceChecks: PASSING_CHECK, reviewRun: reviewerStub("BLOCK"), reviewAttempts: 1 },
     );
     expect(gate.status, `gate.reason=${gate.reason}`).toBe("NEEDS_DECISION");
     const st = await t.db.execute(sql`SELECT state FROM tasks WHERE id=${taskId}`);

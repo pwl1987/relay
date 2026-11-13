@@ -22,8 +22,9 @@ let buf = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (d) => {
   buf += d;
-  let idx;
-  while ((idx = buf.indexOf("\n")) >= 0) {
+  for (;;) {
+    const idx = buf.indexOf("\n");
+    if (idx < 0) break;
     const line = buf.slice(0, idx).trim();
     buf = buf.slice(idx + 1);
     if (!line) continue;
@@ -59,11 +60,15 @@ function handle(req) {
         // 经 worker → executeRun → 沙箱 env 完整到达子进程。
         const cap = {};
         for (const n of process.env.STUB_ENV_CAPTURE.split(",")) cap[n] = process.env[n] ?? null;
-        try { writeFileSync(process.env.STUB_ENV_CAPTURE_FILE, JSON.stringify(cap, null, 2)); } catch {}
+        try {
+          writeFileSync(process.env.STUB_ENV_CAPTURE_FILE, JSON.stringify(cap, null, 2));
+        } catch {}
       }
       if (process.env.STUB_WRITE_FILE) {
         const [p, ...rest] = process.env.STUB_WRITE_FILE.split(":");
-        try { writeFileSync(p, rest.join(":")); } catch {}
+        try {
+          writeFileSync(p, rest.join(":"));
+        } catch {}
       }
       if (mode === "hang") return; // 永不 settle
       if (mode === "chatty") {
@@ -98,16 +103,23 @@ function handle(req) {
         text = `审查完成。\n\`\`\`relay-gate-verdict\nverdict: ${v}\nfindings: ${f}\n\`\`\``;
       } else if (mode === "discovery") {
         // Discovery stub:结构化报告(默认全字段;可经 STUB_DISCOVERY_JSON 覆盖以测解析失败面)
-        const report = process.env.STUB_DISCOVERY_JSON ?? JSON.stringify({
-          problemStatement: "示例项目需要计算输入数字之和并写 result.txt(基于 brief.txt 调查)",
-          assumptions: [{ text: "brief.txt 的 numbers 行是输入来源", confidence: "high", verifiableBy: "读取 brief.txt 内容" }],
-          risks: ["若数字含非整数会破坏求和"],
-          options: [{ name: "单次求和脚本", tradeoffs: "最简单;不处理增量" }, { name: "流式聚合", tradeoffs: "可扩展;复杂度高" }],
-          recommendation: { action: "在 workspace 内生成 result.txt,内容 sum=87", rationale: "满足验收且最小改动" },
-          acceptanceCriteria: ["result.txt 存在且内容含 sum=87"],
-          openQuestions: ["是否需要处理负数"],
-          sources: ["brief.txt"],
-        });
+        const report =
+          process.env.STUB_DISCOVERY_JSON ??
+          JSON.stringify({
+            problemStatement: "示例项目需要计算输入数字之和并写 result.txt(基于 brief.txt 调查)",
+            assumptions: [
+              { text: "brief.txt 的 numbers 行是输入来源", confidence: "high", verifiableBy: "读取 brief.txt 内容" },
+            ],
+            risks: ["若数字含非整数会破坏求和"],
+            options: [
+              { name: "单次求和脚本", tradeoffs: "最简单;不处理增量" },
+              { name: "流式聚合", tradeoffs: "可扩展;复杂度高" },
+            ],
+            recommendation: { action: "在 workspace 内生成 result.txt,内容 sum=87", rationale: "满足验收且最小改动" },
+            acceptanceCriteria: ["result.txt 存在且内容含 sum=87"],
+            openQuestions: ["是否需要处理负数"],
+            sources: ["brief.txt"],
+          });
         text = `调查完成。\n\`\`\`relay-discovery\n${report}\n\`\`\``;
       } else if (mode === "fake-self-approve") {
         // Coder 虚构验收:自带假 gate-verdict 围栏 + handoff done —— Gate 必须拒绝(独立性校验)
