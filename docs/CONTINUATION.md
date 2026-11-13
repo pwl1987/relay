@@ -151,3 +151,14 @@ ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模�
 - **生产影响**:worker/web 未重启 ⇒ 线上行为不变;重启后①功能性机器检查一律容器内执行(生产缺省 docker 沙箱执行器;RELAY_EVIDENCE_CHECKS_JSON 新增 cwdWorkspace/allowEgressNetwork fail-closed 校验)②abort/takeover 可停止验收后交付阶段③显式执行防重获 DB 级串行化。**回滚=revert 0da454a acdd961 f78e804 9106446**。
 - **登记后续包**:M-4 完整 handback(AGENT_CONTROL §4 核对流程,需生命周期扩展授权);STOPPED 交付工具化恢复(旗标清除 ops 入口+审计);ControlCommand 审计结构化收敛(M-5 延续);生产部署配置包(RELAY_EVIDENCE_CHECKS_JSON 取值+重启窗口,需独立授权)。
 - 显式 NOT_RUN:真实 GitHub 远端写入(合同禁止,隔离 bare 仓库覆盖竞争语义)/真实模型 Run 停止演练(零模型约束)/生产部署验证与 worker 重启(未触碰)/沙箱对特定原生工具链覆盖(镜像取值=部署包决策)。
+
+## RELAY-GATE-INTEGRITY-04A(2026-11-14,✅ 收口,裁决 PASS)
+
+- 合同登记 2648577(开工冷启动 live main=1764c61,exact-head CI 43478093473 双 job success)→ 反例留证 6d92ba2(对未修复代码实测:A=配置功能性检查时 candidate_manifest_verify 完整性门被完全跳过,候选真实漂移[复验必败]+功能检查通过+Reviewer PASS ⇒ ACCEPTED;B=workspaceDir 缺失 ⇒ process.cwd()=宿主仓库根被用作检查工作区并真实挂载,容器 mountinfo `/home/ubuntu/dev/relay /workspace rw`+inode 相同实证,如实记录 UID 10001 权限缓解面)→ 实施 8d7b209(13 文件 +772/-47)→ Reviewer PASS 入库+Minor-1 修复+修复后复验 785aa27 → 报告 2b4c499;exact-head CI 43487954490@2b4c499 双 job success(test 3m5s/e2e 2m3s,gh run view 亲测)。
+- **完整性双门(gate-orchestrator)**:配置功能性检查的代码变更候选,功能检查前(2.6)/后(3.6)各执行 manifestVerify 复验并落 phase=pre_checks/post_checks 完整性证据;前置失败⇒candidate_manifest_verify_failed、后置失败⇒candidate_drift_after_checks(测试期间修改候选工作区必须识别漂移);manifestVerify 未注入⇒integrity_verify_unavailable FAIL-CLOSED;证据采集工作区守卫=检查已配置但缺显式工作区⇒不启动任何检查(docs-only 豁免审计 GATE_WORKSPACE_MISSING 后照常)——彻底移除 `input.workspaceDir ?? process.cwd()` 隐式回退。
+- **工作区安全边界(check-sandbox)**:validateCheckWorkspace=绝对路径/存在/目录/自身非符号链接/realpath 属允许根范围**之下**(缺省 tmpdir(),与 prepareRunDirs 同范围;可注入 allowedWorkspaceRoots;等于根本身亦拒绝=Minor-1);越界⇒WORKSPACE_INVALID FAIL-CLOSED 零 docker 交互(校验先于 docker 探测);cwdWorkspace=false 语义与 Docker UID/cap-drop/只读根/网络/资源限制不变。
+- 测试:新增 gate-integrity-dual 8 用例+check-sandbox 工作区边界 5 用例(红→绿);存量适配 6 文件 manifestVerify 注入+2 处断言按双门语义更新;方案 A/abort/交付停止/幂等/docs-only 既有回归全绿。
+- 独立 Reviewer 隔离上下文一轮 **PASS(0 Major+5 Minor)**:反例重放修复后 A/B defect-verdict 双双不成立(counterexample-reverify-after-fix.log)+独立探针 12 组 exit 0(38 边界拒绝/10 漂移检出/cwdWorkspace=false 12 用例/残余窗口实证);Minor-1 修复,Minor-2(post-verify→record 残余窗口,生产 docker 下 Reviewer :ro 缓解)/Minor-3(host-fallback Reviewer 无 FS 只读,生产已被 FAIL-CLOSED 阻断)/Minor-4(反例脚本不改写)/Minor-5(2.5 分支审计留痕建议)登记。报告=p0-mvp/gate-integrity-04a/REPORT-GATE-INTEGRITY-04A.md。
+- 实测:quality:quick PASS;quality:full PASS;quality:release PASS(READY,备份恢复一致)。
+- **生产影响**:worker/web 未重启 ⇒ 线上行为不变;重启后①配置功能性检查的候选 Gate 前后双完整性复验(漂移⇒保守停机 NEEDS_DECISION)②缺显式工作区⇒检查不启动③越界/符号链接工作区 FAIL-CLOSED;生产 LiveWorker 恒传 sandboxSpec.workspaceDir,常规路径行为不变。**回滚=revert 2b4c499 785aa27 8d7b209**。
+- 显式 NOT_RUN:生产部署验证与 worker 重启(未触碰;通过后下一阶段才安排生产部署配置与验收)/真实 GitHub 远端写入(合同禁止)/真实模型 Run(零模型约束)/非 tmpdir 自定义 baseDir 形态(当前生产=prepareRunDirs(tmpdir());未来自定义 baseDir 须同步注入 allowedWorkspaceRoots)。
