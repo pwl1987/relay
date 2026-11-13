@@ -44,9 +44,9 @@ describe("RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed)",
     );
     expect(out![0]!.cwdWorkspace).toBe(false);
     expect(out![0]!.allowEgressNetwork).toBe(true);
-    expect(() =>
-      resolveEvidenceChecks('[{"kind":"deterministic_test","command":["x"],"cwdWorkspace":"yes"}]'),
-    ).toThrow(/cwdWorkspace/);
+    expect(() => resolveEvidenceChecks('[{"kind":"deterministic_test","command":["x"],"cwdWorkspace":"yes"}]')).toThrow(
+      /cwdWorkspace/,
+    );
     expect(() =>
       resolveEvidenceChecks('[{"kind":"deterministic_test","command":["x"],"allowEgressNetwork":"1"}]'),
     ).toThrow(/allowEgressNetwork/);
