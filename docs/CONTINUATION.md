@@ -121,3 +121,10 @@ ACTIVE 合同先于实现提交落盘;证据文件内嵌产出时 HEAD SHA;模�
 - **生产影响（未触碰生产进程）**：生产 worker 重启后将按新语义运行——代码变更候选无功能性机器检查 ⇒ 保守停机 NEEDS_DECISION（需配置 evidenceChecks 或 ops 处置 D3 后恢复 Gate 放行）。**回滚=revert b7fe040 d04eae5**。
 - 显式 NOT_RUN：性能（无基线）/模型门禁 e2e（需授权）/真实远端写入验证（RELAY_GITHUB_REAL_E2E=1 需授权,本包零远端写入）/生产部署验证。
 - **登记义务（Reviewer Minor-3/5）**：未来实施 Goal 级暂停的包必须验收"PAUSED 不自动重激活"；下包准入建议=用户裁决消息分类方案（SEMANTICS §3）→ 用户控制面最小实现（E-3 abort+E-4 takeover,含 PAUSED 验收项）→ 生产 worker evidenceChecks 配置策略 → E-7 NEEDS_RECONCILE 自愈。
+
+
+## RELAY-CONTROL-READY-03（2026-11-13，ACTIVE 合同登记，未实施）
+
+- **明确用户决策**：选择 ACTIVE Goal 消息分类方案 A：一个输入框；“发送”只交流/记录，显式“交给 Relay 执行”才可创建新的受控 Task/Run。此前 C 方案是尚未迁移的旧代码行为，不是新授权；详情见 CURRENT.md 唯一 ACTIVE 合同、CONTRACTS.md §2 与 safety-close-02/SEMANTICS-P0A.md §3。
+- **有界顺序**：先审计+实现聊天/执行显式意图和 PAUSED/终态安全守卫 → 受控功能性 Gate 配置与隔离实测 → abort/人工接管/交还的最小闭环 → 确定性反例、浏览器回归、独立复核、GitHub exact-head CI。生产部署、真实模型调用与远端写入不自动授权。
+- **本次提交性质**：只登记已批准的产品决策及下一阶段范围；不代表任何功能已经实现或真实生产验收通过。最新 SHA/CI 以 live GitHub main 为准；Writer 由本次文档登记操作临时接管，随后释放给本地开发 Agent。

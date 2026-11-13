@@ -1,5 +1,23 @@
 # Relay 当前执行契约
 
+## 当前唯一 ACTIVE 工作包：RELAY-CONTROL-READY-03（2026-11-13 用户方案 A 授权）
+
+- **目的与状态**：用户已明确选择 ACTIVE Goal 消息语义 **方案 A**；本提交只登记下一阶段执行合同与决策，**产品代码尚未实施，测试/运行态未验收**。本地开发 Agent 在重新冷启动、核对 live main、取得唯一 Writer 后，才可按本包实施；未取得写锁时只读。
+- **已批准的用户体验**：保留**一个对话输入框**；普通“发送”只交流/记录，不创建 READY Task、不启动可写 Run、不作为新的执行授权；只有用户显式点击 **“交给 Relay 执行”** 才能申请创建或追加执行任务。操作需要清楚区分记录成功、待安全边界、任务已创建、执行中、停止已确认。模型推断的意图绝不能代替用户显式授权。现有 `POST /api/goals` 的显式创建目标入口不得被误改成聊天。
+- **设计变更范围**：本次决策明确覆盖原 WEB-UX-03C §0 中“ACTIVE Goal 任意未消费 USER 消息默认派生 READY Task”的旧语义；以本条、CONTRACTS.md §2 和已批准的 SEMANTICS-P0A §3 为新设计权威。**旧代码在实现和验收前仍保持现有行为，不得宣称方案 A 已生效**。
+- **受控实施范围（按顺序有界完成）**：
+  1. **P0 对话授权闭环**：审查 Composer/API/Goal 消息消费表和 worker；以服务器端明确的 intent（或同等可审计动作）区分 chat/execute；旧客户端缺省安全降级为 chat；显式 execute 经角色/Goal 状态/预算/作用域校验后才创建 READY Task。重复提交幂等；在途 execute 仅排队到安全边界，不以普通 chat 自动派生。保留一个输入框及明确双操作。终态、PAUSED、held、在途边界防双建/越权；**PAUSED 不允许因历史消息自动重激活**。不通过模型关键词猜测授权。
+  2. **P0 生产 Gate 可用性**：核查 `worker-entry` 未注入 `evidenceChecks` 的真实影响；沿用 CheckSpec/Policy/沙箱提供可信的任务级功能测试配置与实证，功能检查不得由任意用户消息、模型文本或 manifestVerify 顶替。缺失/失败/超时保守停机，不为放行降低 SAFETY-CLOSE-02 的 Gate 标准。生产重启/变更配置不在本包自动授权范围。
+  3. **P1 停止/接管最小切片**：审计现有 runner cancelSignal、租约/fencing、ops/API/Web 的能力，再实现能在隔离环境验证的 abort、人工 takeover/handback。命令含操作者、目标 Run/Task 版本、幂等键、审计；RECEIVED、APPLIED、STOP_CONFIRMED 不能混淆；旧 Run 在撤销资格后不能继续写或领取，未知外部副作用先 NEEDS_RECONCILE。不得重做 Core 生命周期或建第二控制系统。
+- **前置门与停止条件**：先核对 live GitHub main/本地一致、`AGENTS.md`、`CURRENT.md`、架构/ADR-0012 与上包 REPORT/REVIEW；唯一 Writer、受保护的 `config/` 与 `p0-mvp/soak-r3b/` 原样保留。若发现强制新增高权限操作、改核心安全不变量、不可逆变更、生产写入需求或无法用现有状态机安全接管，**停止对应子项并请求重大决策**，其它相互独立子项可继续，不得擅自扩大。
+- **测试和可验收结果**：必须有先失败后修复的消息误触发/无 intent/重复点击/在途与终态竞争/PAUSED 不自动恢复用例；真实 Web 桌面和手机浏览器旅程；代码候选功能测试 pass/fail/缺失与 Gate 保守停机；abort 重复/竞争/失联/旧 fencing token/残余子进程；takeover/handback 的工作区及外部副作用核对。测试只用隔离 PostgreSQL/schema、桩 Pi 和沙箱。必须跑适用 `quality:quick/full/release`、独立 Reviewer 并复核 exact-head GitHub Actions test/e2e；每项 NOT_RUN/SKIPPED 如实标注。
+- **不授权**：生产 Worker 重启/部署、真实模型消耗、真实 GitHub 沙箱写入、MODEL-POLICY-01、REAL-PILOT、R-3B、Pi 升级、pstack 安装、多 Agent 框架、第二编排/质量服务、全仓格式化、分支/强推/清理受保护目录。普通技术问题可在范围内自主修复两轮；重大变更和权限冲突不得自行批准。
+- **交付纪律**：唯一 Writer、main-only、快进推送（网络故障可用已验证本机 HTTP 代理 127.0.0.1:8118，禁改全局代理及打印凭据）；完成后独立 Reviewer 裁决 PASS/REWORK/BLOCKED、exact-head CI、报告实测 SHA/运行影响/回滚与未验证项；更新 CURRENT/CONTINUATION 并释放 Writer。旧 MVP REWORK、R-2/R-3 PARTIAL 历史不变。
+
+---
+
+## 以下为已结束工作的历史记录（不能作为本包执行授权）
+
 - **RELAY-SAFETY-CLOSE-02 ✅ 收口（2026-11-13）**：提交链 3033c14（合同登记）→ d04eae5（实施,21 文件 +2042/-571）→ b7fe040（Reviewer Minor 消化）→ 收口提交；exact-head CI 43412391302@b7fe040 双 job success（test 2m14s/e2e 1m56s）；独立 Reviewer 终裁 **PASS**（0 Major 7 Minor,Minor-1/4 已消化,Minor-3/5 登记义务入报告,记录 p0-mvp/safety-close-02/REVIEW-SAFETY-CLOSE-02.md）；实测 quality:release PASS（288+30 过/52+2 门控 skip/github-real 授权门下 2 过 3 skip/备份恢复）；报告=p0-mvp/safety-close-02/REPORT-SAFETY-CLOSE-02.md。当前无新 ACTIVE 授权。
 - 交付摘要：①P0-A 终态 Goal 消息 fail-closed（纠偏 E-1/E-2:原普通/终态消息均自动派生 READY Task=孤儿执行;现终态后新消息只记录+held 反馈+GOAL_MESSAGE_HELD 审计;在途窗口补充可审计重激活边界消费;planFollowUpTask 非 ACTIVE fail-closed;ACTIVE Goal 消息分类涉 WEB-UX-03C §0 冻结语义按停止条件未实施,决策请求=p0-mvp/safety-close-02/SEMANTICS-P0A.md §3）②P0-B Gate 功能验证区分（manifest=完整性硬门不证明行为;功能性证据 deterministic_test/api_behavior 必需,record/consume 双侧+编排预检三重关闭;检查失败 Reviewer 前停机）③P0-C 测试库守卫（授权三元组+p01a_ 前缀+密码脱敏,生产共享实例事实如实登记;可达错误目标零写入故障注入证明）④P1-D 质量语义（release 必需项 NOT_RUN⇒INCOMPLETE;禁继承 SKIP_BROWSER;github-real 显式授权门 RELAY_GITHUB_REAL_E2E,默认零远端写入）⑤P1-E GAP-REGISTER 纠偏附录（原文保留）。生产影响=worker 新语义下代码变更候选保守停机 NEEDS_DECISION（未重启生产进程,旧进程行为不变;恢复 Gate 放行需配置功能性检查或 ops 处置,见报告 §10）。回滚=revert b7fe040 d04eae5。
 - 权威起点：GitHub origin/main = 收口提交（见 git log）；VM80 本地与远端一致；未跟踪 config/ 与 p0-mvp/soak-r3b/ 仍为受保护遗留产物，严禁触碰或提交。
