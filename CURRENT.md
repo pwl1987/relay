@@ -1,11 +1,11 @@
 # Relay 当前执行契约
 
-- 当前唯一 ACTIVE：**RELAY-ARCH-FREEZE-01**（用户 2026-11-13 授权继续顶层设计收敛；仅设计/治理文档，不授权产品代码、服务、数据库、模型或生产配置变化）。
+- 当前唯一待收口包：**RELAY-ARCH-FREEZE-01 BLOCKED（远端推送/独立复核）**；当前没有新的 ACTIVE 实施授权。设计草案已在 VM80 本地 main 形成提交 7251ecb（合同）与 99ddb4b（文档及 ADR），GitHub 仍停留于 51972cdeb89a。
 - 权威起点：GitHub origin/main = 51972cdeb89ac87a13e57215ac959d60b7d95c5c；VM80 本地 main/远端一致，受跟踪文件无修改；未跟踪 config/ 与 p0-mvp/soak-r3b/ 为受保护遗留产物，严禁触碰或提交。
-- 唯一 Writer：VM80 人工接管（Dev Agent Kit takeover=human，执行期间不得并行启动写任务）；main-only、禁止强推；提交前重核远端 SHA。
+- Writer：本轮人工接管用于受控文档编辑；在记录阻断后释放给自动控制器。受保护未跟踪目录仍保留，未触碰。严禁为恢复推送创建其他分支、重置工作区或强推。
 - 结果边界：基于现有 ARCHITECTURE_BASELINE/CONTRACTS/DELIVERY/VALIDATION/INTEGRATIONS，新增或精简 Agent 控制、计划修订、多 Agent 权限、Pi/pstack 边界、本地质量检查/GitHub 外部复核、机器证据、性能与评分原则；保持唯一状态与治理事实源。
-- 质量出口：逐项说明既有代码事实与未实现合同；最小文档差异，检查 Markdown 引用、范围、测试与 HEAD 证据；独立 Reviewer 未完成不得将待验证合同标为实现 PASS。完成后更新 CURRENT/CONTINUATION，收口并释放 Writer。
-- 硬停止：不修改 src/web/package.json/CI 代码或生产服务；不安装 pstack、升级 Pi、启动自托管 GitHub Runner、启用真实模型调用；不新增服务/分支/第二调度或评分系统；不得修改 MVP REWORK、R2 PARTIAL/R3 PARTIAL 等历史裁决。
+- 核查：文档相对链接/章节契约检查 PASS，git diff --check PASS，npm run typecheck PASS；没有修改产品代码/部署。独立 Reviewer、变更后的 exact-head GitHub CI 和真实接管/质量 E2E 均 NOT_RUN，不能宣称全面验收。
+- 阻断原因/下一步：HTTPS push → 503 CONNECT；SSH 443 → timeout 35s。网络恢复后重新核对 live main、单 Writer 和未跟踪目录，以快进方式推送本地提交，再运行 exact-head CI 和独立只读 Reviewer，最后裁决 PASS/REWORK。旧 MVP REWORK、R-2/R-3 PARTIAL 不变。
 
 ## 历史执行记录（只供追溯，不是当前 ACTIVE 授权）
 
