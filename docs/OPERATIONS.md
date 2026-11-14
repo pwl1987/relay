@@ -33,6 +33,6 @@ Decision Timeout 的候选 Fallback：`AUTO_ACCEPT_RECOMMENDATION`（仅先前�
 
 P0 对 FS/Shell/Git 等仅授权隔离工作区与明确命令；未证明真实 sandbox/OS 权限隔离前，不应运行不受信任仓库的任意脚本。网络出口、敏感文件、环境变量与系统凭据都要单独控制；**提示词及应用层 Allowlist 不能替代 OS 沙箱**。
 
-对 GitHub/SSH/Deploy 使用执行器独占凭据、仓库/主机允许列表、短效授权、输出脱敏、审计；Agent 只提供动作意图。需要审计外部工具提供的 prompt-injection 与能力泄漏风险。不能依赖超时自动批准生产操作。
+对 GitHub/SSH/Deploy 使用执行器独占凭据、仓库/主机允许列表、短效授权、输出脱敏、审计；Agent 只提供动作意图。出口约束栈(`src/runtime/egress.ts`,RELAY-EGRESS-ISOLATION-07)资源归属:全部冲突资源(网络/代理容器/iptables 链/规则标记/端口)由作用域唯一命名,创建时打 `relay.egress.owner` 归属标签;匿名同名资源 fail-closed 拒绝(零副作用);teardown 仅删本执行者创建且仍持有的资源并出具审计报告;测试一律走独立命名空间,不触碰生产默认名——升级期发现的历史匿名资源(无标签)须人工核验归属后由用户 D3 处置。需要审计外部工具提供的 prompt-injection 与能力泄漏风险。不能依赖超时自动批准生产操作。
 
 日志最小化且有保留期；Token、SSH key、连接串不写入 Evidence/Context。审计必须记载是谁、在何授权下、针对什么对象、执行结果与重放核查。时间同步、备份/恢复演练和 DB 可用性是 24×7 前提，但不提前引入重型控制面。

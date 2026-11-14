@@ -1,0 +1,18 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/egress-isolation-e2e.test.ts > egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰)
+[egress-isolation-e2e] 兜底清理 deleted=[] skipped=[{"resource":"ctr:relay-test-isoe2e-fwd","reason":"不存在"},{"resource":"iptables","reason":"网络 relay-test-isoe2e-net 非本执行者持有(匿名/他人)⇒ 零 iptables 操作"},{"resource":"net:relay-test-isoe2e-net","reason":"不存在"}]
+
+ ✓ test/integration/egress-isolation-e2e.test.ts (6 tests) 24941ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ① 跨进程并发 ensure 安全收敛:双子进程同作用域 ensure ⇒ 恰好一个代理容器,双方 ok  1127ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ② 跨进程复用 + 真实探针:父进程 ensure 同作用域 ⇒ reused:true;模型端口可达+外网阻断  11735ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ③ 未授权 teardown 拒绝:知道作用域名但非持有者 ⇒ 零删除,栈完好(默认域 teardown 同样零越界)  491ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ④ 半残有界恢复:本执行者持有的代理被 stop ⇒ ensure 恢复重建(recovered)且健康  10962ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ⑤ 退出后清理:owner 匹配的 teardown 回收全部作用域资源,零残留  486ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  15:29:59
+   Duration  25.46s (transform 130ms, setup 0ms, collect 255ms, tests 24.94s, environment 0ms, prepare 77ms)
+

@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/unit/egress-isolation.test.ts (10 tests) 154ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  15:55:59
+   Duration  496ms (transform 152ms, setup 0ms, collect 84ms, tests 154ms, environment 0ms, prepare 76ms)
+

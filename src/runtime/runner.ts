@@ -28,7 +28,7 @@ import {
 } from "./sandbox.ts";
 import { detectHostIp, rewriteBaseUrlForContainer, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import type { PiInstallation } from "./pi-version.ts";
-import { PiRpcSession, type PiSpawnOptions, type RpcRecord } from "./pi-rpc.ts";
+import type { PiRpcSession, PiSpawnOptions, RpcRecord } from "./pi-rpc.ts";
 import { buildRunPrompt, contextDigest, parseHandoff, type Handoff, type HandoffParse } from "./context.ts";
 import { reserveBudget, settleBudget, releaseBudget } from "../core/budget.ts";
 import { recordChangeset, bindCandidateCommit } from "../core/changesets.ts";
@@ -223,7 +223,7 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
       !eg.subnet ||
       !eg.hostIp ||
       !eg.modelPort ||
-      !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)
+      !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort, eg)
     ) {
       throw new Error("egress_rules_missing:docker Run 需先 ensureEgress+verify,FAIL-CLOSED");
     }
@@ -279,7 +279,7 @@ export async function executeRun(db: RelayDb, pi: PiInstallation, spec: RunSpec)
         }
       });
   }, spec.heartbeatSeconds * 1000);
-  let hbLastError: string | undefined = undefined;
+  let hbLastError: string | undefined;
   let ledgerId: string | null = null;
   let reservedCalls = 0;
   const tokenLedgers: Array<{ ledgerId: string; reserved: number; kind: "tokens_in" | "tokens_out" }> = [];

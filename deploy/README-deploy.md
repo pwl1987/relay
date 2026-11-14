@@ -56,6 +56,8 @@ node deploy/preflight.ts --json     # 机器可读(同样脱敏)
 >
 > 实测对照(2026-11-14,证据=p0-mvp/safety-authority-06/evidence/):无 bus ⇒ svc 两项"无法查询";显式 bus ⇒ svc PASS(pid/since 可读)。`process_vs_head=PASS` 仅在**全部目标服务与 HEAD 时间可靠读取且真实晚于 HEAD** 时输出(同秒视为歧义⇒旧代码);服务探针异常一律"无法查询",单元不存在/未运行由 systemd 作答后如实 FAIL。
 
+> **出口栈资源归属(RELAY-EGRESS-ISOLATION-07,2026-11-14)**:出口约束栈资源(网络 `relay-egress-net`/代理容器 `relay-egress-fwd`/iptables 链 `RELAY-EGRESS` 及其规则)创建时携带 `relay.egress.owner` 归属标签,iptables 规则注释携带 `<标记> owner=<token>`;`ensureEgress` 对**匿名同名资源 fail-closed 拒绝**(零副作用,不覆盖/不删除);对已健康且配置相同的代理**复用不重建**(在途模型请求不被切断);teardown 仅删本执行者创建且仍持有的资源并出具审计报告。测试一律走 `relay-test-*` 独立命名空间(`createTestEgressScope`/`RELAY_EGRESS_SCOPE_PREFIX`),与生产默认资源零交集——"full 测试拆生产出口栈"的根因自此消除。排障:`docker inspect -f '{{index .Config.Labels "relay.egress.owner"}}' relay-egress-fwd`;**匿名(无标签)资源须人工核验归属后由用户 D3 手工处置,系统绝不代删**(标签是运维归属标记而非安全认证,宿主 root 可伪造;真正安全边界仍是 OS 沙箱+iptables 白名单)。
+
 检查面:git HEAD/被跟踪树、systemd user 服务运行态、进程与 HEAD 版本差(代码已更新/进程仍旧/未能读取三区分)、凭据文件 0600、env 必需键名(仅键名)、`RELAY_EVIDENCE_CHECKS_JSON` 结构合规(与 worker 启动校验 `resolveEvidenceChecks` 单一同源)、`RELAY_MAX_OUTPUT_TOKENS` 合规、Web 绑定(LAN 单接口,禁 0.0.0.0)、Docker/检查沙箱镜像(`node:24-bookworm-slim`)/出口约束栈、DB 可达/16 表结构/迁移标志物(0006/0007/0008/0009)/在途任务聚合计数/Run 归属绑定聚合计数。DB 全部聚合计数,零原始数据。
 
 ### 1. 切换前 GO/NO-GO/UNKNOWN 基线(2026-11-14 实测,证据=p0-mvp/deploy-preflight-05/evidence/preflight-prod-20261114.log)
@@ -64,7 +66,7 @@ node deploy/preflight.ts --json     # 机器可读(同样脱敏)
 | --- | --- | --- |
 | GO | git 被跟踪树清洁;两 systemd 服务运行;凭据/env 0600;env 必需键齐备;Web LAN 单接口绑定;Docker 可用;沙箱镜像在位;DB 可达;16 表齐备;在途阻断态=0(仅 BLOCKED/PAUSED);Run 绑定仅终态残留(BUDGET_EXHAUSTED,不重入 Gate) | ✅ |
 | NO-GO(须处置后复检) | **迁移缺失:0008(goal_messages.execution_request)、0009(tasks.abort_requested_at)** —— 重启后新代码依赖(停止旗标/对话授权);`init-schema` 对已存在 schema 跳过、`applyMigrations` 全量重放会撞表 ⇒ 须按迁移文件逐条精确执行(见步骤 3) | ❌ |
-| UNKNOWN(用户 D3 决策项) | ①`RELAY_EVIDENCE_CHECKS_JSON` 未配置 ⇒ 重启后代码变更候选 Gate 保守停机 `functional_evidence_unconfigured`→NEEDS_DECISION(fail-closed 安全;Gate 自动放行不可用):配置功能性检查(步骤 2)**或**显式接受保守停机运行;②进程启动(2026-11-13 02:00:08)早于 HEAD ⇒ 线上为旧代码,新语义以重启为界(切换本身消解);③出口约束栈当前不在(测试套件 `teardownEgress` 拆除共享栈)⇒ 运行中 worker 已降级,重启后首拍 `ensureEgress` 幂等重建自愈(重启后必须核对 `egress ready` 横幅) | ⚠️ |
+| UNKNOWN(用户 D3 决策项) | ①`RELAY_EVIDENCE_CHECKS_JSON` 未配置 ⇒ 重启后代码变更候选 Gate 保守停机 `functional_evidence_unconfigured`→NEEDS_DECISION(fail-closed 安全;Gate 自动放行不可用):配置功能性检查(步骤 2)**或**显式接受保守停机运行;②进程启动(2026-11-13 02:00:08)早于 HEAD ⇒ 线上为旧代码,新语义以重启为界(切换本身消解);③出口约束栈当前不在(RELAY-EGRESS-ISOLATION-07 之前测试套件 `teardownEgress` 无所有权校验拆除共享栈;**该根因已修复**:测试走独立命名空间、teardown 仅删本执行者持有资源)⇒ 运行中 worker 已降级,重启后首拍 `ensureEgress` 幂等重建自愈(重启后必须核对 `egress ready` 横幅;如遇匿名同名资源被拒,按上方归属块人工核验处置) | ⚠️ |
 
 ### 2. 配置决策项(用户 D3)
 

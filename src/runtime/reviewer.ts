@@ -25,7 +25,7 @@ import {
 } from "./sandbox.ts";
 import { rewriteBaseUrlForContainer, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import type { PiInstallation } from "./pi-version.ts";
-import { PiRpcSession } from "./pi-rpc.ts";
+import type { PiRpcSession } from "./pi-rpc.ts";
 import { buildReviewerPrompt, parseGateVerdict } from "./gate-verdict.ts";
 import { contextDigest } from "./context.ts";
 
@@ -89,7 +89,13 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
   let model = spec.model;
   if (spec.sandbox === "docker") {
     const eg = spec.egress;
-    if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
+    if (
+      !eg?.ok ||
+      !eg.subnet ||
+      !eg.hostIp ||
+      !eg.modelPort ||
+      !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort, eg)
+    ) {
       return { ok: false, reason: "egress_rules_missing", rawOutput: "", reviewerRunId: runId };
     }
     model = { ...spec.model, baseUrl: rewriteBaseUrlForContainer(spec.model.baseUrl, eg) };
@@ -310,7 +316,10 @@ export async function runReviewerSession(db: RelayDb, pi: PiInstallation, spec: 
     if (ledgerId) {
       await db
         .transaction(async (tx) =>
-          settleBudget(tx as unknown as Exec, ledgerId!, { reservedAmount: reserveCalls, actualAmount: Math.max(turns, 1) }),
+          settleBudget(tx as unknown as Exec, ledgerId!, {
+            reservedAmount: reserveCalls,
+            actualAmount: Math.max(turns, 1),
+          }),
         )
         .catch(() => {});
     }

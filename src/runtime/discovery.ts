@@ -24,7 +24,7 @@ import {
 } from "./sandbox.ts";
 import { rewriteBaseUrlForContainer, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import type { PiInstallation } from "./pi-version.ts";
-import { PiRpcSession } from "./pi-rpc.ts";
+import type { PiRpcSession } from "./pi-rpc.ts";
 import { contextDigest } from "./context.ts";
 
 /** Discovery 结构化报告(US-01/US-02 P0 最小;US-01 验收:保留原话/可核查假设/一个推荐/可判定条件)。 */
@@ -54,13 +54,16 @@ export function parseDiscoveryReport(text: string): { found: boolean; report?: D
   const r = raw as Record<string, unknown>;
   // 结构校验(最小必需面;缺项即拒绝 —— 不用默认值伪造)
   const problems: string[] = [];
-  if (typeof r["problemStatement"] !== "string" || !(r["problemStatement"] as string).trim()) problems.push("problemStatement");
+  if (typeof r["problemStatement"] !== "string" || !(r["problemStatement"] as string).trim())
+    problems.push("problemStatement");
   if (!Array.isArray(r["assumptions"])) problems.push("assumptions");
   if (!Array.isArray(r["risks"])) problems.push("risks");
   if (!Array.isArray(r["options"]) || (r["options"] as unknown[]).length === 0) problems.push("options");
   const rec = r["recommendation"] as Record<string, unknown> | undefined;
-  if (!rec || typeof rec["action"] !== "string" || !(rec["action"] as string).trim()) problems.push("recommendation.action");
-  if (!Array.isArray(r["acceptanceCriteria"]) || (r["acceptanceCriteria"] as unknown[]).length === 0) problems.push("acceptanceCriteria");
+  if (!rec || typeof rec["action"] !== "string" || !(rec["action"] as string).trim())
+    problems.push("recommendation.action");
+  if (!Array.isArray(r["acceptanceCriteria"]) || (r["acceptanceCriteria"] as unknown[]).length === 0)
+    problems.push("acceptanceCriteria");
   if (!Array.isArray(r["openQuestions"])) problems.push("openQuestions");
   if (!Array.isArray(r["sources"])) problems.push("sources");
   if (problems.length > 0) return { found: false, error: `schema_missing:${problems.join(",")}` };
@@ -70,7 +73,10 @@ export function parseDiscoveryReport(text: string): { found: boolean; report?: D
       problemStatement: String(r["problemStatement"]),
       assumptions: (r["assumptions"] as Array<Record<string, unknown>>).map((a) => ({
         text: String(a["text"] ?? ""),
-        confidence: (["high", "medium", "low"].includes(String(a["confidence"])) ? String(a["confidence"]) : "low") as "high" | "medium" | "low",
+        confidence: (["high", "medium", "low"].includes(String(a["confidence"])) ? String(a["confidence"]) : "low") as
+          | "high"
+          | "medium"
+          | "low",
         ...(a["verifiableBy"] !== undefined ? { verifiableBy: String(a["verifiableBy"]) } : {}),
       })),
       risks: (r["risks"] as unknown[]).map(String),
@@ -93,7 +99,10 @@ function listProjectFiles(root: string, maxFiles = 80, maxDepth = 3): string[] {
     if (out.length >= maxFiles || depth > maxDepth) return;
     let entries: Array<{ name: string; isDirectory: () => boolean }> = [];
     try {
-      entries = readdirSync(dir, { withFileTypes: true }) as unknown as Array<{ name: string; isDirectory: () => boolean }>;
+      entries = readdirSync(dir, { withFileTypes: true }) as unknown as Array<{
+        name: string;
+        isDirectory: () => boolean;
+      }>;
     } catch {
       return;
     }
@@ -117,9 +126,7 @@ export function buildDiscoveryPrompt(input: {
   turnBudget: number;
   files: string[];
 }): string {
-  const fileList = input.files.length
-    ? input.files.map((f) => `- ${f}`).join("\n")
-    : "(目录为空或不可列举)";
+  const fileList = input.files.length ? input.files.map((f) => `- ${f}`).join("\n") : "(目录为空或不可列举)";
   return [
     `你是 Relay 的需求发现(Discovery)分析器。你的任务:调查指定项目目录,把用户的一句原始需求转化为结构化分析。`,
     ``,
@@ -186,13 +193,23 @@ async function raceExit(session: PiRpcSession, ms: number): Promise<void> {
  * 执行一次 Discovery Run(只读;不推进任何任务状态;结果由 core 层持久化)。
  * ok=false 时 reason:budget_exhausted / rpc_disconnect / no_report:<parse 错> / runner_error。
  */
-export async function runDiscoverySession(db: RelayDb, pi: PiInstallation, spec: DiscoverySpec): Promise<DiscoveryRunResult> {
+export async function runDiscoverySession(
+  db: RelayDb,
+  pi: PiInstallation,
+  spec: DiscoverySpec,
+): Promise<DiscoveryRunResult> {
   const runId = newRunId();
   const reserveCalls = spec.budget?.reserveCallsPerRun ?? 3;
   let model = spec.model;
   if (spec.sandbox === "docker") {
     const eg = spec.egress;
-    if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
+    if (
+      !eg?.ok ||
+      !eg.subnet ||
+      !eg.hostIp ||
+      !eg.modelPort ||
+      !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort, eg)
+    ) {
       return { ok: false, reason: "egress_rules_missing", rawOutput: "", runId };
     }
     model = { ...spec.model, baseUrl: rewriteBaseUrlForContainer(spec.model.baseUrl, eg) };
@@ -354,7 +371,9 @@ export async function runDiscoverySession(db: RelayDb, pi: PiInstallation, spec:
     try {
       if (!existsSync(auditPath)) toolAudit = { lines: 0, denied: 0, reasons: [], missing: true };
       else {
-        const lines = readFileSync(auditPath, "utf8").split("\n").filter((l) => l.trim().length > 0);
+        const lines = readFileSync(auditPath, "utf8")
+          .split("\n")
+          .filter((l) => l.trim().length > 0);
         const denied: string[] = [];
         for (const line of lines) {
           try {
@@ -401,7 +420,10 @@ export async function runDiscoverySession(db: RelayDb, pi: PiInstallation, spec:
     if (ledgerId) {
       await db
         .transaction(async (tx) =>
-          settleBudget(tx as unknown as Exec, ledgerId!, { reservedAmount: reserveCalls, actualAmount: Math.max(turns, 1) }),
+          settleBudget(tx as unknown as Exec, ledgerId!, {
+            reservedAmount: reserveCalls,
+            actualAmount: Math.max(turns, 1),
+          }),
         )
         .catch(() => {});
     }

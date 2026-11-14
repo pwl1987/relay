@@ -25,7 +25,14 @@ import { DEFAULT_DELIVERY_POLICY } from "../../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
 import { makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
-import { ensureEgress, verifyEgressEffective, teardownEgress, type EgressStatus } from "../../src/runtime/egress.ts";
+import {
+  ensureEgress,
+  verifyEgressEffective,
+  teardownEgress,
+  createTestEgressScope,
+  type EgressScope,
+  type EgressStatus,
+} from "../../src/runtime/egress.ts";
 import { probeProvider, type ProviderConfig } from "../helpers/provider.ts";
 
 function sudoIptablesAvailable(): boolean {
@@ -64,6 +71,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_A4_E2E !== "1
   () => {
     let t: TestDb;
     let egress: EgressStatus | null = null;
+    const scope: EgressScope = createTestEgressScope("a4"); // 独立命名空间(RELAY-EGRESS-ISOLATION-07)
     let remote: BareRemoteFixture;
     let server: ReturnType<typeof createRelayServer>["server"];
     let base = "";
@@ -82,7 +90,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_A4_E2E !== "1
       const keyFile = join(keyDir, "real-key");
       writeFileSync(keyFile, model.apiKey, { mode: 0o600 });
       chmodSync(keyFile, 0o600);
-      const s = await ensureEgress(model.baseUrl, { realKeyFile: keyFile });
+      const s = await ensureEgress(model.baseUrl, { realKeyFile: keyFile, scope });
       egress = await verifyEgressEffective(s);
       expect(egress.ok, `出口约束未生效:${egress.reason}(合同停止条件)`).toBe(true);
       remote = makeBareRemote(markTemp(mkdtempSync(join(tmpdir(), "p0acc-remote-"))));
@@ -186,7 +194,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_A4_E2E !== "1
 
     afterAll(async () => {
       await new Promise<void>((r) => server.close(() => r()));
-      teardownEgress();
+      teardownEgress(scope);
       await t.cleanup();
       for (const r of tmpRoots) safeRm(r, { roots: tmpRoots, sentinel: RUN_SENTINEL });
     });

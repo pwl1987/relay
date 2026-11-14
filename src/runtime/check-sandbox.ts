@@ -26,7 +26,7 @@ import { lstatSync, realpathSync, type Stats } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, sep } from "node:path";
 import { DOCKER_BIN, SANDBOX_IMAGE, SANDBOX_UID, dockerAvailable } from "./sandbox.ts";
-import { EGRESS_NETWORK, verifyEgressRules, type EgressStatus } from "./egress.ts";
+import { resolveEgressScope, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import { workerEnv, type CheckRunner, type CheckSpec } from "../core/evidence.ts";
 
 /** 检查容器资源上限(确定性常量;上限语义,A4)。 */
@@ -166,7 +166,7 @@ export function dockerCheckRunner(options: DockerCheckRunnerOptions = {}): Check
       command: spec.command.join(" "),
       image: SANDBOX_IMAGE,
       user: String(SANDBOX_UID),
-      network: spec.allowEgressNetwork === true ? EGRESS_NETWORK : "none",
+      network: spec.allowEgressNetwork === true ? (options.egress?.network ?? resolveEgressScope().network) : "none",
       cwd: spec.cwdWorkspace === false ? CHECK_TMP_CWD : CHECK_WORKSPACE_MOUNT,
       memory: CHECK_MEMORY_LIMIT,
       cpus: CHECK_CPUS_LIMIT,
@@ -211,7 +211,7 @@ export function dockerCheckRunner(options: DockerCheckRunnerOptions = {}): Check
         !eg.subnet ||
         !eg.hostIp ||
         !eg.modelPort ||
-        !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)
+        !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort, eg)
       ) {
         return {
           passed: false,
@@ -225,7 +225,7 @@ export function dockerCheckRunner(options: DockerCheckRunnerOptions = {}): Check
       }
     }
 
-    const argv = buildCheckDockerArgs(spec, workspaceDir, containerName, options.egress ? EGRESS_NETWORK : undefined);
+    const argv = buildCheckDockerArgs(spec, workspaceDir, containerName, options.egress?.network);
     const timeoutMs = spec.timeoutMs ?? 60_000;
     const abortSignal = opts.abortSignal;
     let abortTimer: ReturnType<typeof setInterval> | null = null;

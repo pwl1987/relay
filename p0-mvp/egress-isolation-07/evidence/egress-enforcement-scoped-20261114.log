@@ -1,0 +1,36 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/integration/egress-enforcement.test.ts (4 tests) 14001ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > ensureEgress 幂等建立;二次执行健康复用(不 rm 不重建);verifyEgressRules(作用域链)通过  738ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > 真实探针:模型端点可达 + 外网被阻断(两个都成立才算约束生效)  11475ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > FAIL-CLOSED:无 egress 状态时 docker executeRun 拒启(不得静默降级 host 网络)  1050ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > teardownEgress(作用域)只清理本作用域;生产默认链 RELAY-EGRESS 不受影响  649ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/egress-enforcement.test.ts > 网络出口约束(容器+iptables 实测;独立命名空间)
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/integration/egress-enforcement.test.ts:49:34
+     47|       report.skipped.some((x) => x.resource.includes(key) && x.reason.…
+     48|     expect(covered(scope.fwdContainer), `报告:${JSON.stringify(report)}`…
+     49|     expect(covered(scope.chain)).toBe(true);
+       |                                  ^
+     50|     expect(covered(scope.network)).toBe(true);
+     51|     egress = null;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 passed (4)
+   Start at  15:30:35
+   Duration  14.48s (transform 223ms, setup 0ms, collect 187ms, tests 14.00s, environment 0ms, prepare 77ms)
+

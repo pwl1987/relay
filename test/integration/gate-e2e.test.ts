@@ -28,6 +28,8 @@ import {
   verifyEgressEffective,
   readEgressRequestCount,
   teardownEgress,
+  createTestEgressScope,
+  type EgressScope,
   type EgressStatus,
 } from "../../src/runtime/egress.ts";
 import { probeProvider, type ProviderConfig } from "../helpers/provider.ts";
@@ -52,6 +54,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_GATE_E2E !== 
   () => {
     let t: TestDb;
     let egress: EgressStatus | null = null;
+    const scope: EgressScope = createTestEgressScope("gate"); // 独立命名空间(RELAY-EGRESS-ISOLATION-07)
     let keyFile: string;
     const sandboxes: SandboxSpec[] = [];
     beforeAll(async () => {
@@ -61,14 +64,14 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_GATE_E2E !== 
       keyFile = join(mkdtempSync(join(tmpdir(), "relay-fwd-key-")), "real-key");
       writeFileSync(keyFile, model.apiKey, { mode: 0o600 });
       chmodSync(keyFile, 0o600);
-      const s = await ensureEgress(model.baseUrl, { realKeyFile: keyFile });
+      const s = await ensureEgress(model.baseUrl, { realKeyFile: keyFile, scope });
       egress = await verifyEgressEffective(s);
       expect(egress.ok, `出口约束未生效: ${egress.reason}(合同停止条件)`).toBe(true);
       expect(egress.keyIsolation).toBe(true);
     }, 240_000);
     afterAll(async () => {
       for (const s of sandboxes) cleanupSandbox(s);
-      teardownEgress();
+      teardownEgress(scope);
       await t.cleanup();
     });
 
@@ -93,7 +96,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_GATE_E2E !== 
           ],
         }),
       );
-      const countBefore = await readEgressRequestCount();
+      const countBefore = await readEgressRequestCount(3000, egress!.countPort);
       expect(countBefore).not.toBeNull();
 
       const pi = resolveVendoredPi();
@@ -251,7 +254,7 @@ describe.skipIf(!MODEL || !dockerOk || !iptOk || process.env.RELAY_GATE_E2E !== 
       expect(calls.reserved).toBe(0);
 
       // ---- C-9:回合计数 vs Provider 请求数独立核验 ----
-      const countAfter = await readEgressRequestCount();
+      const countAfter = await readEgressRequestCount(3000, egress!.countPort);
       expect(countAfter).not.toBeNull();
       const coderRuns = await t.db.execute(
         sql`SELECT detail FROM runs WHERE task_id='t-gate-a' AND (detail->>'role') IS NULL`,

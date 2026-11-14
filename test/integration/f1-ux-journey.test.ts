@@ -16,7 +16,7 @@ import { runGoalDiscovery } from "../../src/core/discovery.ts";
 import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
 import { createLiveWorkerDriver, type DeliveryFactory, type CapturedDelivery } from "../../src/server/worker.ts";
 import { prepareRunDirs, cleanupSandbox, type SandboxSpec, resolveMaxOutputTokens } from "../../src/runtime/sandbox.ts";
-import { ensureEgress } from "../../src/runtime/egress.ts";
+import { ensureEgress, teardownEgress, createTestEgressScope, type EgressScope } from "../../src/runtime/egress.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
 import { makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
@@ -95,9 +95,10 @@ describe.skipIf(!gated || envModel() === null)(
     let t: TestDb;
     let savedSchema: string | undefined;
     let remote: BareRemoteFixture;
-    let remoteBase = "";
+    const remoteBase = "";
     let stageBase = "";
     let egress: Awaited<ReturnType<typeof ensureEgress>> | null = null;
+    const scope: EgressScope = createTestEgressScope("f1a"); // 独立命名空间+退出后清理(RELAY-EGRESS-ISOLATION-07)
     const sandboxes: SandboxSpec[] = [];
 
     /** 复制 fixture 站点文件(不含 check.mjs —— 机判工具在候选面外)+ git main 基线(候选绑定需要)。 */
@@ -129,12 +130,13 @@ describe.skipIf(!gated || envModel() === null)(
       process.env.RELAY_DB_SCHEMA = t.schemaName;
       remote = makeBareRemote(markTemp(mkdtempSync(join(tmpdir(), "d-f1-remote-"))));
       stageBase = markTemp(mkdtempSync(join(tmpdir(), "d-f1-stage-")));
-      const eg = await ensureEgress(envModel()!.baseUrl);
+      const eg = await ensureEgress(envModel()!.baseUrl, { scope });
       if (!eg.ok) throw new Error(`F1 需要 egress 栈(ensureEgress 失败:${eg.reason})`);
       egress = eg;
     });
     afterAll(async () => {
       process.env.RELAY_DB_SCHEMA = savedSchema;
+      teardownEgress(scope); // 本作用域资源退出后清理(此前 F1 留栈不清理;RELAY-EGRESS-ISOLATION-07)
       for (const s of sandboxes) cleanupSandbox(s);
       await t.cleanup();
     });

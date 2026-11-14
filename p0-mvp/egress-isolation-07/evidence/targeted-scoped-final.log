@@ -1,0 +1,89 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/egress-isolation-e2e.test.ts > egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰)
+[egress-isolation-e2e] 兜底清理 deleted=[] skipped=[{"resource":"ctr:relay-test-isoe2e-fwd","reason":"不存在"},{"resource":"iptables","reason":"网络 relay-test-isoe2e-net 非本执行者持有(匿名/他人)⇒ 零 iptables 操作"},{"resource":"net:relay-test-isoe2e-net","reason":"不存在"}]
+
+ ✓ test/integration/egress-isolation-e2e.test.ts (6 tests) 24851ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ① 跨进程并发 ensure 安全收敛:双子进程同作用域 ensure ⇒ 恰好一个代理容器,双方 ok  1039ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ② 跨进程复用 + 真实探针:父进程 ensure 同作用域 ⇒ reused:true;模型端口可达+外网阻断  11737ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ③ 未授权 teardown 拒绝:知道作用域名但非持有者 ⇒ 零删除,栈完好(默认域 teardown 同样零越界)  494ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ④ 半残有界恢复:本执行者持有的代理被 stop ⇒ ensure 恢复重建(recovered)且健康  10908ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ⑤ 退出后清理:owner 匹配的 teardown 回收全部作用域资源,零残留  532ms
+ ✓ test/integration/egress-enforcement.test.ts (4 tests) 14400ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > ensureEgress 幂等建立;二次执行健康复用(不 rm 不重建);verifyEgressRules(作用域链)通过  1051ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > 真实探针:模型端点可达 + 外网被阻断(两个都成立才算约束生效)  11533ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > FAIL-CLOSED:无 egress 状态时 docker executeRun 拒启(不得静默降级 host 网络)  1024ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > teardownEgress(作用域)只清理本作用域;生产默认链 RELAY-EGRESS 不受影响  633ms
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] started workerId=e1-worker intervalMs=120 sandbox=docker maxOutputTokens=8192(默认) evidenceChecks=未配置(Gate 保守停机) pid=376134
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-14T08:23:05.956Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-14T08:23:06.075Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-14T08:23:06.196Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-14T08:23:06.316Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-14T08:23:06.436Z
+
+ ✓ test/integration/worker-entry.test.ts (3 tests) 5009ms
+   ✓ 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)  726ms
+   ✓ 阶段 E1:relay-worker 独立入口 > SIGKILL → 重启:两次 WORKER_STARTED;过期租约被回收重领;零重复副作用  4033ms
+node:fs:2482
+    return binding.writeFileUtf8(
+                   ^
+
+Error: EROFS: read-only file system, open '/workspace/attack.txt'
+    at Object.writeFileSync (node:fs:2482:20)
+    at [eval]:1:15
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3)
+    at node:internal/main/eval_string:71:3 {
+  errno: -30,
+  code: 'EROFS',
+  syscall: 'open',
+  path: '/workspace/attack.txt'
+}
+
+Node.js v24.22.3
+node:fs:2000
+  binding.unlink(getValidatedPath(path));
+          ^
+
+Error: EROFS: read-only file system, unlink '/workspace/candidate.txt'
+    at Object.unlinkSync (node:fs:2000:11)
+    at [eval]:1:15
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3)
+    at node:internal/main/eval_string:71:3 {
+  errno: -30,
+  code: 'EROFS',
+  syscall: 'unlink',
+  path: '/workspace/candidate.txt'
+}
+
+Node.js v24.22.3
+ ✓ test/integration/reviewer-readonly.test.ts (2 tests) 1826ms
+   ✓ P0-02B G-4:Reviewer 候选面 FS 级只读挂载(容器实测) > OS 层证据:Reviewer 同款约束下读候选成功;写/删/替换被内核拒绝(EROFS);对照组(rw)写成功  1812ms
+ ✓ test/unit/egress-isolation.test.ts (10 tests) 91ms
+
+ Test Files  5 passed (5)
+      Tests  25 passed (25)
+   Start at  16:22:24
+   Duration  48.82s (transform 445ms, setup 0ms, collect 1.36s, tests 46.18s, environment 1ms, prepare 364ms)
+

@@ -17,7 +17,7 @@ import { planGoal } from "../../src/core/goals.ts";
 import { resolveVendoredPi } from "../../src/runtime/pi-version.ts";
 import { createLiveWorkerDriver, type DeliveryFactory, type CapturedDelivery } from "../../src/server/worker.ts";
 import { cleanupSandbox, type SandboxSpec, resolveMaxOutputTokens } from "../../src/runtime/sandbox.ts";
-import { ensureEgress } from "../../src/runtime/egress.ts";
+import { ensureEgress, teardownEgress, createTestEgressScope, type EgressScope } from "../../src/runtime/egress.ts";
 import { createGitHubPushExecutor } from "../../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../../src/runtime/git-candidate.ts";
 import { makeBareRemote, type BareRemoteFixture } from "../helpers/git-fixture.ts";
@@ -105,6 +105,7 @@ describe.skipIf(!gated || envModel() === null)(
     let remote: BareRemoteFixture;
     let stageBase = "";
     let egress: Awaited<ReturnType<typeof ensureEgress>> | null = null;
+    const scope: EgressScope = createTestEgressScope("f2"); // 独立命名空间+退出后清理(RELAY-EGRESS-ISOLATION-07)
     const sandboxes: SandboxSpec[] = [];
     const tmpRoots: string[] = [];
 
@@ -132,12 +133,13 @@ describe.skipIf(!gated || envModel() === null)(
       process.env.RELAY_DB_SCHEMA = t.schemaName;
       remote = makeBareRemote(markTemp(mkdtempSync(join(tmpdir(), "d-f2-remote-"))));
       stageBase = markTemp(mkdtempSync(join(tmpdir(), "d-f2-stage-")));
-      const eg = await ensureEgress(envModel()!.baseUrl);
+      const eg = await ensureEgress(envModel()!.baseUrl, { scope });
       if (!eg.ok) throw new Error(`F2 需要 egress 栈(ensureEgress 失败:${eg.reason})`);
       egress = eg;
     });
     afterAll(async () => {
       process.env.RELAY_DB_SCHEMA = savedSchema;
+      teardownEgress(scope); // 本作用域资源退出后清理(此前 F2 留栈不清理;RELAY-EGRESS-ISOLATION-07)
       for (const s of sandboxes) cleanupSandbox(s);
       for (const r of tmpRoots) safeRm(r, { roots: tmpRoots, sentinel: RUN_SENTINEL });
       await t.cleanup();

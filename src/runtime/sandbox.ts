@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { PiRpcSession, type PiSpawnOptions } from "./pi-rpc.ts";
 import { verifyPiRuntime, type PiInstallation } from "./pi-version.ts";
-import { EGRESS_NETWORK, verifyEgressRules, type EgressStatus } from "./egress.ts";
+import { resolveEgressScope, verifyEgressRules, type EgressStatus } from "./egress.ts";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
@@ -78,9 +78,10 @@ export function appliedMaxOutputTokens(model: Pick<ModelConfig, "maxOutputTokens
  * 来源语义与 resolveMaxOutputTokens 对齐:仅当存在「通过校验的配置值」时记 "config",
  * undefined/null/空串一律 "default"(与最终采用值的一致性由同一 resolve 判定保证)。
  */
-export function budgetEvidence(
-  model: Pick<ModelConfig, "maxOutputTokens">,
-): { maxOutputTokens: number; maxOutputTokensSource: "default" | "config" } {
+export function budgetEvidence(model: Pick<ModelConfig, "maxOutputTokens">): {
+  maxOutputTokens: number;
+  maxOutputTokensSource: "default" | "config";
+} {
   const resolved = resolveMaxOutputTokens(model.maxOutputTokens);
   return resolved === undefined
     ? { maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS, maxOutputTokensSource: "default" }
@@ -238,14 +239,18 @@ export interface LaunchOptions {
 /** pi 进程 argv(密钥隔离自证用导出:断言无 --api-key;launchPi 内部同源)。 */
 export function buildPiArgs(model: ModelConfig, extMountPath: string): string[] {
   return [
-    "--provider", model.provider,
-    "--model", model.model,
+    "--provider",
+    model.provider,
+    "--model",
+    model.model,
     // 密钥隔离(P0-02A C-8):不再经 argv 传 key(宿主 ps 可见面,P0-01B F-7);
     // pi 从 models.json 读占位 key,出口代理改写 Authorization。
-    "--mode", "rpc",
+    "--mode",
+    "rpc",
     "--no-session",
     "--no-builtin-tools",
-    "--extension", extMountPath,
+    "--extension",
+    extMountPath,
   ];
 }
 
@@ -259,30 +264,52 @@ export function buildDockerRunArgs(
     allowedCommands?: readonly string[];
     execTimeoutMs?: number;
     workspaceReadOnly?: boolean;
+    /** Run 容器加入的 egress 网络(来自 ensureEgress 状态;缺省=env 解析作用域;RELAY-EGRESS-ISOLATION-07)。 */
+    egressNetwork?: string;
   },
 ): string[] {
   return [
-    DOCKER_BIN, "run", "--rm", "-i", // -i:RPC 走 stdin;无 -i 容器 stdin EOF ⇒ pi 静默退出(实测坑)
-    "--name", basename(spec.runDir), // 可寻址:测试可对真实容器注入 docker kill(断连故障)
-    "--user", `${SANDBOX_UID}:${SANDBOX_UID}`,
-    "--cap-drop", "ALL",
-    "--network", EGRESS_NETWORK, // 专用 bridge + iptables 白名单(egress.ts;host 网络已于 P0-01C 废止)
+    DOCKER_BIN,
+    "run",
+    "--rm",
+    "-i", // -i:RPC 走 stdin;无 -i 容器 stdin EOF ⇒ pi 静默退出(实测坑)
+    "--name",
+    basename(spec.runDir), // 可寻址:测试可对真实容器注入 docker kill(断连故障)
+    "--user",
+    `${SANDBOX_UID}:${SANDBOX_UID}`,
+    "--cap-drop",
+    "ALL",
+    "--network",
+    opts.egressNetwork ?? resolveEgressScope().network, // 专用 bridge + iptables 白名单(egress.ts;host 网络已于 P0-01C 废止)
     // G-4:只读面(workspaceReadOnly)时候选工作区以 :ro 挂载 —— 写/删/替换在 OS 层被拒
-    "-v", `${spec.workspaceDir}:/workspace${opts.workspaceReadOnly ? ":ro" : ""}`,
-    "-v", `${spec.homeDir}:/pihome`,
-    "-v", `${spec.runDir}/ext:/opt/relay/ext:ro`,
-    "-v", `${join(pi.repoRoot, "node_modules")}:/opt/relay/node_modules:ro`,
-    "-e", "HOME=/pihome",
-    "-e", "TERM=dumb",
-    "-e", "NO_COLOR=1",
-    "-e", `RELAY_ALLOWED_ROOT=/workspace`,
+    "-v",
+    `${spec.workspaceDir}:/workspace${opts.workspaceReadOnly ? ":ro" : ""}`,
+    "-v",
+    `${spec.homeDir}:/pihome`,
+    "-v",
+    `${spec.runDir}/ext:/opt/relay/ext:ro`,
+    "-v",
+    `${join(pi.repoRoot, "node_modules")}:/opt/relay/node_modules:ro`,
+    "-e",
+    "HOME=/pihome",
+    "-e",
+    "TERM=dumb",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    `RELAY_ALLOWED_ROOT=/workspace`,
     // 工具审计是 infra 写入面:只读候选面时必须移出候选(落一次性 HOME),候选零写入
-    "-e", `RELAY_TOOL_AUDIT=${opts.workspaceReadOnly ? "/pihome/tool-audit.jsonl" : "/workspace/.relay/tool-audit.jsonl"}`,
-    "-e", `RELAY_EXEC_TIMEOUT_MS=${opts.execTimeoutMs ?? 10_000}`,
-    "-e", `RELAY_ALLOWED_COMMANDS=${JSON.stringify(opts.allowedCommands ?? [])}`,
-    "-w", "/workspace",
+    "-e",
+    `RELAY_TOOL_AUDIT=${opts.workspaceReadOnly ? "/pihome/tool-audit.jsonl" : "/workspace/.relay/tool-audit.jsonl"}`,
+    "-e",
+    `RELAY_EXEC_TIMEOUT_MS=${opts.execTimeoutMs ?? 10_000}`,
+    "-e",
+    `RELAY_ALLOWED_COMMANDS=${JSON.stringify(opts.allowedCommands ?? [])}`,
+    "-w",
+    "/workspace",
     SANDBOX_IMAGE,
-    "node", opts.containerCli,
+    "node",
+    opts.containerCli,
     ...opts.piArgs,
   ];
 }
@@ -308,7 +335,13 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
     // 网络出口约束(P0-01C C-1):docker Run 必须在带白名单的专用网络上;规则缺失 ⇒ 拒启。
     // 不得以 --network host 降级(合同停止条件)。
     const eg = opts.egress;
-    if (!eg?.ok || !eg.subnet || !eg.hostIp || !eg.modelPort || !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort)) {
+    if (
+      !eg?.ok ||
+      !eg.subnet ||
+      !eg.hostIp ||
+      !eg.modelPort ||
+      !verifyEgressRules(eg.subnet, eg.hostIp, eg.modelPort, eg)
+    ) {
       throw new Error("egress_rules_missing:无人值守 Run 的网络白名单未建立/验证失败,FAIL-CLOSED 拒启");
     }
     ensureNodeModulesReadable(pi.repoRoot);
@@ -330,6 +363,7 @@ export function launchPi(opts: LaunchOptions): PiRpcSession {
       allowedCommands: opts.allowedCommands,
       execTimeoutMs: opts.execTimeoutMs,
       workspaceReadOnly: opts.workspaceReadOnly,
+      egressNetwork: opts.egress?.network,
     });
     return PiRpcSession.spawn({
       argv,

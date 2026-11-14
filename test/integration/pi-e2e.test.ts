@@ -42,13 +42,17 @@ describe.skipIf(!MODEL || !dockerAvailable() || !sudoIptablesAvailable())(
   () => {
     let t: TestDb;
     let eg: import("../../src/runtime/egress.ts").EgressStatus | null = null;
+    let egressScope: import("../../src/runtime/egress.ts").EgressScope | null = null;
     const sandboxes: SandboxSpec[] = [];
     beforeAll(async () => {
       t = await createTestDb("pi-e2e");
       // 自备出口约束(FAIL-CLOSED 自洽;不依赖其它文件留下的全局 egress 栈;ensure 幂等)
       const model = MODEL!;
-      const { ensureEgress, verifyEgressEffective } = await import("../../src/runtime/egress.ts");
-      const s = await ensureEgress(model.baseUrl);
+      const { ensureEgress, verifyEgressEffective, createTestEgressScope } = await import(
+        "../../src/runtime/egress.ts"
+      );
+      egressScope = createTestEgressScope("pie2e"); // 独立命名空间(RELAY-EGRESS-ISOLATION-07)
+      const s = await ensureEgress(model.baseUrl, { scope: egressScope });
       const v = await verifyEgressEffective(s);
       expect(v.ok, `出口约束未生效: ${v.reason}`).toBe(true);
       eg = v;
@@ -56,7 +60,7 @@ describe.skipIf(!MODEL || !dockerAvailable() || !sudoIptablesAvailable())(
     afterAll(async () => {
       for (const s of sandboxes) cleanupSandbox(s);
       const { teardownEgress } = await import("../../src/runtime/egress.ts");
-      teardownEgress();
+      if (egressScope) teardownEgress(egressScope);
       await t.cleanup();
     });
 

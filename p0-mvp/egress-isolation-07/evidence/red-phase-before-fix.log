@@ -1,0 +1,225 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/unit/egress-isolation.test.ts (9 tests | 9 failed) 143ms
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U1 无 ensure 的裸 teardownEgress() 必须零破坏性命令(当前代码:无所有权校验,删除默认共享栈) 89ms
+     → expected [ …(3) ] to deeply equal []
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U2 健康且配置相同的同名代理必须复用(当前代码:每次无条件 docker rm -f + 重建,切断在途请求) 9ms
+     → expected [ …(2) ] to deeply equal []
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U3 仅改 RELAY_EGRESS_NETWORK 不能构成隔离(当前代码:仍撞固定代理容器/链/标记/端口) 8ms
+     → expected [ …(14) ] to deeply equal []
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S1 新语义:createTestEgressScope 提供完整独立命名空间(网络/容器/链/标记/端口全派生) 6ms
+     → eg.createTestEgressScope is not a function
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S2 新语义:作用域内 ensure→teardown→复验(只删本作用域;返回可审计报告) 6ms
+     → eg.createTestEgressScope is not a function
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S3 新语义:匿名/他人同名资源必须拒绝,不得覆盖或删除(fail-closed) 7ms
+     → eg.createTestEgressScope is not a function
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S4 新语义:他人持有的不健康/配置不符代理必须拒绝(仅本执行者可恢复重建) 5ms
+     → eg.createTestEgressScope is not a function
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S5 新语义:裸 teardownEgress() 在他人栈面前零删除并给出原因(生产默认资源受保护) 6ms
+     → Cannot read properties of undefined (reading 'deleted')
+   × RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S6 新语义:env 继承同名空间(子进程/worker 经 RELAY_EGRESS_SCOPE_PREFIX+PORTS+OWNER 收敛复用) 6ms
+     → eg.createTestEgressScope is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U1 无 ensure 的裸 teardownEgress() 必须零破坏性命令(当前代码:无所有权校验,删除默认共享栈)
+AssertionError: expected [ …(3) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "/usr/bin/docker rm -f relay-egress-fwd",
++   "sudo -n iptables -F RELAY-EGRESS",
++   "/usr/bin/docker network rm relay-egress-net",
++ ]
+
+ ❯ test/unit/egress-isolation.test.ts:305:15
+    303|     const d = destructive(sim.state.recorder).map(pretty);
+    304|     // 新语义:本进程零创建零持有 ⇒ teardown 不得发出任何删除命令(拒绝匿名/他人资源)
+    305|     expect(d).toEqual([]);
+       |               ^
+    306|   });
+    307| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U2 健康且配置相同的同名代理必须复用(当前代码:每次无条件 docker rm -f + 重建,切断在途请求)
+AssertionError: expected [ …(2) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "sudo -n iptables -F RELAY-EGRESS",
++   "/usr/bin/docker rm -f relay-egress-fwd",
++ ]
+
+ ❯ test/unit/egress-isolation.test.ts:327:15
+    325|     // 新语义:健康+同配置 ⇒ 复用 ⇒ 零破坏性命令(不 rm 不重建)
+    326|     const d = destructive(sim.state.recorder).map(pretty);
+    327|     expect(d).toEqual([]);
+       |               ^
+    328|   });
+    329| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U3 仅改 RELAY_EGRESS_NETWORK 不能构成隔离(当前代码:仍撞固定代理容器/链/标记/端口)
+AssertionError: expected [ …(14) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "sudo -n iptables -N RELAY-EGRESS",
++   "sudo -n iptables -F RELAY-EGRESS",
++   "sudo -n iptables -A RELAY-EGRESS -p tcp -d 203.0.113.10 --dport 13425 -j ACCEPT -m comment --comment relay-p01c-egress",
++   "sudo -n iptables -A RELAY-EGRESS -j DROP -m comment --comment relay-p01c-egress",
++   "sudo -n iptables -I DOCKER-USER 1 -s 172.30.30.0/24 -j RELAY-EGRESS -m comment --comment relay-p01c-egress",
++   "sudo -n iptables -I INPUT 1 -p tcp -s 172.30.30.0/24 -d 203.0.113.10 --dport 13425 -j ACCEPT -m comment --comment relay-p01c-egress",
++   "/usr/bin/docker rm -f relay-egress-fwd",
++   "/usr/bin/docker run -d --name relay-egress-fwd --network host --restart unless-stopped -e FWD_ORIGIN_PORT=3425 -e FWD_LISTEN_PORT=13425 -e FWD_COUNT_PORT=13426 node:24-bookworm-slim node -e 
++ const http = require(\"http\");
++ const fs = require(\"fs\");
++ const ORIGIN_PORT = Number(process.env.FWD_ORIGIN_PORT ?? \"3425\");
++ const LISTEN_PORT = Number(process.env.FWD_LISTEN_PORT ?? \"13425\");
++ const COUNT_PORT = Number(process.env.FWD_COUNT_PORT ?? \"13426\");
++ let REAL_KEY = \"\";
++ try { REAL_KEY = fs.readFileSync(\"/run/relay-fwd/real-key\", \"utf8\").trim(); } catch {}
++ let requests = 0;
++ let completions = 0;
++ let connections = 0;
++ const proxy = http.createServer((creq, cres) => {
++   requests += 1;
++   if (creq.method === \"POST\" && (creq.url ?? \"\").includes(\"completions\")) completions += 1;
++   const headers = { ...creq.headers };
++   delete headers[\"connection\"];
++   delete headers[\"host\"];
++   delete headers[\"content-length\"];
++   if (REAL_KEY) headers[\"authorization\"] = \"Bearer \" + REAL_KEY;
++   const up = http.request(
++     { host: \"127.0.0.1\", port: ORIGIN_PORT, path: creq.url, method: creq.method, headers },
++     (ures) => {
++       const h = { ...ures.headers };
++       delete h[\"content-length\"];
++       delete h[\"transfer-encoding\"];
++       cres.writeHead(ures.statusCode ?? 502, h);
++       ures.pipe(cres);
++       ures.on(\"error\", () => cres.destroy());
++     },
++   );
++   creq.pipe(up);
++   creq.on(\"error\", () => up.destroy());
++   up.on(\"error\", () => {
++     if (!cres.headersSent) cres.writeHead(502, { \"content-type\": \"application/json\" });
++     cres.end(JSON.stringify({ error: \"upstream_unreachable\" }));
++   });
++ });
++ proxy.on(\"connection\", () => { connections += 1; });
++ proxy.listen(LISTEN_PORT, \"0.0.0.0\", () => console.log(\"relay-egress-proxy up\"));
++ http.createServer((req, res) => {
++   res.writeHead(200, { \"content-type\": \"application/json\" });
++   res.end(JSON.stringify({ requests, completions, connections, pid: process.pid }));
++ }).listen(COUNT_PORT, \"127.0.0.1\", () => console.log(\"count endpoint up\"));
++ ",
++   "sudo -n iptables -S RELAY-EGRESS",
++   "/usr/bin/docker inspect -f {{.State.Running}} relay-egress-fwd",
++   "/usr/bin/docker rm -f relay-egress-fwd",
++   "sudo -n iptables -D DOCKER-USER -s 172.30.30.0/24 -j RELAY-EGRESS -m comment --comment relay-p01c-egress",
++   "sudo -n iptables -F RELAY-EGRESS",
++   "sudo -n iptables -X RELAY-EGRESS",
++ ]
+
+ ❯ test/unit/egress-isolation.test.ts:339:15
+    337|     // 仅改网络名时,当前代码仍触碰固定代理容器/固定链/固定标记/固定端口 ⇒ 假隔离。
+    338|     const f = touchesFixed(sim.state.recorder).map(pretty);
+    339|     expect(f).toEqual([]);
+       |               ^
+    340|   });
+    341| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S1 新语义:createTestEgressScope 提供完整独立命名空间(网络/容器/链/标记/端口全派生)
+TypeError: eg.createTestEgressScope is not a function
+ ❯ test/unit/egress-isolation.test.ts:344:22
+    342|   it("S1 新语义:createTestEgressScope 提供完整独立命名空间(网络/容器/链/标记/端口全派生)", asyn…
+    343|     const eg = await importEgress();
+    344|     const scope = eg.createTestEgressScope("s1");
+       |                      ^
+    345|     expect(scope.network).not.toBe("relay-egress-net");
+    346|     expect(scope.fwdContainer).not.toBe("relay-egress-fwd");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S2 新语义:作用域内 ensure→teardown→复验(只删本作用域;返回可审计报告)
+TypeError: eg.createTestEgressScope is not a function
+ ❯ test/unit/egress-isolation.test.ts:360:22
+    358|   it("S2 新语义:作用域内 ensure→teardown→复验(只删本作用域;返回可审计报告)", async () => {
+    359|     const eg = await importEgress();
+    360|     const scope = eg.createTestEgressScope("s2");
+       |                      ^
+    361|     const s1 = await eg.ensureEgress(BASE_URL, { scope });
+    362|     expect(s1.ok, `ensure 失败:${s1.reason ?? ""}`).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S3 新语义:匿名/他人同名资源必须拒绝,不得覆盖或删除(fail-closed)
+TypeError: eg.createTestEgressScope is not a function
+ ❯ test/unit/egress-isolation.test.ts:378:22
+    376|     // 匿名容器占用作用域代理名(无归属标签)⇒ ensure 拒绝,且零删除
+    377|     const eg = await importEgress();
+    378|     const scope = eg.createTestEgressScope("s3");
+       |                      ^
+    379|     sim.state.containers.set(scope.fwdContainer, {
+    380|       running: true,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S4 新语义:他人持有的不健康/配置不符代理必须拒绝(仅本执行者可恢复重建)
+TypeError: eg.createTestEgressScope is not a function
+ ❯ test/unit/egress-isolation.test.ts:394:22
+    392|   it("S4 新语义:他人持有的不健康/配置不符代理必须拒绝(仅本执行者可恢复重建)", async () => {
+    393|     const eg = await importEgress();
+    394|     const scope = eg.createTestEgressScope("s4");
+       |                      ^
+    395|     sim.state.networks.set(scope.network, { subnet: "172.30.51.0/24", …
+    396|     sim.state.containers.set(scope.fwdContainer, {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S5 新语义:裸 teardownEgress() 在他人栈面前零删除并给出原因(生产默认资源受保护)
+TypeError: Cannot read properties of undefined (reading 'deleted')
+ ❯ test/unit/egress-isolation.test.ts:433:19
+    431|     const eg = await importEgress();
+    432|     const report = eg.teardownEgress();
+    433|     expect(report.deleted).toEqual([]);
+       |                   ^
+    434|     expect(sim.state.containers.has("relay-egress-fwd")).toBe(true);
+    435|     expect(sim.state.networks.has("relay-egress-net")).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S6 新语义:env 继承同名空间(子进程/worker 经 RELAY_EGRESS_SCOPE_PREFIX+PORTS+OWNER 收敛复用)
+TypeError: eg.createTestEgressScope is not a function
+ ❯ test/unit/egress-isolation.test.ts:441:22
+    439|   it("S6 新语义:env 继承同名空间(子进程/worker 经 RELAY_EGRESS_SCOPE_PREFIX+PORTS+O…
+    440|     const eg = await importEgress();
+    441|     const scope = eg.createTestEgressScope("s6");
+       |                      ^
+    442|     process.env.RELAY_EGRESS_SCOPE_PREFIX = scope.prefix;
+    443|     process.env.RELAY_EGRESS_FORWARD_PORT = String(scope.forwardPort);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed (9)
+   Start at  15:05:26
+   Duration  476ms (transform 137ms, setup 0ms, collect 79ms, tests 143ms, environment 0ms, prepare 77ms)
+
