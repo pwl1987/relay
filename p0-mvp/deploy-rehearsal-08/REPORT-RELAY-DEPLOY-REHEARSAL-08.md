@@ -44,7 +44,7 @@
 
 ## 6. 实现迭代记录(如实)
 
-①verifyPostMigrationState 首版 FK 计数用 referential_constraints⋈constraint_table_usage 连接被乘行 ⇒ 改 table_constraints 精确计数。②行数聚合对缺基座表 schema 规划期报错(PG 不因 CASE 短路跳过缺失关系规划)⇒ 拆两段先判存在再查。③真实 docker 检查首跑 exit=2:mkdtemp 0700 + VM80 umask 0007(writeFileSync mode 参数同样被 umask 过滤)⇒ 候选文件对 UID 10001 不可读 ⇒ 测试夹具按生产 runner 同口径 chmod(root 0755/ws 0777/文件写后 0644);**环境约束如实登记**:生产 docker 沙箱候选文件属主即 UID 10001 无此问题;host-fallback+umask≥0077 宿主须 o+rX(fail-closed 阻断,不假 PASS)。④范围应用 journal 解包笔误(.entries 二次访问)首轮红即修。⑤E2E sha 插值笔误(JS 串进 SQL)红即修。
+①verifyPostMigrationState 首版 FK 计数用 referential_constraints⋈constraint_table_usage 连接被乘行 ⇒ 改 table_constraints 精确计数。②行数聚合对缺基座表 schema 规划期报错(PG 不因 CASE 短路跳过缺失关系规划)⇒ 拆两段先判存在再查。③真实 docker 检查首跑 exit=2:mkdtemp 0700 + VM80 umask 0007(writeFileSync mode 参数同样被 umask 过滤)⇒ 候选文件对 UID 10001 不可读 ⇒ 测试夹具按生产 runner 同口径 chmod(root 0755/ws 0777/文件写后 0644);**环境约束如实登记**:生产 docker 沙箱候选文件属主即 UID 10001 无此问题;host-fallback+umask≥0077 宿主须 o+rX(fail-closed 阻断,不假 PASS)。④范围应用 journal 解包笔误(.entries 二次访问)首轮红即修。⑤E2E sha 插值笔误(JS 串进 SQL)红即修。⑥**CI 就绪门修正(exact-head CI 43608012978@071210e 实测)**:CI runner 上 postgres:17-alpine 冷拉取+initdb 期间端口连接被接受后立即终止("Connection terminated unexpectedly")⇒ pg_isready 30s 早通不等于连接可用,首跑 test job 失败(68 passed/1 failed suite,失败面仅本包 E2E beforeAll);修复=以测试实际需要的 `SELECT 1` 重试(90s)为唯一就绪门+失败时输出容器日志;本地复跑绿,推送后以 exact-head CI 复验为准。
 
 ## 7. 独立 Reviewer(隔离上下文;原文入库=REVIEW-RELAY-DEPLOY-REHEARSAL-08.md)
 

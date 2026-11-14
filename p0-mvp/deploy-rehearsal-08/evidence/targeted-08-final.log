@@ -15,24 +15,24 @@ Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use conf
     ]
   }
 }
- ✓ test/integration/deploy-rehearsal.test.ts (9 tests) 1504ms
-   ✓ RELAY-DEPLOY-REHEARSAL-08:离线增量迁移演练 > 半迁移断点定位与续跑:failAt 注入失败后 plan 精确报告 pending,不假 GO;resume 完成  353ms
 stdout | test/integration/deploy-rehearsal-e2e.test.ts
 [d08-e2e 门控] docker=true
 
-NOTICE:  database "relay_restore_v1794668194" does not exist, skipping
- ✓ test/integration/deploy-rehearsal-e2e.test.ts (1 test) 4230ms
-   ✓ RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁移→恢复回退(一次性 PG 容器) > 备份(0007 形状)→ 真实增量迁移 0008/0009 → 恢复回退到 0007(数据/约束/触发器保真)  1382ms
+NOTICE:  database "relay_restore_v1794668944" does not exist, skipping
+ ✓ test/integration/deploy-rehearsal-e2e.test.ts (1 test) 3929ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁移→恢复回退(一次性 PG 容器) > 备份(0007 形状)→ 真实增量迁移 0008/0009 → 恢复回退到 0007(数据/约束/触发器保真)  1285ms
 stdout | test/integration/evidence-gate-rehearsal.test.ts
 [d08-gate 门控] docker=true
 
- ✓ test/integration/evidence-gate-rehearsal.test.ts (3 tests) 2939ms
-   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > 真实 docker 检查执行器:合成候选通过(UID=10001/network=none)+漂移失败(零 stub 冒充)  694ms
-   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > Gate 发布演练三场景:未配置⇒NEEDS_DECISION / 真实检查通过⇒ACCEPTED / 检查失败⇒保守阻断  1962ms
+ ✓ test/integration/evidence-gate-rehearsal.test.ts (3 tests) 2952ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > 真实 docker 检查执行器:合成候选通过(UID=10001/network=none)+漂移失败(零 stub 冒充)  677ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > Gate 发布演练三场景:未配置⇒NEEDS_DECISION / 真实检查通过⇒ACCEPTED / 检查失败⇒保守阻断  2001ms
+ ✓ test/integration/deploy-rehearsal.test.ts (9 tests) 1475ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:离线增量迁移演练 > 半迁移断点定位与续跑:failAt 注入失败后 plan 精确报告 pending,不假 GO;resume 完成  354ms
 
 
  Test Files  3 passed (3)
       Tests  13 passed (13)
-   Start at  22:56:30
-   Duration  11.81s (transform 431ms, setup 0ms, collect 2.36s, tests 8.67s, environment 1ms, prepare 220ms)
+   Start at  23:09:03
+   Duration  11.49s (transform 428ms, setup 0ms, collect 2.36s, tests 8.36s, environment 1ms, prepare 217ms)
 

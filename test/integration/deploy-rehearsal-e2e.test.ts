@@ -73,17 +73,29 @@ describe.skipIf(!dockerOk)("RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁�
     const portLine = execFileSync("docker", ["port", container, "5432"], { encoding: "utf8", timeout: 15_000 });
     mainPort = portLine.split("\n")[0]!.split(":").pop()!.trim();
     mainUrl = `postgresql://postgres:${dbPassword}@127.0.0.1:${mainPort}/relayd08`;
-    // 就绪等待(pg_isready;30s 上限)
-    for (let i = 0; i < 30; i++) {
+    admin = new pg.Pool({ connectionString: mainUrl, max: 4 });
+    // 就绪等待 = 真实 SELECT 1 重试(90s 上限)。CI 教训:镜像冷拉取+initdb 期间端口可能被接受后
+    // 立即终止("Connection terminated unexpectedly")——pg_isready 早通不等于连接可用;
+    // 以测试实际需要的连接成功为唯一就绪门,失败时输出容器日志辅助定位。
+    let ready = false;
+    let lastErr = "";
+    for (let i = 0; i < 90; i++) {
       try {
-        dexec(["pg_isready", "-U", "postgres", "-d", "relayd08"]);
+        await admin.query("SELECT 1");
+        ready = true;
         break;
-      } catch {
+      } catch (err) {
+        lastErr = err instanceof Error ? err.message : String(err);
         await new Promise((r) => setTimeout(r, 1000));
       }
     }
-    admin = new pg.Pool({ connectionString: mainUrl, max: 4 });
-    await admin.query("SELECT 1");
+    if (!ready) {
+      const logs = execFileSync("docker", ["logs", "--tail", "30", container], {
+        encoding: "utf8",
+        timeout: 15_000,
+      }).slice(0, 2000);
+      throw new Error(`一次性 PG 容器未就绪(90s SELECT 1 重试;最后错误:${lastErr});容器日志:${logs}`);
+    }
     restoreUrl = `postgresql://postgres:${dbPassword}@127.0.0.1:${mainPort}/${restoreDb}`;
   }, TIMEOUT);
 
