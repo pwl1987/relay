@@ -48,6 +48,14 @@ node deploy/preflight.ts            # 文本输出(脱敏);退出码 0=GO / 1=UN
 node deploy/preflight.ts --json     # 机器可读(同样脱敏)
 ```
 
+> **systemd user bus 前提(RELAY-SAFETY-AUTHORITY-06 修复,2026-11-14)**:无 `DBUS_SESSION_BUS_ADDRESS`/`XDG_RUNTIME_DIR` 的命令会话无法查询 systemd user 单元——preflight 此时对 `svc_*` 报 **NOT_RUN"无法查询"**(附真实原因)且 `process_vs_head` **不可判 PASS**(fail-closed,不虚构"未运行",也不虚构"新代码已生效";05 版曾在此环境双重虚构)。VM80 上请显式携带总线后复检:
+>
+> ```bash
+> env DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UID/bus XDG_RUNTIME_DIR=/run/user/$UID node deploy/preflight.ts
+> ```
+>
+> 实测对照(2026-11-14,证据=p0-mvp/safety-authority-06/evidence/):无 bus ⇒ svc 两项"无法查询";显式 bus ⇒ svc PASS(pid/since 可读)。`process_vs_head=PASS` 仅在**全部目标服务与 HEAD 时间可靠读取且真实晚于 HEAD** 时输出(同秒视为歧义⇒旧代码);服务探针异常一律"无法查询",单元不存在/未运行由 systemd 作答后如实 FAIL。
+
 检查面:git HEAD/被跟踪树、systemd user 服务运行态、进程与 HEAD 版本差(代码已更新/进程仍旧/未能读取三区分)、凭据文件 0600、env 必需键名(仅键名)、`RELAY_EVIDENCE_CHECKS_JSON` 结构合规(与 worker 启动校验 `resolveEvidenceChecks` 单一同源)、`RELAY_MAX_OUTPUT_TOKENS` 合规、Web 绑定(LAN 单接口,禁 0.0.0.0)、Docker/检查沙箱镜像(`node:24-bookworm-slim`)/出口约束栈、DB 可达/16 表结构/迁移标志物(0006/0007/0008/0009)/在途任务聚合计数/Run 归属绑定聚合计数。DB 全部聚合计数,零原始数据。
 
 ### 1. 切换前 GO/NO-GO/UNKNOWN 基线(2026-11-14 实测,证据=p0-mvp/deploy-preflight-05/evidence/preflight-prod-20261114.log)

@@ -1,6 +1,6 @@
 # Relay 验证与独立验收方案
 
-状态：**FROZEN（必测行为、证据分类、验收裁决） / OPEN（实测性能阈值与实验环境）**。本文件是测试矩阵的唯一入口；PRD 的用户故事引用此处，原始机器证据由未来 P0 执行产生。
+状态：**FROZEN（必测行为、证据分类、验收裁决） / OPEN（实测性能阈值与实验环境）**。本文件是测试矩阵的唯一入口；PRD 的用户故事引用此处。证据现状（2026-11-14）：V01–V15 适用项与 V19/V20 已有机器证据（`test-evidence/` 与 `p0-mvp/` 各包 REPORT）；MVP 总体验收=REWORK 维持（ADR-0010），真实用户与 24h 运维验收未完成。
 
 ## 1. 三种基准样例
 
@@ -39,7 +39,7 @@ Fixture 必须在本仓库下的测试目录或测试专仓登记且注明创建
 
 每个测试保留：`test_id, goal/run/changeset, exact_commit_sha, environment_digest, command/parameters, execution_timestamp, raw_output_ref, screenshot_or_http_trace_ref, decision, reviewer`。Agent 编写的“PASS”不代替机器证明。
 
-### 冻结后专项验证 V21–V29（尚未运行）
+### 冻结后专项验证 V21–V29（状态 2026-11-14：对应能力已实现，专项验证用例尚未全部运行；不得以"能力已实现"冒充本节验证通过）
 
 | ID | 场景 | 验收事实 |
 | --- | --- | --- |

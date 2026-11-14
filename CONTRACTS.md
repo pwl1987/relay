@@ -1,6 +1,6 @@
 # 核心契约与不变量
 
-状态：**FROZEN（行为保证）**；具体 JSON Schema/字段版本 OPEN，须以 P0-00 验证后形成。
+状态：**FROZEN（行为保证）**；具体 JSON Schema/字段版本以 `migrations/` 与 live main 代码为准（P0-00 已实测完成，schema 落地为 migrations/0000..0009）。
 
 ## 1. Workflow / 生命周期
 
@@ -19,7 +19,7 @@ Session 是 Run 的上下文引用，不承诺可复活同一模型内部隐状�
 观察、指导、暂停、紧急停止、人工接管和交还 AI 分开定义。ControlCommand 记录发起者、目标、预期状态、计划/控制权版本、幂等键、ACK、生效结果。
 旧计划执行资格先撤销，核对可能发生的外部副作用，然后才能给予人工或新 Run 写权限；子 Agent 预算/能力只可收紧。
 普通 Goal 消息不得默认派生可写任务；终态 Goal 的追加要求须明确授权新 Goal 或可追溯的重开。具体见 docs/AGENT_CONTROL_LOCAL_QUALITY.md。
-**用户决策 2026-11-13（RELAY-CONTROL-READY-03）**：单输入框 + 普通“发送”（只交流/记录）/显式“交给 Relay 执行”（经后端授权才可建 Task）；撤销 WEB-UX-03C 对 ACTIVE Goal 一切聊天消息自动派生任务的旧业务约定。既有产品代码尚待修改验收，不能把此决策标记为已实现。
+**用户决策 2026-11-13（RELAY-CONTROL-READY-03）**：单输入框 + 普通“发送”（只交流/记录）/显式“交给 Relay 执行”（经后端授权才可建 Task）；撤销 WEB-UX-03C 对 ACTIVE Goal 一切聊天消息自动派生任务的旧业务约定。**实现现状（2026-11-14）**：该决策已实现（迁移 0008/0009+消费语义+Web 单输入框双操作）并经 CI 与独立复核 PASS；线上生效以生产服务重启为界（当前生产进程为旧代码，见 deploy/README-deploy.md Runbook）。
 
 ## 3. Operator 权限
 

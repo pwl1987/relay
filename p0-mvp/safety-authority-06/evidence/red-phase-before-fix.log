@@ -1,0 +1,124 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/integration/deploy-preflight.test.ts (16 tests | 7 failed | 6 skipped) 22ms
+   ↓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 1) 正例:stub 探针+真实测试库 ⇒ 全 PASS ⇒ GO;样例模板合法;报告零凭据值泄漏
+   ↓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 2) 非法 env/check:五类非法配置 ⇒ preflight FAIL/NO-GO;resolveEvidenceChecks 启动即抛(重启 crash 同构)
+   ↓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 3) 容器不可用:sandbox_image/egress_stack NOT_RUN(不假 PASS),docker_available FAIL ⇒ NO-GO
+   ↓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 4) 旧运行状态与恢复门:在途+旧格式无绑定 Run ⇒ NO-GO(D3);Supervisor 回收链恢复后复检只余 READY 排队
+   ↓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 5) 编排层归属失配/缺失(生产同源):外来目录 ⇒ workspace_provenance_mismatch 零执行;无绑定记录 ⇒ 跳过由双门把关
+   ↓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 真实 Docker 沙箱演练(镜像对既定命令支持) > 6) 样例模板命令在检查沙箱执行通过;候选漂移检出;默认禁网 fail-closed
+   × 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R1 无 user bus:svc 标'无法查询'非'未运行';process_vs_head 不 PASS(不虚构'新代码已生效');裁决 fail-closed 非 GO 13ms
+     → svc_relay-web.service 应为 NOT_RUN(无法查询;旧实现=FAIL"未运行"): expected 'FAIL' to be 'NOT_RUN' // Object.is equality
+   × 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R2 服务运行中但启动时间缺失 ⇒ process_vs_head 不 PASS('启动时间未能读取',不虚构生效) 1ms
+     → expected 'PASS' not to be 'PASS' // Object.is equality
+   × 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R3 服务运行中但启动时间非法 ⇒ process_vs_head 不 PASS(非法时间不得落空成 PASS) 1ms
+     → expected 'PASS' not to be 'PASS' // Object.is equality
+   × 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R4 服务不活跃(总线可查)⇒ svc 如实 FAIL;process_vs_head 无进程可比对 ⇒ 不 PASS 1ms
+     → 无进程可比对 ⇒ 不得 PASS: expected 'PASS' not to be 'PASS' // Object.is equality
+   × 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R5 git status 探针失败 ⇒ git_head 不假 clean(非 PASS;fail-closed) 1ms
+     → 树状态不可读 ⇒ 不得假 clean PASS: expected 'PASS' not to be 'PASS' // Object.is equality
+   ✓ 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R6 HEAD 提交时间缺失 ⇒ process_vs_head NOT_RUN(回归守卫:不 PASS) 1ms
+   ✓ 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R7 进程真早于 HEAD ⇒ UNKNOWN'旧代码'(回归守卫:如实区分'进程仍旧') 0ms
+   ✓ 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R8 全部目标服务与 HEAD 时间可靠读取且真实晚于 HEAD ⇒ 唯一 PASS 路径 0ms
+   × 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R9 进程启动时间与 HEAD 提交同秒(歧义)⇒ fail-closed 不 PASS 1ms
+     → expected 'PASS' not to be 'PASS' // Object.is equality
+   × 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R10 systemd 时间戳 CST 缩写剥离:跨时区对照(缩写不得改变挂钟语义;05 Major-1 回归守卫) 1ms
+     → (0 , parseSystemdSinceIso) is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R1 无 user bus:svc 标'无法查询'非'未运行';process_vs_head 不 PASS(不虚构'新代码已生效');裁决 fail-closed 非 GO
+AssertionError: svc_relay-web.service 应为 NOT_RUN(无法查询;旧实现=FAIL"未运行"): expected 'FAIL' to be 'NOT_RUN' // Object.is equality
+
+Expected: "NOT_RUN"
+Received: "FAIL"
+
+ ❯ test/integration/deploy-preflight.test.ts:563:64
+    561|     for (const id of ["svc_relay-web.service", "svc_relay-worker.servi…
+    562|       const r = m.get(id)!;
+    563|       expect(r.status, `${id} 应为 NOT_RUN(无法查询;旧实现=FAIL"未运行")`).toBe("N…
+       |                                                                ^
+    564|       expect(r.detail).toContain("无法查询");
+    565|       expect(r.detail).not.toContain("未运行");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R2 服务运行中但启动时间缺失 ⇒ process_vs_head 不 PASS('启动时间未能读取',不虚构生效)
+AssertionError: expected 'PASS' not to be 'PASS' // Object.is equality
+ ❯ test/integration/deploy-preflight.test.ts:582:27
+    580|     expect(m.get("svc_relay-web.service")?.status).toBe("PASS"); // 运行…
+    581|     const pv = m.get("process_vs_head")!;
+    582|     expect(pv.status).not.toBe("PASS");
+       |                           ^
+    583|     expect(pv.detail).toContain("启动时间未能读取");
+    584|     expect(report.verdict).toBe("UNKNOWN");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R3 服务运行中但启动时间非法 ⇒ process_vs_head 不 PASS(非法时间不得落空成 PASS)
+AssertionError: expected 'PASS' not to be 'PASS' // Object.is equality
+ ❯ test/integration/deploy-preflight.test.ts:592:27
+    590|     const m = byId(report);
+    591|     const pv = m.get("process_vs_head")!;
+    592|     expect(pv.status).not.toBe("PASS");
+       |                           ^
+    593|     expect(pv.detail).toContain("启动时间未能读取");
+    594|     expect(report.verdict).toBe("UNKNOWN");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R4 服务不活跃(总线可查)⇒ svc 如实 FAIL;process_vs_head 无进程可比对 ⇒ 不 PASS
+AssertionError: 无进程可比对 ⇒ 不得 PASS: expected 'PASS' not to be 'PASS' // Object.is equality
+ ❯ test/integration/deploy-preflight.test.ts:607:47
+    605|     }
+    606|     const pv = m.get("process_vs_head")!;
+    607|     expect(pv.status, "无进程可比对 ⇒ 不得 PASS").not.toBe("PASS");
+       |                                               ^
+    608|     expect(pv.detail).toContain("无进程可比对");
+    609|     expect(report.verdict).toBe("NO-GO");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R5 git status 探针失败 ⇒ git_head 不假 clean(非 PASS;fail-closed)
+AssertionError: 树状态不可读 ⇒ 不得假 clean PASS: expected 'PASS' not to be 'PASS' // Object.is equality
+ ❯ test/integration/deploy-preflight.test.ts:619:53
+    617|     const m = byId(report);
+    618|     const g = m.get("git_head")!;
+    619|     expect(g.status, "树状态不可读 ⇒ 不得假 clean PASS").not.toBe("PASS");
+       |                                                     ^
+    620|     expect(g.detail).toContain("未能读取被跟踪树");
+    621|     expect(g.detail).toContain("fatal: unable to read tree");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R9 进程启动时间与 HEAD 提交同秒(歧义)⇒ fail-closed 不 PASS
+AssertionError: expected 'PASS' not to be 'PASS' // Object.is equality
+ ❯ test/integration/deploy-preflight.test.ts:659:50
+    657|     const report = await run(unitsFor(ambiguous, ambiguous), headAtCon…
+    658|     const m = byId(report);
+    659|     expect(m.get("process_vs_head")?.status).not.toBe("PASS");
+       |                                                  ^
+    660|     expect(report.verdict).toBe("UNKNOWN");
+    661|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R10 systemd 时间戳 CST 缩写剥离:跨时区对照(缩写不得改变挂钟语义;05 Major-1 回归守卫)
+TypeError: (0 , parseSystemdSinceIso) is not a function
+ ❯ test/integration/deploy-preflight.test.ts:665:12
+    663|   it("R10 systemd 时间戳 CST 缩写剥离:跨时区对照(缩写不得改变挂钟语义;05 Major-1 回归守卫)", () …
+    664|     // ① 缩写剥离后与无缩写挂钟解析一致(若实现把"CST"当美中区 -6,两者差 14h ⇒ 红)
+    665|     expect(parseSystemdSinceIso("Fri 2026-11-13 02:00:08 CST")).toBe(p…
+       |            ^
+    666|     // ② 与 ECMAScript 本机时区语义一致(无偏移日期时间按本机时区解析;三时区实证)
+    667|     expect(parseSystemdSinceIso("Fri 2026-11-13 02:00:08 CST")).toBe(n…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 3 passed | 6 skipped (16)
+   Start at  11:02:03
+   Duration  1.48s (transform 436ms, setup 0ms, collect 1.17s, tests 22ms, environment 0ms, prepare 81ms)
+

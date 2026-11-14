@@ -1,0 +1,34 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/integration/deploy-preflight.test.ts > 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 1) 正例:stub 探针+真实测试库 ⇒ 全 PASS ⇒ GO;样例模板合法;报告零凭据值泄漏 51ms
+ ✓ test/integration/deploy-preflight.test.ts > 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 2) 非法 env/check:五类非法配置 ⇒ preflight FAIL/NO-GO;resolveEvidenceChecks 启动即抛(重启 crash 同构) 4ms
+ ✓ test/integration/deploy-preflight.test.ts > 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 3) 容器不可用:sandbox_image/egress_stack NOT_RUN(不假 PASS),docker_available FAIL ⇒ NO-GO 1ms
+ ✓ test/integration/deploy-preflight.test.ts > 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 4) 旧运行状态与恢复门:在途+旧格式无绑定 Run ⇒ NO-GO(D3);Supervisor 回收链恢复后复检只余 READY 排队 370ms
+ ✓ test/integration/deploy-preflight.test.ts > 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 5) 编排层归属失配/缺失(生产同源):外来目录 ⇒ workspace_provenance_mismatch 零执行;无绑定记录 ⇒ 跳过由双门把关 711ms
+ ✓ test/integration/deploy-preflight.test.ts > 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 真实 Docker 沙箱演练(镜像对既定命令支持) > 6) 样例模板命令在检查沙箱执行通过;候选漂移检出;默认禁网 fail-closed 705ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R1 无 user bus:svc 标'无法查询'非'未运行';process_vs_head 不 PASS(不虚构'新代码已生效');裁决 fail-closed 非 GO 2ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R2 服务运行中但启动时间缺失 ⇒ process_vs_head 不 PASS('启动时间未能读取',不虚构生效) 1ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R3 服务运行中但启动时间非法 ⇒ process_vs_head 不 PASS(非法时间不得落空成 PASS) 1ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R4 服务不活跃(总线可查)⇒ svc 如实 FAIL;process_vs_head 无进程可比对 ⇒ 不 PASS 1ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R5 git status 探针失败 ⇒ git_head 不假 clean(非 PASS;fail-closed) 1ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R6 HEAD 提交时间缺失 ⇒ process_vs_head NOT_RUN(回归守卫:不 PASS) 0ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R7 进程真早于 HEAD ⇒ UNKNOWN'旧代码'(回归守卫:如实区分'进程仍旧') 0ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R8 全部目标服务与 HEAD 时间可靠读取且真实晚于 HEAD ⇒ 唯一 PASS 路径 0ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R9 进程启动时间与 HEAD 提交同秒(歧义)⇒ fail-closed 不 PASS 0ms
+ ✓ test/integration/deploy-preflight.test.ts > 预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed) > R10 systemd 时间戳 CST 缩写剥离:跨时区对照(缩写不得改变挂钟语义;05 Major-1 回归守卫) 1ms
+stdout | test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > startWorkerEntry:合法配置 ⇒ 正常启动(provider 未配置 ⇒ IDLE_PROVIDER_DOWN 不领取)+ 检查随 driver 注入
+[relay-worker] started workerId=relay-worker-1 intervalMs=15000 sandbox=docker maxOutputTokens=8192(默认) evidenceChecks=2 pid=3879732
+
+ ✓ test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > 合法配置 ⇒ 解析为 CheckSpec[](cwdWorkspace 缺省 true;超时/期望输出透传) 4ms
+ ✓ test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > 未配置(undefined/空串)⇒ undefined(不注入 ⇒ Gate 保守停机,不伪装) 0ms
+ ✓ test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > fail-closed:非法 JSON/非数组/空数组/非功能性 kind/坏 command/越界 timeout 全部抛错 2ms
+ ✓ test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > P0-A 配置面:cwdWorkspace 显式 false 保留(容器内 /tmp);非布尔 cwdWorkspace/allowEgressNetwork ⇒ fail-closed 抛错 1ms
+ ✓ test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > startWorkerEntry:非法配置在连接 DB 之前即抛(启动 fail-closed,零连接零副作用) 1ms
+ ✓ test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > startWorkerEntry:合法配置 ⇒ 正常启动(provider 未配置 ⇒ IDLE_PROVIDER_DOWN 不领取)+ 检查随 driver 注入 32ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  11:45:59
+   Duration  4.51s (transform 436ms, setup 0ms, collect 1.82s, tests 2.16s, environment 0ms, prepare 145ms)
+

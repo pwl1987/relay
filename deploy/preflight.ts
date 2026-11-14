@@ -19,6 +19,17 @@ import { DEFAULT_MAX_OUTPUT_TOKENS, resolveMaxOutputTokens } from "../src/runtim
 export type CheckStatus = "PASS" | "FAIL" | "NOT_RUN" | "UNKNOWN";
 export type Verdict = "GO" | "NO-GO" | "UNKNOWN";
 
+/** 单个 systemd user 单元的一次只读快照(queryable=false ⇒ 无法查询,不得虚构运行态)。 */
+export interface UnitStatus {
+  name: string;
+  /** systemd 查询是否得到回答;false ⇒ "无法查询",不得虚构 active=false("未运行")。 */
+  queryable: boolean;
+  active: boolean;
+  sinceIso: string | null;
+  pid: number | null;
+  reason?: string;
+}
+
 export interface CheckResult {
   id: string;
   status: CheckStatus;
@@ -37,7 +48,15 @@ export interface PreflightReport {
 /** 探针端口(生产默认实现见 defaultProbes;测试注入受控桩)。 */
 export interface PreflightProbes {
   nowIso(): string;
-  gitHead(): { ok: boolean; sha?: string; dirty?: boolean; commitTimeIso?: string; reason?: string };
+  gitHead(): {
+    ok: boolean;
+    sha?: string;
+    dirty?: boolean;
+    /** 被跟踪树状态是否可靠读取;false ⇒ 不得假 clean(06 A 项 fail-closed)。 */
+    dirtyReadable?: boolean;
+    commitTimeIso?: string;
+    reason?: string;
+  };
   envFile(): {
     exists: boolean;
     mode: number | null;
@@ -45,7 +64,7 @@ export interface PreflightProbes {
     get(name: string): string | undefined;
   };
   credFileMode(path: string): number | null;
-  units(): { name: string; active: boolean; sinceIso: string | null; pid: number | null }[];
+  units(): UnitStatus[];
   listening(port: number): { addr: string }[];
   docker(): {
     available: boolean;
@@ -97,10 +116,16 @@ export async function runPreflight(probes: PreflightProbes, opts: PreflightOptio
   const push = (id: string, status: CheckStatus, detail: string) => results.push({ id, status, detail });
   const startedAt = probes.nowIso();
 
-  // ── 1) git HEAD 与被跟踪树清洁度(部署必须来自确切提交) ──
+  // ── 1) git HEAD 与被跟踪树清洁度(部署必须来自确切提交;探针失败不得假 clean) ──
   const head = probes.gitHead();
   if (!head.ok) {
     push("git_head", "NOT_RUN", `未能读取 git HEAD:${head.reason ?? "?"}`);
+  } else if (head.dirtyReadable === false) {
+    push(
+      "git_head",
+      "NOT_RUN",
+      `未能读取被跟踪树状态(${head.reason ?? "?"}):不能确认部署来自确切提交 ⇒ fail-closed 不假 clean`,
+    );
   } else {
     push(
       "git_head",
@@ -109,30 +134,62 @@ export async function runPreflight(probes: PreflightProbes, opts: PreflightOptio
     );
   }
 
-  // ── 2) systemd user 服务运行态 + 3) 进程代码版本差异("代码已更新/进程仍旧/未能读取"三区分) ──
+  // ── 2) systemd user 服务运行态 + 3) 进程代码版本差异 ──
+  // 06 A 项(协调方 Major 反例修复):探针异常标"无法查询"而非虚构"未运行";要输出
+  // process_vs_head=PASS 必须"全部目标服务与 HEAD 时间可靠读取且真实匹配",缺任何条件不 PASS
+  // (空 stale 集合 ≠ 有读取依据;VM80 无 user bus 会话实证:05 版曾把两个真实运行的服务报
+  // FAIL"未运行",同时报 process_vs_head=PASS"新代码已生效"——双重虚构)。
   const webUnit = opts.webUnit ?? "relay-web.service";
   const workerUnit = opts.workerUnit ?? "relay-worker.service";
   const units = probes.units();
   for (const want of [webUnit, workerUnit]) {
     const u = units.find((x) => x.name === want);
-    if (!u) push("svc_" + want, "NOT_RUN", `未能读取服务状态:${want}`);
-    else if (!u.active) push("svc_" + want, "FAIL", `${want} 未运行(active=false;切换窗口应按 Runbook 显式停止,而非靠崩溃态)`);
+    if (!u) push("svc_" + want, "NOT_RUN", `未能读取服务状态:${want}(探针未返回该单元)`);
+    else if (!u.queryable)
+      push(
+        "svc_" + want,
+        "NOT_RUN",
+        `无法查询 systemd user bus(${u.reason ?? "?"})⇒ 无法确认 ${want} 运行态;fail-closed,不虚构"未运行"(在 VM80 命令会话可显式 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UID/bus 且 XDG_RUNTIME_DIR=/run/user/$UID 后复检)`,
+      );
+    else if (!u.active)
+      push("svc_" + want, "FAIL", `${want} 未运行或单元不存在(active=false;systemd 已作答;切换窗口应按 Runbook 显式停止,而非靠崩溃态)`);
     else push("svc_" + want, "PASS", `${want} 运行中(pid=${u.pid ?? "?"},since=${u.sinceIso ?? "?"})`);
   }
-  if (head.ok && head.commitTimeIso) {
-    const headTime = Date.parse(head.commitTimeIso);
-    const stale = units.filter((u) => u.active && u.sinceIso && Date.parse(u.sinceIso) < headTime);
-    if (stale.length > 0) {
+  const headTimeOk = head.ok && head.commitTimeIso !== undefined && !Number.isNaN(Date.parse(head.commitTimeIso));
+  if (!headTimeOk) {
+    push("process_vs_head", "NOT_RUN", "无法比对进程与 HEAD 版本(git HEAD/提交时间缺失或不可解析)");
+  } else {
+    const headTime = Date.parse(head.commitTimeIso!);
+    const problems: string[] = [];
+    for (const want of [webUnit, workerUnit]) {
+      const u = units.find((x) => x.name === want);
+      if (!u || !u.queryable) problems.push(`${want}:无法查询(${u?.reason ?? "探针未返回"})`);
+      else if (!u.active) problems.push(`${want}:未运行(无进程可比对)`);
+      else if (!u.sinceIso || Number.isNaN(Date.parse(u.sinceIso))) problems.push(`${want}:启动时间未能读取`);
+    }
+    // 同秒视为歧义(进程可能在提交完成前启动)⇒ 保守归入旧代码,不 PASS。
+    const stale = units.filter(
+      (u) => u.queryable && u.active && u.sinceIso !== null && !Number.isNaN(Date.parse(u.sinceIso)) && Date.parse(u.sinceIso) <= headTime,
+    );
+    if (problems.length > 0) {
       push(
         "process_vs_head",
         "UNKNOWN",
-        `进程启动时间早于 HEAD 提交(${head.commitTimeIso})⇒ 运行中进程为旧代码,04A/R2/Gate 检查/工作区归属绑定等新语义线上未生效,以服务重启为界(${stale.map((s) => s.name).join("/")})`,
+        `process_vs_head 不可判 PASS(缺读取依据,fail-closed;部署准入不得凭缺失证据声称新代码已生效):${problems.join(";")}`,
+      );
+    } else if (stale.length > 0) {
+      push(
+        "process_vs_head",
+        "UNKNOWN",
+        `进程启动时间早于/等于 HEAD 提交(${head.commitTimeIso})⇒ 运行中进程为旧代码,04A/R2/Gate 检查/工作区归属绑定等新语义线上未生效,以服务重启为界(${stale.map((s) => s.name).join("/")})`,
       );
     } else {
-      push("process_vs_head", "PASS", "运行中进程启动时间晚于 HEAD 提交(新代码已在进程内生效)");
+      push(
+        "process_vs_head",
+        "PASS",
+        `全部目标服务运行中且启动时间均可靠读取并晚于 HEAD 提交(${head.commitTimeIso};新代码已在进程内生效)`,
+      );
     }
-  } else {
-    push("process_vs_head", "NOT_RUN", "无法比对进程与 HEAD 版本(git 或服务时间缺失)");
   }
 
   // ── 4) 凭据文件权限(0600;存在性+权限,不读内容) ──
@@ -377,6 +434,22 @@ export async function runPreflight(probes: PreflightProbes, opts: PreflightOptio
   };
 }
 
+// ── systemd 时间戳解析(纯函数,可测) ──
+// systemd ExecMainStartTimestamp 形如 "Fri 2026-11-13 02:00:08 CST":带本地时区缩写。
+// Node Date.parse 与 GNU date 都会把缩写"CST"误判为美中区 -6(05 Reviewer Major-1 实测
+// 偏差 +14h,存在假 PASS 窗口)⇒ 剥离星期与缩写后按本机时区解析挂钟(systemd 本就以本地
+// 墙钟打印;ECMAScript 规定无偏移 ISO 日期时间按本机时区解析,TZ=Shanghai/UTC/Chicago 三时区实证)。
+export function parseSystemdSinceIso(raw: string): string | null {
+  const wall = raw
+    .trim()
+    .replace(/^[A-Za-z]{3,9}\s+/, "")
+    .replace(/\s+[A-Za-z]{2,5}$/, "")
+    .trim();
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(wall)) return null;
+  const parsed = new Date(wall.replace(" ", "T"));
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 // ── 生产默认探针(全部只读;测试不使用本实现) ──
 
 function sh(cmd: string, args: string[], timeoutMs = 15_000): string {
@@ -426,10 +499,13 @@ export function defaultProbes(opts: PreflightOptions): PreflightProbes {
       if (!sha.ok) return { ok: false, reason: sha.out };
       const commitTime = trySh("git", ["log", "-1", "--format=%cI", "HEAD"]);
       const dirty = trySh("git", ["status", "--porcelain", "--untracked-files=no"]);
+      // 06 A 项:git status 探针失败 ⇒ dirtyReadable=false ⇒ 判定器 NOT_RUN(fail-closed,不假 clean)
       return {
         ok: true,
         sha: sha.out,
-        dirty: dirty.ok && dirty.out.length > 0,
+        ...(dirty.ok
+          ? { dirty: dirty.out.length > 0, dirtyReadable: true }
+          : { dirtyReadable: false, reason: dirty.out }),
         ...(commitTime.ok ? { commitTimeIso: commitTime.out } : {}),
       };
     },
@@ -442,11 +518,13 @@ export function defaultProbes(opts: PreflightOptions): PreflightProbes {
       }
     },
     units() {
-      const out: { name: string; active: boolean; sinceIso: string | null; pid: number | null }[] = [];
+      const out: UnitStatus[] = [];
       for (const unit of [opts.webUnit ?? "relay-web.service", opts.workerUnit ?? "relay-worker.service"]) {
         const r = trySh("systemctl", ["--user", "show", unit, "-p", "ActiveState", "-p", "ExecMainStartTimestamp", "-p", "MainPID", "--no-pager"]);
+        // 06 A 项:查询失败(如无 user bus)⇒ queryable=false("无法查询"),不得虚构 active=false
+        // (systemd 不可达 ≠ 服务未运行;bus 可用时"单元不存在"会以 rc=0+ActiveState=inactive 如实返回)。
         if (!r.ok) {
-          out.push({ name: unit, active: false, sinceIso: null, pid: null });
+          out.push({ name: unit, queryable: false, active: false, sinceIso: null, pid: null, reason: r.out });
           continue;
         }
         const kv = new Map<string, string>();
@@ -454,18 +532,10 @@ export function defaultProbes(opts: PreflightOptions): PreflightProbes {
           const eq = line.indexOf("=");
           if (eq > 0) kv.set(line.slice(0, eq), line.slice(eq + 1));
         }
-        // systemd 时间戳带本地时区缩写(如 "CST"):Node Date.parse 与 GNU date 都会把 CST
-        // 误判为美中区 -6(Reviewer Major-1 实测偏差 +14h,存在 process_vs_head 假 PASS 窗口)
-        // ⇒ 剥离缩写后按本机时区解析挂钟时间(systemd 本就以本地墙钟打印)。
-        const sinceRaw = kv.get("ExecMainStartTimestamp") ?? "";
-        const wall = sinceRaw.replace(/\s+[A-Z]{2,5}$/, "").trim();
-        let sinceIso: string | null = null;
-        if (wall.length > 0) {
-          const epoch = trySh("date", ["-d", wall, "+%s"], 5_000);
-          if (epoch.ok && /^\d+$/.test(epoch.out)) sinceIso = new Date(Number(epoch.out) * 1000).toISOString();
-        }
+        const sinceIso = parseSystemdSinceIso(kv.get("ExecMainStartTimestamp") ?? "");
         out.push({
           name: unit,
+          queryable: true,
           active: kv.get("ActiveState") === "active",
           sinceIso,
           pid: Number(kv.get("MainPID")) || null,

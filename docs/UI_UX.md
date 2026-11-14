@@ -1,6 +1,6 @@
 # Relay Web / CLI / API 用户体验与交互规范
 
-状态：**FROZEN（用户任务、关键状态可见性） / OPEN（UI 视觉、组件细节）**。P0 不建设大型多 Agent 可视化控制台。
+状态：**FROZEN（用户任务、关键状态可见性） / OPEN（UI 视觉、组件细节）**。P0 不建设大型多 Agent 可视化控制台。**实现注记（2026-11-14）**：主交互已由 WEB-UX-03 系重构为会话式工作区 `/workspace`（对话流+内联 Decision/Result），§2 的"P0 四个最小页面"为历史设计（Dashboard 降级、Decision Inbox 降为全局 Inbox），以 WEB-UX-03 合同与 03C.1/03D 交付为准；§1 原则与状态枚举仍有效。
 
 ## 1. 用户体验主原则
 

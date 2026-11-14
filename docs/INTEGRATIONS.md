@@ -10,7 +10,7 @@ ModelProvider: 本地 OpenAI 兼容 API / 商用 API（独立配置）
 Run: {runtime, model, capability_tier, scope, budget, checkpoint}
 ```
 
-Pi 提供 Agent 能力，Relay 提供 Goal/权限/调度/验收。优先评估 Pi Native SDK 与 RPC：SDK 同进程更易定制但扩大进程信任面，RPC 子进程利于隔离但须验证协议、恢复与工具调用。**P0-00 必须实测选择，不预设 SDK 就一定更安全**。默认工具若能直接执行任意 Bash/写文件或读凭据，需禁用/重建受控工具或强化 OS 隔离。用户的本地模型性能差异由 Model Routing 处理，不与 AgentRuntime 耦合。
+Pi 提供 Agent 能力，Relay 提供 Goal/权限/调度/验收。SDK vs RPC 已由 P0-00 实测裁决（ADR-0003：**RPC 子进程+双层隔离，ACCEPTED**；与下文 ADR-0012 补段一致）。默认工具若能直接执行任意 Bash/写文件或读凭据，需禁用/重建受控工具或强化 OS 隔离。用户的本地模型性能差异由 Model Routing 处理，不与 AgentRuntime 耦合。
 
 ## 协议和 Session 分工
 
@@ -58,10 +58,10 @@ P1：Project Memory、PostgreSQL FTS/pgvector、按需 Code Intelligence。P2/RE
 
 - TypeScript + Node.js 24、Hono、Zod、PostgreSQL + Drizzle；
 - React + Vite（最小 Web 状态/审批 UI）、结构化日志；
-- Pi Native SDK/RPC（POC 决定形式）、Git CLI、GitHub API、Docker 基础运行；
+- Pi RPC 子进程（ADR-0003 已裁决）、Git CLI、GitHub API、Docker 基础运行；
 - Vitest、Playwright Test、真实 HTTP/API/DB 集成。
-- DBOS：**OPEN / POC REQUIRED**。官方文档确认其需 PostgreSQL、Node ≥20；与部分打包工具存在 bundling 约束，且外部副作用仍须可重放/幂等治理。不可未验证便作为强依赖。
-- SearchProvider 默认来源、Credential Broker、执行沙箱、CI 提供者、Runtime 回退、Node/依赖精确版本均 OPEN，按 POC 冻结。
+- DBOS：**已裁决 REJECT FOR P0**（ADR-0007，依据 P0-00 实测；自研 PostgreSQL 事务+租约+fencing 承担该职责）。
+- 实现现状（2026-11-14）：执行沙箱已实现（docker 检查沙箱+双层隔离+工作区边界）；Node/依赖精确版本已固定（package.json+biome 固定）。仍 OPEN：SearchProvider 默认来源、Credential Broker、CI 提供者、Runtime 回退，按 POC 冻结。
 
 上游核查参考：
 - Pi：https://github.com/badlogic/pi-mono

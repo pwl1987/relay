@@ -1,6 +1,6 @@
 # Relay 顶层架构基线
 
-状态：**FROZEN（原则与所有权）**；新增 Agent 控制、本地质量门和性能阈值仍需专项实现与验收，代码现实以 live main 和证据为准。
+状态：**FROZEN（原则与所有权）**。实现现状（2026-11-14）：本地质量三级（quality:quick/full/release，QUALITY-LOCAL-01）与对话式单输入+显式执行（CONTROL-READY-03）已实现并经 CI 与独立复核；人工接管/多 Agent 统一控制与性能阈值实测仍 OPEN，代码现实以 live main 和证据为准。
 
 ## 1. 使命及非目标
 
@@ -36,7 +36,7 @@ Web(最小界面) / CLI / HTTP API / 可选 ChatGPT Client
 - 本地独立验证与 GitHub 云端复核使用同一质量标准；最低机器测试证据不能被 Reviewer 自评替代。
 - 最小必要代码与确定性 Policy 优先，性能基线实测后校准，pstack 仅复用经许可的工程方法，不接管编排。
 
-详细合同：[Agent 控制与本地质量契约](docs/AGENT_CONTROL_LOCAL_QUALITY.md)；裁决：[ADR-0012](ADR/0012-agent-control-local-quality.md)。本设计不等于已实现或验收通过。
+详细合同：[Agent 控制与本地质量契约](docs/AGENT_CONTROL_LOCAL_QUALITY.md)；裁决：[ADR-0012](ADR/0012-agent-control-local-quality.md)。实现进度分层（2026-11-14）：本地质量三级与对话授权执行已实现（CI+独立复核）；接管/多 Agent 控制与性能数值仍未实现未验收——本节原则不因部分实现而视为整体已验收。
 
 ## 3. 六阶段与风险裁剪
 

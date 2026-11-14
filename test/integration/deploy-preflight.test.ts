@@ -33,7 +33,7 @@ import { assertOk } from "../setup/assert.ts";
 import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 import type { CheckSpec } from "../../src/core/evidence.ts";
 import type { Exec } from "../../src/core/db.ts";
-import { runPreflight, computeVerdict, type PreflightProbes } from "../../deploy/preflight.ts";
+import { runPreflight, computeVerdict, parseSystemdSinceIso, type PreflightProbes } from "../../deploy/preflight.ts";
 
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 const MODEL = { provider: "stub", model: "stub/gm", apiKey: "stub", baseUrl: "http://127.0.0.1:1/v1" };
@@ -49,7 +49,13 @@ function greenProbes(over: Partial<PreflightProbes> = {}): PreflightProbes {
   const nowIso = new Date().toISOString();
   return {
     nowIso: () => nowIso,
-    gitHead: () => ({ ok: true, sha: "f".repeat(40), dirty: false, commitTimeIso: "2026-11-13T00:00:00Z" }),
+    gitHead: () => ({
+      ok: true,
+      sha: "f".repeat(40),
+      dirty: false,
+      dirtyReadable: true,
+      commitTimeIso: "2026-11-13T00:00:00Z",
+    }),
     envFile: () => ({
       exists: true,
       mode: 0o600,
@@ -77,8 +83,8 @@ function greenProbes(over: Partial<PreflightProbes> = {}): PreflightProbes {
     }),
     credFileMode: () => 0o600,
     units: () => [
-      { name: "relay-web.service", active: true, sinceIso: "2026-11-14T00:00:00Z", pid: 101 },
-      { name: "relay-worker.service", active: true, sinceIso: "2026-11-14T00:00:00Z", pid: 102 },
+      { name: "relay-web.service", queryable: true, active: true, sinceIso: "2026-11-14T00:00:00Z", pid: 101 },
+      { name: "relay-worker.service", queryable: true, active: true, sinceIso: "2026-11-14T00:00:00Z", pid: 102 },
     ],
     listening: () => [{ addr: "10.30.5.80" }],
     docker: () => ({
@@ -495,4 +501,186 @@ describe("部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05)", () => {
     };
     return { fn, calls };
   }
+});
+
+// ── RELAY-SAFETY-AUTHORITY-06 A 项:预检误判反例(红→绿;桩级,无需 PG/Docker) ──
+// 协调方独立复测 Major 反例:VM80 无 systemd user bus 的命令会话中,两个真实运行的服务被
+// 05 版 preflight 误报 FAIL("未运行"),process_vs_head 同时误报 PASS("新代码已在进程内生效")
+// —— 空 stale 集合(无任何读取依据)被当作 PASS。修复判据:
+//   ①输出 process_vs_head=PASS 必须全部目标服务与 HEAD 时间可靠读取且真实匹配,缺任何条件不 PASS;
+//   ②服务探针异常标"无法查询"而非虚构"未运行";
+//   ③整体 GO fail-closed(git status/HEAD 时间探针失败不得假 clean/假可读)。
+describe("预检误判反例(RELAY-SAFETY-AUTHORITY-06;无读取依据不 PASS/异常=无法查询/fail-closed)", () => {
+  // 合同登记提交 a142935 的真实提交时间(显式偏移;Date.parse 对带偏移 ISO 可靠)
+  const HEAD_ISO = "2026-11-14T09:45:39+08:00";
+  const BUS_FAIL_REASON =
+    "Failed to connect to user scope bus via local transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined";
+
+  type UnitLite = {
+    queryable?: boolean;
+    active?: boolean;
+    sinceIso?: string | null;
+    pid?: number | null;
+    reason?: string;
+  };
+
+  /** 双单元构造器:web/worker 同形覆写;缺省=可查询+运行中+晚于 HEAD(2026-11-14T10:00:00Z)。 */
+  function unitsFor(web: UnitLite, worker: UnitLite): PreflightProbes["units"] {
+    const mk = (name: string, u: UnitLite) => ({
+      name,
+      queryable: u.queryable ?? true,
+      active: u.active ?? true,
+      sinceIso: u.sinceIso === undefined ? "2026-11-14T10:00:00Z" : u.sinceIso,
+      pid: u.pid ?? null,
+      ...(u.reason !== undefined ? { reason: u.reason } : {}),
+    });
+    return () => [mk("relay-web.service", web), mk("relay-worker.service", worker)];
+  }
+
+  /** HEAD=a142935 合同登记提交时间(与 R7-R9 语义锚定一致)。 */
+  const headAtContract = () => ({
+    ok: true as const,
+    sha: "f".repeat(40),
+    dirty: false,
+    dirtyReadable: true,
+    commitTimeIso: HEAD_ISO,
+  });
+
+  async function run(units: PreflightProbes["units"], gitHead?: PreflightProbes["gitHead"]) {
+    return runPreflight(greenProbes({ units, ...(gitHead ? { gitHead } : {}) }), { schema: "relay_console" });
+  }
+
+  const byId = (r: Awaited<ReturnType<typeof runPreflight>>) => new Map(r.results.map((x) => [x.id, x]));
+
+  it("R1 无 user bus:svc 标'无法查询'非'未运行';process_vs_head 不 PASS(不虚构'新代码已生效');裁决 fail-closed 非 GO", async () => {
+    const unqueryable: UnitLite = {
+      queryable: false,
+      active: false,
+      sinceIso: null,
+      reason: BUS_FAIL_REASON,
+    };
+    const report = await run(unitsFor(unqueryable, unqueryable));
+    const m = byId(report);
+    for (const id of ["svc_relay-web.service", "svc_relay-worker.service"]) {
+      const r = m.get(id)!;
+      expect(r.status, `${id} 应为 NOT_RUN(无法查询;旧实现=FAIL"未运行")`).toBe("NOT_RUN");
+      expect(r.detail).toContain("无法查询");
+      // 不得虚构"未运行"的事实声明(允许免责说明中出现该词)
+      expect(r.detail).not.toContain("未运行(active=false");
+      expect(r.detail).toContain("Failed to connect");
+    }
+    const pv = m.get("process_vs_head")!;
+    expect(pv.status, `旧实现=PASS"新代码已在进程内生效";结果=${pv.status}:${pv.detail}`).not.toBe("PASS");
+    expect(pv.detail).toContain("无法查询");
+    expect(pv.detail).not.toContain("新代码已在进程内生效");
+    expect(report.verdict).not.toBe("GO");
+    expect(report.verdict).toBe("UNKNOWN");
+  });
+
+  it("R2 服务运行中但启动时间缺失 ⇒ process_vs_head 不 PASS('启动时间未能读取',不虚构生效)", async () => {
+    const noTime: UnitLite = { queryable: true, active: true, sinceIso: null, pid: 101 };
+    const report = await run(unitsFor(noTime, noTime));
+    const m = byId(report);
+    expect(m.get("svc_relay-web.service")?.status).toBe("PASS"); // 运行态本身可确认
+    const pv = m.get("process_vs_head")!;
+    expect(pv.status).not.toBe("PASS");
+    expect(pv.detail).toContain("启动时间未能读取");
+    expect(report.verdict).toBe("UNKNOWN");
+  });
+
+  it("R3 服务运行中但启动时间非法 ⇒ process_vs_head 不 PASS(非法时间不得落空成 PASS)", async () => {
+    const bad: UnitLite = { queryable: true, active: true, sinceIso: "not-a-timestamp", pid: 101 };
+    const report = await run(unitsFor(bad, bad));
+    const m = byId(report);
+    const pv = m.get("process_vs_head")!;
+    expect(pv.status).not.toBe("PASS");
+    expect(pv.detail).toContain("启动时间未能读取");
+    expect(report.verdict).toBe("UNKNOWN");
+  });
+
+  it("R4 服务不活跃(总线可查)⇒ svc 如实 FAIL;process_vs_head 无进程可比对 ⇒ 不 PASS", async () => {
+    const down: UnitLite = { queryable: true, active: false, sinceIso: null };
+    const report = await run(unitsFor(down, down));
+    const m = byId(report);
+    for (const id of ["svc_relay-web.service", "svc_relay-worker.service"]) {
+      const r = m.get(id)!;
+      expect(r.status, `${id} 总线可答 ⇒ 如实 FAIL`).toBe("FAIL");
+      expect(r.detail).toContain("未运行");
+    }
+    const pv = m.get("process_vs_head")!;
+    expect(pv.status, "无进程可比对 ⇒ 不得 PASS").not.toBe("PASS");
+    expect(pv.detail).toContain("无进程可比对");
+    expect(report.verdict).toBe("NO-GO");
+  });
+
+  it("R5 git status 探针失败 ⇒ git_head 不假 clean(非 PASS;fail-closed)", async () => {
+    const report = await run(unitsFor({}, {}), () => ({
+      ok: true,
+      sha: "f".repeat(40),
+      dirty: false,
+      dirtyReadable: false,
+      reason: "fatal: unable to read tree",
+      commitTimeIso: HEAD_ISO,
+    }));
+    const m = byId(report);
+    const g = m.get("git_head")!;
+    expect(g.status, "树状态不可读 ⇒ 不得假 clean PASS").not.toBe("PASS");
+    expect(g.detail).toContain("未能读取被跟踪树");
+    expect(g.detail).toContain("fatal: unable to read tree");
+    expect(report.verdict).not.toBe("GO");
+  });
+
+  it("R6 HEAD 提交时间缺失 ⇒ process_vs_head NOT_RUN(回归守卫:不 PASS)", async () => {
+    const report = await run(unitsFor({}, {}), () => ({
+      ok: true,
+      sha: "f".repeat(40),
+      dirty: false,
+      dirtyReadable: true,
+    }));
+    const m = byId(report);
+    expect(m.get("process_vs_head")?.status).toBe("NOT_RUN");
+    expect(report.verdict).not.toBe("GO");
+  });
+
+  it("R7 进程真早于 HEAD ⇒ UNKNOWN'旧代码'(回归守卫:如实区分'进程仍旧')", async () => {
+    const old: UnitLite = { queryable: true, active: true, sinceIso: "2026-11-13T01:00:00Z", pid: 101 };
+    const report = await run(unitsFor(old, old), headAtContract);
+    const m = byId(report);
+    const pv = m.get("process_vs_head")!;
+    expect(pv.status).toBe("UNKNOWN");
+    expect(pv.detail).toContain("旧代码");
+    expect(report.verdict).toBe("UNKNOWN");
+  });
+
+  it("R8 全部目标服务与 HEAD 时间可靠读取且真实晚于 HEAD ⇒ 唯一 PASS 路径", async () => {
+    const fresh: UnitLite = { queryable: true, active: true, sinceIso: "2026-11-14T10:00:00Z", pid: 101 };
+    const report = await run(unitsFor(fresh, fresh), headAtContract);
+    const m = byId(report);
+    const pv = m.get("process_vs_head")!;
+    expect(pv.status, `结果=${pv.status}:${pv.detail}`).toBe("PASS");
+    expect(pv.detail).toContain("新代码已在进程内生效");
+    expect(report.verdict).toBe("GO");
+  });
+
+  it("R9 进程启动时间与 HEAD 提交同秒(歧义)⇒ fail-closed 不 PASS", async () => {
+    const ambiguous: UnitLite = { queryable: true, active: true, sinceIso: "2026-11-14T01:45:39Z", pid: 101 };
+    const report = await run(unitsFor(ambiguous, ambiguous), headAtContract);
+    const m = byId(report);
+    expect(m.get("process_vs_head")?.status).not.toBe("PASS");
+    expect(report.verdict).toBe("UNKNOWN");
+  });
+
+  it("R10 systemd 时间戳 CST 缩写剥离:跨时区对照(缩写不得改变挂钟语义;05 Major-1 回归守卫)", () => {
+    // ① 缩写剥离后与无缩写挂钟解析一致(若实现把"CST"当美中区 -6,两者差 14h ⇒ 红)
+    expect(parseSystemdSinceIso("Fri 2026-11-13 02:00:08 CST")).toBe(parseSystemdSinceIso("Fri 2026-11-13 02:00:08"));
+    // ② 与 ECMAScript 本机时区语义一致(无偏移日期时间按本机时区解析;三时区实证)
+    expect(parseSystemdSinceIso("Fri 2026-11-13 02:00:08 CST")).toBe(new Date("2026-11-13T02:00:08").toISOString());
+    // ③ 非法/残缺输入 ⇒ null(不得假可读)
+    expect(parseSystemdSinceIso("")).toBeNull();
+    expect(parseSystemdSinceIso("garbage")).toBeNull();
+    expect(parseSystemdSinceIso("Fri 2026-11-13")).toBeNull(); // 只有日期无时间 ⇒ 无法定位进程启动时刻
+    expect(parseSystemdSinceIso("Fri 2026-11-13 02:00:08 CST ")).toBe(
+      parseSystemdSinceIso("Fri 2026-11-13 02:00:08 CST"),
+    ); // 尾部空白容忍
+  });
 });

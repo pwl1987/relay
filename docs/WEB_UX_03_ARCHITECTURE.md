@@ -1,6 +1,6 @@
-# WEB-UX-03 · 交互架构设计（03A 交付物 2）
+# WEB-UX-03 · 交互架构设计（03A 交付物；设计冻结）
 
-- 状态：**ACTIVE · 设计冻结候选**（待独立 Reviewer 检查）。
+- 状态：**设计冻结，已实施**（03A Reviewer PASS 记录 p0-mvp/REVIEW-webux-03.md；实现落位以 03C.1 workspace.js 聚合为准，本文 §5 组件拆分清单为设计稿非最终文件布局）。
 - 上游：`docs/WEB_UX_03_CONTRACT.md`（合同）；`docs/PI_WEB_REFERENCE.md`（借鉴边界，零移植）。
 - 权威链不变：`Relay Web → Relay API → Relay Core → Goal/Task/Run、Policy/Budget/Lease、Reviewer/Gate、Delivery/Evidence → Pi Runtime`。Chat UI 只是 Relay Core 的操作界面。
 
@@ -110,8 +110,7 @@ CREATE TABLE goal_messages (
 );
 ```
 
-- **偏离声明（显式）**：合同 §3 备选字段（related_task_id / related_decision_id nullable）**第一版不加**——decisions 表已有 goal_id 列（migrations/0003_gate_orchestration.sql）可无歧义承载状态关联，此为对合同 §3 字段清单的显式偏离；若实施中发现必须回填，作为 03B 修订记录。
-- 职责分离（合同 §3）：`goal_messages` = 自由文本会话事实；现有 Core Tables = 软件执行事实。Feed 投影层按 `goal_id` 合并两源，按时间序输出统一事件流。
+- **偏离声明（显式）**：合同 §3 备选字段（related_task_id / related_decision_id nullable）**第一版不加**——decisions 表已有 goal_id 列（migrations/0002_tricky_roulette.sql）可无歧义承载状态关联，此为对合同 §3 字段清单的显式偏离；若实施中发现必须回填，作为 03B 修订记录。
 - 职责分离（合同 §3）：`goal_messages` = 自由文本会话事实；现有 Core Tables = 软件执行事实。Feed 投影层按 `goal_id` 合并两源，按时间序输出统一事件流。
 
 ## 8. 刷新策略（合同 §7）

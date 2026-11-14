@@ -1,6 +1,6 @@
 # WEB-UX-03 · Relay 对话式 AI 开发工作台重构大包（合同登记）
 
-- 状态：**ACTIVE（03A 阶段：产品/架构冻结，仅设计文档）**。用户指令 2026-11-12 下发完整合同文本；本文件为登记与执行摘录，完整合同以用户指令原文为准。
+- 状态：**执行中——03A~03D 已完成（2026-11-13，各阶段独立 Reviewer PASS，记录 p0-mvp/REVIEW-webux-03*.md）；整体 ACCEPTED 唯一剩余门=§12 之⑤用户 Mac 实机验收（Agent 不代宣布）**。用户指令 2026-11-12 下发完整合同文本；本文件为登记与执行摘录，完整合同以用户指令原文为准。
 - 性质：治理/设计包——**零模型消耗、零产品代码变更**（03A 阶段）。实现（03B–03E）另行按合同授权逐阶段进行。
 - 权威链（不变）：`Relay Web → Relay API → Relay Core → Goal/Task/Run、Policy/Budget/Lease、Reviewer/Gate、Delivery/Evidence → Pi Runtime`。Pi 仍只是执行 Runtime，Chat UI 只是 Relay Core 的操作界面。
 
@@ -59,11 +59,11 @@
 
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
-| **03A 产品/架构冻结** | 用户旅程、信息架构、Goal Feed 设计、消息持久化设计、Pi-Web 对照、wireframe；独立 Reviewer 检查架构；**不立即大改前端** | **进行中（本包）** |
-| 03B 后端最小支持 | 仅：Goal messages、Feed projection、follow-up message API、inline Decision API 复用、result projection；不改 Core 生命周期 | 待 03A Reviewer PASS |
-| 03C Desktop Shell | 左 Sidebar/中央 Conversation/底部 Composer/Feed Event/Decision Card/Result Card/右侧详情 | 待 03B |
-| 03D Mobile | drawer/chat workspace/composer/Decision/Result | 待 03C |
-| 03E 真浏览器验证 | 进入最终验收 | 待 03D |
+| **03A 产品/架构冻结** | 用户旅程、信息架构、Goal Feed 设计、消息持久化设计、Pi-Web 对照、wireframe；独立 Reviewer 检查架构；**不立即大改前端** | ✅ 完成（9bc80af+c563ee5 Reviewer PF 消化） |
+| 03B 后端最小支持 | 仅：Goal messages、Feed projection、follow-up message API、inline Decision API 复用、result projection；不改 Core 生命周期 | ✅ 完成（67f58c9；03B.1 消费闭环 a57a57e） |
+| 03C Desktop Shell | 左 Sidebar/中央 Conversation/底部 Composer/Feed Event/Decision Card/Result Card/右侧详情 | ✅ 完成（03C.1 体验收口，Reviewer PASS） |
+| 03D Mobile | drawer/chat workspace/composer/Decision/Result | ✅ 完成（Reviewer PASS 八问 8/8；p0-mvp/REVIEW-webux-03d.md） |
+| 03E 真浏览器验证 | 进入最终验收 | ✅ 等价覆盖（DEPLOY-03D 32/32+DEPLOY-VERIFY-01 Chromium 17/17）；⑤用户实机验收待 |
 
 ## 9. 自动化验收（新增至少）
 

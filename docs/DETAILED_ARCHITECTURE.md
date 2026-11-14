@@ -33,7 +33,7 @@ Mac / VM80 Local CLI / browser / future ChatGPT Client
 
 ## 2. 领域数据的持久化草图
 
-**候选字段不是已冻结数据库迁移**，P0-00 检查查询模式、恢复与安全后生成 Drizzle migrations。
+**实现现状（2026-11-14）**：下表候选字段已按 P0-00 实测结论固化为 `migrations/0000..0009`（Drizzle），实际列以迁移文件与 live main 为准；本表保留为设计叙述。
 
 | 聚合/表（候选） | 关键字段 | 写入者 |
 | --- | --- | --- |
@@ -96,7 +96,7 @@ AgentRuntime Port（逻辑）：
 - `reconstruct(runSpec, handoff)` 重新建立运行上下文，不承诺恢复模型 KV cache；
 - `capabilities()` 暴露工具/模型上下文限制。
 
-**Pi first，但需要 P0-00 比较 SDK/RPC 及默认工具注入路径**；进程隔离并不自动等于 OS 沙箱。预设 Runtime 与 ModelProvider 独立；本地模型 API 不得影响生命周期控制。
+**Pi first；SDK/RPC 取舍已由 P0-00 实测裁决（ADR-0003：RPC 子进程+双层隔离）**；进程隔离并不自动等于 OS 沙箱。预设 Runtime 与 ModelProvider 独立；本地模型 API 不得影响生命周期控制。
 
 Handoff 最少 `objective, requirement, current_state, decisions, changed_files, known_risks, failed_attempts, evidence, open_questions, next_action`，以有界大小和来源引用构成，不注入所有历史。ContextResolver 首版可为简单检索/模板函数，后续 Memory/CodeGraph 是 Plugin，不是第二事实源。
 
@@ -134,11 +134,12 @@ P0 CLI 可有 `relay project add`、`goal create/list/show`、`run show`、`deci
 
 ## 8. 模块依赖方向与可替代性
 
-`apps/server|worker|web|cli` 依赖 `core/lifecycle, policy, contracts` 和 `adapters`；`core` **不得直接依赖** Pi/GitHub/DBOS/React/Playwright。只有出现实际第二实现需求才抽象额外 Provider。迁移 Database Schema 和配额策略需要可回滚或故障安全停机路径。
+`src/server`、`src/worker-entry.ts`、`web/`、`src/cli.ts` 依赖 `src/core`（lifecycle/policy/contracts）与 `src/runtime`、`src/server/views` 等适配层；`core` **不得直接依赖** Pi/GitHub/React/Playwright（实际布局=src/ 单体目录，非 apps/ 分包）。只有出现实际第二实现需求才抽象额外 Provider。迁移 Database Schema 和配额策略需要可回滚或故障安全停机路径。
 
 ## 9. Open/POC/避免伪承诺
 
-- **OPEN**：DBOS 与 Postgres 原生 Tick/Lease；Pi SDK/RPC；沙箱实现；Action reconciliation strategy 标准化；分层质量阈值；精确 schema；认证。
+- **已裁决/已实现（2026-11-14 收敛）**：DBOS=ADR-0007 REJECT（自研 PostgreSQL 事务+租约+fencing）；Pi SDK/RPC=ADR-0003（RPC 子进程+双层隔离）；沙箱=双层隔离+docker 检查沙箱已实现；精确 schema=migrations/0000..0009；认证=口令 0600+session 已实现；外部副作用 Reconcile=intents.ts 两阶段意图日志已实现。
+- **OPEN（仍开放）**：分层质量阈值实测数值；性能基线；接管/多 Agent 会话控制实现。
 - **RESEARCH/P1**：ACP v1 稳定互通（v2 草案另行验证）、MCP、Session-to-Session、Multi-Repo、Memory 与 Model Router。
 - **不保证**：离线时模型仍生产、进程永不故障、跨 GitHub/DB 的分布式事务、自动发布生产环境、内核自升级无限可靠。
 

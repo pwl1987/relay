@@ -1,6 +1,6 @@
 # ADR-0012：受控 Agent 干预与本地优先质量验证
 
-状态：**ACCEPTED（架构原则） / OPEN（实现与性能数值）**
+状态：**ACCEPTED（架构原则） / OPEN（接管与多 Agent 控制实现、性能数值）**。实现进度（2026-11-14）：本地质量三级（QUALITY-LOCAL-01）与对话式单输入+显式执行（CONTROL-READY-03）已实现并经 CI 与独立复核。
 日期：2026-11-13
 关联：ARCHITECTURE_BASELINE.md、CONTRACTS.md、docs/AGENT_CONTROL_LOCAL_QUALITY.md、ADR-0003/0004/0007/0008。
 
@@ -33,7 +33,7 @@ Relay 已具备 PostgreSQL + Worker + Pi RPC + Gate + GitHub 的最小交付链�
 
 ## 可执行前置条件
 
-本 ADR 接受的是设计边界，不表示功能已经实现。后续通过独立 WorkPackage 实现前，必须取得唯一 Writer、冷启动核实、明确测试授权、风险隔离与回滚。
+本 ADR 接受的是设计边界；其中本地质量三级与对话授权执行两子项已实现（CI+独立复核），接管/多 Agent 控制与性能数值仍未实现。后续通过独立 WorkPackage 实现其余子项前，必须取得唯一 Writer、冷启动核实、明确测试授权、风险隔离与回滚。
 新增 Agent 控制需要至少测试运行中 steer/abort、工具未结束、断线重连、重复命令、接管时旧 Run 仍活跃、重规划后旧栅栏无效。
 新增质量门需要验证缺失/skip/失败测试不被误放行，Git SHA/环境变更使旧证据失效，本地检查与 GitHub 检查一致。
 P0 仍允许明确范围的现有纵向路径继续；不得因本 ADR 把尚未实现的 P1 Agent Session 能力称为 MVP 已验收。

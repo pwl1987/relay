@@ -1,6 +1,6 @@
-# WEB-UX-03 · Goal Feed 设计（03A 交付物 3）
+# WEB-UX-03 · Goal Feed 设计（03A 交付物；设计冻结）
 
-- 状态：**ACTIVE · 设计冻结候选**（待独立 Reviewer 检查）。
+- 状态：**设计冻结，已实施**（03A Reviewer PASS 记录 p0-mvp/REVIEW-webux-03.md）。**实现偏离（如实登记）**：游标采用"消息 id 单游标+决策卡/状态快照整体替换"（src/server/api.ts feed 路由），非本文 §4 的 (occurred_at,seq) 二元组逐事件增量；resolve 端点现位于 src/server/api.ts ~L705 起（语义不变）。
 - 上游：`docs/WEB_UX_03_CONTRACT.md`（合同 §3/§8）；`docs/WEB_UX_03_ARCHITECTURE.md`（§4–§8）。
 
 ## 1. 定位与不变量
@@ -61,7 +61,7 @@ Feed(goal_id) = merge(
 ```text
 1. Core 产生 Decision（pending）→ core_projection 生成 DECISION 卡（pending 状态）
 2. Feed 渲染决策卡：⚠️ 需要你的决定 + 建议/原因 + [允许本次修改][不允许][稍后决定]
-3. 用户点 [允许] → POST /api/decisions/:id/resolve {taskId, expectedStateVersion, approve:true}（复用现有 Decision resolve 语义，src/server/api.ts:399–408：expectedStateVersion 不匹配→409；内联透传，不向用户暴露版本号）
+3. 用户点 [允许] → POST /api/decisions/:id/resolve {taskId, expectedStateVersion, approve:true}（复用现有 Decision resolve 语义；expectedStateVersion 不匹配→409；内联透传，不向用户暴露版本号）
 4. Core 更新 Decision（resolved）→ core_projection 更新该卡片为已决状态（已允许）
 5. 状态继续推进（STATUS 事件随之而来）
 ```

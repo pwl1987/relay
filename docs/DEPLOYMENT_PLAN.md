@@ -1,6 +1,6 @@
 # Relay 开发环境与自托管部署方案
 
-状态：**FROZEN（隔离/角色/依赖边界） / OPEN（VM80 资源、端口、TLS、备份参数及凭据）**。此方案是候选部署拓扑，不表示已经部署。
+状态：**FROZEN（隔离/角色/依赖边界） / OPEN（VM80 资源、端口、TLS、备份参数及凭据）**。**实现注记（2026-11-14）**：已于 2026-11-12 按 systemd **user** 服务落地（Linger=yes；LAN 单接口 10.30.5.80:8787；独立 schema relay_console 与既有 PG 容器共存；凭据 `~/.relay/credentials/web-password` 0600；env `~/.relay/console/env` 0600）——实际拓扑/安装/恢复/切换以 `deploy/README-deploy.md`（含切换前 Runbook 与生产 NO-GO 基线）为唯一事实文档；本文 §4 候选路径为设计稿，非实际落位。
 
 ## 1. 选址决策
 
