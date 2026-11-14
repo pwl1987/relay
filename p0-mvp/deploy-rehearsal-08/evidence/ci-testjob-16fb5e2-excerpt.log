@@ -1,0 +1,9 @@
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:09:48.8982539Z ===== [format] npx biome format test/integration/deploy-rehearsal-e2e.test.ts =====
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:10:04.2261489Z  Test Files  18 passed (18)
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:11:16.8555005Z  ✓ test/integration/deploy-rehearsal.test.ts (9 tests) 549ms
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:11:20.6408185Z stdout | test/integration/deploy-rehearsal-e2e.test.ts
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:11:28.2190678Z  ✓ test/integration/deploy-rehearsal-e2e.test.ts (1 test) 7575ms
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:11:28.7267426Z stdout | test/integration/evidence-gate-rehearsal.test.ts
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:11:30.4883863Z  ✓ test/integration/evidence-gate-rehearsal.test.ts (3 tests) 1758ms
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:12:41.3579602Z  Test Files  69 passed | 14 skipped (83)
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T15:12:41.5207650Z ===== full 总裁决: PASS =====
