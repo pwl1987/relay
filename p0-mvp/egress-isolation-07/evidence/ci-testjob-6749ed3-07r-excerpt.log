@@ -1,0 +1,3 @@
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T12:04:09.2016824Z  [32m✓[39m test/integration/egress-isolation-e2e.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 25942[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T12:04:09.2046631Z    [33m[2m✓[22m[39m RELAY-EGRESS-ISOLATION-07R:双作用域隔离与强制同链碰撞(真 docker;零默认资源触碰)[2m > [22m双 scope(共享前 8 字符 id)各自建立:链名不同、规则各归其链 [33m 1299[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T12:04:09.2048065Z    [33m[2m✓[22m[39m RELAY-EGRESS-ISOLATION-07R:双作用域隔离与强制同链碰撞(真 docker;零默认资源触碰)[2m > [22mteardown A 后 B 仍健康;teardown B 后双域零残留 [33m 642[2mms[22m[39m
