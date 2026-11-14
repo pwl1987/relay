@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-14 收口指针**：**RELAY-EGRESS-ISOLATION-07R 已收口**（07 被协调方 REWORK[跨作用域链名碰撞]后最小纠偏；独立 Reviewer 两轮复核终裁 **PASS 0 Major**；exact-head CI **43592822713@6749ed3a** 双绿，CI 上双 scope/强制碰撞 E2E 真跑 11/11；报告 `p0-mvp/egress-isolation-07/REPORT-RELAY-EGRESS-ISOLATION-07R.md`）。**当前无新 ACTIVE 授权**——下一窗口以 live main 的 [CURRENT.md](../CURRENT.md) 顶部为准冷启动；生产 NO-GO，D3 人工门维持。Egress 隔离语义（07+07R）自本日起为测试面强制约定：测试一律走独立命名空间，链名全量 hash 派生+词边界归属门，禁止触碰生产默认名。下方为历史经验，不作当前执行授权。
+> **2026-11-14 最新指针**：唯一 ACTIVE 在 [CURRENT.md](../CURRENT.md) 顶部 **RELAY-DEPLOY-REHEARSAL-08**（隔离 0007→0009 增量迁移、备份恢复、功能性 Gate 验收和 D3 决策准备）。协调方独立复核 07R **PASS**（live main `e28c386`、exact-head CI 43597388421 test/e2e 双绿、VM80 mock 单测 20/20、旧链名碰撞回归与 hash 碰撞的词边界保护核实），见 [独立复核](../p0-mvp/egress-isolation-07/COORDINATOR-REVIEW-07R-20261114.md)。本轮生产只读预检继续 **NO-GO**（0008/0009、功能 Gate 未配置、旧进程、egress 栈缺席）；**08 仅离线合成数据、绝不生产迁移或重启**。当前 untracked `p0-mvp/egress-isolation-07/evidence/ci-checkruns-e28c386.json` 为 07R 提交后留存的 CI 回执，保留原地、不删除、不误提交。下方均为历史经验，非当前执行授权。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。本文件只做短导航：当前授权、关键未解决风险与登记项、历史包索引全部在 **CURRENT.md**；历史包的合同原文、逐日进度与实施细节以 **Git 历史（git log/show）与各包报告/复核记录（`p0-00/`..`p0-accept/`、`p0-mvp/`）** 为准。
 
