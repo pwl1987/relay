@@ -1,0 +1,53 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/unit/egress-isolation.test.ts (20 tests | 1 failed) 3844ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U1 无 ensure 的裸 teardownEgress() 必须零破坏性命令(当前代码:无所有权校验,删除默认共享栈) 94ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U2 健康且配置相同的同名代理必须复用(当前代码:每次无条件 docker rm -f + 重建,切断在途请求) 9ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U3a 存证守卫:仅改 RELAY_EGRESS_NETWORK 属 default 域配置面而非隔离机制(固定资源仍属同一域;测试不得据此假定隔离) 7ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > U3b 新语义:createTestEgressScope 完整命名空间下,ensure→teardown 零固定资源触碰(合同要求的隔离路径) 7ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S1 新语义:createTestEgressScope 提供完整独立命名空间(网络/容器/链/标记/端口全派生) 7ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S2 新语义:作用域内 ensure→teardown→复验(只删本作用域;返回可审计报告) 7ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S3 新语义:匿名/他人同名资源必须拒绝,不得覆盖或删除(fail-closed) 6ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S4 新语义:他人持有的不健康/配置不符代理必须拒绝(仅本执行者可恢复重建) 8ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S5 新语义:裸 teardownEgress() 在他人栈面前零删除并给出原因(生产默认资源受保护) 6ms
+   ✓ RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(模拟执行器,零真实系统调用) > S6 新语义:env 继承同名空间(子进程/worker 经 RELAY_EGRESS_SCOPE_PREFIX+PORTS+OWNER 收敛复用) 6ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R1 命名:共享前 8 字符的两个合法 id 不得得到同一条 iptables 链名(旧实现同链=碰撞) 6ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R2 人为同链碰撞(A 规则被误置于 B 链名)⇒ ensure(第二作用域)前置归属确认后拒绝,零写零清,A 规则原样 7ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R3 人为同链碰撞 ⇒ teardown(第二作用域)不误删链(skipped 如实;规则保留) 7ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R4 强制同链碰撞(预置他作用域规则)⇒ 拒绝且零破坏性命令 6ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R5 iptables 读取失败 ⇒ fail-closed(不得盲写 -F/-A) 8ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R7 空链宽限:并发创建者窗口内写入本作用域规则 ⇒ 认领收敛(非接管无主链)  608ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R8 空链宽限超时 ⇒ 拒绝(历史无主链不自动接管)  3013ms
+   × RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R9 子串穿透:hash8 真实碰撞对且短 tag 是长 tag 子串 ⇒ 归属门必须词边界精确匹配拒绝(旧实现 claims 并清空) 16ms
+     → 子串穿透必须拒绝:: expected true to be false // Object.is equality
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R10 子串穿透反向:链上是短 tag 规则,长 tag 作用域 ensure ⇒ 同样拒绝(词边界两侧都不得误判) 7ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R6 teardown 读失败 ⇒ 零清链(fail-closed,不盲 -F/-X) 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/egress-isolation.test.ts > RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R9 子串穿透:hash8 真实碰撞对且短 tag 是长 tag 子串 ⇒ 归属门必须词边界精确匹配拒绝(旧实现 claims 并清空)
+AssertionError: 子串穿透必须拒绝:: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/unit/egress-isolation.test.ts:650:50
+    648|     ]);
+    649|     const s1 = await eg.ensureEgress(BASE_URL, { scope: S1 });
+    650|     expect(s1.ok, `子串穿透必须拒绝:${s1.reason ?? ""}`).toBe(false);
+       |                                                  ^
+    651|     const rules = (sim.state.chains.get(S1.chain) ?? []).join("\n");
+    652|     expect(rules).toContain(S2.ruleTag);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 passed (20)
+   Start at  19:42:35
+   Duration  4.22s (transform 182ms, setup 0ms, collect 113ms, tests 3.84s, environment 0ms, prepare 79ms)
+

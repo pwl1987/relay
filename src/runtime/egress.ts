@@ -33,6 +33,9 @@
 //   - 本进程创建注册表(owned)只证明"本进程创建过";跨进程持有以 owner 标签为准。
 //   - create 冲突收敛要求对手容器 owner===本家族(Minor-1 登记语义):跨 owner 并发冷启动窄窗口
 //     下 fail-closed 拒绝而非复用(保守面;后续进程可正常复用)。
+//   - 07R(协调方 Major-1 纠偏):链名由**全量** id hash 派生(禁止前 8 字符截断);链归属门——
+//     任何 -F/-A/-X 前置确认"链上全部规则均携带本作用域 ruleTag",空链/他作用域规则/读取失败
+//     一律 fail-closed 拒绝(历史同名无归属链不得自动接管);teardown 链注册表仅登记经门确认者。
 import { execFileSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { existsSync, statSync } from "node:fs";
@@ -97,9 +100,12 @@ function scopePorts(prefix: string): { forwardPort: number; countPort: number } 
 }
 
 function chainNameFor(id: string): string {
-  const base = id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 8);
-  // iptables 链名上限 28 字符:"RELAY-EGRESS-" + 最多 8 字符
-  return `RELAY-EGRESS-${base.length > 0 && base.length <= 8 ? base : hash8(id)}`;
+  // RELAY-EGRESS-ISOLATION-07R:链名由**全量**稳定标识派生(禁止前 8 字符截断——
+  // "abcdefgh-one"/"abcdefgh-two" 曾同链碰撞,协调方 Major-1);iptables 链名上限 28 字符
+  // ("RELAY-EGRESS-" + 8 字符 hash)。残余哈希碰撞由链归属门(chainScopeOwned)兜底:
+  // 非本作用域标记的链一律拒绝写/清,不依赖碰撞概率。
+  const clean = id.replace(/[^a-zA-Z0-9_-]/g, "");
+  return `RELAY-EGRESS-${hash8(clean.length > 0 ? clean : id)}`;
 }
 
 /**
@@ -284,11 +290,42 @@ function chainRules(chain: string): string[] {
   }
 }
 
+/** 严格读取链规则(-S 失败不吞错;07R:归属判定与清链决策不得基于读失败的空集)。
+ *  注意:真实 `iptables -S <chain>` 会输出 `-N <chain>` 声明行(不含规则标记)⇒ 必须剔除,
+ *  否则归属门对每条真实链都误判(模拟器无此行,07 本地绿/CI 真跑红的教训)。 */
+function chainRulesStrict(chain: string): string[] {
+  return ipt(["-S", chain])
+    .split("\n")
+    .filter((l) => l.trim() && !l.startsWith(`-N ${chain} `) && l !== `-N ${chain}`);
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 规则行内**词边界**精确匹配标记(07R2/Reviewer Round1 Major-1:裸 includes 子串穿透——
+ *  真实 hash8 碰撞对 "frntla"/"frntla-M"(同链 b4888887)且短 tag ⊂ 长 tag 时,裸 includes 会把
+ *  他作用域规则误判为本作用域 ⇒ -F 清空他人规则。边界=行首/空白/引号;链名同用此匹配。 */
+function lineHasTag(line: string, token: string): boolean {
+  return new RegExp(`(^|[\\s"])${escapeRe(token)}(?=$|[\\s"])`).test(line);
+}
+
+/**
+ * 链归属门(07R):任何对链的 -F/-A/-X 前置确认。
+ * 空链 = 归属不可证(拒绝;历史同名无归属链不得自动接管);
+ * 任一规则不含本作用域 ruleTag(词边界精确) = 非本作用域/混入他作用域(拒绝)。
+ * default 域家族共享靠同一 ruleTag 通过(owner 不同但标记相同视为家族)。
+ */
+function chainScopeOwned(rules: string[], ruleTag: string): boolean {
+  if (rules.length === 0) return false;
+  return rules.every((l) => lineHasTag(l, ruleTag));
+}
+
 function jumpExists(subnet: string, chain: string, ruleTag: string): boolean {
   try {
     return ipt(["-S", "DOCKER-USER"])
       .split("\n")
-      .some((l) => l.includes(`-s ${subnet}`) && l.includes(`-j ${chain}`) && l.includes(ruleTag));
+      .some((l) => l.includes(`-s ${subnet}`) && lineHasTag(l, `-j ${chain}`) && lineHasTag(l, ruleTag));
   } catch {
     return false;
   }
@@ -303,7 +340,7 @@ function inputRuleExists(hostIp: string, port: number, subnet: string, ruleTag: 
           l.includes(`-s ${subnet}`) &&
           l.includes(`-d ${hostIp}`) &&
           l.includes(`--dport ${port}`) &&
-          l.includes(ruleTag),
+          lineHasTag(l, ruleTag),
       );
   } catch {
     return false;
@@ -582,7 +619,69 @@ export async function ensureEgress(
       }
     }
 
-    // ① 网络:归属校验 → 创建/复用(并发对手已建且带家族标签 ⇒ 收敛复用)
+    // ①a 网络归属预检(**只读**;拒绝路径零副作用——网络创建后置到链门之后,07R2 Minor-1)
+    const netOwnerPre = networkOwner(scope.network);
+    if (netOwnerPre !== null && !netOwnerPre) {
+      return {
+        ok: false,
+        ...scopeFields,
+        hostIp,
+        reason: `egress_network_unowned:同名网络存在但无 ${OWNER_LABEL} 归属标签(匿名;拒绝在其子网写白名单/复用;Runbook 核验归属后处置)`,
+      };
+    }
+
+    // ② 作用域链归属门(**在创建任何资源之前**;07R:链名由全量标识派生;空链/含他作用域标记 ⇒ 拒绝;
+    //    iptables 读取失败 ⇒ fail-closed。拒绝路径此刻零副作用——未建网络/未写规则/未建容器)
+    let createdChain = false;
+    try {
+      ipt(["-N", scope.chain]);
+      createdChain = true;
+    } catch {
+      /* 已存在(家族/前进程/并发对手) */
+    }
+    let rules: string[];
+    try {
+      rules = chainRulesStrict(scope.chain);
+    } catch (e) {
+      return {
+        ok: false,
+        ...scopeFields,
+        hostIp,
+        reason: `iptables_read_failed:无法读取链 ${scope.chain} 规则(${(e as Error).message})⇒ fail-closed,不写不清`,
+      };
+    }
+    if (createdChain) {
+      owned.add(`chain:${scope.chain}`);
+    } else {
+      // 空链=归属不可证 ⇒ **有界宽限**(3s)等待并发创建者写入规则(不接管历史无主链);
+      // 规则出现后按门判定(本作用域标记 ⇒ 认领;他作用域 ⇒ 拒绝);窗口后仍空 ⇒ 拒绝(fail-closed)。
+      const graceDeadline = Date.now() + 3000;
+      while (rules.length === 0 && Date.now() < graceDeadline) {
+        await new Promise((r) => setTimeout(r, 300));
+        try {
+          rules = chainRulesStrict(scope.chain);
+        } catch (e) {
+          return {
+            ok: false,
+            ...scopeFields,
+            hostIp,
+            reason: `iptables_read_failed:宽限期读取链 ${scope.chain} 失败(${(e as Error).message})⇒ fail-closed,不写不清`,
+          };
+        }
+      }
+      if (!chainScopeOwned(rules, scope.ruleTag)) {
+        return {
+          ok: false,
+          ...scopeFields,
+          hostIp,
+          reason: `chain_foreign_or_unowned:链 ${scope.chain} 已存在但归属不可证(空链或含他作用域规则)⇒ 拒绝 -F/-A/-X(历史同名无归属链须人工核验后处置)`,
+        };
+      }
+      // 家族链(规则全为本作用域标记)⇒ 注册为本进程可管理对象(跨进程认领)
+      owned.add(`chain:${scope.chain}`);
+    }
+
+    // ①b 网络:归属校验 → 创建/复用(并发对手已建且带家族标签 ⇒ 收敛复用)
     let subnet: string;
     const netOwner = networkOwner(scope.network);
     if (netOwner === null) {
@@ -609,35 +708,15 @@ export async function ensureEgress(
         }
         // 家族标签 ⇒ 复用(继续)
       }
-    } else if (!netOwner) {
-      return {
-        ok: false,
-        ...scopeFields,
-        hostIp,
-        reason: `egress_network_unowned:同名网络存在但无 ${OWNER_LABEL} 归属标签(匿名;拒绝在其子网写白名单/复用;Runbook 核验归属后处置)`,
-      };
     }
     subnet = docker(["network", "inspect", "-f", "{{range .IPAM.Config}}{{.Subnet}}{{end}}", scope.network]).trim();
     if (!subnet) return { ok: false, ...scopeFields, hostIp, reason: "subnet_undetectable" };
 
-    // ② 作用域链 + 规则(幂等:规则已齐 ⇒ 不清链不重写,避免白名单空窗)
-    let createdChain = false;
-    try {
-      ipt(["-N", scope.chain]);
-      createdChain = true;
-    } catch {
-      /* 已存在(家族/前进程/并发对手) */
-    }
-    if (createdChain) owned.add(`chain:${scope.chain}`);
-    else if (owned.has(`net:${scope.network}`) || networkOwner(scope.network) === scope.owner) {
-      // 并发对手建的链:网络归属成立 ⇒ 视为本家族资源(注册),teardown 可回收
-      owned.add(`chain:${scope.chain}`);
-    }
-    const rules = chainRules(scope.chain);
+    // ②b 链规则幂等写 + 跳转/INPUT(规则已齐 ⇒ 不清链不重写,避免白名单空窗)
     const hasAccept = rules.some(
-      (l) => l.includes("-j ACCEPT") && l.includes(`--dport ${scope.forwardPort}`) && l.includes(scope.ruleTag),
+      (l) => l.includes("-j ACCEPT") && l.includes(`--dport ${scope.forwardPort}`) && lineHasTag(l, scope.ruleTag),
     );
-    const hasDrop = rules.some((l) => l.includes("-j DROP") && l.includes(scope.ruleTag));
+    const hasDrop = rules.some((l) => l.includes("-j DROP") && lineHasTag(l, scope.ruleTag));
     if (!hasAccept || !hasDrop) {
       ipt(["-F", scope.chain]);
       ipt([
@@ -783,8 +862,10 @@ export function verifyEgressRules(
   const tag = eg?.ruleTag ?? scope.ruleTag;
   const fwdContainer = eg?.fwdContainer ?? scope.fwdContainer;
   const rules = chainRules(chain);
-  const hasAccept = rules.some((l) => l.includes("-j ACCEPT") && l.includes(`--dport ${modelPort}`) && l.includes(tag));
-  const hasDrop = rules.some((l) => l.includes("-j DROP") && l.includes(tag));
+  const hasAccept = rules.some(
+    (l) => l.includes("-j ACCEPT") && l.includes(`--dport ${modelPort}`) && lineHasTag(l, tag),
+  );
+  const hasDrop = rules.some((l) => l.includes("-j DROP") && lineHasTag(l, tag));
   return hasAccept && hasDrop && jumpExists(subnet, chain, tag) && forwarderUp(fwdContainer);
 }
 
@@ -923,15 +1004,32 @@ export function teardownEgress(scopeArg?: EgressScope): TeardownReport {
     } catch {
       /* 忽略 */
     }
-    // 作用域链(-F/-X;仅本进程创建过的链 ⇒ 家族共享链/他人链不误清)
+    // 作用域链(-F/-X;仅本进程创建/认领的链;07R:清链前读失败 fail-closed + 归属门——
+    // 空链或含他作用域标记 ⇒ 拒绝清链,防止同名跨 scope 误删)
     if (owned.has(`chain:${scope.chain}`)) {
+      let chainRulesNow: string[] | null = null;
+      let readError = "";
       try {
-        ipt(["-F", scope.chain]);
-        ipt(["-X", scope.chain]);
-        owned.delete(`chain:${scope.chain}`);
-        deleted.push(`chain:${scope.chain}`);
+        chainRulesNow = chainRulesStrict(scope.chain);
       } catch (e) {
-        skipped.push({ resource: `chain:${scope.chain}`, reason: `清链失败:${(e as Error).message}` });
+        readError = (e as Error).message;
+      }
+      if (chainRulesNow === null) {
+        skipped.push({ resource: `chain:${scope.chain}`, reason: `读取失败 fail-closed:${readError}⇒ 不清链` });
+      } else if (!chainScopeOwned(chainRulesNow, scope.ruleTag)) {
+        skipped.push({
+          resource: `chain:${scope.chain}`,
+          reason: "归属不可证(空链)或含他作用域规则 ⇒ 拒绝清链(07R)",
+        });
+      } else {
+        try {
+          ipt(["-F", scope.chain]);
+          ipt(["-X", scope.chain]);
+          owned.delete(`chain:${scope.chain}`);
+          deleted.push(`chain:${scope.chain}`);
+        } catch (e) {
+          skipped.push({ resource: `chain:${scope.chain}`, reason: `清链失败:${(e as Error).message}` });
+        }
       }
     } else {
       const chainExists = (() => {

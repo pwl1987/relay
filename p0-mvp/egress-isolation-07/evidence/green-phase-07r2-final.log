@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/unit/egress-isolation.test.ts (20 tests) 3845ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R7 空链宽限:并发创建者窗口内写入本作用域规则 ⇒ 认领收敛(非接管无主链)  609ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R8 空链宽限超时 ⇒ 拒绝(历史无主链不自动接管)  3014ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  19:47:51
+   Duration  4.22s (transform 180ms, setup 0ms, collect 109ms, tests 3.84s, environment 0ms, prepare 78ms)
+

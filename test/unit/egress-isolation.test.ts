@@ -21,6 +21,7 @@ const sim = vi.hoisted(() => {
       { running: boolean; env: string[]; labels: Record<string, string>; mounts: string[] }
     >(),
     subnetSeq: 30,
+    failChainReads: false,
   };
   const norm = (xs: string[]) => xs.join(" ").replace(/\s+/g, " ").trim();
   const reset = () => {
@@ -31,6 +32,7 @@ const sim = vi.hoisted(() => {
     state.networks.clear();
     state.containers.clear();
     state.subnetSeq = 30;
+    state.failChainReads = false;
     // 预置宿主基线:DOCKER-USER 存在且已有规则;INPUT 有非本包基线规则(证明 -S 面真实)
     state.dockerUser.push("-A DOCKER-USER -j RETURN");
     state.input.push("-A INPUT -p tcp -m comment --comment relay-baseline -j ACCEPT");
@@ -53,6 +55,9 @@ const sim = vi.hoisted(() => {
       c === "DOCKER-USER" ? state.dockerUser : c === "INPUT" ? state.input : state.chains.get(c);
     switch (op) {
       case "-S": {
+        if (state.failChainReads && (state.chains.has(chain) || chain === "RELAY-EGRESS")) {
+          throw new Error("iptables: read failure (simulated infrastructure error)");
+        }
         if (!chain) throw new Error("sim: full dump unsupported");
         const arr = arrOf(chain);
         if (!arr) throw new Error("iptables: No chain/target/match by that name.");
@@ -448,7 +453,7 @@ describe("RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(�
       labels: { "relay.egress.owner": scope.owner },
       mounts: [],
     });
-    sim.state.chains.set(scope.chain, []);
+    // 07R 语义:空链=归属不可证会被拒绝 ⇒ 恢复路径不再预置空链(由 ensure 自建/认领)
     const s2 = await eg.ensureEgress(BASE_URL, { scope });
     expect(s2.ok, `本执行者不健康容器应有界恢复:${s2.reason ?? ""}`).toBe(true);
     expect(s2.recovered, "恢复路径应如实标注 recovered").toBe(true);
@@ -495,5 +500,188 @@ describe("RELAY-EGRESS-ISOLATION-07 红态:当前 egress.ts 资源归属缺陷(�
     // env 继承的 scope 与显式 scope 命名完全一致 ⇒ 子进程 ensure 与父进程复用同一栈
     const s = await eg.ensureEgress(BASE_URL);
     expect(s.ok, `env 继承 ensure 失败:${s.reason ?? ""}`).toBe(true);
+  });
+});
+
+describe("RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用)", () => {
+  /** 破坏性/写命令面(-F/-X/-D;-N 探测在链已存在时无副作用,不计入)。 */
+  const destructiveOnChain = (chain: string) =>
+    sim.state.recorder.filter((r) => {
+      if (r.cmd !== "sudo") return false;
+      const t = r.args[0] === "-n" && r.args[1] === "iptables" ? r.args.slice(2) : r.args;
+      return ["-F", "-X", "-D"].includes(t[0] ?? "") && t[1] === chain;
+    });
+
+  it("R1 命名:共享前 8 字符的两个合法 id 不得得到同一条 iptables 链名(旧实现同链=碰撞)", async () => {
+    const eg = await importEgress();
+    const A = eg.createTestEgressScope("abcdefgh-one");
+    const B = eg.createTestEgressScope("abcdefgh-two");
+    expect(A.network).not.toBe(B.network);
+    expect(A.forwardPort).not.toBe(B.forwardPort);
+    expect(A.ruleTag).not.toBe(B.ruleTag);
+    expect(A.chain).not.toBe(B.chain);
+    // 确定性:同 id 再派生一致
+    expect(eg.createTestEgressScope("abcdefgh-one").chain).toBe(A.chain);
+    expect(eg.createTestEgressScope("abcdefgh-two").chain).toBe(B.chain);
+  });
+
+  it("R2 人为同链碰撞(A 规则被误置于 B 链名)⇒ ensure(第二作用域)前置归属确认后拒绝,零写零清,A 规则原样", async () => {
+    const eg = await importEgress();
+    const A = eg.createTestEgressScope("abcdefgh-one");
+    const B = eg.createTestEgressScope("abcdefgh-two");
+    sim.state.networks.set(A.network, { subnet: "172.31.1.0/24", labels: { "relay.egress.owner": A.owner } });
+    sim.state.networks.set(B.network, { subnet: "172.31.2.0/24", labels: { "relay.egress.owner": B.owner } });
+    // 人工碰撞:A 的规则被放到 B 的链名上(模拟历史同名/摘要碰撞后的现场)
+    sim.state.chains.set(B.chain, [
+      `-p tcp -d 203.0.113.10 --dport ${A.forwardPort} -j ACCEPT -m comment --comment "${A.ruleTag} owner=${A.owner}"`,
+      `-j DROP -m comment --comment "${A.ruleTag} owner=${A.owner}"`,
+    ]);
+    const sB = await eg.ensureEgress(BASE_URL, { scope: B });
+    expect(sB.ok, `碰撞链必须拒绝:${sB.reason ?? ""}`).toBe(false);
+    // A 的规则原样保留(未被 -F 清空重写)
+    const rules = (sim.state.chains.get(B.chain) ?? []).join("\n");
+    expect(rules).toContain(`--dport ${A.forwardPort}`);
+    expect(rules).toContain(A.ruleTag);
+    expect(rules).not.toContain(B.ruleTag);
+    expect(destructiveOnChain(B.chain).map(pretty)).toEqual([]);
+    // 拒绝路径零副作用:不接管链,也不创建自己的代理容器
+    expect(sim.state.containers.has(B.fwdContainer), "拒绝路径不得创建容器").toBe(false);
+  });
+
+  it("R3 人为同链碰撞 ⇒ teardown(第二作用域)不误删链(skipped 如实;规则保留)", async () => {
+    const eg = await importEgress();
+    const A = eg.createTestEgressScope("abcdefgh-one");
+    const B = eg.createTestEgressScope("abcdefgh-two");
+    sim.state.networks.set(B.network, { subnet: "172.31.2.0/24", labels: { "relay.egress.owner": B.owner } });
+    sim.state.chains.set(B.chain, [
+      `-p tcp -d 203.0.113.10 --dport ${A.forwardPort} -j ACCEPT -m comment --comment "${A.ruleTag} owner=${A.owner}"`,
+    ]);
+    await eg.ensureEgress(BASE_URL, { scope: B }); // 新实现:归属门拒绝(旧实现:注册共同链并改写)
+    const report = eg.teardownEgress(B);
+    expect(
+      report.deleted.some((x) => x.includes(B.chain)),
+      `共同链不得被误删:${JSON.stringify(report)}`,
+    ).toBe(false);
+    expect(sim.state.chains.has(B.chain), "链仍存在(第一作用域依赖)").toBe(true);
+    expect((sim.state.chains.get(B.chain) ?? []).join("\n")).toContain(A.ruleTag);
+  });
+
+  it("R4 强制同链碰撞(预置他作用域规则)⇒ 拒绝且零破坏性命令", async () => {
+    const eg = await importEgress();
+    const B = eg.createTestEgressScope("collide-target");
+    sim.state.networks.set(B.network, { subnet: "172.31.3.0/24", labels: { "relay.egress.owner": B.owner } });
+    sim.state.chains.set(B.chain, [
+      `-p tcp -d 203.0.113.10 --dport 21000 -j ACCEPT -m comment --comment "relay-test-foreign owner=someone-else"`,
+      `-j DROP -m comment --comment "relay-test-foreign owner=someone-else"`,
+    ]);
+    const sB = await eg.ensureEgress(BASE_URL, { scope: B });
+    expect(sB.ok, `他作用域规则在链上必须拒绝:${sB.reason ?? ""}`).toBe(false);
+    expect((sim.state.chains.get(B.chain) ?? []).join("\n")).toContain("relay-test-foreign");
+    expect(destructiveOnChain(B.chain).map(pretty)).toEqual([]);
+  });
+
+  it("R5 iptables 读取失败 ⇒ fail-closed(不得盲写 -F/-A)", async () => {
+    const eg = await importEgress();
+    const B = eg.createTestEgressScope("readfail");
+    sim.state.networks.set(B.network, { subnet: "172.31.4.0/24", labels: { "relay.egress.owner": B.owner } });
+    sim.state.chains.set(B.chain, [
+      `-p tcp -d 203.0.113.10 --dport 22000 -j ACCEPT -m comment --comment "relay-test-stale owner=stale-proc"`,
+    ]);
+    sim.state.failChainReads = true;
+    const sB = await eg.ensureEgress(BASE_URL, { scope: B });
+    expect(sB.ok, `读失败必须 fail-closed:${sB.reason ?? ""}`).toBe(false);
+    expect(destructiveOnChain(B.chain).map(pretty)).toEqual([]);
+    expect((sim.state.chains.get(B.chain) ?? []).join("\n")).toContain("relay-test-stale");
+  });
+
+  it("R7 空链宽限:并发创建者窗口内写入本作用域规则 ⇒ 认领收敛(非接管无主链)", async () => {
+    const eg = await importEgress();
+    const B = eg.createTestEgressScope("gracecase");
+    sim.state.networks.set(B.network, { subnet: "172.31.6.0/24", labels: { "relay.egress.owner": B.owner } });
+    sim.state.containers.set(B.fwdContainer, {
+      running: true,
+      env: ["FWD_ORIGIN_PORT=3425", `FWD_LISTEN_PORT=${B.forwardPort}`, `FWD_COUNT_PORT=${B.countPort}`],
+      labels: { "relay.egress.owner": B.owner },
+      mounts: [],
+    });
+    // 并发对手(同作用域)已 -N 建链但尚未写规则 ⇒ 空链;600ms 后写入本作用域规则
+    sim.state.chains.set(B.chain, []);
+    const t = setTimeout(() => {
+      sim.state.chains.set(B.chain, [
+        `-p tcp -d 203.0.113.10 --dport ${B.forwardPort} -j ACCEPT -m comment --comment "${B.ruleTag} owner=${B.owner}"`,
+        `-j DROP -m comment --comment "${B.ruleTag} owner=${B.owner}"`,
+      ]);
+    }, 600);
+    try {
+      const sB = await eg.ensureEgress(BASE_URL, { scope: B });
+      expect(sB.ok, `宽限期内应认领:${sB.reason ?? ""}`).toBe(true);
+      expect((sim.state.chains.get(B.chain) ?? []).length).toBe(2);
+      expect(sim.state.containers.has(B.fwdContainer), "健康容器应复用不重建").toBe(true);
+    } finally {
+      clearTimeout(t);
+    }
+  });
+
+  it("R8 空链宽限超时 ⇒ 拒绝(历史无主链不自动接管)", async () => {
+    const eg = await importEgress();
+    const B = eg.createTestEgressScope("emptystale");
+    sim.state.networks.set(B.network, { subnet: "172.31.7.0/24", labels: { "relay.egress.owner": B.owner } });
+    sim.state.chains.set(B.chain, []); // 无主空链,窗口内无人写入
+    const sB = await eg.ensureEgress(BASE_URL, { scope: B });
+    expect(sB.ok, `宽限超时必须拒绝:${sB.reason ?? ""}`).toBe(false);
+    expect(sim.state.chains.has(B.chain), "拒绝路径不得删链").toBe(true);
+    expect(destructiveOnChain(B.chain).map(pretty)).toEqual([]);
+  });
+
+  it("R9 子串穿透:hash8 真实碰撞对且短 tag 是长 tag 子串 ⇒ 归属门必须词边界精确匹配拒绝(旧实现 claims 并清空)", async () => {
+    // Reviewer 实证的真实 hash8 碰撞对:hash8("frntla") === hash8("frntla-M") === b4888887,
+    // 且 "frntla" 是 "frntla-M" 的子串 ⇒ 裸 includes(ruleTag) 归属门被穿透。
+    const eg = await importEgress();
+    const S1 = eg.createTestEgressScope("frntla");
+    const S2 = eg.createTestEgressScope("frntla-M");
+    expect(S1.chain).toBe(S2.chain); // 前置:本用例依赖真实 hash 碰撞(链名相同)
+    sim.state.networks.set(S2.network, { subnet: "172.31.8.0/24", labels: { "relay.egress.owner": S2.owner } });
+    // 链上预置 S2 规则(长 tag);S1(短 tag,为其子串)ensure ⇒ 旧实现 includes 穿透认领并 -F 清空
+    sim.state.chains.set(S1.chain, [
+      `-p tcp -d 203.0.113.10 --dport ${S2.forwardPort} -j ACCEPT -m comment --comment "${S2.ruleTag} owner=${S2.owner}"`,
+      `-j DROP -m comment --comment "${S2.ruleTag} owner=${S2.owner}"`,
+    ]);
+    const s1 = await eg.ensureEgress(BASE_URL, { scope: S1 });
+    expect(s1.ok, `子串穿透必须拒绝:${s1.reason ?? ""}`).toBe(false);
+    const rules = (sim.state.chains.get(S1.chain) ?? []).join("\n");
+    expect(rules).toContain(S2.ruleTag);
+    expect(rules).not.toContain(`${S1.ruleTag} owner=`);
+    expect(destructiveOnChain(S1.chain).map(pretty)).toEqual([]);
+  });
+
+  it("R10 子串穿透反向:链上是短 tag 规则,长 tag 作用域 ensure ⇒ 同样拒绝(词边界两侧都不得误判)", async () => {
+    const eg = await importEgress();
+    const S1 = eg.createTestEgressScope("frntla");
+    const S2 = eg.createTestEgressScope("frntla-M");
+    sim.state.networks.set(S1.network, { subnet: "172.31.9.0/24", labels: { "relay.egress.owner": S1.owner } });
+    sim.state.chains.set(S1.chain, [
+      `-p tcp -d 203.0.113.10 --dport ${S1.forwardPort} -j ACCEPT -m comment --comment "${S1.ruleTag} owner=${S1.owner}"`,
+      `-j DROP -m comment --comment "${S1.ruleTag} owner=${S1.owner}"`,
+    ]);
+    const s2 = await eg.ensureEgress(BASE_URL, { scope: S2 });
+    expect(s2.ok, `反向子串穿透必须拒绝:${s2.reason ?? ""}`).toBe(false);
+    const rules = (sim.state.chains.get(S1.chain) ?? []).join("\n");
+    expect(rules).toContain(`${S1.ruleTag} owner=`);
+    expect(destructiveOnChain(S1.chain).map(pretty)).toEqual([]);
+  });
+
+  it("R6 teardown 读失败 ⇒ 零清链(fail-closed,不盲 -F/-X)", async () => {
+    const eg = await importEgress();
+    const A = eg.createTestEgressScope("teardowntimeout");
+    sim.state.networks.set(A.network, { subnet: "172.31.5.0/24", labels: { "relay.egress.owner": A.owner } });
+    const sA = await eg.ensureEgress(BASE_URL, { scope: A });
+    expect(sA.ok, `ensure A 失败:${sA.reason ?? ""}`).toBe(true);
+    sim.state.failChainReads = true;
+    const report = eg.teardownEgress(A);
+    expect(
+      report.deleted.some((x) => x.includes(`chain:${A.chain}`)),
+      `读失败不得清链:${JSON.stringify(report)}`,
+    ).toBe(false);
+    expect(sim.state.chains.has(A.chain)).toBe(true);
   });
 });
