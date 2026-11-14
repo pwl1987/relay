@@ -1,0 +1,120 @@
+[preflight] 部署准入只读预检 @ 2026-11-14T01:12:54.727Z HEAD=7f61a515b923cb12c5fb4271e7dae80fd4ee604a schema=relay_console
+  [PASS] git_head: HEAD=7f61a515b923cb12c5fb4271e7dae80fd4ee604a;被跟踪树清洁
+  [PASS] svc_relay-web.service: relay-web.service 运行中(pid=3242781,since=2026-11-12T18:00:08.000Z)
+  [PASS] svc_relay-worker.service: relay-worker.service 运行中(pid=3242782,since=2026-11-12T18:00:08.000Z)
+  [UNKNOWN] process_vs_head: 进程启动时间早于 HEAD 提交(2026-11-14T09:12:47+08:00)⇒ 运行中进程为旧代码,04A/R2/Gate 检查/工作区归属绑定等新语义线上未生效,以服务重启为界(relay-web.service/relay-worker.service)
+  [PASS] cred_perms: web-password 权限=600(要求 600);env 文件见 env_* 各项
+  [PASS] env_file: 环境文件可读(mode=600);键名(12):RELAY_DB_URL,RELAY_DB_SCHEMA,RELAY_WEB_HOST,RELAY_WEB_PORT,RELAY_WEB_ALLOW_NON_LOOPBACK,RELAY_WEB_WORKER,RELAY_OPERATORS,RELAY_WEB_STAGE_DIR,RELAY_PI_PROVIDER,RELAY_PI_MODEL,RELAY_PI_API_KEY,RELAY_PI_BASE_URL(取值零输出)
+  [PASS] env_required_keys: 必需键齐备(10 项)
+  [UNKNOWN] evidence_checks_config: RELAY_EVIDENCE_CHECKS_JSON 未配置 ⇒ 重启后代码变更候选 Gate 保守停机(functional_evidence_unconfigured→NEEDS_DECISION,fail-closed 安全);Gate 自动放行不可用 ⇒ 需 D3 决策:配置功能性检查(参考 deploy/evidence-checks.sample.json)或接受保守停机运行
+  [PASS] max_output_tokens: RELAY_MAX_OUTPUT_TOKENS 未配置 ⇒ 采用默认 8192
+  [PASS] web_bind: :8787 监听地址=10.30.5.80(LAN 单接口,合规)
+  [PASS] docker_available: Docker 可用
+  [PASS] sandbox_image: 检查沙箱镜像 node:24-bookworm-slim 本地存在(默认镜像;RELAY_SANDBOX_IMAGE 未覆盖时生效)
+  [UNKNOWN] egress_stack: 出口约束栈当前不在(network 与 proxy 均缺失)⇒ 运行中 worker 已降级(下次容器创建将失败;测试套件 teardownEgress 会拆除共享栈);worker 重启后首拍 ensureEgress 幂等重建自愈 ⇒ 切换 Runbook 重启步骤后必须核对 "egress ready" 横幅
+  [PASS] db_reachable: 数据库可达(只读查询)
+  [PASS] db_schema_tables: schema=relay_console 表结构齐备(16 表)
+  [FAIL] db_migrations: 迁移缺失:0008(goal_messages.execution_request),0009(tasks.abort_requested_at)(init-schema 对已存在 schema 跳过、applyMigrations 全量重放会撞表 ⇒ 增量补齐须按迁移文件逐条精确执行;迁移无自动化=既有登记项;补齐动作写生产 schema,必须经用户单独 D3 授权)
+  [PASS] db_inflight: 无阻断切换的在途状态(BLOCKED=1 PAUSED=1;READY=排队不阻断,重启后正常被领取)⇒ 无在途副作用/租约风险
+  [PASS] run_workspace_binding: coder Run 归属绑定:有绑定=0,无绑定(终态/排队,不重入 Gate)=outcome=BUDGET_EXHAUSTED,task=BLOCKED×1(旧格式行:编排 2.45 跳过归属校验=登记残留 R2-D3,由既有双门把关;不自动补写,不作隐瞒)
+[preflight] 裁决=NO-GO
+[preflight] GO/UNKNOWN 仅代表部署准入材料状态;生产切换必须由用户单独 D3 授权并按 deploy/README-deploy.md Runbook 执行;本工具零写入零重启。
+{
+  "startedAt": "2026-11-14T01:12:56.296Z",
+  "headSha": "7f61a515b923cb12c5fb4271e7dae80fd4ee604a",
+  "schema": "relay_console",
+  "results": [
+    {
+      "id": "git_head",
+      "status": "PASS",
+      "detail": "HEAD=7f61a515b923cb12c5fb4271e7dae80fd4ee604a;被跟踪树清洁"
+    },
+    {
+      "id": "svc_relay-web.service",
+      "status": "PASS",
+      "detail": "relay-web.service 运行中(pid=3242781,since=2026-11-12T18:00:08.000Z)"
+    },
+    {
+      "id": "svc_relay-worker.service",
+      "status": "PASS",
+      "detail": "relay-worker.service 运行中(pid=3242782,since=2026-11-12T18:00:08.000Z)"
+    },
+    {
+      "id": "process_vs_head",
+      "status": "UNKNOWN",
+      "detail": "进程启动时间早于 HEAD 提交(2026-11-14T09:12:47+08:00)⇒ 运行中进程为旧代码,04A/R2/Gate 检查/工作区归属绑定等新语义线上未生效,以服务重启为界(relay-web.service/relay-worker.service)"
+    },
+    {
+      "id": "cred_perms",
+      "status": "PASS",
+      "detail": "web-password 权限=600(要求 600);env 文件见 env_* 各项"
+    },
+    {
+      "id": "env_file",
+      "status": "PASS",
+      "detail": "环境文件可读(mode=600);键名(12):RELAY_DB_URL,RELAY_DB_SCHEMA,RELAY_WEB_HOST,RELAY_WEB_PORT,RELAY_WEB_ALLOW_NON_LOOPBACK,RELAY_WEB_WORKER,RELAY_OPERATORS,RELAY_WEB_STAGE_DIR,RELAY_PI_PROVIDER,RELAY_PI_MODEL,RELAY_PI_API_KEY,RELAY_PI_BASE_URL(取值零输出)"
+    },
+    {
+      "id": "env_required_keys",
+      "status": "PASS",
+      "detail": "必需键齐备(10 项)"
+    },
+    {
+      "id": "evidence_checks_config",
+      "status": "UNKNOWN",
+      "detail": "RELAY_EVIDENCE_CHECKS_JSON 未配置 ⇒ 重启后代码变更候选 Gate 保守停机(functional_evidence_unconfigured→NEEDS_DECISION,fail-closed 安全);Gate 自动放行不可用 ⇒ 需 D3 决策:配置功能性检查(参考 deploy/evidence-checks.sample.json)或接受保守停机运行"
+    },
+    {
+      "id": "max_output_tokens",
+      "status": "PASS",
+      "detail": "RELAY_MAX_OUTPUT_TOKENS 未配置 ⇒ 采用默认 8192"
+    },
+    {
+      "id": "web_bind",
+      "status": "PASS",
+      "detail": ":8787 监听地址=10.30.5.80(LAN 单接口,合规)"
+    },
+    {
+      "id": "docker_available",
+      "status": "PASS",
+      "detail": "Docker 可用"
+    },
+    {
+      "id": "sandbox_image",
+      "status": "PASS",
+      "detail": "检查沙箱镜像 node:24-bookworm-slim 本地存在(默认镜像;RELAY_SANDBOX_IMAGE 未覆盖时生效)"
+    },
+    {
+      "id": "egress_stack",
+      "status": "UNKNOWN",
+      "detail": "出口约束栈当前不在(network 与 proxy 均缺失)⇒ 运行中 worker 已降级(下次容器创建将失败;测试套件 teardownEgress 会拆除共享栈);worker 重启后首拍 ensureEgress 幂等重建自愈 ⇒ 切换 Runbook 重启步骤后必须核对 \"egress ready\" 横幅"
+    },
+    {
+      "id": "db_reachable",
+      "status": "PASS",
+      "detail": "数据库可达(只读查询)"
+    },
+    {
+      "id": "db_schema_tables",
+      "status": "PASS",
+      "detail": "schema=relay_console 表结构齐备(16 表)"
+    },
+    {
+      "id": "db_migrations",
+      "status": "FAIL",
+      "detail": "迁移缺失:0008(goal_messages.execution_request),0009(tasks.abort_requested_at)(init-schema 对已存在 schema 跳过、applyMigrations 全量重放会撞表 ⇒ 增量补齐须按迁移文件逐条精确执行;迁移无自动化=既有登记项;补齐动作写生产 schema,必须经用户单独 D3 授权)"
+    },
+    {
+      "id": "db_inflight",
+      "status": "PASS",
+      "detail": "无阻断切换的在途状态(BLOCKED=1 PAUSED=1;READY=排队不阻断,重启后正常被领取)⇒ 无在途副作用/租约风险"
+    },
+    {
+      "id": "run_workspace_binding",
+      "status": "PASS",
+      "detail": "coder Run 归属绑定:有绑定=0,无绑定(终态/排队,不重入 Gate)=outcome=BUDGET_EXHAUSTED,task=BLOCKED×1(旧格式行:编排 2.45 跳过归属校验=登记残留 R2-D3,由既有双门把关;不自动补写,不作隐瞒)"
+    }
+  ],
+  "verdict": "NO-GO",
+  "note": "GO/UNKNOWN 仅代表部署准入材料状态;生产切换必须由用户单独 D3 授权并按 deploy/README-deploy.md Runbook 执行;本工具零写入零重启。"
+}
