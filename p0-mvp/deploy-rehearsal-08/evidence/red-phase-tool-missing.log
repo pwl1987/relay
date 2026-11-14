@@ -1,0 +1,28 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/deploy-rehearsal.test.ts [ test/integration/deploy-rehearsal.test.ts ]
+Error: Cannot find module '../../deploy/rehearse-migration.ts' imported from '/home/ubuntu/dev/relay/test/integration/deploy-rehearsal.test.ts'
+ ❯ test/integration/deploy-rehearsal.test.ts:16:1
+     14| import { createTestDb, type TestDb } from "../setup/testdb.ts";
+     15| import { DEFAULT_TEST_DATABASE_URL } from "../../src/core/db.ts";
+     16| import {
+       | ^
+     17|   assertApplyTargetAuthorized,
+     18|   applyMigrationRange,
+
+Caused by: Error: Failed to load url ../../deploy/rehearse-migration.ts (resolved id: ../../deploy/rehearse-migration.ts) in /home/ubuntu/dev/relay/test/integration/deploy-rehearsal.test.ts. Does the file exist?
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/config.js:22907:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  22:55:51
+   Duration  960ms (transform 96ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 86ms)
+
+vitest-exit=1

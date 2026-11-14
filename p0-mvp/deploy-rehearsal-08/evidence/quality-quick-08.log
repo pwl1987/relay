@@ -1,0 +1,131 @@
+
+> relay@0.1.0-p0 quality:quick
+> node scripts/quality.mjs quick
+
+
+===== [lint] npx biome lint --reporter=summary src web test scripts bin =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+reporter/violations ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Some lint rules or assist actions reported some violations.
+  
+  i The following files have violations:
+  
+  - src/core/delivery.ts (1 info)
+  - src/core/goal-loop.ts (1 warning, 1 info)
+  - src/runtime/egress.ts (2 warnings)
+  - src/runtime/runner.ts (2 warnings)
+  - src/runtime/sandbox.ts (1 warning)
+  - src/server/worker.ts (1 warning)
+  - test/e2e/web-journey.test.ts (4 warnings)
+  - test/e2e/webux03-screenshots.test.ts (1 warning)
+  - test/e2e/webux03-workspace.test.ts (1 warning)
+  - test/fixtures/f1-tasklist/check.mjs (4 warnings)
+  - test/helpers/run-worker.ts (1 warning)
+  - test/integration/backup-restore.test.ts (1 warning)
+  - test/integration/budget-enforcement.test.ts (2 warnings)
+  - test/integration/changesets.test.ts (2 warnings)
+  - test/integration/check-sandbox-isolation.test.ts (5 warnings)
+  - test/integration/circuit-recovery.test.ts (2 warnings)
+  - test/integration/cli.test.ts (1 warning)
+  - test/integration/discovery.test.ts (3 warnings)
+  - test/integration/egress-enforcement.test.ts (1 warning)
+  - test/integration/egress-isolation-e2e.test.ts (1 warning)
+  - test/integration/f1-ux-journey.test.ts (5 warnings)
+  - test/integration/f2-bug-fix.test.ts (2 warnings)
+  - test/integration/f3-injection.test.ts (2 warnings)
+  - test/integration/gate-integrity-dual.test.ts (1 warning)
+  - test/integration/gate-orchestrator.test.ts (1 warning)
+  - test/integration/git-candidate.test.ts (1 warning)
+  - test/integration/goal-loop.test.ts (3 warnings)
+  - test/integration/heartbeat.test.ts (1 warning)
+  - test/integration/lease-basics.test.ts (1 warning)
+  - test/integration/run-crash-recovery.test.ts (2 warnings)
+  - test/integration/sandbox-enforcement.test.ts (1 warning)
+  - test/integration/v04-crash-recovery.test.ts (1 warning)
+  - test/integration/v05-lost-receipt.test.ts (1 warning)
+  - test/integration/web-api.test.ts (6 warnings)
+  - test/unit/command-scope.test.ts (1 warning)
+  - test/unit/egress-isolation.test.ts (1 info)
+  - web/app.js (10 warnings)
+  - web/changeset.js (1 warning)
+  - web/dashboard.js (2 warnings)
+  - web/decisions.js (1 warning)
+  - web/goal.js (1 warning)
+  - web/login.js (1 warning)
+  - web/models.js (1 warning)
+  - web/projects.js (1 warning)
+  - web/style.css (5 warnings)
+  - web/system.js (1 warning)
+  - web/workspace.js (6 warnings)
+  
+  i The following lint rules have violations:
+  
+  Rule Name                                                 Diagnostics
+  
+  lint/correctness/noUnusedFunctionParameters               4 (4 warnings)
+  lint/suspicious/noTemplateCurlyInString                   1 (1 warning)
+  lint/performance/useDomNodeTextContent                    3 (3 warnings)
+  lint/suspicious/noRedundantUseStrict                      10 (10 warnings)
+  lint/style/useExponentiationOperator                      1 (1 info)
+  lint/style/useShorthandFunctionType                       1 (1 info)
+  lint/style/noDescendingSpecificity                        5 (5 warnings)
+  lint/correctness/noUnusedVariables                        25 (25 warnings)
+  lint/correctness/noUnusedImports                          33 (33 warnings)
+  lint/complexity/noCommaOperator                           1 (1 warning)
+  lint/suspicious/noGlobalIsNan                             2 (2 warnings)
+  lint/suspicious/noExplicitAny                             6 (6 warnings)
+  lint/complexity/noArguments                               2 (2 warnings)
+  lint/complexity/useIndexOf                                1 (1 info)
+  lint/style/useConst                                       3 (3 warnings)
+
+Checked 184 files in 50ms. No fixes applied.
+Found 95 warnings.
+Found 3 infos.
+===== [lint] PASS (exit=0, 510ms) =====
+
+===== [format] npx biome format test/integration/deploy-rehearsal-e2e.test.ts test/integration/deploy-rehearsal.test.ts test/integration/evidence-gate-rehearsal.test.ts =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+Checked 3 files in 5ms. No fixes applied.
+===== [format] PASS (exit=0, 413ms) =====
+
+===== [typecheck] npx tsc --noEmit =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+===== [typecheck] PASS (exit=0, 10125ms) =====
+
+===== [unit] npx vitest run test/unit =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/unit/egress-isolation.test.ts (20 tests) 3834ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R7 空链宽限:并发创建者窗口内写入本作用域规则 ⇒ 认领收敛(非接管无主链)  608ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R8 空链宽限超时 ⇒ 拒绝(历史无主链不自动接管)  3013ms
+ ✓ test/unit/console-views.test.ts (7 tests) 427ms
+ ✓ test/unit/goal-message-consumption.test.ts (6 tests) 438ms
+ ✓ test/unit/goal-messages.test.ts (6 tests) 384ms
+ ✓ test/unit/pi-version.test.ts (3 tests) 365ms
+   ✓ Pi 版本锁定 > 运行时二探:实际执行 --version 与锁定版本一致  316ms
+ ✓ test/unit/workspace-sidebar.test.ts (2 tests) 307ms
+ ✓ test/unit/web-app.test.ts (4 tests) 283ms
+ ✓ test/unit/max-output-tokens.test.ts (10 tests) 37ms
+ ✓ test/unit/lifecycle.test.ts (7 tests) 12ms
+ ✓ test/unit/soak-verify.test.ts (9 tests) 11ms
+ ✓ test/unit/safe-rm.test.ts (7 tests) 11ms
+ ✓ test/unit/context.test.ts (6 tests) 8ms
+ ✓ test/unit/capabilities.test.ts (5 tests) 8ms
+ ✓ test/unit/delivery-policy.test.ts (9 tests) 8ms
+ ✓ test/unit/redact.test.ts (7 tests) 7ms
+ ✓ test/unit/denial-hints.test.ts (5 tests) 5ms
+ ✓ test/unit/policy-scope.test.ts (8 tests) 5ms
+ ✓ test/unit/command-scope.test.ts (4 tests) 5ms
+
+ Test Files  18 passed (18)
+      Tests  125 passed (125)
+   Start at  22:35:37
+   Duration  14.53s (transform 557ms, setup 0ms, collect 3.97s, tests 6.15s, environment 4ms, prepare 1.27s)
+
+===== [unit] PASS (exit=0, 15389ms) =====
+
+===== 质量证据: test-evidence/quality-quick-2026-11-14T14-35-25/evidence.json =====
+===== quick 总裁决: PASS =====

@@ -1,0 +1,62 @@
+{
+  "mode": "plan",
+  "target": "postgresql://127.0.0.1:55433/relayp000",
+  "shape": {
+    "schema": "relay_console",
+    "supported": true,
+    "verdict": "incremental_upgrade_available",
+    "appliedTags": [],
+    "pendingTags": [
+      "0008_goal_messages_execution_request",
+      "0009_tasks_abort_requested"
+    ],
+    "markers": {
+      "g6": 1,
+      "g7": 1,
+      "g8": 0,
+      "g9": 0
+    },
+    "anomalies": [],
+    "rowCounts": {
+      "goal_messages": 1,
+      "tasks": 2
+    }
+  },
+  "plan": {
+    "schema": "relay_console",
+    "verdict": "incremental_upgrade_available",
+    "steps": [
+      {
+        "idx": 8,
+        "tag": "0008_goal_messages_execution_request",
+        "statements": [
+          "ALTER TABLE \"goal_messages\" ADD COLUMN \"execution_request\" boolean NOT NULL DEFAULT false;"
+        ],
+        "precondition": {
+          "markerPresent": false,
+          "tablesPresent": true
+        },
+        "postcondition": [
+          "goal_messages.execution_request 存在且为 boolean NOT NULL DEFAULT false",
+          "既有 goal_messages 行 execution_request 全部回填 false(默认值语义)"
+        ]
+      },
+      {
+        "idx": 9,
+        "tag": "0009_tasks_abort_requested",
+        "statements": [
+          "ALTER TABLE \"tasks\" ADD COLUMN \"abort_requested_at\" timestamp with time zone;"
+        ],
+        "precondition": {
+          "markerPresent": false,
+          "tablesPresent": true
+        },
+        "postcondition": [
+          "tasks.abort_requested_at 存在且为 timestamptz 可空(旧行 NULL)"
+        ]
+      }
+    ],
+    "rollbackNote": "代码回退:0008/0009 均为纯 ADD COLUMN(加列不删列),旧代码(不引用新列)与新 schema 兼容;schema 回退:不自动 DROP COLUMN(会丢 0008 之后写入的数据),统一走备份恢复(deploy/backup.sh→restore-verify.sh)回到备份时点形状。"
+  },
+  "note": "只读审批材料;生产执行须用户 D3"
+}

@@ -1,0 +1,17 @@
+=== apply --schema relay_console(生产 schema)===
+[rehearse-migration] 拒绝/失败(fail-closed,零写入):演练目标拒绝:relay_console 是保留 schema(生产 relay_console 与测试共享同一 PG 实例;public/soak24h 为既有命名空间);演练只允许显式隔离测试 schema(p01a_*);未执行任何连接或写入
+exit=2
+=== apply --schema public ===
+[rehearse-migration] 拒绝/失败(fail-closed,零写入):演练目标拒绝:public 是保留 schema(生产 relay_console 与测试共享同一 PG 实例;public/soak24h 为既有命名空间);演练只允许显式隔离测试 schema(p01a_*);未执行任何连接或写入
+exit=2
+=== apply --schema goals(非 p01a_ 前缀)===
+[rehearse-migration] 拒绝/失败(fail-closed,零写入):演练目标拒绝:schema 必须以 p01a_ 开头(得到 goals***);未执行任何连接或写入
+exit=2
+=== apply --schema p01a_ok --target-url 非回环 ===
+[rehearse-migration] 拒绝/失败(fail-closed,零写入):演练目标拒绝:连接串主机非回环(10.30.5.80;只允许 127.0.0.1/localhost/::1);未执行任何连接或写入
+exit=2
+=== plan --schema relay_console(只读允许,审批材料)===
+    后验> tasks.abort_requested_at 存在且为 timestamptz 可空(旧行 NULL)
+[rehearse-migration] 回滚材料>代码回退:0008/0009 均为纯 ADD COLUMN(加列不删列),旧代码(不引用新列)与新 schema 兼容;schema 回退:不自动 DROP COLUMN(会丢 0008 之后写入的数据),统一走备份恢复(deploy/backup.sh→restore-verify.sh)回到备份时点形状。
+[rehearse-migration] 本输出为审批材料;生产执行(写 relay_console schema)必须用户单独 D3 授权,本工具永不直接执行。
+exit=0

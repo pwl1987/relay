@@ -71,7 +71,7 @@ node deploy/preflight.ts --json     # 机器可读(同样脱敏)
 ### 2. 配置决策项(用户 D3)
 
 - **功能性检查配置(可选)**:参考 `deploy/evidence-checks.sample.json`(样例,非生产取值;当前生产无已配置检查)。写入 `~/.relay/console/env` 时**必须压平为单行** `RELAY_EVIDENCE_CHECKS_JSON=[...]`(env 文件为 KEY=VALUE 行格式);改前先备份 env 文件;写后重跑 preflight 应 `evidence_checks_config=PASS`。注意:检查命令在容器内以 UID 10001 读取工作区文件 ⇒ 候选文件需 o+r 权限(runner 工作区目录已 chmod o+rwX)。
-- **迁移补齐(必做,写生产 schema)**:在 relay_console schema 上精确执行缺失迁移文件内容(`migrations/0008_goal_messages_execution_request.sql`、`migrations/0009_tasks_abort_requested.sql` 的 SQL 主体,search_path 置 relay_console;0008 加列 NOT NULL DEFAULT false[旧行自动回填 false]、0009 加列可空;幂等以 preflight 复检为准);补后重跑 preflight 应 `db_migrations=PASS`。迁移无自动化=既有登记项(DEPLOY-03D 新发现)。
+- **迁移补齐(必做,写生产 schema)**:在 relay_console schema 上精确执行缺失迁移文件内容(`migrations/0008_goal_messages_execution_request.sql`、`migrations/0009_tasks_abort_requested.sql` 的 SQL 主体,search_path 置 relay_console;0008 加列 NOT NULL DEFAULT false[旧行自动回填 false]、0009 加列可空;幂等以 preflight 复检为准);补后重跑 preflight 应 `db_migrations=PASS`。**拟执行 SQL/前置/后置/回滚审批材料可先经只读演练工具生成**:`node deploy/rehearse-migration.ts plan --schema relay_console`(RELAY-DEPLOY-REHEARSAL-08;对生产只读输出,永不执行;apply 面仅接受 `p01a_*` 隔离测试 schema,对 relay_console/public 等在任何写入前拒绝)。隔离增量升级/重复/半迁移/恢复回退演练证据见 `p0-mvp/deploy-rehearsal-08/REPORT-RELAY-DEPLOY-REHEARSAL-08.md`。
 - **沙箱镜像**:如需覆盖 `RELAY_SANDBOX_IMAGE` 默认值,先在隔离演练验证镜像对既定命令的支持,不得以"存在配置"冒充执行通过。
 
 ### 3. 备份与隔离恢复演练(切换前必做)
@@ -85,6 +85,7 @@ deploy/restore-verify.sh /tmp/relay-backup-YYYYMMDD "<隔离实例连接串>"   
 ```
 
 - 恢复目标必须是**隔离实例**(独立容器/独立库),禁止在生产库上重放备份。
+- **F-1 登记(RELAY-DEPLOY-REHEARSAL-08)**:backup.sh 第 3 步审计索引在宿主无 psql 时回退命令硬编码 `docker exec relay-p000-pg … relayp000` 且 `audit_events` 未按 schema 限定 ⇒ 生产审计行在 `relay_console` schema 下,该索引可能为空或读到 public 旧表。切换窗口执行备份时,审计索引请以 schema 限定命令人工核对:`docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c "SELECT seq||'|'||ts||'|'||actor||'|'||action FROM relay_console.audit_events ORDER BY seq"`(或批准后续小包修复 backup.sh;本包未改它)。
 - 外部 Git 交付状态不在备份范围:恢复后核对 `candidate_changesets.delivered_remote_head` 与 GitHub 实际 HEAD(Reconcile 语义见 V05/V10)。
 
 ### 4. 切换操作顺序(仅在用户 D3 批准后执行)

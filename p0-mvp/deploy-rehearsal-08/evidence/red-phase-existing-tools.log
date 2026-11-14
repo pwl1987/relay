@@ -1,0 +1,58 @@
+[red-setup] 0007 形状标记 g6/g7/g8/g9 = {"g6":"1","g7":"1","g8":"0","g9":"0"}(预期 1/1/0/0)
+[RED-a] init-schema 输出=[init-schema] schema p01a_d08red_mwghppft7n3 已存在(goals 表在),跳过迁移(幂等) | [init-schema] audit_events 行数=1
+[RED-a] 跳过后 g8/g9 = {"g8":"0","g9":"0"}(预期仍 0/0 ⇒ init-schema 不适合原位增量升级)
+[RED-b] applyMigrations 全量重放对已有 schema ⇒ 崩溃(预期):relation "action_intents" already exists
+[RED-c] 0008 首次执行成功;裸重跑 ⇒ 崩溃(预期):column "execution_request" of relation "goal_messages" already exists
+[red-setup] sentinel=p01a_d08red_mwghppft7n3(仅本 schema 将被清理)
+[red-setup] 已清理自建 schema p01a_d08red_mwghppft7n3(其余 p01a_*/relay_console/public/soak24h 一律未触碰)
+{
+  "schema": "p01a_d08red_mwghppft7n3",
+  "target": "postgresql://127.0.0.1:55433/relayp000",
+  "steps": [
+    {
+      "step": "build-0007-shape",
+      "applied": 8,
+      "tags": [
+        "0000_cute_lorna_dane",
+        "0001_yummy_colonel_america",
+        "0002_tricky_roulette",
+        "0003_gate_orchestration",
+        "0004_delivery",
+        "0005_discovery",
+        "0006_goal_messages",
+        "0007_goal_message_consumptions"
+      ]
+    },
+    {
+      "step": "synthetic-rows",
+      "goals": 1,
+      "tasks": 1,
+      "goal_messages": 2,
+      "audit": 1
+    },
+    {
+      "step": "RED-a-init-schema",
+      "output": [
+        "[init-schema] schema p01a_d08red_mwghppft7n3 已存在(goals 表在),跳过迁移(幂等)",
+        "[init-schema] audit_events 行数=1"
+      ]
+    },
+    {
+      "step": "RED-b-applyMigrations-replay",
+      "crashed": true,
+      "error": "relation \"action_intents\" already exists"
+    },
+    {
+      "step": "RED-c-0008-rerun",
+      "crashed": true,
+      "error": "column \"execution_request\" of relation \"goal_messages\" already exists"
+    }
+  ],
+  "baselineShape": {
+    "g6": "1",
+    "g7": "1",
+    "g8": "0",
+    "g9": "0"
+  },
+  "ok": true
+}
