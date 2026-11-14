@@ -1,0 +1,12 @@
+[
+  {
+    "kind": "deterministic_test",
+    "command": [
+      "node",
+      "-e",
+      "const fs=require('fs');if(!fs.existsSync('relay-smoke.txt'))process.exit(2);if(!fs.readFileSync('relay-smoke.txt','utf8').includes('ok'))process.exit(3);console.log('sample deterministic check ok')"
+    ],
+    "cwdWorkspace": true,
+    "timeoutMs": 60000
+  }
+]
