@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-14 最新执行指针**：唯一 ACTIVE 为 [CURRENT.md](../CURRENT.md) 首项 **RELAY-EGRESS-ISOLATION-07**（隔离测试与生产共享 Egress、约束资源所有权与并发初始化）。**06 已经协调方独立复核 PASS（22/22 定向复跑、两种 user bus 实机、exact-head CI 43553709093@531cf46 双绿）**；生产依然 NO-GO，不授权 0008/0009 迁移、服务重启或切换。下面均是历史运行经验，任何旧包描述都非执行授权。
+> **2026-11-14 收口指针**：**RELAY-EGRESS-ISOLATION-07 已收口**（独立 Reviewer 隔离冷启动终裁 **PASS 0 Major**；exact-head CI **43575650845@a88b0f4** test/e2e 双 job success 亲测，CI 上隔离 E2E 真跑 6/6=23.8s；报告 `p0-mvp/egress-isolation-07/REPORT-RELAY-EGRESS-ISOLATION-07.md`）。**当前无新 ACTIVE 授权**——下一窗口以 live main 的 [CURRENT.md](../CURRENT.md) 顶部为准冷启动；生产依然 NO-GO，不授权 0008/0009 迁移、服务重启或切换（全部须用户单独 D3）。**Egress 测试隔离自 07 起生效**：测试一律走 `createTestEgressScope`/`RELAY_EGRESS_SCOPE_PREFIX` 独立命名空间（网络/容器/链/标记/端口全派生），**禁止**在测试中触碰生产默认名（relay-egress-net/relay-egress-fwd/RELAY-EGRESS）；匿名同名资源 fail-closed 拒绝，须人工核验归属后 D3 处置。下面均是历史运行经验，任何旧包描述都非执行授权。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。本文件只做短导航：当前授权、关键未解决风险与登记项、历史包索引全部在 **CURRENT.md**；历史包的合同原文、逐日进度与实施细节以 **Git 历史（git log/show）与各包报告/复核记录（`p0-00/`..`p0-accept/`、`p0-mvp/`）** 为准。
 

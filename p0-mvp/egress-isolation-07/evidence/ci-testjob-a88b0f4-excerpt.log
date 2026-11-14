@@ -1,0 +1,25 @@
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:31.2024334Z  [32m✓[39m test/integration/changesets.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 134[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:31.4229013Z  [32m✓[39m test/unit/soak-verify.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:31.6237134Z  [32m✓[39m test/unit/safe-rm.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:31.8164658Z  [32m✓[39m test/unit/delivery-policy.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:33.0908984Z  [32m✓[39m test/integration/budget-turns-cap.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 657[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:33.0915535Z    [33m[2m✓[22m[39m 回合硬顶(机器强制预算,Run 中)[2m > [22mcap=2 < stub 5 回合 ⇒ BUDGET_EXHAUSTED(budget_turns_cap)+ stub 死亡 + 任务 BLOCKED + used=2 [33m 547[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:33.3017804Z  [32m✓[39m test/unit/lifecycle.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:33.4958159Z  [32m✓[39m test/unit/context.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:33.6899142Z  [32m✓[39m test/unit/capabilities.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:33.8783322Z  [32m✓[39m test/unit/redact.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.0687443Z  [32m✓[39m test/unit/policy-scope.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.3737110Z  [32m✓[39m test/unit/denial-hints.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.6765981Z  [32m✓[39m test/unit/command-scope.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.6912855Z 
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.6929932Z [2m Test Files [22m [1m[32m66 passed[39m[22m[2m | [22m[33m14 skipped[39m[90m (80)[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.6931774Z [2m      Tests [22m [1m[32m382 passed[39m[22m[2m | [22m[33m54 skipped[39m[90m (436)[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.6933272Z [2m   Start at [22m 08:24:50
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.6935120Z [2m   Duration [22m 163.88s[2m (transform 1.07s, setup 0ms, collect 33.30s, tests 115.30s, environment 14ms, prepare 4.55s)[22m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.6936002Z 
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.8282210Z ===== [tests] PASS (exit=0, 164578ms) =====
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.8283518Z ===== [browser] NOT_RUN(RELAY_QUALITY_SKIP_BROWSER=1;由 CI 独立 e2e job 覆盖) =====
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.8959519Z 
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.8960591Z ===== 质量证据: test-evidence/quality-full-2026-11-14T08-24-32/evidence.json =====
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.8961732Z ===== 发布就绪: 质量检查完成 ≠ 发布就绪:本 job 浏览器 NOT_RUN;必须由独立 e2e job 的真实结果补足(P1-D) =====
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-14T08:27:34.8962216Z ===== full 总裁决: PASS =====
