@@ -1,6 +1,6 @@
 # Relay / HIVE Next
 
-**状态：顶层原则 FROZEN；已有 Core、Worker、Pi RPC、Web、Gate 与自动测试；MVP 总体验收保持 REWORK，新增 Agent 接管与本地质量能力仅设计收敛、实现 OPEN。** 更新：2026-11-13。
+**状态：顶层原则 FROZEN；现有 Core、Worker、Pi、Web、Gate 能力须区分代码实现、CI、用户实机与生产运行。2026-11-14 预检发现错误 PASS 风险，生产 NO-GO；唯一当前开发合同见 [CURRENT.md](CURRENT.md)。**
 
 Relay 是轻量、可独立运行、证据驱动、可恢复地持续推进的自主软件交付系统（Autonomous Software Delivery Engine）。用户提出模糊或明确目标，Relay 负责质疑、调查、规划、开发、独立验证、受控交付与持续反馈。ChatGPT 是**可选入口**，不是运行依赖。
 
@@ -14,6 +14,9 @@ Relay 是轻量、可独立运行、证据驱动、可恢复地持续推进的�
 - [验证与验收矩阵](docs/VALIDATION_PLAN.md)：测试 fixture、故障注入 V01～V20、质量门与证据。
 - [Web / CLI / API UX](docs/UI_UX.md)：页面、状态与审批交互。
 - [自托管部署方案](docs/DEPLOYMENT_PLAN.md)：VM80 选址、目录/网络/恢复/监控。
+
+**四项目借鉴研究（不是新功能授权）**：
+- [AgentRun / PINE / agentes.chat / grokbot-clone 参考方法与取舍](docs/EXTERNAL_PATTERN_COMPARISON_20261114.md)。
 
 **架构/安全/扩展**：
 - [架构基线](ARCHITECTURE_BASELINE.md) 和 [详细架构](docs/DETAILED_ARCHITECTURE.md)。

@@ -1,7 +1,6 @@
-# Relay / HIVE Next 续接(以最新 live main 为准)
+# Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-14 最新续接提示（非第二事实源）**：04A / 04A-R2 独立代码审计 PASS，准入证据见 CURRENT.md 顶部；下一包唯一 ACTIVE 为 **RELAY-DEPLOY-PREFLIGHT-05**，只做部署前只读核查、隔离配置和预演，**不授权任何生产服务切换、真实模型、生产数据修改或真实远端写入**。本文下方存在历史 ACTIVE/过期部署过程描述，**不得作为执行授权；一律以 live main 的 CURRENT.md 顶部为准**。受保护 `config/` 与 `p0-mvp/soak-r3b/` 严禁触碰。
-
+> **2026-11-14**：唯一 ACTIVE 见 [CURRENT.md](../CURRENT.md) 首项 **RELAY-SAFETY-AUTHORITY-06**。先修部署预检对不可读进程时间的错误 PASS，再完成四项目借鉴与全仓文档梳理。生产 NO-GO，未经用户 D3 不得迁移、重启、改配置。研究来源见 [四项目对照](EXTERNAL_PATTERN_COMPARISON_20261114.md)。下文为历史记录，旧 ACTIVE/执行指示**均无效**。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。2026-11-09~11 完成 P0-00..P0-02C 与 P0-ACCEPT;2026-11-11 完成总授权执行包六阶段 + 收口包;2026-11-12 R-1 闭环解除(US-08/G6 VERIFIED)+ R-2/R-3 收口轮。**MVP 终判:REWORK 维持。R-2/R-3 现状:R-2 授权参数缺失 ⇒ 待授权清单已发出(`p0-mvp/r2-pending-authorization.md`,零真模型运行);R-3 采集于 06:05+0800@12.53h 被会话解体 SIGTERM 波及(缝 365s 落账),06:10 已按原始口径 setsid detached 续采(起点不重置;worker/sampler pid 文件已更新),期满 2026-11-12 17:32:52+0800 用 `node deploy/soak-verify.mjs p0-mvp/soak-24h/samples.csv --log p0-mvp/soak-24h/worker.log` 终验——存在中断缝 ⇒ 终验口径 PARTIAL。勿动 `p0-mvp/soak-24h/` 两进程(现已脱离会话进程组);samples.csv/worker.log 保持 skip-worktree,终验后显式解除入库。明示:每次全量 vitest 触发 1 次真模型 A-4 实验(magpie,limit=8)。**(**2026-11-12 17:5x 收口注:R-3 终验已完成=PARTIAL 定格,三进程受控退出,证据已解除 skip-worktree 入库——见本文"三个 REWORK 解除项"§3 与 CURRENT.md 第一包行;本段前文为历史记录;R-2 亦已执行完毕=PARTIAL 双败+归因,见 §2 再注**)
 
