@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-14**：RELAY-SAFETY-AUTHORITY-06 已收口（独立 Reviewer 两阶段终裁 PASS；exact-head CI 43553382081@801bae9 双绿；报告 p0-mvp/safety-authority-06/）。**当前无新 ACTIVE 授权**——下一窗口以 live main 的 [CURRENT.md](../CURRENT.md) 顶部为准冷启动。生产 NO-GO，未经用户 D3 不得迁移、重启、改配置。四项目 POC 候选池仅登记未实施（P0_P1_ROADMAP.md）。
+> **2026-11-14 最新执行指针**：唯一 ACTIVE 为 [CURRENT.md](../CURRENT.md) 首项 **RELAY-EGRESS-ISOLATION-07**（隔离测试与生产共享 Egress、约束资源所有权与并发初始化）。**06 已经协调方独立复核 PASS（22/22 定向复跑、两种 user bus 实机、exact-head CI 43553709093@531cf46 双绿）**；生产依然 NO-GO，不授权 0008/0009 迁移、服务重启或切换。下面均是历史运行经验，任何旧包描述都非执行授权。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。本文件只做短导航：当前授权、关键未解决风险与登记项、历史包索引全部在 **CURRENT.md**；历史包的合同原文、逐日进度与实施细节以 **Git 历史（git log/show）与各包报告/复核记录（`p0-00/`..`p0-accept/`、`p0-mvp/`）** 为准。
 
