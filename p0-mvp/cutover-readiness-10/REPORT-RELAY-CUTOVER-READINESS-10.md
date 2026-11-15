@@ -54,7 +54,9 @@
 
 ## 6. CI 时序(exact-head 如实)
 
-<!-- CI_SECTION -->
+- 基线回执:581eee6(合同提交)Actions **43710863776** test+e2e 双 success(GitHub check-runs API 亲核;执行方与独立 Reviewer 各自核验一致)。
+- **实施提交 2fb8a78 exact-head Actions 43719135177 test+e2e 双 success**(13:27:59Z→13:32:17Z,无失败 run;GitHub check-runs API 亲核)。09/09R/10 套件 CI 真跑(宿主分支,runner 自带 psql/pg_dump):**d10 切换模拟全链 5/5(6.7s)**、d09 集成 5/5(12.7s)、d09r 集成 6/6(5.5s)、d09r 单测 27/27、09 单测 15/15、deploy-rehearsal 9/9、08 E2E 1/1、Gate 3/3;全量 **75 passed | 14 skipped(89 文件)**(`evidence/ci-testjob-2fb8a78-d10-excerpt.log`)。**CI 宿主分支真值层真杀实证持续在位**:runner 日志含 `[restore-target] fail-closed:源实例与恢复目标为同一物理实例(postmaster 启动时刻与端口相同…);同实例别名/同集群已识别,拒绝恢复`——09R 身份门在 CI host 分支真跑拒绝同实例误指,d10 模拟链的 09R 门在同一环境真跑通过。
+- 收口提交(本报告 §6 回填+CURRENT/CONTINUATION)自身 CI 于推送后核验,回执留未跟踪(循 bacc849/fbf32f0 例)。
 
 ## 7. 生产影响与边界
 

@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-15 唯一 ACTIVE**：[CURRENT.md](../CURRENT.md) 顶部 **RELAY-CUTOVER-READINESS-10**。协调方独立复核 09R **PASS**：GitHub live main fbf32f0，exact-head CI 43704169275 test/e2e 双成功；VM80 定向单测 27/27 + 真实隔离 E2E 6/6 + 09 备份恢复 E2E 5/5，总 38/38 PASS；一次性容器零残留。见 [协调方 09R 审计](../p0-mvp/backup-integrity-09/COORDINATOR-REVIEW-09R-20261115.md)。10 的唯一目标是生产只读准入核对、隔离切换预演、D3 决策材料去陈旧与定稿；不会实施生产迁移/备份/配置/重启。**当前生产仍 NO-GO**：缺 0008/0009、Gate 检查未配、旧进程、egress 栈缺席；D3 用户未批准，MVP F1/F2 真模型及 Mac UX 未验收。VM80 config/、soak-r3b/ 与五份未跟踪 CI 回执绝对保护。历史段仅作导航。
+> **2026-11-15 RELAY-CUTOVER-READINESS-10 已收口（无 ACTIVE）**：提交链 581eee6（协调方合同登记）→ 2fb8a78（实施）；exact-head CI 43719135177@2fb8a78 test/e2e 双成功。最终结论 **PRE-D3 READY**：生产只读准入审计（preflight NO-GO 四项如实：缺 0008/0009/Gate 检查未配/旧进程/egress 缺席）+ 隔离切换模拟全链 5/5 真跑（09 备份→09R 身份门隔离恢复→0008/0009 增量→Gate 配置→真实 preflight 工具前后对照 db_migrations FAIL→PASS 裁决仍≠GO→回滚条件）+ **D3 决策材料定稿**（`p0-mvp/deploy-rehearsal-08/D3-DECISION-PACK.md` 2026-11-15 版：选项 A/B/C + 七步执行序 + 回滚基准）。独立 Reviewer 隔离冷启动 PASS（0 Major）。见 [REPORT](../p0-mvp/cutover-readiness-10/REPORT-RELAY-CUTOVER-READINESS-10.md)、[REVIEW](../p0-mvp/cutover-readiness-10/REVIEW-RELAY-CUTOVER-READINESS-10.md)。**生产切换须用户按 D3 材料单独明确批准；MVP=REWORK 不变，Mac UX/真模型 F1/F2/24h 未验收**。VM80 config/、soak-r3b/ 与五份未跟踪 CI 回执绝对保护。历史段仅作导航。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。本文件只做短导航：当前授权、关键未解决风险与登记项、历史包索引全部在 **CURRENT.md**；历史包的合同原文、逐日进度与实施细节以 **Git 历史（git log/show）与各包报告/复核记录（`p0-00/`..`p0-accept/`、`p0-mvp/`）** 为准。
 
