@@ -1,0 +1,75 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ × test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D1 登录首屏+空状态(无项目/无任务):首次用户第一眼看到什么 1179ms
+   → expected true to be false // Object.is equality
+ ✓ test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D2 一句话建需求 → Conversation;推进 → Result;追问(held)→ 刷新保持 2341ms
+ ✓ test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D3 Decision 内联(等待用户决定):卡文案+三按钮+批准后继续 22089ms
+ × test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > M1 手机 390×844:登录→空状态→抽屉→建需求→Result→追问→Decision(≥44px 触控) 1137ms
+   → expected true to be false // Object.is equality
+ ✓ test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > 全程零浏览器错误(desktop+mobile pageerror/console.error) 0ms
+ × test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 失败/停止态(模型不可用确定性链;无桩注入=连真实 runtime 到不可达地址) > D4 失败态:任务终败后工作块如实呈现+查看原因入口(模型不可用首用场景) 42131ms
+   → expected '✗ 本轮工作未完成,需要处理✗代码修改未完成查看原因' to contain '下一步'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D1 登录首屏+空状态(无项目/无任务):首次用户第一眼看到什么
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/e2e/webux11-firstuse-audit.test.ts:410:36
+    408|       // B1 空白态唯一主操作=「开始」;「交给 Relay 执行」必须不可见(旧:CSS .btn display 压过 [hi…
+    409|       //    ⇒ 双主按钮在场且点击静默无反应,截图 d02 为证)
+    410|       expect(facts.executeVisible).toBe(false);
+       |                                    ^
+    411|       // B3 零项目时引导语必须给出可执行的中文下一步(直接开始+如何添加项目),
+    412|       //    不得要求「选择项目」却无可选项(旧 hero 副标与「尚未配置项目—直接开始」自相矛盾)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > M1 手机 390×844:登录→空状态→抽屉→建需求→Result→追问→Decision(≥44px 触控)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/e2e/webux11-firstuse-audit.test.ts:510:41
+    508|       expect(emptyFacts.composerBottomGap).not.toBeNull();
+    509|       // B1(手机):空白态唯一主操作=「开始」;执行按钮不可见 ⇒ 输入框不再被双按钮挤压(截图 m02 为证)
+    510|       expect(emptyFacts.executeVisible).toBe(false);
+       |                                         ^
+    511|       expect(Math.abs(Number(emptyFacts.composerBottomGap ?? 999))).to…
+    512|       // 抽屉:开 → 遮罩关(遮挡面=抽屉滑入视口内;遮罩覆盖余下区域——观察不判定美学)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/e2e/webux11-firstuse-audit.test.ts > WEB-UX-11 失败/停止态(模型不可用确定性链;无桩注入=连真实 runtime 到不可达地址) > D4 失败态:任务终败后工作块如实呈现+查看原因入口(模型不可用首用场景)
+AssertionError: expected '✗ 本轮工作未完成,需要处理✗代码修改未完成查看原因' to contain '下一步'
+
+Expected: "下一步"
+Received: "✗ 本轮工作未完成,需要处理✗代码修改未完成查看原因"
+
+ ❯ test/e2e/webux11-firstuse-audit.test.ts:636:35
+    634|       // B2(先红后绿):失败态必须给明确中文下一步(合同 B:「失败或停止」状态)——
+    635|       // 旧实现只有「查看原因」工程入口,无下一步指引(截图 d09 为证);修后=提示重试路径(新建需求)
+    636|       expect(facts.workBlockText).toContain("下一步");
+       |                                   ^
+    637|       expect(facts.workBlockText).toContain("新建一个需求");
+    638|       // 「查看原因」入口在失败态在场(点开=技术详情层)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 3 passed (6)
+   Start at  23:47:44
+   Duration  71.62s (transform 555ms, setup 0ms, collect 1.54s, tests 69.80s, environment 0ms, prepare 76ms)
+

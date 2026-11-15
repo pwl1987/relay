@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+····································--
+
+ Test Files  5 passed | 2 skipped (7)
+      Tests  36 passed | 2 skipped (38)
+   Start at  23:49:29
+   Duration  180.08s (transform 745ms, setup 0ms, collect 8.18s, tests 170.07s, environment 1ms, prepare 494ms)
+
+EXIT=0

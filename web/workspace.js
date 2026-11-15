@@ -55,6 +55,7 @@
     notices: [], // 本会话内操作回执(批准/拒绝/失败;renderFeed 持久渲染,避免被刷新抹掉)
     lastEventKeys: {}, // 原始事件去重(技术详情层)
     paneOpen: true, // P0-6:右栏整栏折叠
+    hasProjects: undefined, // WEB-UX-11 B3:项目注册表状态(undefined=未读取;true/false=最新读取;驱动空白态引导语)
   };
 
   // ---------------- 项目上下文(P0-2:唯一来源 = feed.status.projectName,服务端与侧栏同规则) ----------------
@@ -317,6 +318,15 @@
     });
     block.appendChild(rows);
     if (w.mode === "failed") {
+      // WEB-UX-11 B2:失败态给明确中文下一步(合同 B「失败或停止」须有下一步;
+      // 方案 A 语义下终败 Goal 不自动重开 ⇒ 重试路径=新建需求;详情入口=查看原因,内部码只在技术详情)
+      block.appendChild(
+        h("div", {
+          class: "ws-card-sub dim",
+          "data-testid": "ws-fail-next-step",
+          text: "下一步:点「查看原因」了解详情;如要重试,请新建一个需求,把要做的事再告诉 Relay。",
+        }),
+      );
       // P1-1:失败只给用户文案 + 「查看原因」;内部错误码/路径/堆栈只在技术详情
       block.appendChild(
         h(
@@ -593,16 +603,19 @@
     const col = h("div", { class: "ws-feed-col" + (state.goalId ? "" : " ws-feed-empty") });
     feed.appendChild(col);
     if (!state.goalId) {
-      // 空白态(P0-1/P0-5):引导语居中;唯一输入 = 下方 Composer(项目选择+开始)
+      // 空白态(P0-1/P0-5):引导语居中;唯一输入 = 下方 Composer(项目选择+开始)。
+      // WEB-UX-11 B3:零项目时不得要求「选择项目」却无可选项——引导改为「直接开始+如何添加项目」
+      // (注册表状态来自 /api/projects 实读;未读取/读取失败时维持通用文案,不冒充)。
+      const heroSub =
+        state.hasProjects === false
+          ? "尚无项目:直接在下方输入一句话即可开始;如需按项目组织,先在左侧「项目」页添加项目。"
+          : "在下方选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。";
       col.appendChild(
         h(
           "div",
           { class: "ws-empty-hero" },
           h("h1", { class: "ws-hero-title", text: "今天想让 Relay 做什么?" }),
-          h("p", {
-            class: "ws-hero-sub",
-            text: "在下方选择项目,用一句话说出需求。Relay 会自动理解、修改、测试、复核并交付。",
-          }),
+          h("p", { class: "ws-hero-sub", text: heroSub }),
         ),
       );
       return;
@@ -884,13 +897,21 @@
       input.placeholder = "告诉 Relay 你想做什么……";
       btn.textContent = "开始";
       if (projRow) projRow.hidden = false;
-      if (execBtn) execBtn.hidden = true; // 空白态=显式创建入口(开始);无"执行"语义
+      if (execBtn) {
+        execBtn.hidden = true; // 空白态=显式创建入口(开始);无"执行"语义
+        // WEB-UX-11 B1:.btn 的 display:inline-flex(style.css)压过 UA 的 [hidden] ⇒ 仅设 hidden
+        // 漏显双主按钮(点击在本态为静默 no-op);内联样式兜底,任务态原样恢复。
+        execBtn.style.display = "none";
+      }
     } else {
       input.placeholder = "继续告诉 Relay……";
       btn.textContent = "发送";
       if (projRow) projRow.hidden = true;
       // 方案 A:任务态=双操作(发送=只交流/记录;交给 Relay 执行=显式创建受控任务)
-      if (execBtn) execBtn.hidden = false;
+      if (execBtn) {
+        execBtn.hidden = false;
+        execBtn.style.display = ""; // B1:清空白态内联隐藏(方案 A 双操作恢复在场)
+      }
     }
   }
 
@@ -1012,6 +1033,8 @@
         const list = (v.projects || []).filter(function (p) {
           return p && p.name && p.path;
         });
+        // WEB-UX-11 B3:注册表实读状态驱动空白态引导语(零项目=直接开始指引;有项目=选择指引)
+        state.hasProjects = list.length > 0;
         sel.textContent = "";
         if (!list.length) {
           sel.appendChild(
@@ -1023,6 +1046,7 @@
             sel.appendChild(h("option", { value: p.name, text: p.name }));
           });
         }
+        if (!state.goalId) renderFeed(true); // 空白态:引导语按最新注册表状态原位刷新
       })
       .catch(function () {
         sel.appendChild(h("option", { value: "", text: "项目列表读取失败,可直接开始" }));
