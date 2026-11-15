@@ -1,0 +1,52 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/d09-backup-integrity.test.ts
+[d09 门控] docker=true
+
+NOTICE:  database "relay_restore_v1794737767_19002" does not exist, skipping
+ERROR:  audit_events is append-only: DELETE is not allowed
+CONTEXT:  PL/pgSQL function p01a_d09a_670a7d96.relay_forbid_audit_mutation() line 3 at RAISE
+··deploy/backup.sh: line 19: RELAY_BACKUP_SCHEMA: 需 RELAY_BACKUP_SCHEMA(目标 Relay schema 或 all;拒绝静默整库)
+ls: cannot access '/tmp/d09-backup-lff2Hd/refuse-noschema': No such file or directory
+[backup-validate] fail-closed:目标 schema 不存在:p01a_nonexistent_xyz(连接目标=postgresql://postgres:***@127.0.0.1:32873/relayd08);拒绝备份
+ls: cannot access '/tmp/d09-backup-lff2Hd/refuse-badschema': No such file or directory
+Error response from daemon: No such container: relay-d09-nonexistent-xyz
+[backup] 失败(exit=1):已清理本次 STAMP=20261115T101609Z 残留产物
+[restore] fail-closed:未显式声明 RELAY_RESTORE_ISOLATED=1(恢复目标必须是隔离实例,禁止生产/备份源实例)
+[restore] fail-closed:恢复目标实例与备份源实例相同(RESTORE_URL 是 RELAY_DB_URL 的实例前缀);拒绝在源/生产实例上恢复
+[restore] fail-closed:完成标记数量≠1(缺失=备份失败残留或不完整);拒绝恢复
+NOTICE:  database "relay_restore_v1794737770_8388" does not exist, skipping
+ERROR:  syntax error at or near "THIS"
+LINE 1: THIS IS NOT VALID SQL;
+        ^
+[restore] 失败(exit=3):已清理本次恢复库 relay_restore_v1794737770_8388
+NOTICE:  database "relayd09tamp" does not exist, skipping
+[restore] fail-closed:DELIVERED 集合身份不一致(相同计数不构成通过)
+NOTICE:  database "relayd09faithful" does not exist, skipping
+[restore] fail-closed:审计索引集合不一致(错源/丢失/混入)
+[restore] fail-closed:manifest 缺少 targetSchema/delivered(legacy 或损坏);拒绝核对
+··NOTICE:  database "relay_restore_v1794737773_30167" does not exist, skipping
+·[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=172.17.0.5);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore-target] fail-closed:RESTORE_URL 端口(32876)与实际恢复容器发布端口(32875)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore-target] fail-closed:RESTORE_URL 端口(32876)与实际恢复容器发布端口(55433)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore] fail-closed:RELAY_RESTORE_CONTAINER 与源容器同名(relay-test-d09r-src-acbf22ef):容器名欺骗形态;拒绝
+·[restore-target] fail-closed:源实例身份不可证(连接失败:connect ECONNREFUSED 127.0.0.1:1;postgresql://postgres:***@127.0.0.1:1/none);拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=172.17.0.6);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  18:16:02
+   Duration  18.92s (transform 216ms, setup 0ms, collect 897ms, tests 17.52s, environment 0ms, prepare 146ms)
+

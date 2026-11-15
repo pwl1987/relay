@@ -82,17 +82,24 @@ node deploy/preflight.ts --json     # 机器可读(同样脱敏)
 RELAY_DB_URL=$(grep '^RELAY_DB_URL=' ~/.relay/console/env | cut -d= -f2-) \
 RELAY_BACKUP_SCHEMA=relay_console \
   deploy/backup.sh /tmp/relay-backup-$(date +%Y%m%d)   # 作用域 dump + manifest[targetSchema] + 审计索引 + 完成标记 + 校验和
-# 恢复演练(RELAY_RESTORE_ISOLATED=1 必填;RESTORE_URL=隔离实例 base 连接串[不带库名];与备份源实例相同 ⇒ 拒绝;
-# 宿主无 psql ⇒ 需 psql 可用的恢复容器:RELAY_RESTORE_CONTAINER 覆盖,缺省 relay-restore-verify,可起一次性 PG 容器充当)
-RELAY_RESTORE_ISOLATED=1 RELAY_RESTORE_CONTAINER=<psql可用的恢复容器> \
-  deploy/restore-verify.sh /tmp/relay-backup-YYYYMMDD "postgresql://<用户>:<密码>@<隔离实例host>:<端口>"
-# (校验和先行核验 → 新建 relay_restore_v*_<随机> 库导入 → manifest/审计索引与恢复库集合身份逐项核对;
-#  自动化等价路径=RELAY_BACKUP_E2E=1 的 test/integration/backup-restore.test.ts,quality:release 内置;
-#  09 全链真跑证据=test/integration/d09-backup-integrity.test.ts)
+# 恢复演练(09R 恢复目标真实身份校验:RELAY_RESTORE_ISOLATED=1 与 RELAY_DB_URL(备份源实例连接串)均必填;
+# RESTORE_URL=隔离实例 base 连接串[不带库名]。任何 DDL 前三重证明:①规范化实例键(回环折叠+默认端口)
+# 相同⇒拒绝(同实例别名);②docker 回退分支:RESTORE_URL 须回环且与 RELAY_RESTORE_CONTAINER 的
+# docker inspect 发布端口精确绑定(显式 RELAY_PG_CONTAINER 与恢复容器同名/同容器 ID⇒拒绝),实际容器内
+# pg_postmaster_start_time 须与 RESTORE_URL 探针一致;③服务端真值双探针(源+目标,零原始数据)——
+# 任一不可证⇒拒绝,身份相同⇒同一物理实例⇒拒绝。宿主无 psql ⇒ 需 psql 可用的恢复容器:
+# RELAY_RESTORE_CONTAINER 覆盖,缺省 relay-restore-verify,可起一次性 PG 容器充当)
+RELAY_RESTORE_ISOLATED=1 RELAY_DB_URL="<备份源实例连接串>" \
+RELAY_RESTORE_CONTAINER=<psql可用的恢复容器> \
+  deploy/restore-verify.sh /tmp/relay-backup-YYYYMMDD "postgresql://<用户>:<密码>@127.0.0.1:<隔离实例发布端口>"
+# (身份门通过 → 校验和先行核验 → 新建 relay_restore_v*_<随机> 库导入 → manifest/审计索引与恢复库集合身份
+#  逐项核对;自动化等价路径=RELAY_BACKUP_E2E=1 的 test/integration/backup-restore.test.ts,quality:release 内置;
+#  09 全链真跑证据=test/integration/d09-backup-integrity.test.ts;09R 身份门真跑证据=test/integration/d09r-restore-target-integration.test.ts)
 ```
 
-- 恢复目标必须是**隔离实例**(独立容器/独立库):未声明 `RELAY_RESTORE_ISOLATED=1` 或恢复目标实例与备份源相同 ⇒ fail-closed,禁止在生产库上重放备份。
+- 恢复目标必须是**隔离实例**(独立容器/独立库):未声明 `RELAY_RESTORE_ISOLATED=1`、未提供 `RELAY_DB_URL`(无法证明目标≠源实例)、或恢复目标实例与备份源相同(字面前缀/别名/服务端身份任一层)⇒ fail-closed,禁止在生产库上重放备份。身份校验本身只读元数据(pg_postmaster_start_time/inet_server_port),不读取任何原始数据;源实例须可达以便身份探针(演练语义;灾备场景源实例不可达时,恢复走人工流程并另行留证)。
 - **F-1 已修复(RELAY-BACKUP-INTEGRITY-09)**:旧版第 3 步审计索引硬编码 `relay-p000-pg/relayp000` 且 `audit_events` 未限定 schema(可能空索引/错源到 public 遗留表)、旧版 pg_dump 整库与 manifest/恢复核对跨 schema 聚合(同实例多项目/测试租户数据混入+合计数假一致)——现均为目标 schema 唯一入口语义(见上),恢复核对升级为稳定键集合身份(相同计数不再构成通过)。反例红态证据见 `p0-mvp/backup-integrity-09/evidence/red09-*.log`。
+- **恢复目标身份门已修复(RELAY-RESTORE-TARGET-09R)**:旧守卫仅做连接串前缀比较,`127.0.0.1` 与 `localhost` 等同实例别名可绕过;docker 回退分支完全忽略 RESTORE_URL 的 host/port,`RELAY_RESTORE_CONTAINER` 指向源容器即被盲信(协调方两反例实证)。现恢复目标必须以物理执行目标绑定+服务端实例身份证明与源实例不同(见上)。红态证据 `p0-mvp/backup-integrity-09/evidence/red09r-r1~r4.log`。
 - 外部 Git 交付状态不在备份范围:恢复后核对 `candidate_changesets.delivered_remote_head` 与 GitHub 实际 HEAD(Reconcile 语义见 V05/V10)。
 
 ### 4. 切换操作顺序(仅在用户 D3 批准后执行)

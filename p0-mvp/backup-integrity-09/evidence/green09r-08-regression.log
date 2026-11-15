@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/deploy-rehearsal-e2e.test.ts
+[d08-e2e 门控] docker=true
+
+NOTICE:  database "relay_restore_v1794736121" does not exist, skipping
+·
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  17:48:40
+   Duration  4.99s (transform 179ms, setup 0ms, collect 777ms, tests 3.92s, environment 0ms, prepare 83ms)
+

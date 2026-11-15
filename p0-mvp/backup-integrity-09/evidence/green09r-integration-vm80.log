@@ -1,0 +1,26 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=172.17.0.7);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore-target] fail-closed:RESTORE_URL 端口(32857)与实际恢复容器发布端口(32856)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore-target] fail-closed:RESTORE_URL 端口(32857)与实际恢复容器发布端口(55433)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore] fail-closed:RELAY_RESTORE_CONTAINER 与源容器同名(relay-test-d09r-src-52c7b13b):容器名欺骗形态;拒绝
+·[restore-target] fail-closed:源实例身份不可证(连接失败:connect ECONNREFUSED 127.0.0.1:1;postgresql://postgres:***@127.0.0.1:1/none);拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=172.17.0.8);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+·
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  17:47:47
+   Duration  6.11s (transform 155ms, setup 0ms, collect 232ms, tests 5.61s, environment 0ms, prepare 81ms)
+

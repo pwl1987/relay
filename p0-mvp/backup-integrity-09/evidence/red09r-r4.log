@@ -1,0 +1,8 @@
+# Red-r4 红态证据(对 8368cb1 原样 restore-verify.sh;封闭 PATH 假执行器仅记 argv 后 exit 79;零真实 DB/容器操作)
+# 形态:任意容器名盲信:RELAY_RESTORE_CONTAINER=some-unrelated-container,RESTORE_URL=postgresql://demo@127.0.0.1:59999(docker 分支)
+# 复跑:/home/ubuntu/dev/relay/p0-mvp/backup-integrity-09/evidence/red09r-harness/red-r4.sh(合成备份目录构造器 mk-backup.sh 同目录)
+
+== 脚本输出(exit=79=假执行器拦截退出) ==
+
+== 假执行器捕获的 argv(危险 DDL 已发出=红态成立) ==
+docker exec some-unrelated-container psql -U postgres -c DROP DATABASE IF EXISTS relay_restore_v1794734880_31425 -q

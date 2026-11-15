@@ -1,0 +1,24 @@
+# 红形态复放(修后脚本):四类绕过形态全部在 DDL 前拒绝,假执行器危险 argv=0
+# 环境:封闭 PATH(/tmp/red09r/bin:假 psql/假 docker+真实工具符号链接);零真实 DB/容器操作
+# 注:宿主分支拒绝发生于文本快速门,假 psql 从未被调用(日志文件不存在→危险 argv=0)
+
+== R1 同实例别名(宿主分支) ==
+[restore-target] fail-closed:规范化实例键相同(源=loopback:55433;目标=loopback:55433):同实例别名/端口缺省形态,拒绝恢复(别名不构成隔离证明)
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+(exit=2;假执行器危险 argv 行数=0)
+
+== R3 端口缺省别名(宿主分支) ==
+[restore-target] fail-closed:规范化实例键相同(源=loopback:5432;目标=loopback:5432):同实例别名/端口缺省形态,拒绝恢复(别名不构成隔离证明)
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+(exit=2;假执行器危险 argv 行数=0)
+
+== R2 容器错位(docker 分支) ==
+[restore] fail-closed:docker inspect 恢复容器失败(relay-p000-pg):无法证明 RESTORE_URL 与实际执行容器的绑定;拒绝
+(exit=2;假执行器危险 argv 行数=0)
+
+== R4 任意容器名盲信(docker 分支) ==
+[restore] fail-closed:docker inspect 恢复容器失败(some-unrelated-container):无法证明 RESTORE_URL 与实际执行容器的绑定;拒绝
+(exit=2;假执行器危险 argv 行数=0)
+

@@ -280,6 +280,7 @@ describe.skipIf(!dockerOk)("RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复�
     expect(restoreDbNames(rstContainer).length).toBe(0);
     const r2 = runScript("deploy/restore-verify.sh", [backupDir1, rstBase], {
       ...baseEnv(),
+      RELAY_DB_URL: srcUrl,
       RELAY_RESTORE_ISOLATED: "1",
       RELAY_RESTORE_CONTAINER: rstContainer,
     });
@@ -422,6 +423,7 @@ describe.skipIf(!dockerOk)("RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复�
     const beforeD = restoreDbNames(rstContainer).length;
     const rd = runScript("deploy/restore-verify.sh", [backupDir1, rstBase], {
       ...baseEnv(),
+      RELAY_DB_URL: srcUrl,
       RELAY_RESTORE_CONTAINER: rstContainer,
     });
     expect(rd.status).not.toBe(0);
@@ -447,6 +449,7 @@ describe.skipIf(!dockerOk)("RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复�
     copyFileSync(join(backupDir1, stamp1), join(partial, stamp1));
     const rf = runScript("deploy/restore-verify.sh", [partial, rstBase], {
       ...baseEnv(),
+      RELAY_DB_URL: srcUrl,
       RELAY_RESTORE_ISOLATED: "1",
       RELAY_RESTORE_CONTAINER: rstContainer,
     });
@@ -482,6 +485,7 @@ describe.skipIf(!dockerOk)("RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复�
     const beforeMid = restoreDbNames(rstContainer).length;
     const rMid = runScript("deploy/restore-verify.sh", [midDir, rstBase], {
       ...baseEnv(),
+      RELAY_DB_URL: srcUrl,
       RELAY_RESTORE_ISOLATED: "1",
       RELAY_RESTORE_CONTAINER: rstContainer,
     });
@@ -696,6 +700,7 @@ exit 0
     // 旧版兼容语义端到端:整库恢复 + all 聚合身份核对 PASS
     const r2 = runScript("deploy/restore-verify.sh", [outAll, rstBase], {
       ...baseEnv(),
+      RELAY_DB_URL: srcUrl,
       RELAY_RESTORE_ISOLATED: "1",
       RELAY_RESTORE_CONTAINER: rstContainer,
     });
