@@ -1,0 +1,20 @@
+# exact-head CI test job 摘录(run 43694571961@9b8555f,job 132752155346,quality:full;gh api logs 94KB)
+# 09 相关套件 CI 上真跑(ubuntu runner=宿主分支路径:pg_dump/psql 真宿主工具执行 backup.sh 宿主分支):
+  ===== [format] npx biome format test/integration/d09-backup-integrity.test.ts =====
+   ✓ test/unit/d09-backup-chain.test.ts (15 tests) 76ms
+  stdout | test/integration/d09-backup-integrity.test.ts
+   ✓ test/integration/d09-backup-integrity.test.ts (5 tests) 13735ms
+   ✓ test/integration/deploy-rehearsal.test.ts (9 tests) 432ms
+  stdout | test/integration/deploy-rehearsal-e2e.test.ts
+   ✓ test/integration/deploy-rehearsal-e2e.test.ts (1 test) 2979ms
+  stdout | test/integration/evidence-gate-rehearsal.test.ts
+   ✓ test/integration/evidence-gate-rehearsal.test.ts (3 tests) 1713ms
+   ✓ test/unit/d09-backup-chain.test.ts (15 tests) 81ms
+
+# 全量测试汇总:
+   Test Files  20 passed (20)
+        Tests  155 passed (155)
+   Test Files  72 passed | 14 skipped (86)
+        Tests  445 passed | 54 skipped (499)
+
+# check-runs 回执:{"check_runs":[{"conclusion":"success","name":"test","status":"completed"},{"conclusion":"success","name":"e2e","status":"completed"}],"total_count":2}(evidence/ci-checkruns-9b8555f.json 收口入库)

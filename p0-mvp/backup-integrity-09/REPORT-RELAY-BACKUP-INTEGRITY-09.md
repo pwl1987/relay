@@ -71,10 +71,10 @@
 1. **主链**:修后真实 `backup.sh`(RELAY_BACKUP_SCHEMA=schA;VM80 实走 docker fallback)→ dump 恰好含 A 的 16 张表(0007 形状)+触发器+FK,**零 B/C/public 混入**;manifest targetSchema=schA 且 delivered=1(PENDING/他租户不入);审计索引 3 行全 A、零干扰;完成标记+校验和过 → 真实 `restore-verify.sh`(独立一次性恢复实例;RELAY_RESTORE_ISOLATED=1)→ 集合身份「一致 ✓」+审计「备份=3 恢复后=3」+核对通过 → 恢复库逐项:16 表/中文与 jsonb 保真/audit 3 行/DELIVERED 1 行/append-only 触发器存在且 DELETE 被真实拒绝/FK=3。
 2. **扰动不变性**:向 B 注入 audit+DELIVERED 各一行后重跑备份 ⇒ A 的 manifest delivered **逐字节相等**、审计索引逐字节相等、dump 零 B 标记(合同 D:扰动 B 不改变 A 的备份结果)。
 3. **fail-closed 矩阵**(每例拒绝+自身产物清理):未声明 schema(校验先于 mkdir,零产物)/目标不存在(validate 真连校验)/错容器(dump 失败 ⇒ trap 清理 stamp 产物+无 .done)/未声明 RELAY_RESTORE_ISOLATED(零 DROP/CREATE)/恢复目标=备份源实例(前缀守卫,源实例零新库)/缺完成标记/身份扰动(A 交付行被他租户形态行替代总数相等 ⇒ check exit=1 集合身份不一致)/审计索引丢一行 ⇒ exit=1 审计集合不一致/legacy manifest(无 targetSchema)⇒ 拒绝。
-4. **宿主分支覆盖**(合同 D:缺 host 二进制时使用可验证命令注入):PATH shim 捕获宿主分支真实 argv —— `pg_dump … -n <schema> --file …` + `psql … FROM "<schema>".audit_events`(与 Red-b 旧形态对照:无 -n/未限定);宿主分支全链走完(manifest 为真实 node+pg 路径,完成标记落盘)。
+4. **宿主分支覆盖**(合同 D:缺 host 二进制时使用可验证命令注入):PATH shim 捕获宿主分支真实 argv —— `pg_dump … -n <schema> --file …` + `psql … FROM "<schema>".audit_events`(与 Red-b 旧形态对照:无 -n/未限定);宿主分支全链走完(manifest 为真实 node+pg 路径,完成标记落盘)。**CI 上进一步升级为宿主分支真跑全链**(runner 自带 pg_dump/psql,d09 E2E 主链 13.7s 经真实宿主工具执行,见 §6)。
 5. **all 模式兼容演示**:显式 all ⇒ 整库 dump 含 A/B/public;manifest delivered=实例实况聚合(动态断言);审计索引如实含 public 干扰行;restore-verify 整库恢复+all 聚合身份核对 PASS(旧版能力可重复演示)。
 
-**回归**(evidence/green-09-08-regression.log、green-09-backup-restore-regression.log):08 套件 13/13(迁移 9+真实 Docker E2E 1+Gate 3)——08 E2E 经迁移后语义全保持;backup-restore.test.ts(RELAY_BACKUP_E2E=1)1/1——既有隔离备份恢复语义零影响。**quality:quick PASS**(evidence/quality-quick-09.log;lint/format/typecheck/unit 15/15+全量单测绿);tsc --noEmit 干净;biome 干净。quality:full 本地 NOT_RUN(VM80 全量测试防 egress 栈互踩既定纪律)→ 由 exact-head CI test job 双绿覆盖(见 §6)。
+**回归**(evidence/green-09-08-regression.log、green-09-backup-restore-regression.log):08 套件 13/13(迁移 9+真实 Docker E2E 1+Gate 3)——08 E2E 经迁移后语义全保持;backup-restore.test.ts(RELAY_BACKUP_E2E=1)1/1——既有隔离备份恢复语义零影响。**quality:quick PASS**(evidence/quality-quick-09.log;lint/format/typecheck/unit 15/15+全量单测绿);tsc --noEmit 干净;biome 干净。quality:full 本地 NOT_RUN(VM80 全量测试防 egress 栈互踩既定纪律)→ 由 exact-head CI test job 双绿覆盖(见 §6;CI 首跑 43694046569 暴露错容器用例的环境条件问题并即时修正,见 §6 时序如实)。
 
 ## 5. E 项:独立 Reviewer(隔离上下文;原文入库=REVIEW-RELAY-BACKUP-INTEGRITY-09.md)
 
@@ -84,9 +84,13 @@
 
 ## 6. 提交、CI 与收口
 
-- 提交链:a458e95(合同登记)→ 〔实施提交,main-only fast-forward,推送经 ssh.github.com:443〕→ 〔收口提交〕。
-- exact-head CI:实施提交的 test job(quality:full)+ e2e job 双 success 于收口时核验回填(回执 ci-checkruns-*.json 随收口提交入库);CI 核验通道=gh CLI(VM80 代理栈,直连 443 为已登记 Sectigo 假证书劣化路径不可用于核验)。
-- quality:full 本地 NOT_RUN 由 CI test job 覆盖(防 VM80 egress 共享栈互踩既定纪律)。
+- 提交链:a458e95(合同登记)→ **0eb4b7b**(实施,main-only fast-forward,推送经 ssh.github.com:443 直连亲测)→ **9b8555f**(CI 教训修正,纯测试面)→ 〔收口提交〕。
+- exact-head CI 时序如实:
+  - run **43694046569@0eb4b7b** test job **failure**(e2e job success):唯一红=d09 fail-closed 矩阵「错容器」用例(0eb4b7b 测试文件 :398)——**ubuntu runner 宿主自带 pg_dump/psql ⇒ backup.sh 走宿主分支,`RELAY_PG_CONTAINER` 不参与执行**,拒绝预期在该环境不成立;其余 444/445 全绿(含 09 全部套件)。
+  - 修正(9b8555f,纯测试面/deploy 脚本零改动):该用例分支自适应——宿主有 pg_dump ⇒ PATH 注入 pg_dump 失败 shim(dump 执行面异常,可验证注入);宿主无(VM80)⇒ docker fallback 错容器真失败。两环境合计覆盖两分支失败面。
+  - run **43694571961@9b8555f**(3m27s)双 job success:test job(job 132752155346,quality:full,**09 套件 CI 上真跑逐字实证**=d09-backup-chain 15/15 + d09-backup-integrity 5/5[13.7s,**ubuntu runner 上经宿主 pg_dump/psql 真实执行 backup.sh 宿主分支全链**]+deploy-rehearsal 9/9+deploy-rehearsal-e2e 1/1+evidence-gate 3/3;全量 **445 passed | 54 skipped[86 文件]**)+ e2e job(job 132752155125,browser journeys 1m52s)。annotations 仅 Node.js 20 弃用/runner 镜像迁移公告,非失败。证据=evidence/ci-testjob-9b8555f-excerpt.log+ci-checkruns-9b8555f.json(随收口提交入库);收口提交自身回执留未跟踪(08 同例)。
+- CI 核验通道=gh CLI(VM80 代理栈,直连 443 为已登记 Sectigo 假证书劣化路径不可用于核验)。quality:full 本地 NOT_RUN(防 VM80 egress 共享栈互踩既定纪律)由 CI test job 双绿覆盖。
+- **宿主/docker 两分支覆盖总结**:VM80(无宿主工具)=docker fallback 真跑全链;CI runner(自带 pg_dump/psql)=宿主分支真跑全链(d09 E2E 13.7s)+宿主分支失败面(shim)。合同 D「host 与 docker fallback 都需覆盖」以两环境合计成立。
 
 ## 7. 生产影响、回滚与边界
 

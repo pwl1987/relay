@@ -1,6 +1,7 @@
 # RELAY-DEPLOY-REHEARSAL-08 · 用户 D3 决策材料(一页式)
 
 > **2026-11-15 更新：08R 安全纠偏经协调方 PASS，但生产仍不得切换。** 08 原一次性 PostgreSQL 端口误发布已由 08R 回环随机端口 + Docker inspect 实证修复；本轮不再以 08R 作为独立阻断项。另经源码确认：backup.sh 审计索引回退目标硬编码且未限定 schema，原备份会整库导出、manifest/restore 验证跨 schema 聚合，可能混入同库其他业务/测试数据，属于更高优先级的生产备份作用域风险。已登记 09 仅使用隔离合成数据修复真实备份/恢复一致性；**选项 A 仍暂不能执行，09 PASS 也不自动授权 D3**。生产 NO-GO 四项、真实模型/UX 未验收边界维持不变。
+> **2026-11-15 续:RELAY-BACKUP-INTEGRITY-09 已实施完成并收口**(提交链 395091f→…→a458e95(09 合同)→0eb4b7b(实施)→9b8555f(CI 教训修正),exact-head CI 43694571961@9b8555f test+e2e 双 success,独立 Reviewer 两轮 REWORK→PASS(0 Major),报告 `p0-mvp/backup-integrity-09/REPORT-RELAY-BACKUP-INTEGRITY-09.md`):备份/恢复链目标 schema 唯一入口语义+f-1 修复+隔离恢复身份核对,已在合成双租户一次性实例真跑验收。**该修复提升的是「备份/恢复工具正确性」,不改变生产 NO-GO 事实**(迁移缺 0008/0009、Gate 未配置、旧进程、egress 缺席均未动);生产切换仍须用户单独 D3 授权,且切换窗口的备份/恢复演练须按 09 后语义执行并留存证据。
 
 > 2026-11-14 · 合同 241893d · **本文件只是决策材料,不是授权,更不是执行**。
 > 生产切换(迁移/配置/重启)只有在你**明确回复选择某一选项并批准范围/窗口**后才生效;未回复前生产维持现状(NO-GO 预检基线不变)。
@@ -40,7 +41,7 @@
 
 - **隔离合成数据 PASS ≠ 生产真实数据验证 ≠ Mac 用户 UX ACCEPTED ≠ 真实模型/24h 运维完成**(验收分层不混谈)。
 - 恢复/迁移耗时数字来自合成小库演练(秒级);**生产规模耗时以切换窗口实测为准**,本包数字不得直接引用。
-- **登记 F-1(如实)**:`deploy/backup.sh` 第 3 步审计索引在宿主无 psql 时回退命令**硬编码** `docker exec relay-p000-pg … relayp000` 且表名未按 schema 限定 ⇒ 生产审计行在 `relay_console` schema 下,该索引**可能为空或读取到 public 旧表**。切换窗口执行备份时,审计索引请以 schema 限定命令人工核对(D3 材料附命令),或批准后续小包修复 backup.sh(本包未改它)。
+- **登记 F-1 → 已由 RELAY-BACKUP-INTEGRITY-09 修复(2026-11-15,0eb4b7b→9b8555f)**:`deploy/backup.sh` 审计索引硬编码/未限定 schema、整库 dump、manifest/恢复核对跨 schema 聚合与相同计数假一致、restore-verify 无隔离守卫等备份链缺陷已按目标 schema 唯一入口语义修复(合成双租户一次性实例红绿+隔离恢复真跑+独立 Reviewer 两轮 PASS,证据 `p0-mvp/backup-integrity-09/`)。切换窗口备份/恢复演练按 `deploy/README-deploy.md` §3 的 09 后语义执行(RELAY_BACKUP_SCHEMA=relay_console + RELAY_RESTORE_ISOLATED=1)并留存证据;**本修复不构成任何生产 GO 提升,选项 A/B/C 的裁决仍须用户 D3**。
 - 真实模型 Run/真实外部交付:严格 NOT_RUN(未授权)。
 
 ## 五、批准后的首日监测清单(选项 A)
