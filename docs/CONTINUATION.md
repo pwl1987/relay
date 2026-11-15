@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-15 当前唯一 ACTIVE**：[CURRENT.md](../CURRENT.md) 顶部 **RELAY-RESTORE-TARGET-09R**。09 Agent 报告 PASS、GitHub exact-head CI 43695134793@bacc849 test/e2e 双绿、协调方 VM80 d09 两套 20/20 真绿，但协调方新做 2 个**完全拦截数据库调用**的反例，证实 restore-verify.sh 同实例 host 别名绕过和 docker fallback 容器实际目标不受 RESTORE_URL 约束，故 09 **REWORK**；见 [09 独立复核](../p0-mvp/backup-integrity-09/COORDINATOR-REVIEW-09-20261115.md)。09R 仅最小修恢复实际目标身份验证，测试先全部假命令，安全门通过才用一次性 PG 真 E2E。源/生产 DB 零 DDL，生产预检继续 NO-GO、D3 未授权。保护 config/、soak-r3b/ 和四个现有未跟踪 ci-checkruns 回执。下方历史经验非执行授权。
+> **2026-11-15 当前无 ACTIVE,Writer 已释放**:RELAY-RESTORE-TARGET-09R 已收口(提交链 8368cb1 合同→271f2f9 实施;恢复目标真实身份校验=任何 DDL 前三层证明[文本快速门/docker inspect 执行面绑定+exec 真值比对/服务端双探针],红 R1-R4 假命令复现两绕过→修后零 DDL 拒绝,Reviewer 两轮 PASS(0 Major;M1-M4 消化,M5 两项加固候选登记),exact-head CI 43703649584@271f2f9 test+e2e 双绿且 CI 宿主分支真值层真杀实证;报告 [09R REPORT](../p0-mvp/backup-integrity-09/REPORT-RELAY-RESTORE-TARGET-09R.md)+[09R REVIEW](../p0-mvp/backup-integrity-09/REVIEW-RELAY-RESTORE-TARGET-09R.md))。09 的协调方 REWORK(Major-R1 两绕过)已闭环。生产预检仍 NO-GO、D3 未授权;备份加密/离站 DR/恢复演练排程/M5 加固候选为登记未实施。下一执行授权以用户/协调方新登记合同为准(未经登记不启动)。保护 config/、soak-r3b/ 和四个现有未跟踪 ci-checkruns 回执。下方历史经验非执行授权。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。本文件只做短导航：当前授权、关键未解决风险与登记项、历史包索引全部在 **CURRENT.md**；历史包的合同原文、逐日进度与实施细节以 **Git 历史（git log/show）与各包报告/复核记录（`p0-00/`..`p0-accept/`、`p0-mvp/`）** 为准。
 

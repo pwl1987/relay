@@ -1,0 +1,7 @@
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-15T10:21:48.6739931Z  [32m✓[39m test/unit/d09r-restore-target.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 982[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-15T10:21:51.0591106Z  [32m✓[39m test/unit/d09-backup-chain.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 125[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-15T10:22:13.9570702Z  [32m✓[39m test/integration/d09-backup-integrity.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 13634[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-15T10:22:36.9883318Z  [32m✓[39m test/unit/d09r-restore-target.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 993[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-15T10:23:35.6503375Z  [32m✓[39m test/integration/d09r-restore-target-integration.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 5444[2mms[22m[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-15T10:24:23.2051378Z  [32m✓[39m test/unit/d09-backup-chain.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 126[2mms[22m[39m
+test	quality:full	2026-11-15T10:23:33.0530822Z [restore-target] fail-closed:源实例与恢复目标为同一物理实例(postmaster 启动时刻与端口相同:2026-11-15 10:23:31…:5432);同实例别名/同集群已识别,拒绝恢复

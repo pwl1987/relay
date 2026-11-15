@@ -75,7 +75,11 @@
 - 边界核验:生产 PID 未变/保护物未动/容器零残留;报告数字逐一对照。
 - **Minor 及消化(收口前已全部完成)**:M1 §3 行数更正(+54/-7,git diff --numstat);M2 §4.2 端口数以证据日志为准(32857 vs 32856);M3 §1.1 更正旧行为=RELAY_DB_URL 缺失时**静默跳过守卫照发 DROP**(`-n "${RELAY_DB_URL:-}"` 短路,Reviewer 与执行方各自独立实测,比崩溃更危险;单测名亦更正);M4 红态证据头部与复放日志重生成;M5 **登记加固候选**:①readInspectMapping 未拒绝 5432/tcp 外额外发布端口(08R 同款 helper 强度,不影响本门绑定正确性)、②2d→DDL 对抗性 TOCTOU 窗口(操作者信任模型内,非误配置可达形态)。二者登记于 CURRENT.md 收口行,不在本合同实施(扩展克制)。
 
-## 6. CI 时序(待回填)
+## 6. CI 时序(exact-head 如实)
+
+- 基线回执:8368cb1(合同提交)Actions **43698228229** test+e2e 双 success(`evidence/ci-checkruns-8368cb1.json`,Reviewer 对 GitHub 独立核验一致;该 run 不含 09R 实施,属基线口径)。
+- **实施提交 271f2f9 exact-head Actions 43703649584 test+e2e 双 success**(test 4m11s quality:full 全量+真 PG 集成+容器门;e2e 1m52s browser journeys;`evidence/ci-checkruns-271f2f9.json`)。09R 套件 CI 真跑:d09r 单测 **27/27**、d09r 集成 **6/6**(5.4s)、d09 集成 **5/5**(13.6s)、09 单测 15/15(`evidence/ci-testjob-271f2f9-d09r-excerpt.log`)。**CI 宿主分支真值层真杀实证**:runner 日志含 `[restore-target] fail-closed:源实例与恢复目标为同一物理实例(postmaster 启动时刻与端口相同…);同实例别名/同集群已识别,拒绝恢复`——host 分支(宿主有 psql,容器环境变量不参与)下 bridge IP 误指源实例被服务端身份真值拒绝;与 VM80 docker 分支(回环门+inspect 绑定+exec 绑定+名称/ID 欺骗拒绝)合计覆盖两分支全部拒绝面。无失败 run,时序无缺口。
+- 收口提交(本报告 §5/§6 回填+CURRENT/CONTINUATION/D3 pack)自身 CI 于推送后核验,回执留未跟踪(循 bacc849 例)。
 
 ## 7. 生产影响与边界
 生产影响=零(全部真实读写=一次性容器+合成数据;relay-p000-pg 仅元数据 inspect)。本合同结论仅为「09R 恢复目标安全门 PASS/REWORK」,**不构成生产部署/生产备份许可**;生产预检仍 NO-GO(迁移缺 0008/0009、Gate 未配置、旧进程、egress 栈缺席),生产切换须用户单独 D3 授权。

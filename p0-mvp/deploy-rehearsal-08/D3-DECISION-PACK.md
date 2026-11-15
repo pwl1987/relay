@@ -5,6 +5,7 @@
 > **2026-11-15 更新：08R 安全纠偏经协调方 PASS，但生产仍不得切换。** 08 原一次性 PostgreSQL 端口误发布已由 08R 回环随机端口 + Docker inspect 实证修复；本轮不再以 08R 作为独立阻断项。另经源码确认：backup.sh 审计索引回退目标硬编码且未限定 schema，原备份会整库导出、manifest/restore 验证跨 schema 聚合，可能混入同库其他业务/测试数据，属于更高优先级的生产备份作用域风险。已登记 09 仅使用隔离合成数据修复真实备份/恢复一致性；**选项 A 仍暂不能执行，09 PASS 也不自动授权 D3**。生产 NO-GO 四项、真实模型/UX 未验收边界维持不变。
 > **2026-11-15 续:RELAY-BACKUP-INTEGRITY-09 已实施完成并收口**(提交链 395091f→…→a458e95(09 合同)→0eb4b7b(实施)→9b8555f(CI 教训修正),exact-head CI 43694571961@9b8555f test+e2e 双 success,独立 Reviewer 两轮 REWORK→PASS(0 Major),报告 `p0-mvp/backup-integrity-09/REPORT-RELAY-BACKUP-INTEGRITY-09.md`):备份/恢复链目标 schema 唯一入口语义+f-1 修复+隔离恢复身份核对,已在合成双租户一次性实例真跑验收。**该修复提升的是「备份/恢复工具正确性」,不改变生产 NO-GO 事实**(迁移缺 0008/0009、Gate 未配置、旧进程、egress 缺席均未动);生产切换仍须用户单独 D3 授权,且切换窗口的备份/恢复演练须按 09 后语义执行并留存证据。
 
+> **2026-11-15 续:RELAY-RESTORE-TARGET-09R 已收口**(8368cb1→271f2f9;协调方对 09 的 REWORK[恢复目标别名与 Docker 容器错位两绕过]闭环):restore-verify.sh 现要求任何 DDL 前以实际实例身份+执行目标一致性证明目标为隔离实例且非备份源实例(文本快速门+docker inspect 绑定+exec 真值比对+服务端双探针;RELAY_DB_URL 必填),Reviewer 两轮 PASS(0 Major),CI 双绿。**该修复提升的是「恢复目标安全门正确性」,不改变生产 NO-GO 事实**;切换窗口的恢复演练须按 deploy/README-deploy.md §3 的 09R 语义执行(RELAY_RESTORE_ISOLATED=1 + RELAY_DB_URL 必填 + RESTORE_URL=隔离实例回环 base)并留存证据。
 > 2026-11-14 · 合同 241893d · **本文件只是决策材料,不是授权,更不是执行**。
 > 生产切换(迁移/配置/重启)只有在你**明确回复选择某一选项并批准范围/窗口**后才生效;未回复前生产维持现状(NO-GO 预检基线不变)。
 
