@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-15 当前无 ACTIVE,Writer 已释放**:RELAY-RESTORE-TARGET-09R 已收口(提交链 8368cb1 合同→271f2f9 实施;恢复目标真实身份校验=任何 DDL 前三层证明[文本快速门/docker inspect 执行面绑定+exec 真值比对/服务端双探针],红 R1-R4 假命令复现两绕过→修后零 DDL 拒绝,Reviewer 两轮 PASS(0 Major;M1-M4 消化,M5 两项加固候选登记),exact-head CI 43703649584@271f2f9 test+e2e 双绿且 CI 宿主分支真值层真杀实证;报告 [09R REPORT](../p0-mvp/backup-integrity-09/REPORT-RELAY-RESTORE-TARGET-09R.md)+[09R REVIEW](../p0-mvp/backup-integrity-09/REVIEW-RELAY-RESTORE-TARGET-09R.md))。09 的协调方 REWORK(Major-R1 两绕过)已闭环。生产预检仍 NO-GO、D3 未授权;备份加密/离站 DR/恢复演练排程/M5 加固候选为登记未实施。下一执行授权以用户/协调方新登记合同为准(未经登记不启动)。保护 config/、soak-r3b/ 和四个现有未跟踪 ci-checkruns 回执。下方历史经验非执行授权。
+> **2026-11-15 唯一 ACTIVE**：[CURRENT.md](../CURRENT.md) 顶部 **RELAY-CUTOVER-READINESS-10**。协调方独立复核 09R **PASS**：GitHub live main fbf32f0，exact-head CI 43704169275 test/e2e 双成功；VM80 定向单测 27/27 + 真实隔离 E2E 6/6 + 09 备份恢复 E2E 5/5，总 38/38 PASS；一次性容器零残留。见 [协调方 09R 审计](../p0-mvp/backup-integrity-09/COORDINATOR-REVIEW-09R-20261115.md)。10 的唯一目标是生产只读准入核对、隔离切换预演、D3 决策材料去陈旧与定稿；不会实施生产迁移/备份/配置/重启。**当前生产仍 NO-GO**：缺 0008/0009、Gate 检查未配、旧进程、egress 栈缺席；D3 用户未批准，MVP F1/F2 真模型及 Mac UX 未验收。VM80 config/、soak-r3b/ 与五份未跟踪 CI 回执绝对保护。历史段仅作导航。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。本文件只做短导航：当前授权、关键未解决风险与登记项、历史包索引全部在 **CURRENT.md**；历史包的合同原文、逐日进度与实施细节以 **Git 历史（git log/show）与各包报告/复核记录（`p0-00/`..`p0-accept/`、`p0-mvp/`）** 为准。
 
