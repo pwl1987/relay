@@ -1,0 +1,32 @@
+# Red-a:原始 backup.sh(a458e95 逐字提取:/tmp/red09/orig/backup.sh,md5 5ae07ed6)docker fallback 真实运行
+# 环境:一次性合成双租户实例(容器=relay-test-d09-red-8541f5a3 端口=127.0.0.1:32799);租户A=p01a_d09a_8541f5a3 B=p01a_d09b_8541f5a3 C=p01a_d09c_8541f5a3(零行);public.audit_events 含 2 行合成干扰
+# PATH 注入受保护 docker shim:argv 含 relay-p000-pg ⇒ 记录原文不执行(真实共享实例零读取),其余真实转发
+# env:RELAY_DB_URL=<一次性实例> RELAY_PG_CONTAINER=relay-test-d09-red-8541f5a3(原始步骤1尊重该 env)
+
+$ PATH=/tmp/red09/shim-docker:$PATH RELAY_DB_URL=$RELAY_DB_URL RELAY_PG_CONTAINER=relay-test-d09-red-8541f5a3 bash /tmp/red09/orig/backup.sh /tmp/red09/out/red-a
+[backup] db dump: /tmp/red09/out/red-a/db-20261115T073733Z.sql (87003 bytes)
+[backup] artifacts manifest: 3 个已交付变更集(跨 3 schema)
+[backup] audit index: 0 行
+[backup] 完成:/tmp/red09/out/red-a(20261115T073733Z;恢复演练:deploy/restore-verify.sh)
+backup.sh-exit=0
+
+## 结果核证
+1) 审计索引为空(F-1 静默失败实证):audit-index 文件字节数=0 行数=0;脚本仍 exit=0(无任何告警/失败)
+2) 整库 dump 跨 schema 混入(目标=A,实际包含全部):
+   dump 含 CREATE SCHEMA p01a_d09a_8541f5a3 = 1 处
+   dump 含 CREATE SCHEMA p01a_d09b_8541f5a3 = 1 处
+   dump 含 CREATE SCHEMA p01a_d09c_8541f5a3 = 1 处
+   dump 含 public.audit_events 干扰表 = 1 处;含 B 租户标记行(B_AUDIT_1) = 1 处;含 A 目标标记(A_AUDIT_1) = 1 处
+   dump 字节数=87003(87KB 全库,含 pg_catalog 相关与全部 schema)
+3) manifest 跨 schema 聚合(真实 backup-manifest.mjs):delivered= 条,含 B 租户条目:
+   ⇒ 目标 A 仅 1 条 DELIVERED,manifest 却导出 3 条(含他租户 2 条,泄漏 schema 名/任务ID/commit/remoteHead)
+4) 被拦截的 docker argv 原文(F-1 硬编码容器/库/未限定表名,真实脚本自身行为):
+forwarded: docker exec relay-test-d09-red-8541f5a3 pg_dump -U postgres --no-owner --no-privileges relayd08
+INTERCEPTED(not-executed;would touch non-owned real instance relay-p000-pg) argv: docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq
+5) dump 中无任何 schema 限定审计索引语句;若 relay-p000-pg 真实存在,步骤3将直读该真实共享实例 argv(见上)——本红态以受保护 shim 拦截,零真实数据读取
+3) manifest 跨 schema 聚合明细(真实 backup-manifest.mjs 输出 JSON):
+   delivered 条数 = 3
+   schema=p01a_d09a_8541f5a3 changesetId=cs-d09-a1 taskId=task-d09-a1 commit=e1e1e1e1e1e1e1e1… remoteHead=remote-head-A1
+   schema=p01a_d09b_8541f5a3 changesetId=cs-d09-b1 taskId=task-d09-b1 commit=i1i1i1i1i1i1i1i1… remoteHead=remote-head-B1
+   schema=p01a_d09b_8541f5a3 changesetId=cs-d09-b2 taskId=task-d09-b1 commit=i2i2i2i2i2i2i2i2… remoteHead=remote-head-B2
+   ⇒ 目标 A 仅 1 条 DELIVERED(cs-d09-a1),manifest 却导出 3 条:含他租户 B 2 条,泄漏 schema 名/taskId/commit/remoteHead

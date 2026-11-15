@@ -1,0 +1,17 @@
+# Red-b:原始 backup.sh 宿主分支(VM80 宿主无 pg_dump/psql ⇒ 以可验证命令注入捕获 argv,合同 D 允许路径)
+# PATH 注入 shim:pg_dump/psql 仅记录 argv(python 无真 dump;dump 内容红态已由 Red-a docker fallback 真实承担)
+
+$ PATH=/tmp/red09/shim-host:$PATH RELAY_DB_URL=<一次性实例> bash /tmp/red09/orig/backup.sh /tmp/red09/out/red-b
+[backup] db dump: /tmp/red09/out/red-b/db-20261115T073811Z.sql (79 bytes)
+[backup] artifacts manifest: 3 个已交付变更集(跨 3 schema)
+[backup] audit index: 0 行
+[backup] 完成:/tmp/red09/out/red-b(20261115T073811Z;恢复演练:deploy/restore-verify.sh)
+backup.sh-exit=0
+
+## 捕获的 pg_dump argv(步骤1,宿主分支)——证明无任何作用域限定(整库 dump 命令形态):
+pg_dump postgresql://postgres:***@127.0.0.1:32799/relayd08 --no-owner --no-privileges --file /tmp/red09/out/red-b/db-20261115T073811Z.sql
+   ⇒ argv 中无 -n/--schema/--table 任何作用域参数 ⇒ 整库导出
+
+## 捕获的 psql argv(步骤3 审计索引,宿主分支)——证明表名未按 schema 限定:
+psql postgresql://postgres:***@127.0.0.1:32799/relayd08 -tA -c SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq
+   ⇒ SQL 为 SELECT … FROM audit_events …(无 schema 前缀)⇒ 经 search_path($$user, public)解析

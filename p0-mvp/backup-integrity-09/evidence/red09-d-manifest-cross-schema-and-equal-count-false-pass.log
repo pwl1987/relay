@@ -1,0 +1,85 @@
+# Red-d:原始 restore-verify-check.mjs 的「相同计数假阳性」+ 整库 dump 恢复混入(真实脚本,一次性合成实例)
+# 脚本版本核对:md5(工作区原文件)=md5(/tmp 逐字提取副本)=cfacfcf3b4b486ecc84b86b27ff47c22(a458e95 未修改)
+# 步骤1:Red-a 整库 dump 恢复到同一次性实例新库 relayd09chk(docker exec psql ON_ERROR_STOP=1)
+ set_config 
+------------
+ 
+(1 row)
+
+ setval 
+--------
+      3
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      2
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      2
+(1 row)
+
+restore-exit=0(整库 dump 恢复成功:A/B/C 三 schema+public 干扰表全部进入恢复库——整库混入同样体现在恢复面)
+
+# 步骤2(基线):原始 check.mjs 跨 schema 求总数 vs manifest 总数
+$ node deploy/restore-verify-check.mjs <manifest> <manifest>(RESTORE_TARGET_URL=relayd09chk)
+[restore] 交付记录:备份 manifest=3 恢复后=3 一致 ✓
+[restore] 审计行(全 schema 合计):7
+baseline-check-exit=0
+
+# 步骤3(扰动构造假阳性):DELETE 目标租户 A 唯一 DELIVERED 行(cs-d09-a1)+ INSERT 他租户 B 额外 DELIVERED 行(cs-d09-b3)
+#   ⇒ 恢复库中目标 A 交付记录丢失(身份损坏),但跨 schema 总数仍=manifest 总数
+perturb-exit=0
+
+# 步骤4:身份损坏后重跑原始 check.mjs —— 期望暴露损坏,实际:
+[restore] 交付记录:备份 manifest=3 恢复后=3 一致 ✓
+[restore] 审计行(全 schema 合计):7
+post-perturb-check-exit=0(0=假阳性:损坏未被发现)
+
+## 恢复库实际 DELIVERED 集合 vs manifest 期望集合(身份对比):
+-- manifest 期望(备份时点):
+   p01a_d09a_8541f5a3.cs-d09-a1 commit=e1e1e1e1e1e1e1e1... remoteHead=remote-head-A1
+   p01a_d09b_8541f5a3.cs-d09-b1 commit=i1i1i1i1i1i1i1i1... remoteHead=remote-head-B1
+   p01a_d09b_8541f5a3.cs-d09-b2 commit=i2i2i2i2i2i2i2i2... remoteHead=remote-head-B2
+-- 恢复库实际(扰动后,跨全 schema):
+   p01a_d09b_8541f5a3.cs-d09-b1 commit=i1i1i1i1i1i1i1i1... remote-head-B1
+   p01a_d09b_8541f5a3.cs-d09-b2 commit=i2i2i2i2i2i2i2i2... remote-head-B2
+   p01a_d09b_8541f5a3.cs-d09-b3 commit=i3... remote-head-B3
+   ⇒ 总数 3=3 相等,集合身份不同(目标 A 行丢失、被他租户 B 行替代)——原始脚本仍裁决「一致 ✓」exit 0 = 相同计数假阳性实证

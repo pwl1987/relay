@@ -74,18 +74,25 @@ node deploy/preflight.ts --json     # 机器可读(同样脱敏)
 - **迁移补齐(必做,写生产 schema)**:在 relay_console schema 上精确执行缺失迁移文件内容(`migrations/0008_goal_messages_execution_request.sql`、`migrations/0009_tasks_abort_requested.sql` 的 SQL 主体,search_path 置 relay_console;0008 加列 NOT NULL DEFAULT false[旧行自动回填 false]、0009 加列可空;幂等以 preflight 复检为准);补后重跑 preflight 应 `db_migrations=PASS`。**拟执行 SQL/前置/后置/回滚审批材料可先经只读演练工具生成**:`node deploy/rehearse-migration.ts plan --schema relay_console`(RELAY-DEPLOY-REHEARSAL-08;对生产只读输出,永不执行;apply 面仅接受 `p01a_*` 隔离测试 schema,对 relay_console/public 等在任何写入前拒绝)。隔离增量升级/重复/半迁移/恢复回退演练证据见 `p0-mvp/deploy-rehearsal-08/REPORT-RELAY-DEPLOY-REHEARSAL-08.md`。
 - **沙箱镜像**:如需覆盖 `RELAY_SANDBOX_IMAGE` 默认值,先在隔离演练验证镜像对既定命令的支持,不得以"存在配置"冒充执行通过。
 
-### 3. 备份与隔离恢复演练(切换前必做)
+### 3. 备份与隔离恢复演练(切换前必做;RELAY-BACKUP-INTEGRITY-09 修复后语义)
 
 ```bash
+# 备份(RELAY_BACKUP_SCHEMA 必填:目标 Relay schema,如 relay_console;未声明/目标不存在/缺 Relay 表 ⇒ fail-closed 拒绝;
+# all=显式旧版整库/跨 schema 兼容模式,绝不静默。dump 仅含目标 schema + manifest 只认目标 schema + 审计索引 schema 限定)
 RELAY_DB_URL=$(grep '^RELAY_DB_URL=' ~/.relay/console/env | cut -d= -f2-) \
-  deploy/backup.sh /tmp/relay-backup-$(date +%Y%m%d)   # db dump + artifacts manifest + audit index + checksums
-# 恢复演练(宿主无 psql ⇒ 需 psql 可用的恢复容器:RELAY_RESTORE_CONTAINER 覆盖,缺省 relay-restore-verify;
-# 可起一次性 PG 容器充当;自动化等价路径=RELAY_BACKUP_E2E=1 的 test/integration/backup-restore.test.ts,quality:release 内置)
-deploy/restore-verify.sh /tmp/relay-backup-YYYYMMDD "<隔离实例连接串>"   # 隔离实例恢复+交叉核对
+RELAY_BACKUP_SCHEMA=relay_console \
+  deploy/backup.sh /tmp/relay-backup-$(date +%Y%m%d)   # 作用域 dump + manifest[targetSchema] + 审计索引 + 完成标记 + 校验和
+# 恢复演练(RELAY_RESTORE_ISOLATED=1 必填;RESTORE_URL=隔离实例 base 连接串[不带库名];与备份源实例相同 ⇒ 拒绝;
+# 宿主无 psql ⇒ 需 psql 可用的恢复容器:RELAY_RESTORE_CONTAINER 覆盖,缺省 relay-restore-verify,可起一次性 PG 容器充当)
+RELAY_RESTORE_ISOLATED=1 RELAY_RESTORE_CONTAINER=<psql可用的恢复容器> \
+  deploy/restore-verify.sh /tmp/relay-backup-YYYYMMDD "postgresql://<用户>:<密码>@<隔离实例host>:<端口>"
+# (校验和先行核验 → 新建 relay_restore_v*_<随机> 库导入 → manifest/审计索引与恢复库集合身份逐项核对;
+#  自动化等价路径=RELAY_BACKUP_E2E=1 的 test/integration/backup-restore.test.ts,quality:release 内置;
+#  09 全链真跑证据=test/integration/d09-backup-integrity.test.ts)
 ```
 
-- 恢复目标必须是**隔离实例**(独立容器/独立库),禁止在生产库上重放备份。
-- **F-1 登记(RELAY-DEPLOY-REHEARSAL-08)**:backup.sh 第 3 步审计索引在宿主无 psql 时回退命令硬编码 `docker exec relay-p000-pg … relayp000` 且 `audit_events` 未按 schema 限定 ⇒ 生产审计行在 `relay_console` schema 下,该索引可能为空或读到 public 旧表。切换窗口执行备份时,审计索引请以 schema 限定命令人工核对:`docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c "SELECT seq||'|'||ts||'|'||actor||'|'||action FROM relay_console.audit_events ORDER BY seq"`(或批准后续小包修复 backup.sh;本包未改它)。
+- 恢复目标必须是**隔离实例**(独立容器/独立库):未声明 `RELAY_RESTORE_ISOLATED=1` 或恢复目标实例与备份源相同 ⇒ fail-closed,禁止在生产库上重放备份。
+- **F-1 已修复(RELAY-BACKUP-INTEGRITY-09)**:旧版第 3 步审计索引硬编码 `relay-p000-pg/relayp000` 且 `audit_events` 未限定 schema(可能空索引/错源到 public 遗留表)、旧版 pg_dump 整库与 manifest/恢复核对跨 schema 聚合(同实例多项目/测试租户数据混入+合计数假一致)——现均为目标 schema 唯一入口语义(见上),恢复核对升级为稳定键集合身份(相同计数不再构成通过)。反例红态证据见 `p0-mvp/backup-integrity-09/evidence/red09-*.log`。
 - 外部 Git 交付状态不在备份范围:恢复后核对 `candidate_changesets.delivered_remote_head` 与 GitHub 实际 HEAD(Reconcile 语义见 V05/V10)。
 
 ### 4. 切换操作顺序(仅在用户 D3 批准后执行)

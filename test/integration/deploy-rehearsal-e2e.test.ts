@@ -2,8 +2,9 @@
 // 流程(全部在一次性 postgres:17-alpine 容器内;容器名 relay-test-d08-* sentinel,退出即删):
 //   1) 建 p01a_d08e2e_* schema 并精确构造 0007 旧形状 + 最小合成行(含中文/jsonb 保真 + DELIVERED 候选);
 //   2) 备份:与 deploy/backup.sh 步骤1同命令形态(docker exec <实例> pg_dump --no-owner --no-privileges <库>)
-//      + 跨 schema 交付 manifest(复用 deploy/backup-manifest.mjs)+ schema 限定审计索引 + sha256 校验和
-//      (backup.sh 审计索引回退硬编码 relay-p000-pg/relayp000 且未限定 schema —— 登记 F-1,见 REPORT);
+//      + 交付 manifest(复用 deploy/backup-manifest.mjs;09 起须显式 RELAY_BACKUP_SCHEMA=目标 schema,
+//      本 E2E 为迁移后调用方——F-1 已由 RELAY-BACKUP-INTEGRITY-09 修复:schema 限定审计索引/作用域 dump)
+//      + schema 限定审计索引 + sha256 校验和;
 //   3) 迁移:真实演练工具 applyIncrementalMigration 0007→0009 + 后验 + 代码回退兼容 INSERT
 //      (旧行为 INSERT 不引用新列 ⇒ 成功且默认回填 false —— "代码回退兼容新增列"实证);
 //   4) 恢复:同一实例内新建 relay_restore_v* 库导入备份(restore-verify.sh 容器路径同形态)+
@@ -141,17 +142,18 @@ describe.skipIf(!dockerOk)("RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁�
     const dumpFile = join(backupDir, "db-e2e.sql");
     writeFileSync(dumpFile, dexec(["pg_dump", "-U", "postgres", "--no-owner", "--no-privileges", "relayd08"]));
     expect(readFileSync(dumpFile, "utf8")).toContain(`CREATE SCHEMA ${schemaName}`);
-    // 跨 schema 交付 manifest(真实 deploy/backup-manifest.mjs;RELAY_DB_URL 指向一次性实例)
+    // 交付 manifest(真实 deploy/backup-manifest.mjs;RELAY_DB_URL 指向一次性实例;09:显式目标 schema)
     execFileSync("node", ["deploy/backup-manifest.mjs", backupDir, join(backupDir, "artifacts-manifest-e2e.json")], {
       cwd: join(import.meta.dirname, "../.."),
       encoding: "utf8",
       timeout: 60_000,
-      env: { ...process.env, RELAY_DB_URL: mainUrl },
+      env: { ...process.env, RELAY_DB_URL: mainUrl, RELAY_BACKUP_SCHEMA: schemaName },
     });
     const manifest = JSON.parse(readFileSync(join(backupDir, "artifacts-manifest-e2e.json"), "utf8"));
     expect(manifest.delivered.length).toBe(1);
     expect(manifest.delivered[0]).toMatchObject({ schema: schemaName, changesetId: "cs-e2e-1" });
-    // 审计索引(backup.sh 步骤3 的 schema 限定等价形态;F-1 登记见 REPORT)
+    expect(manifest.targetSchema).toBe(schemaName);
+    // 审计索引(backup.sh 步骤3 同形态:schema 限定 + seq|ts|actor|action 规范行;09 起须落盘供 check 交叉核对)
     const auditIndex = dexec([
       "psql",
       "-U",
@@ -160,9 +162,10 @@ describe.skipIf(!dockerOk)("RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁�
       "relayd08",
       "-tA",
       "-c",
-      `SELECT seq || '|' || actor || '|' || action FROM "${schemaName}".audit_events ORDER BY seq`,
+      `SELECT seq || '|' || ts || '|' || actor || '|' || action FROM "${schemaName}".audit_events ORDER BY seq`,
     ]);
     expect(auditIndex).toContain("D08_BACKUP_BASELINE");
+    writeFileSync(join(backupDir, "audit-index-e2e.txt"), auditIndex.endsWith("\n") ? auditIndex : auditIndex + "\n");
     // 校验和(backup.sh 步骤4 形态;路径取相对名便于 -c 校验)
     const sum = execFileSync("sha256sum", [dumpFile, join(backupDir, "artifacts-manifest-e2e.json")], {
       encoding: "utf8",
@@ -199,13 +202,13 @@ describe.skipIf(!dockerOk)("RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁�
       input: readFileSync(dumpFile, "utf8"),
       stdin: true,
     });
-    // 真实 deploy/restore-verify-check.mjs(manifest ↔ 恢复库交叉核对)
+    // 真实 deploy/restore-verify-check.mjs(manifest+审计索引 ↔ 恢复库身份交叉核对;09 集合语义)
     const checkOut = execFileSync(
       "node",
       [
         "deploy/restore-verify-check.mjs",
         join(backupDir, "artifacts-manifest-e2e.json"),
-        join(backupDir, "artifacts-manifest-e2e.json"),
+        join(backupDir, "audit-index-e2e.txt"),
       ],
       {
         cwd: join(import.meta.dirname, "../.."),

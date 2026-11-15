@@ -1,0 +1,107 @@
+# Red-e:原始 restore-verify.sh(a458e95 原文件,md5 23d89bf5)对「恢复目标=备份源实例」零守卫
+# 场景:RESTORE_URL=备份源实例 base URL(仅去掉库名);环境未设任何隔离声明变量(原始脚本也无此概念)
+# 预期(修复后语义):应 fail-closed 拒绝;实际(原始脚本):直接在源实例上 DROP DATABASE/CREATE DATABASE 并恢复
+# (一次性合成实例,安全;该形态若发生在生产即=生产实例上新建库,即合同「恢复误指生产」可达路径)
+
+# 恢复前源实例数据库列表:
+   postgres
+   relayd08
+   relayd09chk
+
+$ RELAY_RESTORE_CONTAINER=relay-test-d09-red-8541f5a3 bash deploy/restore-verify.sh /tmp/red09/out/red-a <源实例base URL>(未设 RELAY_DB_URL,未设任何隔离声明)
+NOTICE:  database "relay_restore_v1794728449" does not exist, skipping
+ set_config 
+------------
+ 
+(1 row)
+
+ setval 
+--------
+      3
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      2
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      2
+(1 row)
+
+[restore] 目标库:relay_restore_v1794728449
+[restore] DB 恢复完成:0s
+/home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+Error: getaddrinfo EAI_AGAIN relay_restore_v1794728449
+    at /home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///home/ubuntu/dev/relay/deploy/restore-verify-check.mjs:7:18 {
+  errno: -3001,
+  code: 'EAI_AGAIN',
+  syscall: 'getaddrinfo',
+  hostname: 'relay_restore_v1794728449'
+}
+
+Node.js v24.21.0
+restore-verify-exit=1(0=对源实例成功执行了 DROP/CREATE+恢复,无任何守卫拒绝)
+
+# 恢复后源实例数据库列表(relay_restore_v* = 被创建在备份源实例上):
+   postgres
+   relayd08
+   relayd09chk
+   relay_restore_v1794728449
+
+# 恢复出的库中租户数据实证(整库 dump 恢复,A/B/C 三 schema 全部混入):
+   p01a_d09a_8541f5a3:16 张表
+   p01a_d09b_8541f5a3:16 张表
+   p01a_d09c_8541f5a3:16 张表
+   public:1 张表
+   ⇒ 原始脚本接受任意 RESTORE_URL(含备份源实例/生产实例),无 RELAY_RESTORE_ISOLATED 语义、无源/目标不等校验、无完成标记要求 —— 恢复误指可达
+
+## 如实注记(两个独立缺陷同框实证)
+- 隔离守卫缺失(合同目标缺陷):原始脚本对 RESTORE_URL=备份源实例 base URL 零拒绝,在源实例上真实创建
+  relay_restore_v1794728449 并恢复全部混入 schema(恢复前后 pg_database 列表对比为证);无 RELAY_RESTORE_ISOLATED
+  语义、无源/目标不等校验、无备份完成标记要求。
+- 潜在缺陷 D13(红态附带发现):RESTORE_TARGET_URL="${RESTORE_URL%/*}/$TARGET_DB" 的推导要求 RESTORE_URL 含库段,
+  而 psql 分支 `psql "$RESTORE_URL/postgres"` 要求 base URL(无库段)——两种形态互斥,base URL 形态下 check.mjs
+  步骤连接串被剥坏(getaddrinfo EAI_AGAIN relay_restore_v* = 把库名当主机名解析),exit=1 非守卫所致。
+  历史 stage-e 复核演练以含库段 URL 通过(DROP/CREATE 走 "$RESTORE_URL/postgres" 恰好兼容首段库名),掩盖了该不一致。

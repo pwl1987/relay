@@ -1,0 +1,35 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/d09-backup-integrity.test.ts
+[d09 门控] docker=true
+
+NOTICE:  database "relay_restore_v1794729492_31203" does not exist, skipping
+ERROR:  audit_events is append-only: DELETE is not allowed
+CONTEXT:  PL/pgSQL function p01a_d09a_a1b28918.relay_forbid_audit_mutation() line 3 at RAISE
+deploy/backup.sh: line 19: RELAY_BACKUP_SCHEMA: 需 RELAY_BACKUP_SCHEMA(目标 Relay schema 或 all;拒绝静默整库)
+ls: cannot access '/tmp/d09-backup-3qVrw4/refuse-noschema': No such file or directory
+[backup-validate] fail-closed:目标 schema 不存在:p01a_nonexistent_xyz(连接目标=postgresql://postgres:***@127.0.0.1:32806/relayd08);拒绝备份
+ls: cannot access '/tmp/d09-backup-3qVrw4/refuse-badschema': No such file or directory
+Error response from daemon: No such container: relay-d09-nonexistent-xyz
+[backup] 失败(exit=1):已清理本次 STAMP=20261115T075814Z 残留产物
+[restore] fail-closed:未显式声明 RELAY_RESTORE_ISOLATED=1(恢复目标必须是隔离实例,禁止生产/备份源实例)
+[restore] fail-closed:恢复目标实例与备份源实例相同(RESTORE_URL 是 RELAY_DB_URL 的实例前缀);拒绝在源/生产实例上恢复
+[restore] fail-closed:完成标记数量≠1(缺失=备份失败残留或不完整);拒绝恢复
+NOTICE:  database "relayd09tamp" does not exist, skipping
+[restore] fail-closed:DELIVERED 集合身份不一致(相同计数不构成通过)
+NOTICE:  database "relayd09faithful" does not exist, skipping
+[restore] fail-closed:审计索引集合不一致(错源/丢失/混入)
+[restore] fail-closed:manifest 缺少 targetSchema/delivered(legacy 或损坏);拒绝核对
+NOTICE:  database "relay_restore_v1794729497_21537" does not exist, skipping
+ ✓ test/integration/d09-backup-integrity.test.ts (5 tests) 10600ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > 主链:schema 模式真实 backup.sh(A 专属)→ 真实 restore-verify.sh(隔离实例)→ 身份核对 + 恢复后可用  2021ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > 扰动 B 不改变 A 的备份产物(manifest/审计索引逐字节相等;B 新行零进入)  544ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > fail-closed 矩阵:未声明 schema/目标不存在/错容器/未声明隔离/恢复=源实例/缺标记/篡改/身份扰动/legacy manifest 一律拒绝  2103ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > all 模式 = 显式旧版整库/跨 schema 兼容语义(可重复演示;如实含 public 遗留)  1694ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  15:58:07
+   Duration  11.69s (transform 199ms, setup 0ms, collect 805ms, tests 10.60s, environment 0ms, prepare 79ms)
+

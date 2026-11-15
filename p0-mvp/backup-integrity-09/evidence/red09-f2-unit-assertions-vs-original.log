@@ -1,0 +1,561 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+/home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+Error: connect ECONNREFUSED 127.0.0.1:1
+    at /home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///home/ubuntu/dev/relay/deploy/backup-manifest.mjs:7:18 {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 1
+}
+
+Node.js v24.21.0
+/home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+Error: connect ECONNREFUSED 127.0.0.1:1
+    at /home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///home/ubuntu/dev/relay/deploy/backup-manifest.mjs:7:18 {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 1
+}
+
+Node.js v24.21.0
+ ❯ test/unit/tmp-redf2-variant.test.ts (13 tests | 13 failed) 204ms
+   × RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 目标 schema 必须显式声明,未声明 ⇒ fail-closed(拒绝静默整库) 10ms
+     → expected 'set -euo pipefail\nOUT="${1:?用法:backu…' to match /RELAY_BACKUP_SCHEMA=\$\{RELAY_BACKUP_…/
+   × RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > dump 两分支均按目标 schema 限定(pg_dump -n;all 模式须显式) 2ms
+     → actual value must be number or bigint, received "undefined"
+   × RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 审计索引两条路径都 schema 限定(不再出现未限定 FROM audit_events) 1ms
+     → expected 'set -euo pipefail\nOUT="${1:?用法:backu…' not to match /FROM audit_events/
+   × RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > docker 回退目标一致:容器/库名一律派生自 env 与 RELAY_DB_URL,不再硬编码 6ms
+     → expected 'set -euo pipefail\nOUT="${1:?用法:backu…' not to contain 'docker exec relay-p000-pg'
+   × RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 无内嵌绝对路径(manifest 调用以脚本目录相对定位) 3ms
+     → expected 'set -euo pipefail\nOUT="${1:?用法:backu…' not to contain '/home/ubuntu/dev/relay'
+   × RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 备份完成标记 + 失败清理自身产物(trap;失败不残留冒充成功) 1ms
+     → expected 'set -euo pipefail\nOUT="${1:?用法:backu…' to match /trap /
+   × RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 目标校验先于任何 dump/连接(backup-validate.mjs 单一入口) 1ms
+     → expected -1 to be greater than -1
+   × RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > backup-manifest.mjs 必须显式声明目标 schema(env RELAY_BACKUP_SCHEMA),缺失即拒绝 1ms
+     → expected '// 备份 Artifact 清单(跨 schema 聚合已交付候选;阶段…' to match /RELAY_BACKUP_SCHEMA/
+   × RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > manifest 记录 targetSchema(恢复核对的目标身份唯一来源) 1ms
+     → expected '// 备份 Artifact 清单(跨 schema 聚合已交付候选;阶段…' to match /targetSchema/
+   × RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > restore-verify-check.mjs 必须做集合身份核对,不只计数 1ms
+     → expected '// 恢复核对(跨 schema 聚合;阶段 E3)\nimport { …' to match /manifestOnlyIds|identity|集合|身份/
+   × RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > restore-verify.sh:隔离声明 + 源/目标不等校验 + 完成标记/多义性拒绝(恢复误指 fail-closed) 1ms
+     → expected 'set -euo pipefail\nBK="${1:?用法:restor…' to match /RELAY_RESTORE_ISOLATED/
+   × RELAY-BACKUP-INTEGRITY-09:动态 fail-closed(无 docker;node 直拒) > backup-manifest.mjs 未声明 RELAY_BACKUP_SCHEMA ⇒ exit≠0 且拒绝消息含声明要求(先于任何连接) 93ms
+     → expected '/home/ubuntu/dev/relay/node_modules/p…' to contain 'RELAY_BACKUP_SCHEMA'
+   × RELAY-BACKUP-INTEGRITY-09:动态 fail-closed(无 docker;node 直拒) > backup-manifest.mjs 目标 schema 不存在 ⇒ exit≠0 拒绝(不产出 manifest 文件) 82ms
+     → expected '/home/ubuntu/dev/relay/node_modules/p…' to contain 'p01a_nonexistent_xyz'
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 目标 schema 必须显式声明,未声明 ⇒ fail-closed(拒绝静默整库)
+AssertionError: expected 'set -euo pipefail\nOUT="${1:?用法:backu…' to match /RELAY_BACKUP_SCHEMA=\$\{RELAY_BACKUP_…/
+
+- Expected: 
+/RELAY_BACKUP_SCHEMA=\$\{RELAY_BACKUP_SCHEMA:\?/
+
++ Received: 
+"set -euo pipefail
+OUT=\"${1:?用法:backup.sh <输出目录>}\"
+mkdir -p \"$OUT\"
+STAMP=\"$(date -u +%Y%m%dT%H%M%SZ)\"
+
+DB_URL=\"${RELAY_DB_URL:?需 RELAY_DB_URL}\"
+if command -v pg_dump >/dev/null 2>&1; then
+  pg_dump \"$DB_URL\" --no-owner --no-privileges --file \"$OUT/db-$STAMP.sql\"
+else
+  DB_NAME=\"${DB_URL##*/}\"
+  CONT=\"${RELAY_PG_CONTAINER:-relay-p000-pg}\"
+  docker exec \"$CONT\" pg_dump -U postgres --no-owner --no-privileges \"$DB_NAME\" > \"$OUT/db-$STAMP.sql\"
+fi
+echo \"[backup] db dump: $OUT/db-$STAMP.sql ($(wc -c < \"$OUT/db-$STAMP.sql\") bytes)\"
+
+node \"/home/ubuntu/dev/relay/deploy/backup-manifest.mjs\" \"$OUT\" \"$OUT/artifacts-manifest-$STAMP.json\"
+
+if command -v psql >/dev/null 2>&1; then
+  psql \"$DB_URL\" -tA -c \"SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq\" > \"$OUT/audit-index-$STAMP.txt\"
+else
+  docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c \"SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq\" > \"$OUT/audit-index-$STAMP.txt\"
+fi
+echo \"[backup] audit index: $(wc -l < \"$OUT/audit-index-$STAMP.txt\") 行\"
+
+find \"$OUT\" -type f -newer \"$OUT/db-$STAMP.sql\" -o -type f -name \"*$STAMP*\" | sort > \"$OUT/backup-$STAMP.filelist\"
+( cd \"$OUT\" && sha256sum *\"$STAMP\"* > \"checksums-$STAMP.sha256\" )
+echo \"[backup] 完成:$OUT($STAMP;恢复演练:deploy/restore-verify.sh)\"
+"
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:24:15
+     22|   it("目标 schema 必须显式声明,未声明 ⇒ fail-closed(拒绝静默整库)", () => {
+     23|     const c = codeOf("backup.sh");
+     24|     expect(c).toMatch(/RELAY_BACKUP_SCHEMA=\$\{RELAY_BACKUP_SCHEMA:\?/…
+       |               ^
+     25|   });
+     26| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > dump 两分支均按目标 schema 限定(pg_dump -n;all 模式须显式)
+TypeError: actual value must be number or bigint, received "undefined"
+ ❯ test/unit/tmp-redf2-variant.test.ts:30:54
+     28|     const c = codeOf("backup.sh");
+     29|     // 宿主分支与 docker 回退分支都必须出现 -n "$BACKUP_SCHEMA"
+     30|     expect(c.match(/-n "\$BACKUP_SCHEMA"/g)?.length).toBeGreaterThanOr…
+       |                                                      ^
+     31|   });
+     32| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 审计索引两条路径都 schema 限定(不再出现未限定 FROM audit_events)
+AssertionError: expected 'set -euo pipefail\nOUT="${1:?用法:backu…' not to match /FROM audit_events/
+
+- Expected: 
+/FROM audit_events/
+
++ Received: 
+"set -euo pipefail
+OUT=\"${1:?用法:backup.sh <输出目录>}\"
+mkdir -p \"$OUT\"
+STAMP=\"$(date -u +%Y%m%dT%H%M%SZ)\"
+
+DB_URL=\"${RELAY_DB_URL:?需 RELAY_DB_URL}\"
+if command -v pg_dump >/dev/null 2>&1; then
+  pg_dump \"$DB_URL\" --no-owner --no-privileges --file \"$OUT/db-$STAMP.sql\"
+else
+  DB_NAME=\"${DB_URL##*/}\"
+  CONT=\"${RELAY_PG_CONTAINER:-relay-p000-pg}\"
+  docker exec \"$CONT\" pg_dump -U postgres --no-owner --no-privileges \"$DB_NAME\" > \"$OUT/db-$STAMP.sql\"
+fi
+echo \"[backup] db dump: $OUT/db-$STAMP.sql ($(wc -c < \"$OUT/db-$STAMP.sql\") bytes)\"
+
+node \"/home/ubuntu/dev/relay/deploy/backup-manifest.mjs\" \"$OUT\" \"$OUT/artifacts-manifest-$STAMP.json\"
+
+if command -v psql >/dev/null 2>&1; then
+  psql \"$DB_URL\" -tA -c \"SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq\" > \"$OUT/audit-index-$STAMP.txt\"
+else
+  docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c \"SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq\" > \"$OUT/audit-index-$STAMP.txt\"
+fi
+echo \"[backup] audit index: $(wc -l < \"$OUT/audit-index-$STAMP.txt\") 行\"
+
+find \"$OUT\" -type f -newer \"$OUT/db-$STAMP.sql\" -o -type f -name \"*$STAMP*\" | sort > \"$OUT/backup-$STAMP.filelist\"
+( cd \"$OUT\" && sha256sum *\"$STAMP\"* > \"checksums-$STAMP.sha256\" )
+echo \"[backup] 完成:$OUT($STAMP;恢复演练:deploy/restore-verify.sh)\"
+"
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:35:19
+     33|   it("审计索引两条路径都 schema 限定(不再出现未限定 FROM audit_events)", () => {
+     34|     const c = codeOf("backup.sh");
+     35|     expect(c).not.toMatch(/FROM audit_events/);
+       |                   ^
+     36|     expect(c).toMatch(/FROM \\"?\$BACKUP_SCHEMA\\"?\.audit_events|FROM…
+     37|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > docker 回退目标一致:容器/库名一律派生自 env 与 RELAY_DB_URL,不再硬编码
+AssertionError: expected 'set -euo pipefail\nOUT="${1:?用法:backu…' not to contain 'docker exec relay-p000-pg'
+
+- Expected
++ Received
+
+- docker exec relay-p000-pg
++ set -euo pipefail
++ OUT="${1:?用法:backup.sh <输出目录>}"
++ mkdir -p "$OUT"
++ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
++
++ DB_URL="${RELAY_DB_URL:?需 RELAY_DB_URL}"
++ if command -v pg_dump >/dev/null 2>&1; then
++   pg_dump "$DB_URL" --no-owner --no-privileges --file "$OUT/db-$STAMP.sql"
++ else
++   DB_NAME="${DB_URL##*/}"
++   CONT="${RELAY_PG_CONTAINER:-relay-p000-pg}"
++   docker exec "$CONT" pg_dump -U postgres --no-owner --no-privileges "$DB_NAME" > "$OUT/db-$STAMP.sql"
++ fi
++ echo "[backup] db dump: $OUT/db-$STAMP.sql ($(wc -c < "$OUT/db-$STAMP.sql") bytes)"
++
++ node "/home/ubuntu/dev/relay/deploy/backup-manifest.mjs" "$OUT" "$OUT/artifacts-manifest-$STAMP.json"
++
++ if command -v psql >/dev/null 2>&1; then
++   psql "$DB_URL" -tA -c "SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq" > "$OUT/audit-index-$STAMP.txt"
++ else
++   docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c "SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq" > "$OUT/audit-index-$STAMP.txt"
++ fi
++ echo "[backup] audit index: $(wc -l < "$OUT/audit-index-$STAMP.txt") 行"
++
++ find "$OUT" -type f -newer "$OUT/db-$STAMP.sql" -o -type f -name "*$STAMP*" | sort > "$OUT/backup-$STAMP.filelist"
++ ( cd "$OUT" && sha256sum *"$STAMP"* > "checksums-$STAMP.sha256" )
++ echo "[backup] 完成:$OUT($STAMP;恢复演练:deploy/restore-verify.sh)"
++
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:41:19
+     39|   it("docker 回退目标一致:容器/库名一律派生自 env 与 RELAY_DB_URL,不再硬编码", () => {
+     40|     const c = codeOf("backup.sh");
+     41|     expect(c).not.toContain("docker exec relay-p000-pg");
+       |                   ^
+     42|     expect(c).not.toContain("-d relayp000");
+     43|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 无内嵌绝对路径(manifest 调用以脚本目录相对定位)
+AssertionError: expected 'set -euo pipefail\nOUT="${1:?用法:backu…' not to contain '/home/ubuntu/dev/relay'
+
+- Expected
++ Received
+
+- /home/ubuntu/dev/relay
++ set -euo pipefail
++ OUT="${1:?用法:backup.sh <输出目录>}"
++ mkdir -p "$OUT"
++ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
++
++ DB_URL="${RELAY_DB_URL:?需 RELAY_DB_URL}"
++ if command -v pg_dump >/dev/null 2>&1; then
++   pg_dump "$DB_URL" --no-owner --no-privileges --file "$OUT/db-$STAMP.sql"
++ else
++   DB_NAME="${DB_URL##*/}"
++   CONT="${RELAY_PG_CONTAINER:-relay-p000-pg}"
++   docker exec "$CONT" pg_dump -U postgres --no-owner --no-privileges "$DB_NAME" > "$OUT/db-$STAMP.sql"
++ fi
++ echo "[backup] db dump: $OUT/db-$STAMP.sql ($(wc -c < "$OUT/db-$STAMP.sql") bytes)"
++
++ node "/home/ubuntu/dev/relay/deploy/backup-manifest.mjs" "$OUT" "$OUT/artifacts-manifest-$STAMP.json"
++
++ if command -v psql >/dev/null 2>&1; then
++   psql "$DB_URL" -tA -c "SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq" > "$OUT/audit-index-$STAMP.txt"
++ else
++   docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c "SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq" > "$OUT/audit-index-$STAMP.txt"
++ fi
++ echo "[backup] audit index: $(wc -l < "$OUT/audit-index-$STAMP.txt") 行"
++
++ find "$OUT" -type f -newer "$OUT/db-$STAMP.sql" -o -type f -name "*$STAMP*" | sort > "$OUT/backup-$STAMP.filelist"
++ ( cd "$OUT" && sha256sum *"$STAMP"* > "checksums-$STAMP.sha256" )
++ echo "[backup] 完成:$OUT($STAMP;恢复演练:deploy/restore-verify.sh)"
++
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:46:37
+     44| 
+     45|   it("无内嵌绝对路径(manifest 调用以脚本目录相对定位)", () => {
+     46|     expect(codeOf("backup.sh")).not.toContain("/home/ubuntu/dev/relay"…
+       |                                     ^
+     47|     expect(codeOf("backup.sh")).toMatch(/SCRIPT_DIR=/);
+     48|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 备份完成标记 + 失败清理自身产物(trap;失败不残留冒充成功)
+AssertionError: expected 'set -euo pipefail\nOUT="${1:?用法:backu…' to match /trap /
+
+- Expected: 
+/trap /
+
++ Received: 
+"set -euo pipefail
+OUT=\"${1:?用法:backup.sh <输出目录>}\"
+mkdir -p \"$OUT\"
+STAMP=\"$(date -u +%Y%m%dT%H%M%SZ)\"
+
+DB_URL=\"${RELAY_DB_URL:?需 RELAY_DB_URL}\"
+if command -v pg_dump >/dev/null 2>&1; then
+  pg_dump \"$DB_URL\" --no-owner --no-privileges --file \"$OUT/db-$STAMP.sql\"
+else
+  DB_NAME=\"${DB_URL##*/}\"
+  CONT=\"${RELAY_PG_CONTAINER:-relay-p000-pg}\"
+  docker exec \"$CONT\" pg_dump -U postgres --no-owner --no-privileges \"$DB_NAME\" > \"$OUT/db-$STAMP.sql\"
+fi
+echo \"[backup] db dump: $OUT/db-$STAMP.sql ($(wc -c < \"$OUT/db-$STAMP.sql\") bytes)\"
+
+node \"/home/ubuntu/dev/relay/deploy/backup-manifest.mjs\" \"$OUT\" \"$OUT/artifacts-manifest-$STAMP.json\"
+
+if command -v psql >/dev/null 2>&1; then
+  psql \"$DB_URL\" -tA -c \"SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq\" > \"$OUT/audit-index-$STAMP.txt\"
+else
+  docker exec relay-p000-pg psql -U postgres -d relayp000 -tA -c \"SELECT seq || '|' || ts || '|' || actor || '|' || action FROM audit_events ORDER BY seq\" > \"$OUT/audit-index-$STAMP.txt\"
+fi
+echo \"[backup] audit index: $(wc -l < \"$OUT/audit-index-$STAMP.txt\") 行\"
+
+find \"$OUT\" -type f -newer \"$OUT/db-$STAMP.sql\" -o -type f -name \"*$STAMP*\" | sort > \"$OUT/backup-$STAMP.filelist\"
+( cd \"$OUT\" && sha256sum *\"$STAMP\"* > \"checksums-$STAMP.sha256\" )
+echo \"[backup] 完成:$OUT($STAMP;恢复演练:deploy/restore-verify.sh)\"
+"
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:52:15
+     50|   it("备份完成标记 + 失败清理自身产物(trap;失败不残留冒充成功)", () => {
+     51|     const c = codeOf("backup.sh");
+     52|     expect(c).toMatch(/trap /);
+       |               ^
+     53|     expect(c).toMatch(/\.done/);
+     54|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:backup.sh 唯一入口语义(静态契约) > 目标校验先于任何 dump/连接(backup-validate.mjs 单一入口)
+AssertionError: expected -1 to be greater than -1
+ ❯ test/unit/tmp-redf2-variant.test.ts:60:25
+     58|     const validatePos = c.indexOf("backup-validate.mjs");
+     59|     const dumpPos = c.indexOf("pg_dump");
+     60|     expect(validatePos).toBeGreaterThan(-1);
+       |                         ^
+     61|     expect(dumpPos).toBeGreaterThan(validatePos);
+     62|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > backup-manifest.mjs 必须显式声明目标 schema(env RELAY_BACKUP_SCHEMA),缺失即拒绝
+AssertionError: expected '// 备份 Artifact 清单(跨 schema 聚合已交付候选;阶段…' to match /RELAY_BACKUP_SCHEMA/
+
+- Expected: 
+/RELAY_BACKUP_SCHEMA/
+
++ Received: 
+"// 备份 Artifact 清单(跨 schema 聚合已交付候选;阶段 E3)
+import { writeFileSync } from \"node:fs\";
+import pg from \"pg\";
+
+const out = process.argv[3] ?? process.argv[2];
+const pool = new pg.Pool({ connectionString: process.env.RELAY_DB_URL });
+const schemas = (await pool.query(\"SELECT table_schema FROM information_schema.tables WHERE table_name='candidate_changesets'\")).rows.map((r) => r.table_schema);
+const manifest = [];
+for (const sch of schemas) {
+  const q = `SELECT id, task_id, git_commit_sha, delivered_remote_head, delivery_state, changed_files FROM \"${sch}\".candidate_changesets WHERE delivery_state = 'DELIVERED'`;
+  const r = await pool.query(q);
+  manifest.push(
+    ...r.rows.map((x) => ({ schema: sch, changesetId: x.id, taskId: x.task_id, commit: x.git_commit_sha, remoteHead: x.delivered_remote_head, files: x.changed_files })),
+  );
+}
+writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), delivered: manifest }, null, 2));
+console.log(`[backup] artifacts manifest: ${manifest.length} 个已交付变更集(跨 ${schemas.length} schema)`);
+await pool.end();
+"
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:68:15
+     66|   it("backup-manifest.mjs 必须显式声明目标 schema(env RELAY_BACKUP_SCHEMA),缺失即…
+     67|     const c = src("backup-manifest.mjs");
+     68|     expect(c).toMatch(/RELAY_BACKUP_SCHEMA/);
+       |               ^
+     69|     expect(c).not.toMatch(/SELECT table_schema FROM information_schema…
+     70|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > manifest 记录 targetSchema(恢复核对的目标身份唯一来源)
+AssertionError: expected '// 备份 Artifact 清单(跨 schema 聚合已交付候选;阶段…' to match /targetSchema/
+
+- Expected: 
+/targetSchema/
+
++ Received: 
+"// 备份 Artifact 清单(跨 schema 聚合已交付候选;阶段 E3)
+import { writeFileSync } from \"node:fs\";
+import pg from \"pg\";
+
+const out = process.argv[3] ?? process.argv[2];
+const pool = new pg.Pool({ connectionString: process.env.RELAY_DB_URL });
+const schemas = (await pool.query(\"SELECT table_schema FROM information_schema.tables WHERE table_name='candidate_changesets'\")).rows.map((r) => r.table_schema);
+const manifest = [];
+for (const sch of schemas) {
+  const q = `SELECT id, task_id, git_commit_sha, delivered_remote_head, delivery_state, changed_files FROM \"${sch}\".candidate_changesets WHERE delivery_state = 'DELIVERED'`;
+  const r = await pool.query(q);
+  manifest.push(
+    ...r.rows.map((x) => ({ schema: sch, changesetId: x.id, taskId: x.task_id, commit: x.git_commit_sha, remoteHead: x.delivered_remote_head, files: x.changed_files })),
+  );
+}
+writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), delivered: manifest }, null, 2));
+console.log(`[backup] artifacts manifest: ${manifest.length} 个已交付变更集(跨 ${schemas.length} schema)`);
+await pool.end();
+"
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:73:40
+     71| 
+     72|   it("manifest 记录 targetSchema(恢复核对的目标身份唯一来源)", () => {
+     73|     expect(src("backup-manifest.mjs")).toMatch(/targetSchema/);
+       |                                        ^
+     74|     expect(src("restore-verify-check.mjs")).toMatch(/targetSchema/);
+     75|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > restore-verify-check.mjs 必须做集合身份核对,不只计数
+AssertionError: expected '// 恢复核对(跨 schema 聚合;阶段 E3)\nimport { …' to match /manifestOnlyIds|identity|集合|身份/
+
+- Expected: 
+/manifestOnlyIds|identity|集合|身份/
+
++ Received: 
+"// 恢复核对(跨 schema 聚合;阶段 E3)
+import { readFileSync } from \"node:fs\";
+import pg from \"pg\";
+
+const m = JSON.parse(readFileSync(process.argv[2], \"utf8\"));
+const pool = new pg.Pool({ connectionString: process.env.RESTORE_TARGET_URL });
+const schemas = (await pool.query(\"SELECT table_schema FROM information_schema.tables WHERE table_name='candidate_changesets'\")).rows.map((r) => r.table_schema);
+let restored = 0;
+for (const sch of schemas) {
+  const r = await pool.query(`SELECT count(*)::int AS n FROM \"${sch}\".candidate_changesets WHERE delivery_state = 'DELIVERED'`);
+  restored += r.rows[0].n;
+}
+const expected = m.delivered.length;
+console.log(`[restore] 交付记录:备份 manifest=${expected} 恢复后=${restored}${expected === restored ? \" 一致 ✓\" : \" 不一致 ✗\"}`);
+const idx = await pool.query(\"SELECT table_schema FROM information_schema.tables WHERE table_name='audit_events'\");
+let audits = 0;
+for (const row of idx.rows) {
+  const sch = row.table_schema;
+  const r = await pool.query(`SELECT count(*)::int AS n FROM \"${sch}\".audit_events`);
+  audits += r.rows[0].n;
+}
+console.log(`[restore] 审计行(全 schema 合计):${audits}`);
+await pool.end();
+if (expected !== restored) process.exit(1);
+"
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:79:15
+     77|   it("restore-verify-check.mjs 必须做集合身份核对,不只计数", () => {
+     78|     const c = src("restore-verify-check.mjs");
+     79|     expect(c).toMatch(/manifestOnlyIds|identity|集合|身份/);
+       |               ^
+     80|   });
+     81| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:manifest/check 唯一入口与身份核对(静态契约) > restore-verify.sh:隔离声明 + 源/目标不等校验 + 完成标记/多义性拒绝(恢复误指 fail-closed)
+AssertionError: expected 'set -euo pipefail\nBK="${1:?用法:restor…' to match /RELAY_RESTORE_ISOLATED/
+
+- Expected: 
+/RELAY_RESTORE_ISOLATED/
+
++ Received: 
+"set -euo pipefail
+BK=\"${1:?用法:restore-verify.sh <备份目录> <隔离连接串>}\"
+RESTORE_URL=\"${2:?需隔离实例连接串}\"
+RC=\"${RELAY_RESTORE_CONTAINER:-relay-restore-verify}\"
+T0=\"$(date +%s)\"
+
+SQLFILE=\"$(ls \"$BK\"/db-*.sql | head -1)\"
+TARGET_DB=\"relay_restore_v$(date +%s)\"
+if command -v psql >/dev/null 2>&1; then
+  psql \"$RESTORE_URL/postgres\" -c \"DROP DATABASE IF EXISTS $TARGET_DB\" -q
+  psql \"$RESTORE_URL/postgres\" -c \"CREATE DATABASE $TARGET_DB\" -q
+  psql \"$RESTORE_URL/$TARGET_DB\" -v ON_ERROR_STOP=1 -q -f \"$SQLFILE\"
+else
+  docker exec \"$RC\" psql -U postgres -c \"DROP DATABASE IF EXISTS $TARGET_DB\" -q
+  docker exec \"$RC\" psql -U postgres -c \"CREATE DATABASE $TARGET_DB\" -q
+  docker exec -i \"$RC\" psql -U postgres -d \"$TARGET_DB\" -v ON_ERROR_STOP=1 -q < \"$SQLFILE\"
+fi
+export RESTORE_TARGET_URL=\"${RESTORE_URL%/*}/$TARGET_DB\"
+echo \"[restore] 目标库:$TARGET_DB\"
+T1=\"$(date +%s)\"
+echo \"[restore] DB 恢复完成:$((T1 - T0))s\"
+
+MANIFEST=\"$(ls \"$BK\"/artifacts-manifest-*.json | head -1)\"
+RESTORE_TARGET_URL=\"$RESTORE_TARGET_URL\" node \"/home/ubuntu/dev/relay/deploy/restore-verify-check.mjs\" \"$MANIFEST\" \"$MANIFEST\" \"$RESTORE_URL\"
+
+( cd \"$BK\" && sha256sum -c \"$(ls checksums-*.sha256 | head -1)\" >/dev/null && echo \"[restore] 备份校验和全部一致 ✓\" )
+T2=\"$(date +%s)\"
+echo \"[restore] 演练总耗时:$((T2 - T0))s;外部 Git 状态不在本脚本范围(delivery 记录的 remote HEAD 以 GitHub 实际为准;Reconcile 语义见 V05/V10)\"
+"
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:84:15
+     82|   it("restore-verify.sh:隔离声明 + 源/目标不等校验 + 完成标记/多义性拒绝(恢复误指 fail-closed)…
+     83|     const c = codeOf("restore-verify.sh");
+     84|     expect(c).toMatch(/RELAY_RESTORE_ISOLATED/);
+       |               ^
+     85|     expect(c).toMatch(/\.done/);
+     86|     expect(c).toMatch(/RELAY_DB_URL/); // 与备份源实例比较
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:动态 fail-closed(无 docker;node 直拒) > backup-manifest.mjs 未声明 RELAY_BACKUP_SCHEMA ⇒ exit≠0 且拒绝消息含声明要求(先于任何连接)
+AssertionError: expected '/home/ubuntu/dev/relay/node_modules/p…' to contain 'RELAY_BACKUP_SCHEMA'
+
+- Expected
++ Received
+
+- RELAY_BACKUP_SCHEMA
++ /home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45
++     Error.captureStackTrace(err)
++           ^
++
++ Error: connect ECONNREFUSED 127.0.0.1:1
++     at /home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45:11
++     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
++     at async file:///home/ubuntu/dev/relay/deploy/backup-manifest.mjs:7:18 {
++   errno: -111,
++   code: 'ECONNREFUSED',
++   syscall: 'connect',
++   address: '127.0.0.1',
++   port: 1
++ }
++
++ Node.js v24.21.0
++
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:107:17
+    105|     }
+    106|     expect(code).not.toBe(0);
+    107|     expect(out).toContain("RELAY_BACKUP_SCHEMA");
+       |                 ^
+    108|   });
+    109| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/13]⎯
+
+ FAIL  test/unit/tmp-redf2-variant.test.ts > RELAY-BACKUP-INTEGRITY-09:动态 fail-closed(无 docker;node 直拒) > backup-manifest.mjs 目标 schema 不存在 ⇒ exit≠0 拒绝(不产出 manifest 文件)
+AssertionError: expected '/home/ubuntu/dev/relay/node_modules/p…' to contain 'p01a_nonexistent_xyz'
+
+- Expected
++ Received
+
+- p01a_nonexistent_xyz
++ /home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45
++     Error.captureStackTrace(err)
++           ^
++
++ Error: connect ECONNREFUSED 127.0.0.1:1
++     at /home/ubuntu/dev/relay/node_modules/pg-pool/index.js:45:11
++     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
++     at async file:///home/ubuntu/dev/relay/deploy/backup-manifest.mjs:7:18 {
++   errno: -111,
++   code: 'ECONNREFUSED',
++   syscall: 'connect',
++   address: '127.0.0.1',
++   port: 1
++ }
++
++ Node.js v24.21.0
++
+
+ ❯ test/unit/tmp-redf2-variant.test.ts:126:17
+    124|     }
+    125|     expect(code).not.toBe(0);
+    126|     expect(out).toContain("p01a_nonexistent_xyz");
+       |                 ^
+    127|   });
+    128| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/13]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  13 failed (13)
+   Start at  15:43:33
+   Duration  513ms (transform 46ms, setup 0ms, collect 47ms, tests 204ms, environment 0ms, prepare 77ms)
+
+vitest-exit=1
+# 注:本红态②与入版套件唯一差异=剔除 backup-validate.mjs 静态导入及其 describe(该模块属修复交付物,不存在于原始脚本;其工具缺失红态由 red09-f-① 承担)。其余断言逐字一致,对 a458e95 原始四脚本运行。

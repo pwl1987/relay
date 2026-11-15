@@ -1,0 +1,28 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/d09-backup-chain.test.ts [ test/unit/d09-backup-chain.test.ts ]
+Error: Cannot find module '../../deploy/backup-validate.mjs' imported from '/home/ubuntu/dev/relay/test/unit/d09-backup-chain.test.ts'
+ ❯ test/unit/d09-backup-chain.test.ts:9:1
+      7| import { readFileSync } from "node:fs";
+      8| import { join } from "node:path";
+      9| import { redactDbUrl, isValidRelaySchemaName } from "../../deploy/back…
+       | ^
+     10| 
+     11| const deployDir = join(import.meta.dirname, "../../deploy");
+
+Caused by: Error: Failed to load url ../../deploy/backup-validate.mjs (resolved id: ../../deploy/backup-validate.mjs) in /home/ubuntu/dev/relay/test/unit/d09-backup-chain.test.ts. Does the file exist?
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/config.js:22907:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  15:42:56
+   Duration  298ms (transform 48ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 74ms)
+
+vitest-exit=1

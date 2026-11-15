@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+[backup] fail-closed:未声明 RELAY_BACKUP_SCHEMA(目标 Relay schema 或 all);拒绝生成 manifest(拒绝静默跨 schema 聚合)
+[backup] fail-closed:manifest 目标校验失败(schema=p01a_nonexistent_xyz,未生成任何产物):connect ECONNREFUSED 127.0.0.1:1
+ ✓ test/unit/d09-backup-chain.test.ts (15 tests) 169ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  15:48:41
+   Duration  508ms (transform 56ms, setup 0ms, collect 73ms, tests 169ms, environment 0ms, prepare 81ms)
+

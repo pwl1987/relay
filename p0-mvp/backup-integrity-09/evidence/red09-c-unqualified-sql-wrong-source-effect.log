@@ -1,0 +1,10 @@
+# Red-c:未限定 audit_events 的错源效应(与 Red-b 捕获 argv 中 SQL 逐字同形;一次性合成实例复现;public.audit_events=2 行合成干扰,租户 A 真实目标 3 行审计)
+[未限定] search_path 解析结果 = 2 行:
+   1|2026-11-15 07:36:44.706105+00|dbos-leftover|DECOY_PUBLIC_LEFTOVER_1
+   2|2026-11-15 07:36:44.706105+00|dbos-leftover|DECOY_PUBLIC_LEFTOVER_2
+[限定 p01a_d09a_8541f5a3.audit_events] = 3 行(前3):
+   1|2026-11-15 07:36:44.689854+00|tenant-a|A_AUDIT_1
+   2|2026-11-15 07:36:44.689854+00|tenant-a|A_AUDIT_2
+   3|2026-11-15 07:36:44.689854+00|tenant-a|A_AUDIT_3
+VERDICT: 未限定 SQL 解析到 public 干扰表(错源,目标租户 A 的 3 行审计一行未取)
+exit=0

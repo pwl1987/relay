@@ -1,0 +1,37 @@
+# RELAY-BACKUP-INTEGRITY-09 边界核验(2026-11-15T08:00:29Z)
+
+## 1) 一次性容器残留(本包自有 relay-test-d09-*):
+## 2) 一次性红态/演练库残留(仅一次性容器内部,容器已销毁;真实共享实例 relay-p000-pg 本包零写入):
+   本包全部真实 PG 连接=一次性容器(relay-test-d09-src/rst/red-*)+ 动态拒绝矩阵的 relayd09tamp/relayd09faithful(均在 rst 容器内,随容器销毁)
+## 3) 生产服务 PID 零变化:
+MainPID=3242781
+
+MainPID=3242782
+3242781 Fri Nov 13 02:00:08 2026 /usr/local/bin/node src/server/index.ts
+## 4) 改动面(git status):
+    M deploy/README-deploy.md
+    M deploy/backup-manifest.mjs
+    M deploy/backup.sh
+    M deploy/restore-verify-check.mjs
+    M deploy/restore-verify.sh
+    M test/integration/deploy-rehearsal-e2e.test.ts
+   ?? config/
+   ?? deploy/backup-validate.d.mts
+   ?? deploy/backup-validate.mjs
+   ?? p0-mvp/backup-integrity-09/
+   ?? p0-mvp/deploy-rehearsal-08/evidence/ci-checkruns-27e9259.json
+   ?? p0-mvp/deploy-rehearsal-08/evidence/ci-checkruns-c22d23f.json
+   ?? p0-mvp/egress-isolation-07/evidence/ci-checkruns-e28c386.json
+   ?? p0-mvp/soak-r3b/
+   ?? test/integration/d09-backup-integrity.test.ts
+   ?? test/unit/d09-backup-chain.test.ts
+## 5) 受保护未跟踪物 mtime(应早于本包实施窗口 2026-11-15 15:21):
+   2026-11-12 12:21:40.775953182 +0800 /home/ubuntu/dev/relay/config
+   2026-11-12 07:07:50.854798620 +0800 /home/ubuntu/dev/relay/p0-mvp/soak-r3b
+   2026-11-14 23:19:31.258829819 +0800 /home/ubuntu/dev/relay/p0-mvp/deploy-rehearsal-08/evidence/ci-checkruns-27e9259.json
+   2026-11-15 15:03:37.752991547 +0800 /home/ubuntu/dev/relay/p0-mvp/deploy-rehearsal-08/evidence/ci-checkruns-c22d23f.json
+   2026-11-14 21:03:58.084942412 +0800 /home/ubuntu/dev/relay/p0-mvp/egress-isolation-07/evidence/ci-checkruns-e28c386.json
+## 6) 本包零生产触碰声明:
+   - 零生产 schema/原始数据读写(全部真实连接=一次性容器+合成数据;backup-validate 仅读 information_schema 元数据)
+   - 零生产服务启停/重启、零宿主防火墙/TLS/公网配置改动、零真实模型调用、零 egress iptables 触碰
+   - relay-p000-pg 共享实例零 exec(argv 已被红态受保护 shim 拦截实证;绿态全链不走该容器)
