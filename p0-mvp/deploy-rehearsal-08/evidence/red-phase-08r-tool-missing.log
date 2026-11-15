@@ -1,0 +1,292 @@
+# RELAY-DEPLOY-REHEARSAL-08R 红态①:工具缺失+旧 -P argv 红(中间态:模块仅有逐字提取自 395091f 的旧实参构造器)
+# HEAD=395091fe42946804753ebbff7871da29243c7b64(工作区中间态,未提交)
+# 日期=2026-11-15 09:49:45 +0800
+# 命令: npx vitest run test/unit/d08-ephemeral-pg.test.ts
+# 模式说明: 2 失败=旧 argv 断言红(无 -p/0.0.0.0 未限制);12 失败=parseLoopbackPortMapping/startEphemeralPg 不存在(工具缺失);1 过=旧参含容器名/镜像(提取保真对照)
+# ---
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts (15 tests | 14 failed) 26ms
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 实参显式回环发布 -p 127.0.0.1::5432;绝无 -P/--publish-all/host 网络 8ms
+     → expected -1 to be greater than or equal to 0
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 宿主端口位为空 ⇒ Docker 分配随机宿主端口;口令仅经 -e 传递,不经发布参数泄露 4ms
+     → expected 'run' to be '127.0.0.1' // Object.is equality
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 容器名与镜像在实参中(一次性 relay-test-d08-* nonce sentinel 保持) 1ms
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 合法:恰好一条 127.0.0.1+非空数字端口 ⇒ 通过并返回映射 0ms
+     → (0 , parseLoopbackPortMapping) is not a function
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > HostIp 缺失/空 ⇒ 拒绝(不明确 HostIp 不可放行) 4ms
+     → expected [Function] to throw error matching /HostIp/ but got '(0 , parseLoopb…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 非回环 HostIp(0.0.0.0 / :: / ::1 / 外部地址)⇒ 一律拒绝 1ms
+     → expected [Function] to throw error matching /0\.0\.0\.0/ but got '(0 , parseLoopb…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 多条映射 ⇒ 拒绝(恰好一条) 1ms
+     → expected [Function] to throw error matching /映射数/ but got '(0 , parseLoopb…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 其他端口有绑定(任意 HostIp)⇒ 拒绝;其他端口为 null/空(未发布)⇒ 通过 1ms
+     → expected [Function] to throw error matching /其他发布端口/ but got '(0 , parseLoopb…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 5432 未发布 ⇒ 拒绝 1ms
+     → expected [Function] to throw error matching /5432/ but got '(0 , parseLoopb…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > HostPort 空/非数字/越界 ⇒ 拒绝 1ms
+     → expected [Function] to throw error matching /HostPort/ but got '(0 , parseLoopb…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > inspect 失败/非 JSON/非对象 ⇒ 拒绝 1ms
+     → expected [Function] to throw error matching /inspect|JSON/ but got '(0 , parseLoopb…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > 启动→inspect 校验→返回映射;调用序 run→inspect,无销毁 0ms
+     → (0 , startEphemeralPg) is not a function
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > 校验拒绝(0.0.0.0)⇒ rm -f 本容器后抛错;销毁仅针对本容器唯一 nonce 1ms
+     → expected [Function] to throw error matching /已销毁本容器|拒绝/ but got '(0 , startEphem…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > inspect 失败 ⇒ fail-closed:销毁本容器并抛错 1ms
+     → expected [Function] to throw error matching /已销毁本容器|inspect/ but got '(0 , startEphem…'
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > run 本身失败 ⇒ 如实抛出;无映射可校验,不误删任何容器 1ms
+     → expected [Function] to throw error matching /启动失败/ but got '(0 , startEphem…'
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 实参显式回环发布 -p 127.0.0.1::5432;绝无 -P/--publish-all/host 网络
+AssertionError: expected -1 to be greater than or equal to 0
+ ❯ test/unit/d08-ephemeral-pg.test.ts:46:17
+     44|       const args = buildEphemeralPgRunArgs("relay-test-d08-abc", "pw-d…
+     45|       const i = args.indexOf("-p");
+     46|       expect(i).toBeGreaterThanOrEqual(0);
+       |                 ^
+     47|       expect(args[i + 1]).toBe("127.0.0.1::5432");
+     48|       expect(args).not.toContain("-P");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 宿主端口位为空 ⇒ Docker 分配随机宿主端口;口令仅经 -e 传递,不经发布参数泄露
+AssertionError: expected 'run' to be '127.0.0.1' // Object.is equality
+
+Expected: "127.0.0.1"
+Received: "run"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:59:22
+     57|       const spec = args[i + 1]!;
+     58|       const [hostIp, hostPort, containerPort] = spec.split(":");
+     59|       expect(hostIp).toBe("127.0.0.1");
+       |                      ^
+     60|       expect(hostPort).toBe(""); // 空 ⇒ 随机宿主端口(不写死)
+     61|       expect(containerPort).toBe("5432");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 合法:恰好一条 127.0.0.1+非空数字端口 ⇒ 通过并返回映射
+TypeError: (0 , parseLoopbackPortMapping) is not a function
+ ❯ test/unit/d08-ephemeral-pg.test.ts:76:14
+     74|   describe("NetworkSettings.Ports 严格校验(fail-closed 矩阵)", () => {
+     75|     it("合法:恰好一条 127.0.0.1+非空数字端口 ⇒ 通过并返回映射", () => {
+     76|       expect(parseLoopbackPortMapping(GOOD_INSPECT)).toEqual({ hostIp:…
+       |              ^
+     77|     });
+     78| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > HostIp 缺失/空 ⇒ 拒绝(不明确 HostIp 不可放行)
+AssertionError: expected [Function] to throw error matching /HostIp/ but got '(0 , parseLoopb…'
+
+- Expected: 
+/HostIp/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.parseLoopbackPortMapping) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:80:85
+     78| 
+     79|     it("HostIp 缺失/空 ⇒ 拒绝(不明确 HostIp 不可放行)", () => {
+     80|       expect(() => parseLoopbackPortMapping(`{"5432/tcp":[{"HostPort":…
+       |                                                                                     ^
+     81|       expect(() => parseLoopbackPortMapping(`{"5432/tcp":[{"HostIp":""…
+     82|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 非回环 HostIp(0.0.0.0 / :: / ::1 / 外部地址)⇒ 一律拒绝
+AssertionError: expected [Function] to throw error matching /0\.0\.0\.0/ but got '(0 , parseLoopb…'
+
+- Expected: 
+/0\.0\.0\.0/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.parseLoopbackPortMapping) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:86:104
+     84|     it("非回环 HostIp(0.0.0.0 / :: / ::1 / 外部地址)⇒ 一律拒绝", () => {
+     85|       for (const ip of ["0.0.0.0", "::", "::1", "10.30.5.80", "192.0.2…
+     86|         expect(() => parseLoopbackPortMapping(`{"5432/tcp":[{"HostIp":…
+       |                                                                                                        ^
+     87|           new RegExp(ip.replaceAll(".", "\\.")),
+     88|         );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 多条映射 ⇒ 拒绝(恰好一条)
+AssertionError: expected [Function] to throw error matching /映射数/ but got '(0 , parseLoopb…'
+
+- Expected: 
+/映射数/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.parseLoopbackPortMapping) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:97:9
+     95|           `{"5432/tcp":[{"HostIp":"127.0.0.1","HostPort":"34567"},{"Ho…
+     96|         ),
+     97|       ).toThrow(/映射数/);
+       |         ^
+     98|     });
+     99| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 其他端口有绑定(任意 HostIp)⇒ 拒绝;其他端口为 null/空(未发布)⇒ 通过
+AssertionError: expected [Function] to throw error matching /其他发布端口/ but got '(0 , parseLoopb…'
+
+- Expected: 
+/其他发布端口/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.parseLoopbackPortMapping) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:105:9
+    103|           `{"5432/tcp":[{"HostIp":"127.0.0.1","HostPort":"34567"}],"99…
+    104|         ),
+    105|       ).toThrow(/其他发布端口/);
+       |         ^
+    106|       expect(() =>
+    107|         parseLoopbackPortMapping(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 5432 未发布 ⇒ 拒绝
+AssertionError: expected [Function] to throw error matching /5432/ but got '(0 , parseLoopb…'
+
+- Expected: 
+/5432/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.parseLoopbackPortMapping) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:120:67
+    118| 
+    119|     it("5432 未发布 ⇒ 拒绝", () => {
+    120|       expect(() => parseLoopbackPortMapping(`{"9999/tcp":null}`)).toTh…
+       |                                                                   ^
+    121|       expect(() => parseLoopbackPortMapping(`{}`)).toThrow(/5432/);
+    122|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > HostPort 空/非数字/越界 ⇒ 拒绝
+AssertionError: expected [Function] to throw error matching /HostPort/ but got '(0 , parseLoopb…'
+
+- Expected: 
+/HostPort/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.parseLoopbackPortMapping) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:125:101
+    123| 
+    124|     it("HostPort 空/非数字/越界 ⇒ 拒绝", () => {
+    125|       expect(() => parseLoopbackPortMapping(`{"5432/tcp":[{"HostIp":"1…
+       |                                                                                                     ^
+    126|         /HostPort/,
+    127|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > inspect 失败/非 JSON/非对象 ⇒ 拒绝
+AssertionError: expected [Function] to throw error matching /inspect|JSON/ but got '(0 , parseLoopb…'
+
+- Expected: 
+/inspect|JSON/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.parseLoopbackPortMapping) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:141:58
+    139| 
+    140|     it("inspect 失败/非 JSON/非对象 ⇒ 拒绝", () => {
+    141|       expect(() => parseLoopbackPortMapping("not-json")).toThrow(/insp…
+       |                                                          ^
+    142|       expect(() => parseLoopbackPortMapping("")).toThrow(/inspect|JSON…
+    143|       expect(() => parseLoopbackPortMapping(`["5432/tcp"]`)).toThrow(/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > 启动→inspect 校验→返回映射;调用序 run→inspect,无销毁
+TypeError: (0 , startEphemeralPg) is not a function
+ ❯ test/unit/d08-ephemeral-pg.test.ts:152:17
+    150|     it("启动→inspect 校验→返回映射;调用序 run→inspect,无销毁", () => {
+    151|       const sim = fakeDocker({ inspectJson: GOOD_INSPECT });
+    152|       const m = startEphemeralPg({ container: "relay-test-d08-ok", pas…
+       |                 ^
+    153|       expect(m).toEqual({ hostIp: "127.0.0.1", hostPort: "34567" });
+    154|       expect(sim.calls.length).toBe(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > 校验拒绝(0.0.0.0)⇒ rm -f 本容器后抛错;销毁仅针对本容器唯一 nonce
+AssertionError: expected [Function] to throw error matching /已销毁本容器|拒绝/ but got '(0 , startEphem…'
+
+- Expected: 
+/已销毁本容器|拒绝/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.startEphemeralPg) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:165:114
+    163|     it("校验拒绝(0.0.0.0)⇒ rm -f 本容器后抛错;销毁仅针对本容器唯一 nonce", () => {
+    164|       const sim = fakeDocker({ inspectJson: `{"5432/tcp":[{"HostIp":"0…
+    165|       expect(() => startEphemeralPg({ container: "relay-test-d08-bad",…
+       |                                                                                                                  ^
+    166|         /已销毁本容器|拒绝/,
+    167|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > inspect 失败 ⇒ fail-closed:销毁本容器并抛错
+AssertionError: expected [Function] to throw error matching /已销毁本容器|inspect/ but got '(0 , startEphem…'
+
+- Expected: 
+/已销毁本容器|inspect/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.startEphemeralPg) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:175:112
+    173|     it("inspect 失败 ⇒ fail-closed:销毁本容器并抛错", () => {
+    174|       const sim = fakeDocker({ inspectThrows: new Error("Error respons…
+    175|       expect(() => startEphemeralPg({ container: "relay-test-d08-x", p…
+       |                                                                                                                ^
+    176|         /已销毁本容器|inspect/,
+    177|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/14]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > run 本身失败 ⇒ 如实抛出;无映射可校验,不误删任何容器
+AssertionError: expected [Function] to throw error matching /启动失败/ but got '(0 , startEphem…'
+
+- Expected: 
+/启动失败/
+
++ Received: 
+"(0 , __vite_ssr_import_1__.startEphemeralPg) is not a function"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:183:112
+    181|     it("run 本身失败 ⇒ 如实抛出;无映射可校验,不误删任何容器", () => {
+    182|       const sim = fakeDocker({ runThrows: new Error("docker: Error res…
+    183|       expect(() => startEphemeralPg({ container: "relay-test-d08-y", p…
+       |                                                                                                                ^
+    184|         /启动失败/,
+    185|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/14]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  14 failed | 1 passed (15)
+   Start at  09:49:46
+   Duration  372ms (transform 59ms, setup 0ms, collect 56ms, tests 26ms, environment 0ms, prepare 87ms)
+
+# ---
+vitest-exit=1

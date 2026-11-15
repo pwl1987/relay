@@ -1,0 +1,131 @@
+# RELAY-DEPLOY-REHEARSAL-08R 探针:真实 Docker 回环绑定差分验证(合同 D:宿主 LAN 接口有限 TCP 探针,禁公网扫描)
+# HEAD=395091fe42946804753ebbff7871da29243c7b64(工作区中间态,未提交)
+# 日期=2026-11-15 09:58:39 +0800
+# 脚本=/tmp/probe-08r/probe.ts(经真实模块 startEphemeralPg/destroyEphemeralPg/parseLoopbackPortMapping;源码全文附后)
+# 差分语义:绑定若为 wildcard 0.0.0.0,对宿主任一非回环 IPv4 的单端口 TCP 连接会成功;实测全部 ECONNREFUSED ⇒ 回环限定生效
+# 迭代如实记录:首版探针 SELECT 1 无重试,撞 initdb 窗口 Connection terminated unexpectedly(08 CI 教训 §6⑥ 同款,探针工具缺陷非绑定缺陷);补 90s SELECT 1 重试门(与 E2E 同口径)后重跑
+# ---
+宿主非回环 IPv4(global scope)= 10.30.5.80, 172.17.0.1, 172.18.0.1, 172.20.0.1, 172.21.0.1, 172.22.0.1, 172.23.0.1, 172.19.0.1, 172.24.0.1, 172.25.0.1
+startEphemeralPg ⇒ hostIp=127.0.0.1 hostPort=32791
+真实 docker inspect NetworkSettings.Ports = {"5432/tcp":[{"HostIp":"127.0.0.1","HostPort":"32791"}]}
+独立复解析 ⇒ hostIp=127.0.0.1 hostPort=32791
+PASS: PG SELECT 1 via 127.0.0.1:32791
+PASS: TCP 127.0.0.1:32791 可连(控制面)
+PASS: TCP 10.30.5.80:32791 不可连(实测 error:connect ECONNREFUSED 10.30.5.80:32791;回环限定生效)
+PASS: TCP 172.17.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.17.0.1:32791;回环限定生效)
+PASS: TCP 172.18.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.18.0.1:32791;回环限定生效)
+PASS: TCP 172.20.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.20.0.1:32791;回环限定生效)
+PASS: TCP 172.21.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.21.0.1:32791;回环限定生效)
+PASS: TCP 172.22.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.22.0.1:32791;回环限定生效)
+PASS: TCP 172.23.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.23.0.1:32791;回环限定生效)
+PASS: TCP 172.19.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.19.0.1:32791;回环限定生效)
+PASS: TCP 172.24.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.24.0.1:32791;回环限定生效)
+PASS: TCP 172.25.0.1:32791 不可连(实测 error:connect ECONNREFUSED 172.25.0.1:32791;回环限定生效)
+PASS: 零残留:relay-test-d08-* 容器=0
+PROBE RESULT: PASS(全部通过)
+# ---
+probe-exit=0
+# ---
+# 探针脚本源码(/tmp/probe-08r/probe.ts):
+// RELAY-DEPLOY-REHEARSAL-08R 探针:真实 Docker 回环绑定差分验证(合同 D"宿主 LAN 接口有限 TCP
+// 探针验证不可达,禁止扫描公网")。用真实 d08-ephemeral-pg.ts 模块启动一次性容器:
+//   1) 捕获真实 docker inspect NetworkSettings.Ports JSON(证据);
+//   2) PG SELECT 1(127.0.0.1:随机端口)成功;
+//   3) 差分 TCP 探针:127.0.0.1:port 应可连;宿主非回环 IPv4:port 应不可连(若曾为 wildcard
+//      0.0.0.0 则后者会连上 —— 差分即绑定面证明);
+//   4) destroyEphemeralPg + 零残留核验(relay-test-d08-* 容器=0)。
+// 仅对本机自身接口做单端口单 IP 探针;不做任何扫描,不触碰其他容器/网络。
+import { execFileSync } from "node:child_process";
+import { connect } from "node:net";
+import pg from "/home/ubuntu/dev/relay/node_modules/pg/lib/index.js";
+import { startEphemeralPg, destroyEphemeralPg, parseLoopbackPortMapping } from "/home/ubuntu/dev/relay/test/integration/d08-ephemeral-pg.ts";
+
+const container = `relay-test-d08-probe-${Math.random().toString(16).slice(2, 10)}`;
+let failures = 0;
+const ok = (label: string) => console.log(`PASS: ${label}`);
+const bad = (label: string, detail = "") => {
+  failures++;
+  console.log(`FAIL: ${label} ${detail}`);
+};
+
+function tcpProbe(host: string, port: string, timeoutMs = 3000): Promise<string> {
+  return new Promise((resolve) => {
+    const s = connect({ host, port: Number(port), timeout: timeoutMs });
+    const done = (result: string) => {
+      s.removeAllListeners();
+      s.destroy();
+      resolve(result);
+    };
+    s.on("connect", () => done("connected"));
+    s.on("timeout", () => done("timeout"));
+    s.on("error", (e: Error) => done(`error:${e.message}`));
+  });
+}
+
+const lanIp = execFileSync("ip", ["-4", "-j", "addr", "show"], { encoding: "utf8" });
+const ifaces: Array<{ addr_info: Array<{ local: string; scope: string }> }> = JSON.parse(lanIp);
+const globals = ifaces.flatMap((i) => i.addr_info).filter((a) => a.scope === "global");
+console.log(`宿主非回环 IPv4(global scope)= ${globals.map((g) => g.local).join(", ")}`);
+if (globals.length === 0) {
+  console.log("无宿主非回环 IPv4 ⇒ LAN 差分探针不可执行(如实登记,不以控制面替代)");
+}
+
+const mapping = startEphemeralPg({ container, password: "probe-08r" });
+console.log(`startEphemeralPg ⇒ hostIp=${mapping.hostIp} hostPort=${mapping.hostPort}`);
+const raw = execFileSync("docker", ["inspect", "--format", "{{json .NetworkSettings.Ports}}", container], {
+  encoding: "utf8",
+});
+console.log(`真实 docker inspect NetworkSettings.Ports = ${raw.trim()}`);
+const reparsed = parseLoopbackPortMapping(raw);
+console.log(`独立复解析 ⇒ hostIp=${reparsed.hostIp} hostPort=${reparsed.hostPort}`);
+
+try {
+  const pool = new pg.Pool({
+    connectionString: `postgresql://postgres:probe-08r@127.0.0.1:${mapping.hostPort}/relayd08`,
+    max: 1,
+    connectionTimeoutMillis: 10_000,
+  });
+  // 就绪门与 E2E 同口径:真实 SELECT 1 重试(90s 上限);initdb 期间连接可能被接受后立即终止
+  // (08 CI 教训 §6⑥)—— 首版探针无重试曾如实失败于该窗口,非绑定缺陷。
+  let ready = false;
+  let lastErr = "";
+  for (let i = 0; i < 90; i++) {
+    try {
+      const r = await pool.query("SELECT 1 AS v");
+      if (r.rows[0]?.["v"] === 1) {
+        ready = true;
+        break;
+      }
+    } catch (e) {
+      lastErr = String(e);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+  if (ready) ok(`PG SELECT 1 via 127.0.0.1:${mapping.hostPort}`);
+  else bad("PG SELECT 1(90s 重试后仍未就绪)", lastErr.slice(0, 200));
+  await pool.end();
+} catch (e) {
+  bad("PG SELECT 1", String(e));
+}
+
+const loop = await tcpProbe("127.0.0.1", mapping.hostPort);
+if (loop === "connected") ok(`TCP 127.0.0.1:${mapping.hostPort} 可连(控制面)`);
+else bad(`TCP 127.0.0.1:${mapping.hostPort}`, loop);
+
+if (globals.length > 0) {
+  for (const g of globals) {
+    const res = await tcpProbe(g.local, mapping.hostPort);
+    if (res !== "connected") ok(`TCP ${g.local}:${mapping.hostPort} 不可连(实测 ${res};回环限定生效)`);
+    else bad(`TCP ${g.local}:${mapping.hostPort}`, "非回环接口可达 —— 暴露未消除!");
+  }
+}
+
+destroyEphemeralPg(container, (args) => execFileSync("docker", args, { encoding: "utf8" }));
+const leftovers = execFileSync("docker", ["ps", "-a", "--format", "{{.Names}}"], { encoding: "utf8" })
+  .split("\n")
+  .filter((n) => n.startsWith("relay-test-d08-"));
+if (leftovers.length === 0) ok("零残留:relay-test-d08-* 容器=0");
+else bad("零残留", `残留=${leftovers.join(",")}`);
+
+console.log(failures === 0 ? "PROBE RESULT: PASS(全部通过)" : `PROBE RESULT: FAIL(${failures} 项失败)`);
+process.exit(failures === 0 ? 0 : 1);

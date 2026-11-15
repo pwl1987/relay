@@ -1,0 +1,79 @@
+# RELAY-DEPLOY-REHEARSAL-08R 红态②:旧 -P argv 断言红(校验器/编排器已就位且绿,启动实参仍为 395091f 逐字旧形)
+# HEAD=395091fe42946804753ebbff7871da29243c7b64(工作区中间态,未提交)
+# 日期=2026-11-15 09:50:11 +0800
+# 命令: npx vitest run test/unit/d08-ephemeral-pg.test.ts
+# 实际: 3 失败均源于旧 -P 实参(suite1 argv×2 + 编排测试内嵌 no-'-P' 断言);12 绿(fail-closed 校验面就位)
+# ---
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts (15 tests | 3 failed) 22ms
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 实参显式回环发布 -p 127.0.0.1::5432;绝无 -P/--publish-all/host 网络 7ms
+     → expected -1 to be greater than or equal to 0
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 宿主端口位为空 ⇒ Docker 分配随机宿主端口;口令仅经 -e 传递,不经发布参数泄露 3ms
+     → expected 'run' to be '127.0.0.1' // Object.is equality
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 容器名与镜像在实参中(一次性 relay-test-d08-* nonce sentinel 保持) 1ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 合法:恰好一条 127.0.0.1+非空数字端口 ⇒ 通过并返回映射 1ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > HostIp 缺失/空 ⇒ 拒绝(不明确 HostIp 不可放行) 1ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 非回环 HostIp(0.0.0.0 / :: / ::1 / 外部地址)⇒ 一律拒绝 1ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 多条映射 ⇒ 拒绝(恰好一条) 0ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 其他端口有绑定(任意 HostIp)⇒ 拒绝;其他端口为 null/空(未发布)⇒ 通过 1ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > 5432 未发布 ⇒ 拒绝 0ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > HostPort 空/非数字/越界 ⇒ 拒绝 1ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > NetworkSettings.Ports 严格校验(fail-closed 矩阵) > inspect 失败/非 JSON/非对象 ⇒ 拒绝 1ms
+   × RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > 启动→inspect 校验→返回映射;调用序 run→inspect,无销毁 3ms
+     → expected [ 'run', '-d', '--name', …(7) ] to not include '-P'
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > 校验拒绝(0.0.0.0)⇒ rm -f 本容器后抛错;销毁仅针对本容器唯一 nonce 1ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > inspect 失败 ⇒ fail-closed:销毁本容器并抛错 0ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > run 本身失败 ⇒ 如实抛出;无映射可校验,不误删任何容器 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 实参显式回环发布 -p 127.0.0.1::5432;绝无 -P/--publish-all/host 网络
+AssertionError: expected -1 to be greater than or equal to 0
+ ❯ test/unit/d08-ephemeral-pg.test.ts:46:17
+     44|       const args = buildEphemeralPgRunArgs("relay-test-d08-abc", "pw-d…
+     45|       const i = args.indexOf("-p");
+     46|       expect(i).toBeGreaterThanOrEqual(0);
+       |                 ^
+     47|       expect(args[i + 1]).toBe("127.0.0.1::5432");
+     48|       expect(args).not.toContain("-P");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > 启动实参(argv 捕获 seam;红态=旧 -P 实参) > 宿主端口位为空 ⇒ Docker 分配随机宿主端口;口令仅经 -e 传递,不经发布参数泄露
+AssertionError: expected 'run' to be '127.0.0.1' // Object.is equality
+
+Expected: "127.0.0.1"
+Received: "run"
+
+ ❯ test/unit/d08-ephemeral-pg.test.ts:59:22
+     57|       const spec = args[i + 1]!;
+     58|       const [hostIp, hostPort, containerPort] = spec.split(":");
+     59|       expect(hostIp).toBe("127.0.0.1");
+       |                      ^
+     60|       expect(hostPort).toBe(""); // 空 ⇒ 随机宿主端口(不写死)
+     61|       expect(containerPort).toBe("5432");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/unit/d08-ephemeral-pg.test.ts > RELAY-DEPLOY-REHEARSAL-08R:一次性 PG 回环绑定安全(argv 捕获+inspect 校验,纯模拟) > startEphemeralPg 编排(fake runner;拒绝即销毁本容器) > 启动→inspect 校验→返回映射;调用序 run→inspect,无销毁
+AssertionError: expected [ 'run', '-d', '--name', …(7) ] to not include '-P'
+ ❯ test/unit/d08-ephemeral-pg.test.ts:157:32
+    155|       expect(sim.calls[0]![0]).toBe("run");
+    156|       expect(sim.calls[0]).toContain("relay-test-d08-ok");
+    157|       expect(sim.calls[0]).not.toContain("-P");
+       |                                ^
+    158|       expect(sim.calls[1]![0]).toBe("inspect");
+    159|       expect(sim.calls[1]).toContain("relay-test-d08-ok");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 12 passed (15)
+   Start at  09:50:12
+   Duration  334ms (transform 58ms, setup 0ms, collect 55ms, tests 22ms, environment 0ms, prepare 79ms)
+
+# ---
+vitest-exit=1

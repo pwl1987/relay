@@ -1,0 +1,30 @@
+# RELAY-DEPLOY-REHEARSAL-08R 边界核验(只读)
+# HEAD=395091fe42946804753ebbff7871da29243c7b64(工作区中间态,未提交)
+# 日期=2026-11-15 10:00:27 +0800
+# ---
+[1] relay-test-d08-* 容器残留:
+0
+[2] testdb 中 p01a_d08*/p01a_rev08* schema 残留:
+0
+[3] 生产服务 PID(只读 ps;应仍为 3242781/3242782,2026-11-13 02:00:08 启动,零重启):
+3242781 Ssl  Fri Nov 13 02:00:08 2026 /usr/local/bin/node src/server/index.ts
+3242782 Ssl  Fri Nov 13 02:00:08 2026 /usr/local/bin/node src/worker-entry.ts
+[4] 改动面(git status --porcelain,除受保护未跟踪物):
+ M test/integration/deploy-rehearsal-e2e.test.ts
+?? p0-mvp/deploy-rehearsal-08/evidence/boundary-08r-check.log
+?? p0-mvp/deploy-rehearsal-08/evidence/green-08r-ephemeral-pg-unit.log
+?? p0-mvp/deploy-rehearsal-08/evidence/probe-08r-loopback-lan.log
+?? p0-mvp/deploy-rehearsal-08/evidence/quality-quick-08r.log
+?? p0-mvp/deploy-rehearsal-08/evidence/red-phase-08r-argv-p-capture.log
+?? p0-mvp/deploy-rehearsal-08/evidence/red-phase-08r-tool-missing.log
+?? p0-mvp/deploy-rehearsal-08/evidence/targeted-08r-final.log
+?? test/integration/d08-ephemeral-pg.ts
+?? test/unit/d08-ephemeral-pg.test.ts
+[5] 对 rehearse-migration 的调用方(全部已绿):
+test/integration/deploy-rehearsal.test.ts
+deploy/README-deploy.md
+test/integration/deploy-rehearsal-e2e.test.ts
+deploy/rehearse-migration.ts
+[6] 生产连接路径审计:本包全部真实连接=E2E 自建一次性容器(回环随机端口)+迁移单测 testdb(127.0.0.1:55433 relayp000 的 p01a_* schema)+探针自建容器;零生产 relay_console/public 连接,零生产写入
+[7] VM80 bridge host_binding_ipv4(修复前缺陷环境因素,只读复核):
+0.0.0.0

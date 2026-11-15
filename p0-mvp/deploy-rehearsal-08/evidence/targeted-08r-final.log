@@ -1,0 +1,32 @@
+# RELAY-DEPLOY-REHEARSAL-08R 定向终验(四套件一次运行)
+# HEAD=395091fe42946804753ebbff7871da29243c7b64(工作区中间态,未提交)
+# 日期=2026-11-15 09:58:58 +0800
+# 命令: npx vitest run test/unit/d08-ephemeral-pg.test.ts test/integration/deploy-rehearsal.test.ts test/integration/deploy-rehearsal-e2e.test.ts test/integration/evidence-gate-rehearsal.test.ts
+# 预期: 15/15(08R 安全单测)+9/9(迁移演练)+1/1(真实 Docker E2E,一次性容器回环发布)+3/3(Gate 真实 docker)=28/28
+# ---
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+stdout | test/integration/deploy-rehearsal-e2e.test.ts
+[d08-e2e 门控] docker=true
+
+NOTICE:  database "relay_restore_v1794707940" does not exist, skipping
+ ✓ test/integration/deploy-rehearsal-e2e.test.ts (1 test) 3884ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁移→恢复回退(一次性 PG 容器) > 备份(0007 形状)→ 真实增量迁移 0008/0009 → 恢复回退到 0007(数据/约束/触发器保真)  1254ms
+stdout | test/integration/evidence-gate-rehearsal.test.ts
+[d08-gate 门控] docker=true
+
+ ✓ test/integration/evidence-gate-rehearsal.test.ts (3 tests) 2921ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > 真实 docker 检查执行器:合成候选通过(UID=10001/network=none)+漂移失败(零 stub 冒充)  676ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > Gate 发布演练三场景:未配置⇒NEEDS_DECISION / 真实检查通过⇒ACCEPTED / 检查失败⇒保守阻断  1978ms
+ ✓ test/integration/deploy-rehearsal.test.ts (9 tests) 1498ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:离线增量迁移演练 > 半迁移断点定位与续跑:failAt 注入失败后 plan 精确报告 pending,不假 GO;resume 完成  350ms
+ ✓ test/unit/d08-ephemeral-pg.test.ts (15 tests) 14ms
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  09:58:59
+   Duration  11.76s (transform 483ms, setup 0ms, collect 2.43s, tests 8.32s, environment 1ms, prepare 287ms)
+
+# ---
+vitest-exit=0

@@ -1,0 +1,18 @@
+# RELAY-DEPLOY-REHEARSAL-08R 绿态:启动实参显式回环发布(-P → -p 127.0.0.1::5432)后全绿(最终格式化文件)
+# HEAD=395091fe42946804753ebbff7871da29243c7b64(工作区中间态,未提交)
+# 日期=2026-11-15 09:52:40 +0800
+# 命令: npx vitest run test/unit/d08-ephemeral-pg.test.ts
+# 预期: 15/15 绿(红态②3 失败全部转绿;fail-closed 校验面保持)
+# ---
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/unit/d08-ephemeral-pg.test.ts (15 tests) 13ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  09:52:41
+   Duration  327ms (transform 64ms, setup 0ms, collect 58ms, tests 13ms, environment 0ms, prepare 76ms)
+
+# ---
+vitest-exit=0

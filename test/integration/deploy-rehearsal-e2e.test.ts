@@ -25,6 +25,7 @@ import {
   applyMigrationRange,
   verifyPostMigrationState,
 } from "../../deploy/rehearse-migration.ts";
+import { startEphemeralPg } from "./d08-ephemeral-pg.ts";
 
 const dockerOk = dockerAvailable();
 console.log(`[d08-e2e 门控] docker=${dockerOk}`);
@@ -53,25 +54,12 @@ describe.skipIf(!dockerOk)("RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁�
   beforeAll(async () => {
     tmpRoot = markTemp(mkdtempSync(join(tmpdir(), "d08-e2e-")));
     dbPassword = `d08-${uid}`;
-    execFileSync(
-      "docker",
-      [
-        "run",
-        "-d",
-        "--name",
-        container,
-        "-e",
-        `POSTGRES_PASSWORD=${dbPassword}`,
-        "-e",
-        "POSTGRES_DB=relayd08",
-        "-P",
-        "postgres:17-alpine",
-      ],
-      { timeout: 120_000 },
-    );
-    // 端口映射(随机宿主端口;仅绑定 0.0.0.0 由 docker -P 默认 —— 容器为一次性隔离实例)
-    const portLine = execFileSync("docker", ["port", container, "5432"], { encoding: "utf8", timeout: 15_000 });
-    mainPort = portLine.split("\n")[0]!.split(":").pop()!.trim();
+    // 08R 修复(Major-S1):一次性容器显式回环发布 —— `-p 127.0.0.1::5432`(宿主 IP 钉死回环、
+    // 宿主端口位留空 ⇒ Docker 分配随机宿主端口),绝不使用 -P(默认 wildcard 0.0.0.0,经 VM80
+    // bridge host_binding_ipv4=0.0.0.0 潜在暴露非本机接口);并由 docker inspect 严格校验
+    // NetworkSettings.Ports:恰好一条 127.0.0.1 映射且无其他暴露,不满足 ⇒ 销毁本容器并 fail-closed。
+    const mapping = startEphemeralPg({ container, password: dbPassword });
+    mainPort = mapping.hostPort;
     mainUrl = `postgresql://postgres:${dbPassword}@127.0.0.1:${mainPort}/relayd08`;
     admin = new pg.Pool({ connectionString: mainUrl, max: 4 });
     // 就绪等待 = 真实 SELECT 1 重试(90s 上限)。CI 教训:镜像冷拉取+initdb 期间端口可能被接受后
