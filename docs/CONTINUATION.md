@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-14 最新指针**:唯一 ACTIVE 合同 **RELAY-DEPLOY-REHEARSAL-08 已 ✅ 收口**(提交链 241893d 合同登记→071210e 实施→16fb5e2 收口;exact-head CI 43608637410 test/e2e 双绿,CI 上 08 三套件真跑 13/13)。独立 Reviewer 隔离冷启动两轮复核 Round1 REWORK(2 Major 均证据簿记)→Round2 **PASS(0 Major)**;报告 `p0-mvp/deploy-rehearsal-08/REPORT-RELAY-DEPLOY-REHEARSAL-08.md`。核心成果=离线增量迁移演练工具 `deploy/rehearse-migration.ts`(plan 只读/apply 仅 p01a_* 且守卫先于任何连接/断点定位可续跑不假 GO/后验)+一次性容器备份→迁移→恢复回退实证+Gate 真实 docker 检查三场景(未配置/通过/失败)+**D3 决策材料三选项**(`p0-mvp/deploy-rehearsal-08/D3-DECISION-PACK.md`;A=批准切换窗口/B=保守停机/C=暂缓,须用户明确回复才生效)。生产只读预检继续 **NO-GO**(relay_console 仍缺 0008/0009[迁移标记 0/0 只读复核前后一致]、Gate 检查未配置、旧进程 PID 3242781/3242782、egress 栈缺席);**生产切换须用户单独 D3,本包不构成 GO 提升**;F-1(backup.sh 审计索引硬编码+未按 schema 限定)登记未改。untracked `p0-mvp/egress-isolation-07/evidence/ci-checkruns-e28c386.json` 为 07R CI 回执,保留原地;`config/`、`p0-mvp/soak-r3b/` 绝对保护。当前无新 ACTIVE 授权,Writer 已释放。下方均为历史经验,非当前执行授权。
+> **2026-11-15 唯一 ACTIVE 合同**：[CURRENT.md](../CURRENT.md) 顶部 RELAY-DEPLOY-REHEARSAL-08R。08 Agent 交付与 exact-head CI 43609188075@27e9259 test/e2e 双成功，但协调方独立发现 E2E 的临时 PostgreSQL 使用 docker -P，VM80 默认绑定 0.0.0.0，故 08 独立裁决 **REWORK**；见 [协调方 08 审计](../p0-mvp/deploy-rehearsal-08/COORDINATOR-REVIEW-08-20261115.md)。08R 只修回环限定、inspect 断言与安全清理；生产依然 NO-GO，F-1 审计索引备份缺口未修，D3 未授权。保留本地 config/、soak-r3b/ 与两个 CI 回执未跟踪文件，绝不误删或提交。下方历史经验不是当前写入授权。
 
 状态:**FROZEN(续接指令,不是独立事实源)**。本文件只做短导航：当前授权、关键未解决风险与登记项、历史包索引全部在 **CURRENT.md**；历史包的合同原文、逐日进度与实施细节以 **Git 历史（git log/show）与各包报告/复核记录（`p0-00/`..`p0-accept/`、`p0-mvp/`）** 为准。
 
