@@ -387,14 +387,33 @@ describe.skipIf(!dockerOk)("RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复�
     expect(rb.out).toContain("p01a_nonexistent_xyz");
     expect(stampFiles(outB).length).toBe(0);
 
-    // c) 错容器 ⇒ dump 失败 ⇒ 拒绝且清理本 STAMP 产物
+    // c) dump 执行面异常 ⇒ 拒绝且清理本 STAMP 产物(分支自适应;CI runner 宿主自带 pg_dump/psql ⇒
+    //    宿主分支被选择,错容器不参与执行 —— CI 43694046569 教训;两环境合计覆盖两分支的失败面)
     const outC = join(tmpRoot, "refuse-wrongcontainer");
-    const rc2 = runScript("deploy/backup.sh", [outC], {
-      ...baseEnv(),
-      RELAY_DB_URL: srcUrl,
-      RELAY_BACKUP_SCHEMA: schA,
-      RELAY_PG_CONTAINER: "relay-d09-nonexistent-xyz",
-    });
+    const envC: Record<string, string | undefined> = { ...baseEnv(), RELAY_DB_URL: srcUrl, RELAY_BACKUP_SCHEMA: schA };
+    const hostHasPgDump = (() => {
+      try {
+        execFileSync("pg_dump", ["--version"], { stdio: "ignore", timeout: 10_000 });
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    if (hostHasPgDump) {
+      // 宿主分支环境(CI):PATH 注入 pg_dump 失败 shim = dump 执行面异常(可验证注入,同宿主覆盖用例哲学)
+      const failDir = join(tmpRoot, "shim-pgfail");
+      mkdirSync(failDir, { recursive: true });
+      writeFileSync(
+        join(failDir, "pg_dump"),
+        '#!/usr/bin/env bash\necho "pg_dump: forced-fail (d09 case c dump 执行面异常)" >&2\nexit 127\n',
+      );
+      chmodSync(join(failDir, "pg_dump"), 0o755);
+      envC.PATH = `${failDir}:${process.env.PATH ?? ""}`;
+    } else {
+      // docker fallback 环境(VM80):错容器真实失败(dump 分支目标派生自 RELAY_PG_CONTAINER)
+      envC.RELAY_PG_CONTAINER = "relay-d09-nonexistent-xyz";
+    }
+    const rc2 = runScript("deploy/backup.sh", [outC], envC);
     expect(rc2.status).not.toBe(0);
     expect(stampFiles(outC).filter((f) => f.startsWith("db-")).length).toBe(0);
     expect(stampFiles(outC).filter((f) => f.endsWith(".done")).length).toBe(0);
