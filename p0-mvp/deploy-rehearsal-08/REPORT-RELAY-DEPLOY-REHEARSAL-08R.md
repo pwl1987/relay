@@ -57,9 +57,10 @@
 
 ## 6. 提交、CI 与收口
 
-- 提交链:395091f(合同登记)→ 〔实施提交 SHA 待推送后回填〕(main-only fast-forward,无强推)。
-- exact-head CI:〔run id/裁决待推送后回填;test job(quality:full)+e2e job 双成功为验收门〕。
-- CI 证据回执:evidence/ci-checkruns-〔SHA〕.json(实施提交回执随收口提交入库;收口提交自身的回执留未跟踪,08 同例)。
+- 提交链:395091f(合同登记)→ **db5106727cf8abd2f30bc1cbfe1166ef672f606e**(实施,main-only fast-forward,无强推;推送经 ssh.github.com:443 直连亲测)→ cc8cab5(CI 阻塞期间状态如实登记)→ 〔收口提交〕。
+- exact-head CI:**run 43666136828 @db51067(2026-11-15T02:05:48Z push 触发,3m16s)双 job success**——test job(quality:full:lint/format/typecheck/unit/pg/tests 19 passed;全量 70 passed|14 skipped,3m12s)+ e2e job(browser journeys 4 passed|2 skipped,2m0s)。**08R 四套件 CI 上真跑逐字实证**(evidence/ci-testjob-db51067-excerpt.log):d08-ephemeral-pg.test 15/15、deploy-rehearsal.test 9/9、**deploy-rehearsal-e2e.test 1/1(一次性容器 7.7s,回环发布+inspect 校验)**、evidence-gate-rehearsal.test 3/3。annotations 仅 Node.js 20 弃用/runner 镜像迁移公告,非失败。
+- CI 证据回执:evidence/ci-checkruns-db51067.json(total_count=2,e2e+test 均 completed/success @db51067,随收口提交入库);收口提交自身的 CI 复核回执留未跟踪,08 同例。
+- CI 核验时序如实登记:实施提交后 VM80 代理栈整体中断约 4 小时(210+ 次轮询;直连 443 为 CONTINUATION 已登记 Sectigo 假证书劣化路径,不可用于核验),期间以 cc8cab5 如实登记状态;代理恢复(2026-11-15 14:2x 实测 200)后即刻完成本节核验。
 
 ## 7. 生产影响、回滚与边界
 

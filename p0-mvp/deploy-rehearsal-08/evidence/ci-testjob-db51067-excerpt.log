@@ -1,0 +1,15 @@
+# RELAY-DEPLOY-REHEARSAL-08R exact-head CI 证据摘录(exact-head=db51067)
+# run 43666136828(2026-11-15T02:05:48Z push 触发,3m16s,completed success)
+# test job id=132665802039(success 3m12s) / e2e job id=132665802249(success 2m0s)
+# 08R 四套件 CI 上真跑逐字摘录(来源=actions/jobs/132665802039/logs)
+# ---
+2026-11-15T02:06:24.0740135Z  [32m✓[39m test/unit/d08-ephemeral-pg.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+2026-11-15T02:07:39.8697337Z  [32m✓[39m test/integration/deploy-rehearsal.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 450[2mms[22m[39m
+2026-11-15T02:07:51.2286744Z  [32m✓[39m test/integration/deploy-rehearsal-e2e.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 7664[2mms[22m[39m
+2026-11-15T02:07:53.3403592Z  [32m✓[39m test/integration/evidence-gate-rehearsal.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1674[2mms[22m[39m
+2026-11-15T02:07:59.4486096Z  [32m✓[39m test/unit/d08-ephemeral-pg.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+# ---
+2026-11-15T02:06:28.4605691Z [2m Test Files [22m [1m[32m19 passed[39m[22m[90m (19)[39m
+2026-11-15T02:09:01.0391184Z [2m Test Files [22m [1m[32m70 passed[39m[22m[2m | [22m[33m14 skipped[39m[90m (84)[39m
+# e2e job(browser journeys)汇总:
+2026-11-15T02:07:48.2373194Z [2m Test Files [22m [1m[32m4 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (6)[39m
