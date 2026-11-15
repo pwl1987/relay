@@ -52,11 +52,11 @@
 - **回归(零退化)**:`evidence/webux11-e2e-regression.log` = test/e2e 全量 **36 passed|2 skipped(38;EXIT=0**;2 skipped=RELAY_03C_SHOTS/RELAY_03D_SHOTS 显式证据门,设计内 skip,与 CI 同口径);Reviewer 亲跑 journey+03C+03D **27/27**、quality:quick 亲跑 **182/182 PASS**(`evidence/webux11-quality-quick.log`);tsc/biome 干净(workspace.js 仅既有警告,零新增 error)。
 - **回归运行证据污染如实登记(已恢复)**:test/e2e 既有套件把当轮截图/日志写入其跟踪目录(p0-02c、p0-mvp/webux-02、p0-webux-03c/03d,共 49 文件),覆盖已入库的历史证据——执行方按「历史证据不改写」原则**全部 `git checkout --` 恢复至 HEAD**(逐字节还原;当轮运行数字以本包 `webux11-e2e-regression.log` 为准;Reviewer 复跑再弄脏的 30 个亦已恢复)。后续全量 e2e 复跑须在干净克隆进行,且**内含本 harness 的复跑必须显式 `WEBUX11_TAG=ci`**(M2,harness 头注释已钉)。
 
-## 6. CI 时序(exact-head 如实;推送后回填)
+## 6. CI 时序(exact-head 如实)
 
-- 基线回执:8d53fc1(合同提交)test+e2e 双 success(GitHub API 亲核,推送前完成)。
-- 实施提交=本包唯一实施提交,exact-head Actions 于推送后核验双 job,回执 JSON 留未跟踪(循 bacc849/02348b6 例)。
-- 收口提交(REPORT §6 回填+CURRENT/CONTINUATION)自身 CI 于推送后核验,回执留未跟踪。
+- 基线回执:8d53fc1(合同提交)Actions **43721016797** test+e2e 双 success(GitHub API 亲核;Reviewer 经 gh 独立核验一致)。
+- **实施提交 3298518 exact-head Actions 43735509428 test+e2e 双 success**(GitHub check-runs API 亲核)。**webux11 首次使用全旅程在 CI 宿主分支真跑 6/6(79.98s,含 exit-mid 失败链与桌面+手机双视口)**;e2e job 全量 36 passed|2 skipped(与本地同口径;2 skipped=03C/03D 显式证据门);test job quality:full 全量 **483 passed|60 skipped(543)**(webux11 harness 在 quality 步经 RELAY_E2E 门自动 skip=设计内;format 步含本包 3 文件零漂移)。摘录=`evidence/ci-testjob-3298518-webux11-excerpt.log`。
+- 收口提交(本报告 §6 回填+CURRENT/CONTINUATION)自身 CI 于推送后核验,回执留未跟踪(循 bacc849/02348b6 例)。
 
 ## 7. 生产影响与边界
 

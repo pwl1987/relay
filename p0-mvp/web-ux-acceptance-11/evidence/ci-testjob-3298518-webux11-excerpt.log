@@ -1,0 +1,15 @@
+# RELAY-WEB-UX-ACCEPTANCE-11 实施提交 3298518 exact-head CI 摘录(GitHub Actions run 43735509428 test+e2e 双 success;gh run view --log 亲取)
+# test job = quality:full(除浏览器;webux11 harness RELAY_E2E 门自动 skip=设计内);e2e job = browser journeys(RELAY_E2E=1,webux11 全旅程 6/6 真跑)
+
+===== test job(quality:full;格式步含本包 3 文件)=====
+2026-11-15T16:27:13.8266384Z ===== [format] npx biome format scripts/webux11-preview.mjs test/e2e/webux11-firstuse-audit.test.ts web/workspace.js =====
+2026-11-15T16:27:36.2732433Z [2m Test Files [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+2026-11-15T16:27:36.2735186Z [2m      Tests [22m [1m[32m182 passed[39m[22m[90m (182)[39m
+2026-11-15T16:28:03.8462194Z  [2m[90m↓[39m[22m test/e2e/webux11-firstuse-audit.test.ts [2m([22m[2m6 tests[22m[2m | [22m[33m6 skipped[39m[2m)[22m
+2026-11-15T16:31:05.5860317Z [2m Test Files [22m [1m[32m75 passed[39m[22m[2m | [22m[33m15 skipped[39m[90m (90)[39m
+2026-11-15T16:31:05.5862253Z [2m      Tests [22m [1m[32m483 passed[39m[22m[2m | [22m[33m60 skipped[39m[90m (543)[39m
+
+===== e2e job(browser journeys;webux11 CI 宿主分支真跑)=====
+2026-11-15T16:29:48.7096114Z  [32m✓[39m test/e2e/webux11-firstuse-audit.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 79977[2mms[22m[39m
+2026-11-15T16:29:56.2193620Z [2m Test Files [22m [1m[32m5 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (7)[39m
+2026-11-15T16:29:56.2195836Z [2m      Tests [22m [1m[32m36 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (38)[39m
