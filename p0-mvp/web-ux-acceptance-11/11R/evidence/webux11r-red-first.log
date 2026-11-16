@@ -1,0 +1,143 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/e2e/webux11r-terminal-execute.test.ts (10 tests | 6 failed) 73676ms
+   × WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T1 COMPLETED 桌面:可证伪反例(点击执行=静默 held)+修后钉住(执行按钮退场/新建后续任务在场) 2392ms
+     → expected true to be false // Object.is equality
+   × WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2 终态新建后续任务全流程(未绑定 Goal):显式创建新 Goal、旧 Goal 历史不重启、重复点击/空文本/服务端报错 fail-closed 1408ms
+     → expected false to be true // Object.is equality
+   × WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2b 绑定 Goal 后续任务:项目选择器在场并预选现绑定(用户可改选),服务端按注册表校验、不扩权 1300ms
+     → expected false to be true // Object.is equality
+   × WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T3 PAUSED 桌面:不暗示可执行、中文恢复指引、不自动恢复;后端 held 负例(零 Task 派生) 1082ms
+     → expected true to be false // Object.is equality
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T5 ACTIVE 正例:发送=只记录;交给 Relay 执行=显式授权 ⇒ 安全边界内派生受控 Task(方案 A 不回归)  22663ms
+   × WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T6 手机 390×844:终态执行按钮退场/新建后续任务(≥44px)全流程 + PAUSED 指引;零横向溢出 1674ms
+     → expected true to be false // Object.is equality
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T7 后端负例矩阵(不重开/不越权/fail-closed 创建面):终态与暂停显式执行=held;未登记项目拒绝;空/超长拒绝 45ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > 全程零浏览器错误(desktop+mobile pageerror/console.error) 0ms
+   × WEB-UX-11R 失败终态(exit-mid 确定性链):执行按钮退场/显式后续任务/后端 held 负例 > T4 FAILED 桌面:失败终态执行按钮退场/新建后续任务全流程;旧 Goal 交付记录不变;后端 held 负例 42159ms
+     → expected true to be false // Object.is equality
+   ✓ WEB-UX-11R 失败终态(exit-mid 确定性链):执行按钮退场/显式后续任务/后端 held 负例 > 全程零浏览器错误(desktop pageerror/console.error) 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/webux11r-terminal-execute.test.ts > WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T1 COMPLETED 桌面:可证伪反例(点击执行=静默 held)+修后钉住(执行按钮退场/新建后续任务在场)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/e2e/webux11r-terminal-execute.test.ts:566:36
+    564| 
+    565|       // ===== 修复钉住(先红后绿;红轮恰在此失败) =====
+    566|       expect(facts.executeVisible).toBe(false); // 终态不得再承诺「执行」(红=true …
+       |                                    ^
+    567|       expect(facts.followupVisible).toBe(true); // 显式后续任务入口在场(红=false …
+    568|       expect(facts.followupLabel).toBe("新建后续任务");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  test/e2e/webux11r-terminal-execute.test.ts > WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2 终态新建后续任务全流程(未绑定 Goal):显式创建新 Goal、旧 Goal 历史不重启、重复点击/空文本/服务端报错 fail-closed
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/e2e/webux11r-terminal-execute.test.ts:589:37
+    587|       record("t2-terminal-before-followup", "desktop", facts, page);
+    588|       await shot(page, "r03-terminal-followup-ready.png");
+    589|       expect(facts.followupVisible).toBe(true); // 红=false ⇒ FAIL(红轮在此…
+       |                                     ^
+    590| 
+    591|       // 旧 Goal 消息基线(历史不丢)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  test/e2e/webux11r-terminal-execute.test.ts > WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2b 绑定 Goal 后续任务:项目选择器在场并预选现绑定(用户可改选),服务端按注册表校验、不扩权
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/e2e/webux11r-terminal-execute.test.ts:728:42
+    726|       }
+    727|       // 红=false ⇒ FAIL(红轮在此失败:终态无项目选择器/预选)
+    728|       expect(facts.projectSelectVisible).toBe(true);
+       |                                          ^
+    729|       expect(facts.projectSelected).toBe(PROJECT_NAME); // 预选现 Goal 绑定…
+    730|       const draft = "继续为同一项目补一个浅色模式开关";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  test/e2e/webux11r-terminal-execute.test.ts > WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T3 PAUSED 桌面:不暗示可执行、中文恢复指引、不自动恢复;后端 held 负例(零 Task 派生)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/e2e/webux11r-terminal-execute.test.ts:779:36
+    777|       await shot(page, "r08-paused-hint.png");
+    778|       expect(facts.goalState).toBe("PAUSED");
+    779|       expect(facts.executeVisible).toBe(false); // 红=true ⇒ FAIL(红轮在此失…
+       |                                    ^
+    780|       expect(facts.followupVisible).toBe(false); // 暂停态无「新建后续任务」暗示(不暗示…
+    781|       expect(facts.stateHintVisible).toBe(true); // 红=false ⇒ FAIL
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  test/e2e/webux11r-terminal-execute.test.ts > WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T6 手机 390×844:终态执行按钮退场/新建后续任务(≥44px)全流程 + PAUSED 指引;零横向溢出
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/e2e/webux11r-terminal-execute.test.ts:892:36
+    890|       await shot(mpage, "m01-completed-terminal-mobile.png");
+    891|       expect(facts.goalState).toBe("COMPLETED");
+    892|       expect(facts.executeVisible).toBe(false); // 红=true ⇒ FAIL(红轮在此失…
+       |                                    ^
+    893|       expect(facts.followupVisible).toBe(true); // 红=false ⇒ FAIL
+    894|       expect(facts.followupLabel).toBe("新建后续任务");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  test/e2e/webux11r-terminal-execute.test.ts > WEB-UX-11R 失败终态(exit-mid 确定性链):执行按钮退场/显式后续任务/后端 held 负例 > T4 FAILED 桌面:失败终态执行按钮退场/新建后续任务全流程;旧 Goal 交付记录不变;后端 held 负例
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/e2e/webux11r-terminal-execute.test.ts:1053:36
+    1051|       expect(facts.workBlockText ?? "").toContain("本轮工作未完成");
+    1052|       expect(facts.workBlockText ?? "").toContain("下一步");
+    1053|       expect(facts.executeVisible).toBe(false); // 红=true ⇒ FAIL(红轮在此失…
+       |                                    ^
+    1054|       expect(facts.followupVisible).toBe(true); // 红=false ⇒ FAIL
+    1055|       expect(facts.followupLabel).toBe("新建后续任务");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 4 passed (10)
+   Start at  09:30:05
+   Duration  75.49s (transform 541ms, setup 0ms, collect 1.53s, tests 73.68s, environment 0ms, prepare 81ms)
+

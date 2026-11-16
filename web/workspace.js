@@ -56,6 +56,7 @@
     lastEventKeys: {}, // 原始事件去重(技术详情层)
     paneOpen: true, // P0-6:右栏整栏折叠
     hasProjects: undefined, // WEB-UX-11 B3:项目注册表状态(undefined=未读取;true/false=最新读取;驱动空白态引导语)
+    creatingGoal: false, // WEB-UX-11R:创建请求在途旗标(空白「开始」/终态「新建后续任务」共用;双击/并发 fail-closed)
   };
 
   // ---------------- 项目上下文(P0-2:唯一来源 = feed.status.projectName,服务端与侧栏同规则) ----------------
@@ -891,6 +892,8 @@
     const input = $("#ws-input");
     const btn = $("#ws-send");
     const execBtn = $("#ws-execute");
+    const followBtn = $("#ws-followup");
+    const hint = $("#ws-state-hint");
     const projRow = $("#ws-composer-project");
     if (!input || !btn) return;
     if (!state.goalId) {
@@ -903,15 +906,46 @@
         // 漏显双主按钮(点击在本态为静默 no-op);内联样式兜底,任务态原样恢复。
         execBtn.style.display = "none";
       }
+      if (followBtn) {
+        followBtn.hidden = true;
+        followBtn.style.display = "none"; // 空白态创建走「开始」(同一 POST /api/goals)
+      }
+      if (hint) {
+        hint.hidden = true;
+        hint.textContent = "";
+      }
     } else {
+      const gs = state.status && state.status.goalState ? String(state.status.goalState) : "";
+      // WEB-UX-11R(Major-U1):执行承诺必须与真实行为一致。服务端对非 ACTIVE Goal 一律只记录不派生
+      //(api.ts held 分支,安全边界不动)⇒ 前端按真实状态切分操作面:
+      //   ACTIVE=方案 A 双操作(发送=只记录/交给 Relay 执行=显式授权,派生受控 Task);
+      //   PAUSED=不得暗示可执行,给中文恢复指引,不自动恢复;
+      //   终态(COMPLETED/FAILED/EXHAUSTED 等非活动态)=执行按钮退场,替换为显式「新建后续任务」
+      //   (复用既有 POST /api/goals 创建入口;旧 Goal 历史不重启、消息不丢;项目由用户在行内
+      //   选择器显式选定/沿用预选,服务端按注册表校验,不伪造关联、不扩权)。
+      //   状态未加载/未知 ⇒ 按非活动处理(fail-closed:绝不承诺执行)。
+      const paused = gs === "PAUSED";
+      const terminal = gs !== "" && gs !== "ACTIVE" && gs !== "PAUSED";
       input.placeholder = "继续告诉 Relay……";
       btn.textContent = "发送";
-      if (projRow) projRow.hidden = true;
-      // 方案 A:任务态=双操作(发送=只交流/记录;交给 Relay 执行=显式创建受控任务)
+      if (projRow) projRow.hidden = !terminal; // 终态=显式新建面(项目可选,与空白态同一选择器)
       if (execBtn) {
-        execBtn.hidden = false;
-        execBtn.style.display = ""; // B1:清空白态内联隐藏(方案 A 双操作恢复在场)
+        const showExec = gs === "ACTIVE";
+        execBtn.hidden = !showExec;
+        execBtn.style.display = showExec ? "" : "none"; // B1 同款内联兜底
       }
+      if (followBtn) {
+        followBtn.hidden = !terminal;
+        followBtn.style.display = terminal ? "" : "none";
+      }
+      if (hint) {
+        hint.hidden = !paused;
+        hint.textContent = paused
+          ? "该需求已暂停:暂不能执行新任务;如需继续,请先通过任务恢复操作恢复,Relay 不会自动恢复。"
+          : "";
+      }
+      // 终态:项目选择器按需填充(一次;空白态已在 init 填充,此处补终态直入场景)
+      if (terminal) populateProjectSelect();
     }
   }
 
@@ -957,12 +991,17 @@
     }
   }
 
+  /** 空白态「开始」与终态「新建后续任务」共用的显式创建入口(POST /api/goals;既有授权/项目边界不变:
+   *  projectId 仅接受注册表内项目并由服务端权威解析,未登记 ⇒ 400 fail-closed)。
+   *  WEB-UX-11R:在途旗标+双按钮禁用 ⇒ 重复点击/网络重发不重复创建;失败草稿保留在输入框。 */
   async function createFromComposer() {
     const input = $("#ws-input");
-    const btn = $("#ws-send");
+    const sendBtn = $("#ws-send");
+    const followBtn = $("#ws-followup");
     const msg = $("#ws-composer-msg");
     const sel = $("#ws-project");
-    if (!input || !btn) return;
+    if (!input || !sendBtn) return;
+    if (state.creatingGoal) return; // 双击/并发 fail-closed(11R;单创建入口单在途)
     const raw = input.value.trim();
     if (msg) msg.textContent = "";
     if (!raw) {
@@ -973,15 +1012,19 @@
       if (msg) msg.textContent = "内容过长(上限 2000 字)";
       return;
     }
-    btn.disabled = true;
+    state.creatingGoal = true;
+    sendBtn.disabled = true;
+    if (followBtn) followBtn.disabled = true;
     try {
       const payload = { rawInput: raw };
       if (sel && sel.value) payload.projectId = sel.value;
       const res = await A.apiPost("/api/goals", payload);
       window.location.href = "/workspace?goal=" + encodeURIComponent(res.goalId);
     } catch (e) {
-      if (msg) msg.textContent = "创建失败,请稍后重试"; // P1-1:内部错误不直出
-      btn.disabled = false;
+      if (msg) msg.textContent = "创建失败,请稍后重试"; // P1-1:内部错误不直出;草稿保留在输入框
+      state.creatingGoal = false;
+      sendBtn.disabled = false;
+      if (followBtn) followBtn.disabled = false;
     }
   }
 
@@ -990,6 +1033,8 @@
     if (executionRequest) return; // 空白态无"执行"语义(创建走 POST /api/goals)
     return createFromComposer();
   }
+  // WEB-UX-11R:终态/暂停态 execBtn 已隐藏(renderComposer);若仍被触发(无障碍/残留客户端),
+  // 走 sendMessage(true)=服务端 held 只记录不派生——fail-closed,不静默假装执行。
 
   /** §9:输入框自然增高(上限 140px 与 CSS max-height 一致;下限由 CSS 按端 min-height 控制)。 */
   function growInput() {
@@ -1011,6 +1056,12 @@
       execBtn.addEventListener("click", function () {
         return composerSubmit(true);
       }); // 方案 A:显式执行
+    const followBtn = $("#ws-followup");
+    if (followBtn)
+      followBtn.addEventListener("click", function () {
+        // WEB-UX-11R:终态显式后续任务(真实创建新 Goal;旧 Goal 不重启;复用既有创建入口)
+        return createFromComposer();
+      });
     if (input) {
       input.addEventListener("input", growInput);
       // §9:移动端(coarse pointer)Enter=换行,发送走「发送」按钮;桌面保持 03C.1 语义(Enter 发送/Shift+Enter 换行)
@@ -1027,6 +1078,7 @@
   function populateProjectSelect() {
     const sel = $("#ws-project");
     if (!sel) return;
+    if (sel.options.length > 0) return; // 一次加载填充一次(11R:renderComposer 终态分支按需触发,勿重复刷)
     A.apiGet("/api/projects")
       .then(function (res) {
         const v = res.projects || {};
@@ -1046,9 +1098,21 @@
             sel.appendChild(h("option", { value: p.name, text: p.name }));
           });
         }
+        // WEB-UX-11R:终态新建后续任务——预选现 Goal 已绑定项目(仅当注册表仍含该项目;
+        // 用户可改选/可不选;服务端仍按注册表校验,不伪造关联、不扩权)
+        const bound = state.status && state.status.projectName;
+        if (state.goalId && bound) {
+          for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === bound) {
+              sel.value = bound;
+              break;
+            }
+          }
+        }
         if (!state.goalId) renderFeed(true); // 空白态:引导语按最新注册表状态原位刷新
       })
       .catch(function () {
+        if (sel.options.length > 0) return; // 已有占位/选项时不再追加错误项
         sel.appendChild(h("option", { value: "", text: "项目列表读取失败,可直接开始" }));
       });
   }

@@ -2,13 +2,13 @@
 // 真实 Web 实现(同一 web/ 静态资源与 server 代码)+ 隔离合成环境(独立测试 schema + 确定性 stub;
 // 非真实模型)+ 真实 Chromium 双视口(桌面 1440×900 / 手机 390×844)。
 // 门:RELAY_E2E=1 才跑(常规 vitest 全量自动 skip,不假装)。
-// 产出(按 WEBUX11_TAG 区分轮次,默认 audit=修复前首轮审计):
+// 产出(按 WEBUX11_TAG 区分轮次,缺省 ci=回归安全):
 //   p0-mvp/web-ux-acceptance-11/screenshots/<TAG>/*.png —— 新鲜真实截图(首轮审计+修后复核各一轮)
 //   p0-mvp/web-ux-acceptance-11/evidence/firstuse-audit-<TAG>.json —— 逐步骤结构化观察(文案/状态/几何/零错误)
 // 隔离与边界:RELAY_PROJECTS_FILE 指向一次性空注册表(首次使用=零项目;绝不读取受保护 config/projects.json);
 //   数据全部合成;零生产连接/零真实模型/零外部交付(target=本地 bare 远端夹具)。
-// 轮次分离(Reviewer Minor-M2,必守):证据轮(TAG=audit 红/verify 绿)与回归轮必须分开——
-//   全量 e2e 复跑内含本 harness 时**必须显式 WEBUX11_TAG=ci**(缺省 audit 会覆盖红态证据,11 包已实际发生一次)。
+// 轮次分离(Reviewer Minor-M2,必守):证据轮(显式 TAG=audit 红/verify 绿)与回归轮必须分开——
+//   缺省 TAG=ci(11 包曾发生缺省 audit 覆盖红态证据事故;11R 起把安全缺省反应用,证据轮必须显式指定)。
 // 首次使用旅程(合同 B 全链):登录首屏 → 空状态(无项目/无任务)→ 一句话建需求 → Feed/进度 →
 //   Decision(内联)→ 失败/停止态 → Result → 追问(held)/刷新;桌面与手机各自完整走一遍。
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -31,7 +31,8 @@ import { hostTestCheckRunner } from "../helpers/check-runner.ts";
 
 const E2E = process.env.RELAY_E2E === "1";
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
-const TAG = process.env.WEBUX11_TAG ?? "audit";
+// 11 教训(M2)反向应用:缺省=ci(回归安全);证据轮显式 audit-red/verify。
+const TAG = process.env.WEBUX11_TAG ?? "ci";
 const OUT_DIR = join(process.cwd(), "p0-mvp", "web-ux-acceptance-11");
 const SHOT_DIR = join(OUT_DIR, "screenshots", TAG);
 const EVIDENCE_DIR = join(OUT_DIR, "evidence");

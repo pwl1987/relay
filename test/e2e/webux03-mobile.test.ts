@@ -440,15 +440,17 @@ describe.skipIf(!E2E)(
       expect(feed).toContain("按钮再明显一点"); // 消息事实保留(同一会话)
       expect(feed).toContain("已记录"); // RELAY held 反馈
       expect(feed).not.toContain("已形成"); // 不误导为新执行轮
-      // 方案 A:终态 Goal 上显式执行同样 held(不重开不派生;手机双操作按钮可见)
+      // WEB-UX-11R:终态执行按钮已按 goalState 退场(误导性「交给 Relay 执行」被「新建后续任务」
+      // 替代;合同 11R Major-U1)。终态继续说 ⇒ 只记录不派生,held ack 含明确下一步;终态显式
+      // 执行请求的服务端 held 负例由 webux11r-terminal-execute(T3/T7)覆盖。
       const execBtn = page.locator('[data-testid="ws-execute"]');
-      expect(await execBtn.isVisible()).toBe(true);
+      expect(await execBtn.isVisible()).toBe(false);
       await page.fill('[data-testid="ws-input"]', "手机上请求再执行一轮。");
-      await page.click('[data-testid="ws-execute"]');
-      const heldAck = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "执行请求" }).first();
-      await heldAck.waitFor({ timeout: 15000 });
+      await page.click('[data-testid="ws-send"]');
+      const heldAck = page.locator('[data-testid^="ws-msg-relay"]').filter({ hasText: "不会自动创建新执行任务" });
+      await heldAck.nth(1).waitFor({ timeout: 15000 }); // 第二条同文案 ack(首条已在上一段断言)
       const tasksAfterExec = await t.db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks WHERE goal_id = ${goalId}`);
-      expect(Number(tasksAfterExec.rows[0]!["n"])).toBe(1); // 终态显式执行不派生
+      expect(Number(tasksAfterExec.rows[0]!["n"])).toBe(1); // 终态只记录不派生
       await shot(page, "mj5-followup-terminal-held.png");
       s.errors.length = 0;
     });

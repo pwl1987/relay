@@ -70,10 +70,16 @@
                    普通"发送"=只交流/记录(永不创建任务);"交给 Relay 执行"=显式请求(经服务器授权后创建受控任务)。
                    空白态(未选会话)只显示"开始"(POST /api/goals 显式创建入口,语义不变)。 -->
               <button class="btn btn-primary" id="ws-execute" type="button" data-testid="ws-execute" hidden>交给 Relay 执行</button>
+              <!-- WEB-UX-11R:终态(COMPLETED/FAILED/EXHAUSTED 等非活动态)专用显式后续任务入口。
+                   显示切换由 renderComposer 用 JS 内联样式控制(CSP style-src 'self' 禁止标记内联
+                   style 属性——绿轮实测被拦截并报 console.error;JS 属性操作不受限,B1 同款路径)。 -->
+              <button class="btn btn-primary" id="ws-followup" type="button" data-testid="ws-followup" hidden>新建后续任务</button>
               <button class="btn btn-primary" id="ws-send" type="button" data-testid="ws-send">开始</button>
             </div>
             <div class="ws-composer-foot">
               <span class="small dim" id="ws-composer-msg" data-testid="ws-composer-msg"></span>
+              <!-- WEB-UX-11R:暂停态恢复指引(renderComposer 独占管理;不暗示可执行/不自动恢复) -->
+              <span class="small dim" id="ws-state-hint" data-testid="ws-state-hint" hidden></span>
               <span class="small dim ws-enter-hint">Enter 发送,Shift+Enter 换行</span>
             </div>
           </div>

@@ -1,0 +1,17 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/webux11r-terminal-execute.test.ts (10 tests) 119078ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T1 COMPLETED 桌面:可证伪反例(点击执行=静默 held)+修后钉住(执行按钮退场/新建后续任务在场)  2220ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2 终态新建后续任务全流程(未绑定 Goal):显式创建新 Goal、旧 Goal 历史不重启、重复点击/空文本/服务端报错 fail-closed  4004ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2b 绑定 Goal 后续任务:项目选择器在场并预选现绑定(用户可改选),服务端按注册表校验、不扩权  1502ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T3 PAUSED 桌面:不暗示可执行、中文恢复指引、不自动恢复;后端 held 负例(零 Task 派生)  1226ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T5 ACTIVE 正例:发送=只记录;交给 Relay 执行=显式授权 ⇒ 安全边界内派生受控 Task(方案 A 不回归)  63256ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T6 手机 390×844:终态执行按钮退场/新建后续任务(≥44px)全流程 + PAUSED 指引;零横向溢出  3482ms
+   ✓ WEB-UX-11R 失败终态(exit-mid 确定性链):执行按钮退场/显式后续任务/后端 held 负例 > T4 FAILED 桌面:失败终态执行按钮退场/新建后续任务全流程;旧 Goal 交付记录不变;后端 held 负例  42353ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  14:58:17
+   Duration  120.93s (transform 570ms, setup 0ms, collect 1.56s, tests 119.08s, environment 0ms, prepare 75ms)
+
