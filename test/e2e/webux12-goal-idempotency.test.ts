@@ -1,13 +1,20 @@
-// RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2:ACK 丢失重复创建)红绿 harness。
+// RELAY-GOAL-CREATE-IDEMPOTENCY-12/12R Goal 创建幂等红绿 harness。
+// 12(854204b):Major-R2 ACK 丢失重复创建 —— 键⇒派生 Goal 主键复用 PK 唯一约束,T1~T9 承担。
+// 12R(71fd58b 合同):协调方另证两反例 —— Major-P1 同目录异项目身份误重放(注册表无 path 唯一
+// 约束,别名/异 repo 共享同目录;旧重放只比 allowed_scope=目录字符串 ⇒ 200 且回显**本次请求**项目
+// 元数据=归属谎报)与 Minor-K1 UUID 等价表示未规范化(/i 接受大小写混合但哈希原形态 ⇒ 同 UUID
+// 大小写两表示 201/201 两 Goal)。12R 新增 T12~T16:同键异项目身份/注册表漂移/绑定边界一律 409
+// fail-closed;同一 UUID 任意合法表示(大小写/边界空白)=同一持久创建意图;旧派生格式已消费键
+// 不重复创建(历史兼容探测,fail-closed)。12 既有 T1~T9 全部保留,11R UI 行为零推倒。
 // 真实 Web 实现(同一 web/ 静态资源与 server 代码)+ 隔离合成环境(独立测试 schema + 确定性 stub;
 // 非真实模型)+ 真实 Chromium 双视口(桌面 1440×900 / 手机 390×844)。
 // 门:RELAY_E2E=1 才跑(常规 vitest 全量自动 skip,不假装)。
-// 产出(按 WEBUX12_TAG 区分轮次):
-//   p0-mvp/goal-create-idempotency-12/screenshots/<TAG>/*.png —— 新鲜真实截图(红轮/绿轮各一轮)
-//   p0-mvp/goal-create-idempotency-12/evidence/webux12-goal-idempotency-<TAG>.json —— 逐步骤结构化观察
+// 产出(按 WEBUX12_TAG 区分轮次;12R 起全部落 12R/ 子目录,**绝不改写 12 已封存证据**):
+//   p0-mvp/goal-create-idempotency-12/12R/screenshots/<TAG>/*.png —— 新鲜真实截图(红轮/绿轮各一轮)
+//   p0-mvp/goal-create-idempotency-12/12R/evidence/12r-goal-idempotency-<TAG>.json —— 逐步骤结构化观察
 // 轮次分离(11 包 Reviewer Minor-M2 教训):**缺省 TAG=ci(回归安全)**;证据轮必须显式
 //   WEBUX12_TAG=audit-red(修复前红态)/verify(修复后绿态)——缺省值绝不覆盖证据轮产物。
-// 被测事实(合同 12 B/C/D;协调方 Major-R2 实证技术=本 harness 正式化):
+// 被测事实(合同 12 B/C/D + 12R B/C/D;协调方 Major-R2 实证技术=本 harness 正式化):
 //   - **ACK 丢失 ≠ 请求未送达**:page.route 拦截 POST /api/goals 后先 `route.fetch()` **真实送达
 //     服务器并取得 201(事务已提交)**,再 `route.abort("failed")` 只丢弃浏览器侧回执 ——
 //     修复前:用户按界面提示重试 ⇒ 第二个 POST ⇒ 重复 Goal+初始 Task/消费/预算/审计(红);
@@ -17,12 +24,16 @@
 //     同键同内容(操作者/绑定一致)⇒ 200 幂等重放;同键异 payload/项目绑定 ⇒ 409 fail-closed;
 //     非法键格式 ⇒ 400 零创建;无键(旧客户端)⇒ 行为不变;不同键同文案 ⇒ 两个独立新需求
 //     (不按纯文本永久去重);并发同键 ⇒ 恰一个 Goal(PK 冲突⇒重放,事务化)。
+//   - 12R:项目身份原子持久冻结=创建事务内 GOAL_PLANNED 审计 detail.project(projectId/path/
+//     repo/branch,未绑定=null);重放按冻结事实精确比对(缺失/损坏=不可证 ⇒ 409,不只比目录
+//     字符串,回显冻结事实而非本次请求);UUID 键规范化(trim+lowercase,RFC 4122 等价语义)。
 //   - 零新表/零 schema 变更/零 Core 生命周期改动:持久性=Goal 行本身;服务端无 process-local
 //     状态 ⇒ 天然跨重启;Web/UI 最小增补(键生成+sessionStorage 持久+409 中文提示)。
 //   - 11R UI 功能不推倒(终态「新建后续任务」/PAUSED 指引/ACTIVE 双操作由其自身套件回归)。
 //   - T9 错误门=全量分类:注入性 net::ERR_FAILED(ACK 丢失注入的本意信号)与注入次数精确
 //     对账(桌面 2= T1+T7,手机 1= T1m);其余 pageerror/console.error 零容忍。
 // 隔离与边界:RELAY_PROJECTS_FILE 指向一次性合成注册表(绝不读取受保护 config/projects.json);
+//   12R 反例所需的别名/漂移注册项由各测试临时改写该一次性文件并在 finally 恢复基线(跨测试零污染);
 //   数据全部合成;零生产连接/零真实模型/零外部交付(target=本地 bare 远端夹具);用后即毁。
 // 操作者一致性说明:Auth 单操作者(role="owner");同键异操作者的服务端拒绝逻辑在实现内
 //   (GOAL_PLANNED 审计 actor 比对),e2e 单操作者环境无法构造第二操作者 ⇒ 该分支由实现审查
@@ -32,6 +43,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { chromium, type Browser, type Page } from "playwright";
 import type { APIRequestContext } from "playwright";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -51,7 +63,7 @@ const E2E = process.env.RELAY_E2E === "1";
 const STUB = new URL("../helpers/stub-pi.mjs", import.meta.url).pathname;
 // 11 教训(M2):缺省=ci(回归安全);证据轮显式 audit-red/verify。
 const TAG = process.env.WEBUX12_TAG ?? "ci";
-const OUT_DIR = join(process.cwd(), "p0-mvp", "goal-create-idempotency-12");
+const OUT_DIR = join(process.cwd(), "p0-mvp", "goal-create-idempotency-12", "12R");
 const SHOT_DIR = join(OUT_DIR, "screenshots", TAG);
 const EVIDENCE_DIR = join(OUT_DIR, "evidence");
 const PASSWORD = "e2e-password-webux12";
@@ -76,6 +88,9 @@ interface Stack {
   page: Page; // 桌面页(1440×900)
   mpage: Page; // 手机页(390×844,带监听)
   csrf: string;
+  /** 12R:一次性注册表文件路径与基线项目目录(T12/T14/T15 临时改写+恢复;绝不触碰受保护 config/)。 */
+  regPath: string;
+  projectDir: string;
 }
 
 /** 逐步骤观察收集(红轮=Major-R2 可证伪反例证据源;绿轮=修后对照)。 */
@@ -90,11 +105,11 @@ const CONSOLE_ERRORS: { desktop: string[]; mobile: string[] } = { desktop: [], m
 function flushObservations(): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   writeFileSync(
-    join(EVIDENCE_DIR, `webux12-goal-idempotency-${TAG}.json`),
+    join(EVIDENCE_DIR, `12r-goal-idempotency-${TAG}.json`),
     JSON.stringify(
       {
         tag: TAG,
-        contract: "RELAY-GOAL-CREATE-IDEMPOTENCY-12",
+        contract: "RELAY-GOAL-CREATE-IDEMPOTENCY-12R",
         boundary: "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
         viewports: { desktop: "1440x900", mobile: "390x844" },
         capturedAt: new Date().toISOString(),
@@ -186,7 +201,7 @@ async function startStack(): Promise<Stack> {
   const projectDir = mkdtempSync(join(tmpdir(), "webux12-proj-"));
   writeFileSync(reg, JSON.stringify({ configured: true, projects: [{ name: PROJECT_NAME, path: projectDir }] }));
   process.env["RELAY_PROJECTS_FILE"] = reg;
-  const s: Stack = { t, server, base, browser, page, mpage, csrf: "" };
+  const s: Stack = { t, server, base, browser, page, mpage, csrf: "", regPath: reg, projectDir };
   await login(page, base);
   s.csrf = await csrfOf(page);
   await login(mpage, base); // 手机页同样登录(独立会话;未登录会在 /workspace 跳登录页——红轮夹具教训)
@@ -369,6 +384,19 @@ async function newestGoalId(t: TestDb): Promise<string> {
 async function goalStateOf(t: TestDb, id: string): Promise<string | null> {
   const r = await t.db.execute(sql`SELECT state FROM goals WHERE id = ${id}`);
   return r.rows.length > 0 ? String(r.rows[0]!["state"]) : null;
+}
+
+// ---- 12R 反例夹具(一次性合成注册表改写;派生公式与实现同源) ----
+/** 12R:改写一次性注册表(T12/T14/T15 用;调用方必须在 finally 恢复基线)。 */
+function setRegistry(s: Stack, entries: Array<{ name: string; path: string; repo?: string }>): void {
+  writeFileSync(s.regPath, JSON.stringify({ configured: true, projects: entries }));
+}
+/** 基线注册表(与 startStack 初始内容一致)。 */
+const baseRegistry = (s: Stack) => [{ name: PROJECT_NAME, path: s.projectDir }];
+/** 与实现 goalIdForCreateKey 同公式(键 ⇒ SHA-256 前缀 UUID 形态主键;T16 旧格式探测用)。 */
+function keyIdOf(key: string): string {
+  const h = createHash("sha256").update(`relay:goal-create:v1:${key}`).digest("hex");
+  return `goal-${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 
 describe.skipIf(!E2E)(
@@ -672,6 +700,182 @@ describe.skipIf(!E2E)(
       expect(marker.committedStatus).toBe(201);
       expect(after).toBe(before + 1); // 翻红断言:修复前 +2 ⇒ 红
       expect(retryGoalId).toBe(lostGoalId); // 翻红断言:修复前新 Goal ⇒ 红
+    });
+
+    // ---- 12R 反例(Major-P1 同目录异项目身份 + Minor-K1 UUID 等价表示;先红后绿) ----
+
+    it("T12 同目录项目别名(12R Major-P1):同键同内容异项目身份 ⇒ 409,不得以相同路径掩盖身份冲突", async () => {
+      const before = await goalsCount(s.t);
+      // 注册表追加别名项:不同 name/repo 指向同一物理目录(读取面无路径唯一约束;
+      // 真实业务面=项目别名、不同 repo/branch 共享本地 checkout)。
+      setRegistry(s, [...baseRegistry(s), { name: "alias-same-path", path: s.projectDir, repo: "alias-repo.example" }]);
+      try {
+        const key = randomUUID();
+        const text = "T12 同键异项目身份必须拒绝";
+        const ctx = s.page.context().request;
+        const r1 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text, projectId: PROJECT_NAME }, key);
+        expect(r1.status).toBe(201);
+        const goalId = String(r1.body["goalId"]);
+        // 同键同内容,仅 projectId 换成同目录别名 ⇒ 必须 409(项目身份≠目录字符串)
+        const r2 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text, projectId: "alias-same-path" }, key);
+        const after = await goalsCount(s.t);
+        record("t12/alias-same-path", "api", {
+          before,
+          after,
+          status1: r1.status,
+          status2: r2.status,
+          goalId,
+          replayGoalId: String(r2.body["goalId"] ?? ""),
+          replayProjectId: String(
+            (r2.body["project"] as Record<string, unknown> | null | undefined)?.["projectId"] ?? "",
+          ),
+          err2: String(r2.body["error"] ?? ""),
+        });
+        // 翻红断言:修复前 200 且 replayProjectId=本次请求的别名(重放 A 的 Goal 却谎报归属 B) ⇒ 红
+        expect(r2.status).toBe(409);
+        expect(r2.body["error"]).toBe("goal_create_key_conflict");
+        expect(after).toBe(before + 1); // 冲突零新建
+        expect(await goalStateOf(s.t, goalId)).toBe("ACTIVE"); // 原 Goal 未被改动
+      } finally {
+        setRegistry(s, baseRegistry(s));
+      }
+    });
+
+    it("T13 UUID 等价表示(12R Minor-K1):同一 UUID 大小写/边界空白=同一持久创建意图 ⇒ 200 同 Goal", async () => {
+      const before = await goalsCount(s.t);
+      const key = randomUUID();
+      const text = "T13 同一 UUID 任意合法表示必须重放同 Goal";
+      const ctx = s.page.context().request;
+      const r1 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text }, key);
+      expect(r1.status).toBe(201);
+      const goalId = String(r1.body["goalId"]);
+      // 大写表示(同一 UUID 的另一合法写法;传输层原样送达) ⇒ 期望 200 幂等重放
+      const r2 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text }, key.toUpperCase());
+      const mid = await goalsCount(s.t);
+      // 边界空白(传输层剥 OWS+服务端 trim 双口径一致) ⇒ 期望 200 幂等重放
+      const r3 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text }, ` ${key} `);
+      const after = await goalsCount(s.t);
+      record("t13/uuid-equivalence", "api", {
+        before,
+        mid,
+        after,
+        status1: r1.status,
+        status2: r2.status,
+        status3: r3.status,
+        goalId,
+        upperGoalId: String(r2.body["goalId"] ?? ""),
+        spaceGoalId: String(r3.body["goalId"] ?? ""),
+        upperReplay: r2.body["idempotentReplay"] === true,
+      });
+      // 翻红断言:修复前大写=键⇒另一派生主键 ⇒ 201 新 Goal(+2) ⇒ 红
+      expect(r2.status).toBe(200);
+      expect(String(r2.body["goalId"])).toBe(goalId);
+      expect(r2.body["idempotentReplay"]).toBe(true);
+      expect(mid).toBe(before + 1);
+      expect(r3.status).toBe(200);
+      expect(String(r3.body["goalId"])).toBe(goalId);
+      expect(after).toBe(before + 1); // 同一 UUID 的所有等价表示 ⇒ 恰一个 Goal
+    });
+
+    it("T14 注册表漂移(12R):同 name 注册事实变更(repo 补登)后同键重放 ⇒ 409,不按现状谎报归属", async () => {
+      const before = await goalsCount(s.t);
+      const key = randomUUID();
+      const text = "T14 注册表漂移后重放必须拒绝";
+      const ctx = s.page.context().request;
+      const r1 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text, projectId: PROJECT_NAME }, key);
+      expect(r1.status).toBe(201);
+      // 注册表漂移:同 name,repo 事实实际改变(当前 Registry 可达且有历史差异)
+      setRegistry(s, [{ name: PROJECT_NAME, path: s.projectDir, repo: "moved-repo.example" }]);
+      try {
+        const r2 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text, projectId: PROJECT_NAME }, key);
+        const after = await goalsCount(s.t);
+        record("t14/registry-drift", "api", {
+          before,
+          after,
+          status1: r1.status,
+          status2: r2.status,
+          replayProject: JSON.stringify(r2.body["project"] ?? null),
+          err2: String(r2.body["error"] ?? ""),
+        });
+        // 翻红断言:修复前仅比目录 scope ⇒ 200(重放旧 Goal 却按漂移后注册事实解析) ⇒ 红
+        expect(r2.status).toBe(409);
+        expect(after).toBe(before + 1); // 冲突零新建
+      } finally {
+        setRegistry(s, baseRegistry(s));
+      }
+    });
+
+    it("T15 绑定边界(12R):无绑定↔绑定项目在默认 scope 巧合相等时,同键异绑定状态 ⇒ 409", async () => {
+      const before = await goalsCount(s.t);
+      // 路径恰等于无绑定默认 scope(/workspace)的项目:只比 allowed_scope 时该巧合会误重放
+      setRegistry(s, [...baseRegistry(s), { name: "ws-alias", path: "/workspace" }]);
+      try {
+        const ctx = s.page.context().request;
+        const text = "T15 绑定状态变化必须拒绝";
+        // 方向 A:无绑定创建 ⇒ 同键带项目重放
+        const k1 = randomUUID();
+        const a1 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text }, k1);
+        expect(a1.status).toBe(201);
+        const a2 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text, projectId: "ws-alias" }, k1);
+        const mid = await goalsCount(s.t);
+        // 方向 B:带项目创建 ⇒ 同键无绑定重放
+        const k2 = randomUUID();
+        const b1 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text, projectId: "ws-alias" }, k2);
+        expect(b1.status).toBe(201);
+        const b2 = await apiCreate(s.base, ctx, s.csrf, { rawInput: text }, k2);
+        const after = await goalsCount(s.t);
+        record("t15/binding-boundary", "api", {
+          before,
+          mid,
+          after,
+          a1: a1.status,
+          a2: a2.status,
+          b1: b1.status,
+          b2: b2.status,
+          a2Project: JSON.stringify(a2.body["project"] ?? null),
+          errA2: String(a2.body["error"] ?? ""),
+          errB2: String(b2.body["error"] ?? ""),
+        });
+        // 翻红断言:修复前 scope 巧合相等 ⇒ 双向均 200 错归属 ⇒ 红
+        expect(a2.status).toBe(409);
+        expect(b2.status).toBe(409);
+        expect(mid).toBe(before + 1); // mid 采集于 a1(+1)后、b1 前;a2 冲突零新建
+        expect(after).toBe(before + 2); // 两意图各自恰一个 Goal,冲突零新建
+      } finally {
+        setRegistry(s, baseRegistry(s));
+      }
+    });
+
+    it("T16 旧派生格式键(12R 历史兼容):规范化前已消费的键重试 ⇒ 不重复创建第二个 Goal", async () => {
+      // 12R 规范化后,同一 UUID 的非小写历史表示派生不同主键。直接注入「旧格式已消费」的
+      // Goal 行(模拟升级前创建;最小字段,无 GOAL_PLANNED 冻结事实)验证:该键重试绝不产生
+      // 第二个 Goal(修后=旧格式探测命中 ⇒ 409 fail-closed;若只规范化不带探测 ⇒ 201 重复 ⇒ 红)。
+      // 注:修复前旧代码对注入行恰好也回 409(scope 缺失面),本测试是「规范化必须带历史兼容
+      // 探测」的防回归门,红轮即绿为设计内(如实登记,非红轮失败项)。
+      const before = await goalsCount(s.t);
+      const key = randomUUID();
+      const legacyId = keyIdOf(key.toUpperCase()); // 旧派生格式=原大小写形态
+      const legacyText = "T16 旧格式键已消费的意图";
+      await s.t.db.execute(
+        sql`INSERT INTO goals (id, raw_input, state, budget) VALUES (${legacyId}, ${legacyText}, 'ACTIVE', '{"modelCalls":12}'::jsonb)`,
+      );
+      try {
+        const ctx = s.page.context().request;
+        const r = await apiCreate(s.base, ctx, s.csrf, { rawInput: legacyText }, key.toUpperCase());
+        const after = await goalsCount(s.t);
+        record("t16/legacy-derivation", "api", {
+          before,
+          after,
+          status: r.status,
+          legacyId,
+          err: String(r.body["error"] ?? ""),
+        });
+        expect(r.status).toBe(409); // 旧格式已消费 ⇒ fail-closed 拒绝(绝不 201 重复创建)
+        expect(r.body["error"]).toBe("goal_create_key_conflict");
+        expect(after).toBe(before + 1); // 只有注入行,零新建
+      } finally {
+        await s.t.db.execute(sql`DELETE FROM goals WHERE id = ${legacyId}`);
+      }
     });
 
     it("T9 全程浏览器错误分类门(桌面+手机):零真实错误;注入性 ERR_FAILED 恰=注入次数", async () => {

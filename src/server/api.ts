@@ -25,7 +25,7 @@ import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import type { RelayDb, Exec } from "../core/db.ts";
-import { planGoal } from "../core/goals.ts";
+import { planGoal, type GoalProjectBinding } from "../core/goals.ts";
 import { consumeGoalMessages } from "../core/consumption.ts";
 import { operatorAllowed, resolveDecision, resumeTask, pauseTask, requestTaskAbort } from "../core/ops.ts";
 import { runGoalDiscovery } from "../core/discovery.ts";
@@ -165,15 +165,25 @@ export function deriveDefaultPlan(rawInput: string): {
   };
 }
 
-// ---- RELAY-GOAL-CREATE-IDEMPOTENCY-12:Goal 创建幂等(Major-R2:ACK 丢失重复创建) ----
+// ---- RELAY-GOAL-CREATE-IDEMPOTENCY-12/12R:Goal 创建幂等(Major-R2 ACK 丢失 + Major-P1 项目身份) ----
 // 一个「用户明确创建」意图 = 一个高熵请求键(x-relay-idempotency-key,UUID 形态;客户端一次
 // 意图生成一次,响应不确定的重试复用)。键 ⇒ 确定性派生 Goal 主键,复用 goals.id PK 唯一约束
-// 做持久幂等:重试(网络回执丢失/并发重发/刷新后重发)同键同内容(操作者/项目绑定一致)⇒
-// 200 幂等重放返回同一 GoalId;同键异 payload/绑定/操作者 ⇒ 409 fail-closed;非法键 ⇒ 400
+// 做持久幂等:重试(网络回执丢失/并发重发/刷新后重发)同键同内容(操作者/项目身份一致)⇒
+// 200 幂等重放返回同一 GoalId;同键异 payload/**项目身份**/操作者 ⇒ 409 fail-closed;非法键 ⇒ 400
 // 零创建;**无键(旧客户端)行为不变**;不同键同文案 ⇒ 两个独立新需求(绝不按纯文本永久去重)。
-// 持久性 = Goal 行本身(零新表/零 schema 变更/零 Core 改动);服务端零 process-local 状态 ⇒
-// 天然跨重启。绝不重派生初始 Task/预算/消息/审计副作用(重放只读首次事务已落库事实)。
+// 持久性 = Goal 行本身(零新表/零 schema 变更);服务端零 process-local 状态 ⇒ 天然跨重启。
+// 绝不重派生初始 Task/预算/消息/审计副作用(重放只读首次事务已落库事实)。
+// 12R:项目身份权威 = 创建事务内 GOAL_PLANNED 审计冻结的 detail.project(注册表权威解析的
+// projectId/path/repo/branch,未绑定显式 null)—— 注册表无 path 唯一约束,同目录≠同项目,
+// 重放只认创建时点冻结事实(缺失/损坏=不可证 ⇒ 409),响应 project 亦回显冻结事实而非本次请求。
 const GOAL_CREATE_KEY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 12R(Minor-K1)UUID 键规范化:trim + 小写。同一 UUID 的任意合法大小写表示 = 同一标识
+ *  (RFC 4122 等价语义);边界空白不入键(HTTP 传输层本就剥 OWS,此处收敛为确定性单一口径)。
+ *  历史兼容:规范化前以非小写形态消费过的键派生不同主键 ⇒ 见 legacyKeyGoalId 探测。 */
+function normalizeCreateKey(raw: string): string {
+  return raw.trim().toLowerCase();
+}
 
 /** 请求键 ⇒ Goal 主键(SHA-256 前缀,UUID 形态;与既有 goal-<uuid> 约定同形)。
  *  确定性 ⇒ 同键重试落到同一 PK ⇒ INSERT 撞唯一约束即识别旧成功;SHA-256 碰撞 ⇒
@@ -181,6 +191,32 @@ const GOAL_CREATE_KEY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 function goalIdForCreateKey(key: string): string {
   const h = createHash("sha256").update(`relay:goal-create:v1:${key}`).digest("hex");
   return `goal-${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/** 冻结的项目身份绑定形状校验(jsonb 反序列化面;缺失/损坏 = 身份不可证)。 */
+function isProjectBindingShape(v: unknown): v is GoalProjectBinding {
+  if (typeof v !== "object" || v === null) return false;
+  const b = v as Record<string, unknown>;
+  return (
+    typeof b["name"] === "string" &&
+    typeof b["path"] === "string" &&
+    (b["repo"] === null || typeof b["repo"] === "string") &&
+    (b["branch"] === null || typeof b["branch"] === "string")
+  );
+}
+
+/** 12R(Major-P1)项目身份精确比对:创建时冻结事实 vs 本次请求解析事实,逐字段全等。
+ *  frozen=null(创建时显式未绑定)仅与本次未绑定相等;字段缺失(undefined,12R 前旧事实)/
+ *  形状损坏 ⇒ 不可证 ⇒ false(fail-closed 拒绝重放,绝不以目录字符串或本次请求元数据顶替)。 */
+function projectBindingEqual(frozen: unknown, request: GoalProjectBinding | null): boolean {
+  if (frozen === null) return request === null;
+  if (!isProjectBindingShape(frozen)) return false;
+  return (
+    frozen.name === request?.name &&
+    frozen.path === request?.path &&
+    frozen.repo === request?.repo &&
+    frozen.branch === request?.branch
+  );
 }
 
 /** PG 唯一约束违反(并发同键:赢家事务已提交,本事务回滚后转重放/冲突判定)。
@@ -193,10 +229,15 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 /** 同键重试的幂等解析(只读,零写副作用):键从未成功创建 ⇒ null(走正常创建);
- *  已存在旧 Goal ⇒ 内容/操作者/项目绑定逐项一致 ⇒ 200 重放(同 GoalId/初始 Task),
- *  任一不一致 ⇒ 409 fail-closed。初始 Task 以首消息消费映射定位(创建事务原子落库),
- *  缺失时退 GOAL_PLANNED 审计 detail.tasks 兜底;操作者以 GOAL_PLANNED 审计 actor 比对
- *  (与 Goal 同事务,必然存在;行缺失视为不可证 ⇒ 仅按内容+绑定判定,如实保守)。 */
+ *  已存在旧 Goal ⇒ 内容/操作者/项目身份逐项一致 ⇒ 200 重放(同 GoalId/初始 Task),
+ *  任一不一致 ⇒ 409 fail-closed。
+ *  - 项目身份(12R Major-P1):以创建事务内 GOAL_PLANNED 审计冻结的 detail.project 精确比对
+ *    (projectId/path/repo/branch;未绑定=null)。审计行或 project 字段缺失/损坏 ⇒ 身份不可证
+ *    ⇒ 409(拒绝而非默默跳过;兼容 12R 前创建的 Goal:宁可拒绝重放,绝不误归属/重复创建)。
+ *  - 操作者:GOAL_PLANNED 审计 actor(与 Goal 同事务;行缺失视为不可证 ⇒ 该项跳过,如实保守)。
+ *  - 初始 Task:首消息消费映射定位,缺失退 GOAL_PLANNED detail.tasks 兜底。
+ *  - 12R 历史兼容探测:legacyKeyGoalId(规范化前的原形态派生)已有 Goal ⇒ 该键已被消费,
+ *    绝不重复创建第二个 Goal;其冻结事实按定义不可证 ⇒ 一律 409(诚实拒绝,指引新键)。 */
 async function resolveGoalCreateReplay(
   deps: ApiDeps,
   keyGoalId: string,
@@ -204,16 +245,34 @@ async function resolveGoalCreateReplay(
   expectedScope: string[],
   role: string,
   boundProject: { name: string; path: string; repo: string | null; branch: string | null } | null,
+  legacyKeyGoalId?: string,
 ): Promise<ApiResponse | null> {
+  if (legacyKeyGoalId && legacyKeyGoalId !== keyGoalId) {
+    const lg = await deps.db.execute(sql`SELECT id FROM goals WHERE id = ${legacyKeyGoalId}`);
+    if (lg.rows.length > 0)
+      return fail(
+        409,
+        "goal_create_key_conflict",
+        "同一请求标识已按旧版表示创建过;创建身份事实不可证,已拒绝(如需新需求请使用新键)",
+      );
+  }
   const g = await deps.db.execute(sql`SELECT id, raw_input FROM goals WHERE id = ${keyGoalId}`);
   if (g.rows.length === 0) return null; // 键未消费过 ⇒ 正常创建
   if (String(g.rows[0]!["raw_input"]) !== rawInput)
     return fail(409, "goal_create_key_conflict", "同一请求标识已用于创建其他内容;请修改内容后再试");
   const a = await deps.db.execute(
-    sql`SELECT actor FROM audit_events WHERE action = 'GOAL_PLANNED' AND detail->>'goalId' = ${keyGoalId} ORDER BY seq LIMIT 1`,
+    sql`SELECT actor, detail FROM audit_events WHERE action = 'GOAL_PLANNED' AND detail->>'goalId' = ${keyGoalId} ORDER BY seq LIMIT 1`,
   );
   if (a.rows.length > 0 && String(a.rows[0]!["actor"]) !== role)
     return fail(409, "goal_create_key_conflict", "同一请求标识已由其他操作者使用;已拒绝");
+  const detail = a.rows[0]?.["detail"] as { tasks?: string[]; project?: unknown } | undefined;
+  const frozenProject = detail?.project;
+  // 12R:项目身份 = 冻结事实精确比对(先于 scope 兜底比对;身份冲突绝不因目录相同而放行)。
+  const requestBinding: GoalProjectBinding | null = boundProject
+    ? { name: boundProject.name, path: boundProject.path, repo: boundProject.repo, branch: boundProject.branch }
+    : null;
+  if (!projectBindingEqual(frozenProject, requestBinding))
+    return fail(409, "goal_create_key_conflict", "同一请求标识已绑定其他项目身份;已拒绝");
   const cons = await deps.db.execute(sql`
     SELECT t.allowed_scope AS scope
     FROM goal_message_consumptions c
@@ -226,10 +285,6 @@ async function resolveGoalCreateReplay(
   if (cons.rows.length > 0) {
     scope = cons.rows[0]!["scope"];
   } else {
-    const ga = await deps.db.execute(
-      sql`SELECT detail FROM audit_events WHERE action = 'GOAL_PLANNED' AND detail->>'goalId' = ${keyGoalId} ORDER BY seq LIMIT 1`,
-    );
-    const detail = ga.rows[0]?.["detail"] as { tasks?: string[] } | undefined;
     const firstTask = Array.isArray(detail?.tasks) ? detail.tasks[0] : undefined;
     if (firstTask) {
       const tr = await deps.db.execute(sql`SELECT allowed_scope AS scope FROM tasks WHERE id = ${firstTask}`);
@@ -246,12 +301,13 @@ async function resolveGoalCreateReplay(
     {
       goalId: keyGoalId,
       taskIds,
-      project: boundProject
+      // 回显创建时点冻结事实(比对已保证与本次请求一致;事实源=首次创建,非本次请求元数据)。
+      project: isProjectBindingShape(frozenProject)
         ? {
-            projectId: boundProject.name,
-            path: boundProject.path,
-            repo: boundProject.repo,
-            branch: boundProject.branch,
+            projectId: frozenProject.name,
+            path: frozenProject.path,
+            repo: frozenProject.repo,
+            branch: frozenProject.branch,
           }
         : null,
       idempotentReplay: true,
@@ -440,12 +496,16 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       }
       const plan = deriveDefaultPlan(rawInput);
       const budgetModelCalls = deps.defaultGoalBudgetModelCalls;
-      // RELAY-GOAL-CREATE-IDEMPOTENCY-12:幂等键解析(可选;旧客户端无键 ⇒ 行为完全不变)。
+      // RELAY-GOAL-CREATE-IDEMPOTENCY-12/12R:幂等键解析(可选;旧客户端无键 ⇒ 行为完全不变)。
+      // 12R(Minor-K1):同一 UUID 的任意合法表示(大小写/边界空白)规范化为单一口径再派生/校验。
       const rawCreateKey = req.headers["x-relay-idempotency-key"];
-      const createKey = typeof rawCreateKey === "string" ? rawCreateKey.trim() : "";
+      const originalKey = typeof rawCreateKey === "string" ? rawCreateKey.trim() : "";
+      const createKey = originalKey ? normalizeCreateKey(originalKey) : "";
       if (createKey && !GOAL_CREATE_KEY_RE.test(createKey))
         return fail(400, "idempotency_key_invalid", "请求标识格式非法(应为 UUID);请重试");
       const keyGoalId = createKey ? goalIdForCreateKey(createKey) : undefined;
+      // 12R 历史兼容:规范化前的原形态派生(仅当表示有差异时非空;旧格式已消费 ⇒ 探测拒绝)。
+      const legacyKeyGoalId = originalKey && createKey !== originalKey ? goalIdForCreateKey(originalKey) : undefined;
       // 期望作用域(创建与重放比对共用同一表达式,防止口径漂移)。
       const expectedScope = boundProject
         ? [boundProject.path]
@@ -459,6 +519,7 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           expectedScope,
           session.role,
           boundProject,
+          legacyKeyGoalId,
         );
         if (replay) return replay;
       }
@@ -478,6 +539,16 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
               maxAttempts: t.maxAttempts,
             })),
             actor: session.role,
+            // 12R(Major-P1):注册表权威解析的项目身份随 Goal 同事务冻结进 GOAL_PLANNED 审计
+            //(幂等重放的身份权威;未绑定显式 null —— 绝不只依赖 allowed_scope 目录字符串)。
+            projectBinding: boundProject
+              ? {
+                  name: boundProject.name,
+                  path: boundProject.path,
+                  repo: boundProject.repo,
+                  branch: boundProject.branch,
+                }
+              : null,
           });
           // WEB-UX-03C §4/C1:创建需求即第一条会话消息(会话事实与 Feed 一致;确定性追加,零生命周期变更)。
           // 该消息同时登记消费映射 → 绑定首 Task(它就是首 Task 的来源;防止 loop 首拍重复派生同义 Task)。
@@ -506,6 +577,7 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
             expectedScope,
             session.role,
             boundProject,
+            legacyKeyGoalId,
           );
           if (replay) return replay;
         }

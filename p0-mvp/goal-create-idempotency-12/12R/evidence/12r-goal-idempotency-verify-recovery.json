@@ -1,0 +1,232 @@
+{
+  "tag": "verify-recovery",
+  "contract": "RELAY-GOAL-CREATE-IDEMPOTENCY-12R",
+  "boundary": "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
+  "viewports": {
+    "desktop": "1440x900",
+    "mobile": "390x844"
+  },
+  "capturedAt": "2026-11-16T22:44:07.132Z",
+  "consoleErrors": {
+    "desktop": [
+      "console.error Failed to load resource: net::ERR_FAILED",
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ],
+    "mobile": [
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ]
+  },
+  "steps": [
+    {
+      "step": "t5/no-key-twice",
+      "viewport": "api",
+      "facts": {
+        "before": 0,
+        "after": 2,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-19102a2d-ea23-42e3-a721-864460e31d40",
+        "goal2": "goal-ea941277-c9a0-48d2-aad1-f2ec1c74838f"
+      }
+    },
+    {
+      "step": "t6/different-keys-same-text",
+      "viewport": "api",
+      "facts": {
+        "before": 2,
+        "after": 4,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-5070ed3c-f940-c241-39ca-dfb8bb39a902",
+        "goal2": "goal-0608c13a-d187-c4f9-27ee-a9bc80f79b1d"
+      }
+    },
+    {
+      "step": "t4/key-format-gate",
+      "viewport": "api",
+      "facts": {
+        "before": 4,
+        "mid": 4,
+        "after": 5,
+        "statuses": "400,400,400,400,400",
+        "okStatus": 201
+      }
+    },
+    {
+      "step": "t8/replay-determinism",
+      "viewport": "api",
+      "facts": {
+        "before": 5,
+        "after": 6,
+        "status1": 201,
+        "status2": 200,
+        "goal1": "goal-b0de7445-1582-450b-db5f-9f356de19c61",
+        "goal2": "goal-b0de7445-1582-450b-db5f-9f356de19c61",
+        "replayFlag": true,
+        "tasks": 1,
+        "messages": 1,
+        "consumptions": 1,
+        "ledger": 1,
+        "auditPlanned": 1,
+        "auditWebCreated": 1,
+        "auditTaskPlanned": 1
+      }
+    },
+    {
+      "step": "t2/concurrent-same-key",
+      "viewport": "api",
+      "facts": {
+        "before": 6,
+        "after": 7,
+        "statusA": 201,
+        "statusB": 200,
+        "goalA": "goal-5b21c62c-049b-ae80-976d-f2090f1a039f",
+        "goalB": "goal-5b21c62c-049b-ae80-976d-f2090f1a039f"
+      }
+    },
+    {
+      "step": "t3/conflict-matrix",
+      "viewport": "api",
+      "facts": {
+        "before": 7,
+        "midCount": 8,
+        "midCount2": 8,
+        "after": 8,
+        "status1": 201,
+        "status2": 409,
+        "status3": 409,
+        "status4": 409,
+        "err2": "goal_create_key_conflict",
+        "err4": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t1/ack-loss-committed",
+      "viewport": "desktop",
+      "facts": {
+        "before": 8,
+        "afterLoss": 9,
+        "committedStatus": 201,
+        "draftKept": "T1 桌面 ACK 丢失重试幂等",
+        "lostGoalId": "goal-e8612a94-84e9-5df8-db2a-d7e31fbe413e"
+      }
+    },
+    {
+      "step": "t1/retry",
+      "viewport": "desktop",
+      "facts": {
+        "retryGoalId": "goal-e8612a94-84e9-5df8-db2a-d7e31fbe413e",
+        "afterRetry": 9,
+        "lostGoalId": "goal-e8612a94-84e9-5df8-db2a-d7e31fbe413e",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t7/refresh-retry",
+      "viewport": "desktop",
+      "facts": {
+        "before": 9,
+        "after": 10,
+        "committedStatus": 201,
+        "lostGoalId": "goal-430322e8-a5b0-7e8b-3824-3f766538017d",
+        "retryGoalId": "goal-430322e8-a5b0-7e8b-3824-3f766538017d",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t1m/mobile-ack-loss",
+      "viewport": "mobile",
+      "facts": {
+        "before": 10,
+        "after": 11,
+        "committedStatus": 201,
+        "lostGoalId": "goal-ba84de33-c946-bba6-27fe-2646eee3a1b6",
+        "retryGoalId": "goal-ba84de33-c946-bba6-27fe-2646eee3a1b6",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t12/alias-same-path",
+      "viewport": "api",
+      "facts": {
+        "before": 11,
+        "after": 12,
+        "status1": 201,
+        "status2": 409,
+        "goalId": "goal-59550ae8-7eeb-4be6-79f9-0efb00b147e9",
+        "replayGoalId": "",
+        "replayProjectId": "",
+        "err2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t13/uuid-equivalence",
+      "viewport": "api",
+      "facts": {
+        "before": 12,
+        "mid": 13,
+        "after": 13,
+        "status1": 201,
+        "status2": 200,
+        "status3": 200,
+        "goalId": "goal-9656f660-0a56-eba4-286e-5766eaf87c69",
+        "upperGoalId": "goal-9656f660-0a56-eba4-286e-5766eaf87c69",
+        "spaceGoalId": "goal-9656f660-0a56-eba4-286e-5766eaf87c69",
+        "upperReplay": true
+      }
+    },
+    {
+      "step": "t14/registry-drift",
+      "viewport": "api",
+      "facts": {
+        "before": 13,
+        "after": 14,
+        "status1": 201,
+        "status2": 409,
+        "replayProject": "null",
+        "err2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t15/binding-boundary",
+      "viewport": "api",
+      "facts": {
+        "before": 14,
+        "mid": 15,
+        "after": 16,
+        "a1": 201,
+        "a2": 409,
+        "b1": 201,
+        "b2": 409,
+        "a2Project": "null",
+        "errA2": "goal_create_key_conflict",
+        "errB2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t16/legacy-derivation",
+      "viewport": "api",
+      "facts": {
+        "before": 16,
+        "after": 17,
+        "status": 409,
+        "legacyId": "goal-b93b45b8-6b80-dfaa-4d73-544a61ebf11a",
+        "err": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t9/console-errors-classified",
+      "viewport": "both",
+      "facts": {
+        "desktopReal": 0,
+        "desktopNoise": 2,
+        "desktopNoiseExpected": 2,
+        "mobileReal": 0,
+        "mobileNoise": 1,
+        "mobileNoiseExpected": 1,
+        "desktopRealDetail": null,
+        "mobileRealDetail": null
+      }
+    }
+  ]
+}

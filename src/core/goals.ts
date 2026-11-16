@@ -17,12 +17,26 @@ export interface GoalTaskSpec {
   maxAttempts?: number;
 }
 
+/** 项目身份绑定(12R:注册表权威解析事实的冻结形态;与 Goal 同事务落审计,幂等重放的身份权威)。 */
+export interface GoalProjectBinding {
+  name: string;
+  path: string;
+  repo: string | null;
+  branch: string | null;
+}
+
 export interface GoalSpec {
   id?: string;
   rawInput: string;
   budget: { modelCalls: number; tokensIn?: number; tokensOut?: number; wallSeconds?: number };
   tasks: GoalTaskSpec[];
   actor?: string;
+  /** 12R(RELAY-GOAL-CREATE-IDEMPOTENCY-12R Major-P1):创建事务内冻结的项目身份绑定
+   *  (projectId/path/repo/branch,未绑定显式 null;缺省=既有调用方行为完全不变)。
+   *  随 GOAL_PLANNED 审计在同一事务落库(append-only),作为幂等重放的项目身份权威 ——
+   *  不依赖事务外 best-effort 的 WEB_GOAL_CREATED(允许丢失),亦不只比目录字符串:
+   *  注册表无 path 唯一约束,不同项目可共享目录,身份必须以创建时点事实为准。 */
+  projectBinding?: GoalProjectBinding | null;
 }
 
 export interface PlannedGoal {
@@ -91,7 +105,13 @@ export async function planGoal(exec: Exec, spec: GoalSpec): Promise<PlannedGoal>
     actor: spec.actor ?? "planner",
     authority: "SUPERVISOR",
     action: "GOAL_PLANNED",
-    detail: { goalId, tasks: taskIds, budget: spec.budget },
+    detail: {
+      goalId,
+      tasks: taskIds,
+      budget: spec.budget,
+      // 12R:显式传入时冻结项目身份(绑定对象或 null);缺省(既有调用方)不写字段,行为不变。
+      ...(spec.projectBinding !== undefined ? { project: spec.projectBinding } : {}),
+    },
   });
   return { goalId, taskIds };
 }
