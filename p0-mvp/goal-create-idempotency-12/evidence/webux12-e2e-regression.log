@@ -1,0 +1,58 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/webux11r-terminal-execute.test.ts (10 tests) 118750ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T1 COMPLETED 桌面:可证伪反例(点击执行=静默 held)+修后钉住(执行按钮退场/新建后续任务在场)  2206ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2 终态新建后续任务全流程(未绑定 Goal):显式创建新 Goal、旧 Goal 历史不重启、重复点击/空文本/服务端报错 fail-closed  4082ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2b 绑定 Goal 后续任务:项目选择器在场并预选现绑定(用户可改选),服务端按注册表校验、不扩权  1519ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T3 PAUSED 桌面:不暗示可执行、中文恢复指引、不自动恢复;后端 held 负例(零 Task 派生)  1212ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T5 ACTIVE 正例:发送=只记录;交给 Relay 执行=显式授权 ⇒ 安全边界内派生受控 Task(方案 A 不回归)  63521ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T6 手机 390×844:终态执行按钮退场/新建后续任务(≥44px)全流程 + PAUSED 指引;零横向溢出  2875ms
+   ✓ WEB-UX-11R 失败终态(exit-mid 确定性链):执行按钮退场/显式后续任务/后端 held 负例 > T4 FAILED 桌面:失败终态执行按钮退场/新建后续任务全流程;旧 Goal 交付记录不变;后端 held 负例  42352ms
+ ✓ test/e2e/webux11-firstuse-audit.test.ts (6 tests) 83729ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D1 登录首屏+空状态(无项目/无任务):首次用户第一眼看到什么  1205ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D2 一句话建需求 → Conversation;推进 → Result;追问(held)→ 刷新保持  2320ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D3 Decision 内联(等待用户决定):卡文案+三按钮+批准后继续  22089ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > M1 手机 390×844:登录→空状态→抽屉→建需求→Result→追问→Decision(≥44px 触控)  14799ms
+   ✓ WEB-UX-11 失败/停止态(模型不可用确定性链;无桩注入=连真实 runtime 到不可达地址) > D4 失败态:任务终败后工作块如实呈现+查看原因入口(模型不可用首用场景)  42355ms
+ ✓ test/e2e/webux03-mobile.test.ts (12 tests) 52102ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M1 390×844 新建任务:无横向溢出+移动顶栏+唯一输入+Composer 贴底+抽屉冒烟 → 开始 → 进入 Conversation  1014ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M3 Decision 内联单手处理:主按钮 ≥44px 触控 → 允许 → 原地更新(不跳页)+ 执行继续  21981ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M4 Result:完成卡+查看修改;技术详情经 sheet(§11 主界面零工程术语)  341ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M5 完成后继续输入(终态;RELAY-SAFETY-CLOSE-02 P0-A):只记录不派生(held 反馈 + 指引新建需求;Composer 常驻)  336ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M7 Drawer:项目分组可见 → 切换会话 → 遮罩关闭回原会话(上下文不变,§4)  737ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M8 长会话 20+ 条:贴底自动滚;向上查看不强制拉回;「回到最新」(§10)  5720ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M9 断网恢复:横幅文案+会话不清空;恢复自动轮询;写失败不假成功(§13)  4827ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M10 桌面回归(1440×900):三层布局/顶栏/Enter 发送/右栏折叠 —— 03C.1 行为不回退(§15)  716ms
+   ✓ WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈) > M2 Conversation 运行状态:工作块(正在修改…)+ 顶栏状态点;同页可见不跳转  6948ms
+   ✓ WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈) > M6 运行中消息(方案 A 硬门):普通发送永不派生;显式执行排队 → 安全边界消费 → 同会话新执行  8617ms
+ ✓ test/e2e/webux03-workspace.test.ts (8 tests) 13527ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C1 新任务:登录默认进工作区;空白态唯一 Composer(UX1/UX2)→ 开始 → 自动进入 Conversation → 首条 USER_MESSAGE 可见  674ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C2 执行状态:完成后工作状态块聚合(需求→修改→测试→复核→交付;同阶段不重复 UX4/UX5;P1-1 无内部码)  1663ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C3 Decision:Decision Card 内联于当前 Conversation;批准 → 状态更新 + 执行继续  1598ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C5 Follow-up(终态;RELAY-SAFETY-CLOSE-02 P0-A):完成后继续说 ⇒ 只记录不派生(held 反馈 + 请新建需求指引;消息事实保留)  917ms
+   ✓ WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门) > C6 运行中消息(方案 A 硬门):普通发送永不派生;显式执行排队 → 安全边界消费 → 可审计重激活 → 同会话新执行  7358ms
+ ✓ test/e2e/webux02-visual.test.ts (3 tests) 11132ms
+   ✓ WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机 390×844) > 桌面 1440×900:七个页面整套截图  5215ms
+   ✓ WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机 390×844) > 桌面 1512×982 与 1728×1117:关键页复查  1863ms
+   ✓ WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机 390×844) > 手机 390×844:工作台/任务/待决定/结果 + 抽屉导航  2051ms
+ ✓ test/e2e/web-journey.test.ts (7 tests) 10971ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J1 模糊需求创建 → 查看系统理解与可验证建议(标注:确定性规则推导,非模型)  834ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J2 D3 长期未审批:被卡任务停留 NEEDS_DECISION、决策仍 OPEN;其他任务正常推进到 ACCEPTED  2628ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J3 Worker 崩溃:Run FAILED 原因可见、任务恢复 READY(有界重试),异常进 Dashboard  1873ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J6 新页面:Projects/Models/System 渲染关键要素 + 手机视口无横向溢出(响应式)  922ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J7 New Goal 项目绑定:受控 projectId ⇒ scope=注册表路径;Project 页反向可见;AppShell 与手机抽屉  546ms
+   ✓ P0-02C 真实浏览器旅程(J4/J5:交付与状态一致) > J4 候选变更 → 独立验证 → Gate → 交付状态正确展示(本地 bare 远端)  2431ms
+   ✓ P0-02C 真实浏览器旅程(J4/J5:交付与状态一致) > J5 刷新与断线重连:页面状态始终与 PostgreSQL 一致;断线时显示『连接中断』而非陈旧值冒充实时  898ms
+ ✓ test/e2e/webux12-goal-idempotency.test.ts (10 tests) 2597ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T3 同键异 payload/项目绑定:409 冲突零新建;跨会话重用异内容亦 409  361ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1 ACK 丢失重试不重复创建(桌面):服务器已 201→回执丢弃→同草稿重试=同一 Goal  361ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T7 ACK 丢失后页面刷新:重输入同草稿重试仍返回同一 Goal(键跨刷新持久)  310ms
+ ↓ test/e2e/webux03-screenshots.test.ts (1 test | 1 skipped)
+ ↓ test/e2e/webux03d-shots.test.ts (1 test | 1 skipped)
+
+ Test Files  7 passed | 2 skipped (9)
+      Tests  56 passed | 2 skipped (58)
+   Start at  17:11:06
+   Duration  305.48s (transform 783ms, setup 0ms, collect 10.30s, tests 292.81s, environment 2ms, prepare 626ms)
+

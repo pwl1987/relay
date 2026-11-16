@@ -1,0 +1,166 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts (10 tests | 7 failed) 2588ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T5 旧客户端兼容(控制):无键调用行为不变,同文案两次=两个独立 Goal 41ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T6 不同键同文案(控制):两次明确新建意图=两个独立 Goal,不按纯文本永久去重 22ms
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T4 键格式/容量门:非法键 400 且零创建;合法 UUID 接受 15ms
+     → expected 201 to be 400 // Object.is equality
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T8 重放确定性:同键重试=同 GoalId/同初始 Task;DB 恰一套 Goal/Task/消费/预算/审计 29ms
+     → expected 201 to be 200 // Object.is equality
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T2 并发同键两请求:恰一个 Goal,双方同 goalId(201+幂等重放) 16ms
+     → expected [ 201, 201 ] to deeply equal [ 200, 201 ]
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T3 同键异 payload/项目绑定:409 冲突零新建;跨会话重用异内容亦 409 374ms
+     → expected 201 to be 409 // Object.is equality
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1 ACK 丢失重试不重复创建(桌面):服务器已 201→回执丢弃→同草稿重试=同一 Goal 338ms
+     → expected 15 to be 14 // Object.is equality
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T7 ACK 丢失后页面刷新:重输入同草稿重试仍返回同一 Goal(键跨刷新持久) 323ms
+     → expected 17 to be 16 // Object.is equality
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1m ACK 丢失重试不重复创建(手机 390×844) 272ms
+     → expected 19 to be 18 // Object.is equality
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T9 全程浏览器错误分类门(桌面+手机):零真实错误;注入性 ERR_FAILED 恰=注入次数 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T4 键格式/容量门:非法键 400 且零创建;合法 UUID 接受
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:452:26
+    450|         );
+    451|         statuses.push(String(r.status));
+    452|         expect(r.status).toBe(400); // 翻红断言:修复前键被忽略 ⇒ 201(红)
+       |                          ^
+    453|         expect(r.body["error"]).toBe("idempotency_key_invalid");
+    454|       }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T8 重放确定性:同键重试=同 GoalId/同初始 Task;DB 恰一套 Goal/Task/消费/预算/审计
+AssertionError: expected 201 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 201
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:497:25
+    495|       };
+    496|       record("t8/replay-determinism", "api", facts);
+    497|       expect(r2.status).toBe(200); // 翻红断言:修复前第二个 POST ⇒ 201(红)
+       |                         ^
+    498|       expect(String(r2.body["goalId"])).toBe(goalId); // 同一 GoalId(翻红断…
+    499|       expect(r2.body["idempotentReplay"]).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T2 并发同键两请求:恰一个 Goal,双方同 goalId(201+幂等重放)
+AssertionError: expected [ 201, 201 ] to deeply equal [ 200, 201 ]
+
+- Expected
++ Received
+
+  [
+-   200,
++   201,
+    201,
+  ]
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:524:45
+    522|       const goalB = String(rb.body["goalId"] ?? "");
+    523|       record("t2/concurrent-same-key", "api", { before, after, statusA…
+    524|       expect([ra.status, rb.status].sort()).toEqual([200, 201]); // 恰一…
+       |                                             ^
+    525|       expect(goalA).toBe(goalB); // 同一 GoalId(翻红断言:修复前两个随机 id ⇒ 红)
+    526|       expect(after).toBe(before + 1); // 恰一个 Goal(翻红断言:修复前 +2 ⇒ 红)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T3 同键异 payload/项目绑定:409 冲突零新建;跨会话重用异内容亦 409
+AssertionError: expected 201 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 201
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:562:25
+    560|       });
+    561|       await ctx2.close();
+    562|       expect(r2.status).toBe(409);
+       |                         ^
+    563|       expect(r2.body["error"]).toBe("goal_create_key_conflict");
+    564|       expect(midCount).toBe(before + 1); // 冲突零新建(翻红断言:修复前 +2 ⇒ 红)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1 ACK 丢失重试不重复创建(桌面):服务器已 201→回执丢弃→同草稿重试=同一 Goal
+AssertionError: expected 15 to be 14 // Object.is equality
+
+- Expected
++ Received
+
+- 14
++ 15
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:614:26
+    612|         sameGoal: retryGoalId === lostGoalId,
+    613|       });
+    614|       expect(afterRetry).toBe(before + 1); // 翻红断言:修复前 +2 ⇒ 红(协调方 COOR…
+       |                          ^
+    615|       expect(retryGoalId).toBe(lostGoalId); // 翻红断言:修复前跳到第二个新 Goal ⇒ 红
+    616|       expect(await goalStateOf(s.t, lostGoalId)).toBe("ACTIVE"); // 原 …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T7 ACK 丢失后页面刷新:重输入同草稿重试仍返回同一 Goal(键跨刷新持久)
+AssertionError: expected 17 to be 16 // Object.is equality
+
+- Expected
++ Received
+
+- 16
++ 17
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:644:21
+    642|       });
+    643|       expect(marker.committedStatus).toBe(201);
+    644|       expect(after).toBe(before + 1); // 翻红断言:修复前重试=第二个 POST ⇒ +2 ⇒ 红
+       |                     ^
+    645|       expect(retryGoalId).toBe(lostGoalId); // 翻红断言:修复前新 Goal ⇒ 红
+    646|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1m ACK 丢失重试不重复创建(手机 390×844)
+AssertionError: expected 19 to be 18 // Object.is equality
+
+- Expected
++ Received
+
+- 18
++ 19
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:671:21
+    669|       });
+    670|       expect(marker.committedStatus).toBe(201);
+    671|       expect(after).toBe(before + 1); // 翻红断言:修复前 +2 ⇒ 红
+       |                     ^
+    672|       expect(retryGoalId).toBe(lostGoalId); // 翻红断言:修复前新 Goal ⇒ 红
+    673|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 3 passed (10)
+   Start at  16:57:30
+   Duration  4.44s (transform 473ms, setup 0ms, collect 1.56s, tests 2.59s, environment 0ms, prepare 76ms)
+

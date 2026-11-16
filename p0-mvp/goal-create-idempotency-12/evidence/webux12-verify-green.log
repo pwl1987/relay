@@ -1,0 +1,13 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/webux12-goal-idempotency.test.ts (10 tests) 2628ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T3 同键异 payload/项目绑定:409 冲突零新建;跨会话重用异内容亦 409  362ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1 ACK 丢失重试不重复创建(桌面):服务器已 201→回执丢弃→同草稿重试=同一 Goal  399ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T7 ACK 丢失后页面刷新:重输入同草稿重试仍返回同一 Goal(键跨刷新持久)  339ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  17:10:12
+   Duration  4.49s (transform 482ms, setup 0ms, collect 1.57s, tests 2.63s, environment 0ms, prepare 78ms)
+

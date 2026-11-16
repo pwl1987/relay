@@ -1,0 +1,152 @@
+{
+  "tag": "audit-red",
+  "contract": "RELAY-GOAL-CREATE-IDEMPOTENCY-12",
+  "boundary": "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
+  "viewports": {
+    "desktop": "1440x900",
+    "mobile": "390x844"
+  },
+  "capturedAt": "2026-11-16T08:57:35.374Z",
+  "consoleErrors": {
+    "desktop": [
+      "console.error Failed to load resource: net::ERR_FAILED",
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ],
+    "mobile": [
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ]
+  },
+  "steps": [
+    {
+      "step": "t5/no-key-twice",
+      "viewport": "api",
+      "facts": {
+        "before": 0,
+        "after": 2,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-2d10cd68-5b52-40e6-89a6-cde84268d95f",
+        "goal2": "goal-bd24a8b6-6e88-45e7-9fac-9cc81960e34e"
+      }
+    },
+    {
+      "step": "t6/different-keys-same-text",
+      "viewport": "api",
+      "facts": {
+        "before": 2,
+        "after": 4,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-283619d4-2ef2-4373-9154-3e691ef89817",
+        "goal2": "goal-c0f907e0-3e06-419e-9373-75abe7500bb3"
+      }
+    },
+    {
+      "step": "t8/replay-determinism",
+      "viewport": "api",
+      "facts": {
+        "before": 5,
+        "after": 7,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-890c49a3-87b8-4946-8be5-9da42b9de861",
+        "goal2": "goal-0ee953de-8a64-48d9-a45a-4b0b486c1a95",
+        "replayFlag": false,
+        "tasks": 1,
+        "messages": 1,
+        "consumptions": 1,
+        "ledger": 1,
+        "auditPlanned": 1,
+        "auditWebCreated": 1,
+        "auditTaskPlanned": 1
+      }
+    },
+    {
+      "step": "t2/concurrent-same-key",
+      "viewport": "api",
+      "facts": {
+        "before": 7,
+        "after": 9,
+        "statusA": 201,
+        "statusB": 201,
+        "goalA": "goal-3a61d0d3-6451-4007-afe5-92b6a80aef14",
+        "goalB": "goal-3da681b9-02ba-4874-8131-a31a4ca2d727"
+      }
+    },
+    {
+      "step": "t3/conflict-matrix",
+      "viewport": "api",
+      "facts": {
+        "before": 9,
+        "midCount": 11,
+        "midCount2": 12,
+        "after": 13,
+        "status1": 201,
+        "status2": 201,
+        "status3": 201,
+        "status4": 201,
+        "err2": "",
+        "err4": ""
+      }
+    },
+    {
+      "step": "t1/ack-loss-committed",
+      "viewport": "desktop",
+      "facts": {
+        "before": 13,
+        "afterLoss": 14,
+        "committedStatus": 201,
+        "draftKept": "T1 桌面 ACK 丢失重试幂等",
+        "lostGoalId": "goal-739df239-f421-46ee-9a1b-c100f1026bbb"
+      }
+    },
+    {
+      "step": "t1/retry",
+      "viewport": "desktop",
+      "facts": {
+        "retryGoalId": "goal-9ac98f2a-daf9-4ed9-b963-195d337e5a4f",
+        "afterRetry": 15,
+        "lostGoalId": "goal-739df239-f421-46ee-9a1b-c100f1026bbb",
+        "sameGoal": false
+      }
+    },
+    {
+      "step": "t7/refresh-retry",
+      "viewport": "desktop",
+      "facts": {
+        "before": 15,
+        "after": 17,
+        "committedStatus": 201,
+        "lostGoalId": "goal-42e4e997-16ef-4f7a-91d3-5892ed402c26",
+        "retryGoalId": "goal-9a9ad221-762f-4ed5-88f5-c06915c97e27",
+        "sameGoal": false
+      }
+    },
+    {
+      "step": "t1m/mobile-ack-loss",
+      "viewport": "mobile",
+      "facts": {
+        "before": 17,
+        "after": 19,
+        "committedStatus": 201,
+        "lostGoalId": "goal-cc229edd-74b4-42c8-aebc-b0b4f24982be",
+        "retryGoalId": "goal-be1b4f1f-2378-4993-99ab-e00a6e182a0d",
+        "sameGoal": false
+      }
+    },
+    {
+      "step": "t9/console-errors-classified",
+      "viewport": "both",
+      "facts": {
+        "desktopReal": 0,
+        "desktopNoise": 2,
+        "desktopNoiseExpected": 2,
+        "mobileReal": 0,
+        "mobileNoise": 1,
+        "mobileNoiseExpected": 1,
+        "desktopRealDetail": null,
+        "mobileRealDetail": null
+      }
+    }
+  ]
+}

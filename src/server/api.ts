@@ -23,6 +23,7 @@
 //   POST   /api/worker/tick        推进一拍 Goal Loop(core.goalLoopTick)
 import { sql } from "drizzle-orm";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import type { RelayDb, Exec } from "../core/db.ts";
 import { planGoal } from "../core/goals.ts";
 import { consumeGoalMessages } from "../core/consumption.ts";
@@ -162,6 +163,101 @@ export function deriveDefaultPlan(rawInput: string): {
       },
     ],
   };
+}
+
+// ---- RELAY-GOAL-CREATE-IDEMPOTENCY-12:Goal 创建幂等(Major-R2:ACK 丢失重复创建) ----
+// 一个「用户明确创建」意图 = 一个高熵请求键(x-relay-idempotency-key,UUID 形态;客户端一次
+// 意图生成一次,响应不确定的重试复用)。键 ⇒ 确定性派生 Goal 主键,复用 goals.id PK 唯一约束
+// 做持久幂等:重试(网络回执丢失/并发重发/刷新后重发)同键同内容(操作者/项目绑定一致)⇒
+// 200 幂等重放返回同一 GoalId;同键异 payload/绑定/操作者 ⇒ 409 fail-closed;非法键 ⇒ 400
+// 零创建;**无键(旧客户端)行为不变**;不同键同文案 ⇒ 两个独立新需求(绝不按纯文本永久去重)。
+// 持久性 = Goal 行本身(零新表/零 schema 变更/零 Core 改动);服务端零 process-local 状态 ⇒
+// 天然跨重启。绝不重派生初始 Task/预算/消息/审计副作用(重放只读首次事务已落库事实)。
+const GOAL_CREATE_KEY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 请求键 ⇒ Goal 主键(SHA-256 前缀,UUID 形态;与既有 goal-<uuid> 约定同形)。
+ *  确定性 ⇒ 同键重试落到同一 PK ⇒ INSERT 撞唯一约束即识别旧成功;SHA-256 碰撞 ⇒
+ *  内容比对不一致 ⇒ 409 fail-closed(不会错误重放)。 */
+function goalIdForCreateKey(key: string): string {
+  const h = createHash("sha256").update(`relay:goal-create:v1:${key}`).digest("hex");
+  return `goal-${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/** PG 唯一约束违反(并发同键:赢家事务已提交,本事务回滚后转重放/冲突判定)。
+ *  drizzle 会把 pg 错误包成 `Failed query…`(原始 DatabaseError 在 Error.cause),两级都查。 */
+function isUniqueViolation(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as { code?: unknown; cause?: unknown };
+  if (e.code === "23505") return true;
+  return typeof e.cause === "object" && e.cause !== null && (e.cause as { code?: unknown }).code === "23505";
+}
+
+/** 同键重试的幂等解析(只读,零写副作用):键从未成功创建 ⇒ null(走正常创建);
+ *  已存在旧 Goal ⇒ 内容/操作者/项目绑定逐项一致 ⇒ 200 重放(同 GoalId/初始 Task),
+ *  任一不一致 ⇒ 409 fail-closed。初始 Task 以首消息消费映射定位(创建事务原子落库),
+ *  缺失时退 GOAL_PLANNED 审计 detail.tasks 兜底;操作者以 GOAL_PLANNED 审计 actor 比对
+ *  (与 Goal 同事务,必然存在;行缺失视为不可证 ⇒ 仅按内容+绑定判定,如实保守)。 */
+async function resolveGoalCreateReplay(
+  deps: ApiDeps,
+  keyGoalId: string,
+  rawInput: string,
+  expectedScope: string[],
+  role: string,
+  boundProject: { name: string; path: string; repo: string | null; branch: string | null } | null,
+): Promise<ApiResponse | null> {
+  const g = await deps.db.execute(sql`SELECT id, raw_input FROM goals WHERE id = ${keyGoalId}`);
+  if (g.rows.length === 0) return null; // 键未消费过 ⇒ 正常创建
+  if (String(g.rows[0]!["raw_input"]) !== rawInput)
+    return fail(409, "goal_create_key_conflict", "同一请求标识已用于创建其他内容;请修改内容后再试");
+  const a = await deps.db.execute(
+    sql`SELECT actor FROM audit_events WHERE action = 'GOAL_PLANNED' AND detail->>'goalId' = ${keyGoalId} ORDER BY seq LIMIT 1`,
+  );
+  if (a.rows.length > 0 && String(a.rows[0]!["actor"]) !== role)
+    return fail(409, "goal_create_key_conflict", "同一请求标识已由其他操作者使用;已拒绝");
+  const cons = await deps.db.execute(sql`
+    SELECT t.allowed_scope AS scope
+    FROM goal_message_consumptions c
+    JOIN tasks t ON t.id = c.task_id
+    WHERE c.goal_id = ${keyGoalId}
+    ORDER BY c.id
+    LIMIT 1
+  `);
+  let scope: unknown = null;
+  if (cons.rows.length > 0) {
+    scope = cons.rows[0]!["scope"];
+  } else {
+    const ga = await deps.db.execute(
+      sql`SELECT detail FROM audit_events WHERE action = 'GOAL_PLANNED' AND detail->>'goalId' = ${keyGoalId} ORDER BY seq LIMIT 1`,
+    );
+    const detail = ga.rows[0]?.["detail"] as { tasks?: string[] } | undefined;
+    const firstTask = Array.isArray(detail?.tasks) ? detail.tasks[0] : undefined;
+    if (firstTask) {
+      const tr = await deps.db.execute(sql`SELECT allowed_scope AS scope FROM tasks WHERE id = ${firstTask}`);
+      if (tr.rows.length > 0) scope = tr.rows[0]!["scope"];
+    }
+  }
+  if (JSON.stringify(scope ?? []) !== JSON.stringify(expectedScope))
+    return fail(409, "goal_create_key_conflict", "同一请求标识已绑定其他项目;已拒绝");
+  const taskRows = await deps.db.execute(
+    sql`SELECT task_id AS id FROM goal_message_consumptions WHERE goal_id = ${keyGoalId} ORDER BY id`,
+  );
+  const taskIds = taskRows.rows.map((r) => String(r["id"]));
+  return ok(
+    {
+      goalId: keyGoalId,
+      taskIds,
+      project: boundProject
+        ? {
+            projectId: boundProject.name,
+            path: boundProject.path,
+            repo: boundProject.repo,
+            branch: boundProject.branch,
+          }
+        : null,
+      idempotentReplay: true,
+    },
+    200,
+  );
 }
 
 export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResponse> {
@@ -344,21 +440,77 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       }
       const plan = deriveDefaultPlan(rawInput);
       const budgetModelCalls = deps.defaultGoalBudgetModelCalls;
-      const created = await deps.db.transaction(async (tx) =>
-        planGoal(tx as unknown as Exec, {
-          rawInput: plan.rawInput,
-          budget: { modelCalls: budgetModelCalls },
-          tasks: plan.tasks.map((t) => ({
-            goalText: t.goalText,
-            // §4.5:项目绑定 ⇒ Task allowed_scope 绑定注册表解析的项目目录;未绑定保持既有默认。
-            allowedScope: boundProject ? [boundProject.path] : (deps.defaultAllowedScope ?? t.allowedScope),
-            allowedCommands: t.allowedCommands,
-            priority: t.priority,
-            maxAttempts: t.maxAttempts,
-          })),
-          actor: session.role,
-        }),
-      );
+      // RELAY-GOAL-CREATE-IDEMPOTENCY-12:幂等键解析(可选;旧客户端无键 ⇒ 行为完全不变)。
+      const rawCreateKey = req.headers["x-relay-idempotency-key"];
+      const createKey = typeof rawCreateKey === "string" ? rawCreateKey.trim() : "";
+      if (createKey && !GOAL_CREATE_KEY_RE.test(createKey))
+        return fail(400, "idempotency_key_invalid", "请求标识格式非法(应为 UUID);请重试");
+      const keyGoalId = createKey ? goalIdForCreateKey(createKey) : undefined;
+      // 期望作用域(创建与重放比对共用同一表达式,防止口径漂移)。
+      const expectedScope = boundProject
+        ? [boundProject.path]
+        : (deps.defaultAllowedScope ?? plan.tasks[0]!.allowedScope);
+      // 非并发重试面:同键已有旧成功 ⇒ 幂等重放/冲突(未创建过 ⇒ 返回 null 走正常创建)。
+      if (keyGoalId) {
+        const replay = await resolveGoalCreateReplay(
+          deps,
+          keyGoalId,
+          plan.rawInput,
+          expectedScope,
+          session.role,
+          boundProject,
+        );
+        if (replay) return replay;
+      }
+      let created: { goalId: string; taskIds: string[] };
+      try {
+        created = await deps.db.transaction(async (tx) => {
+          const r = await planGoal(tx as unknown as Exec, {
+            ...(keyGoalId ? { id: keyGoalId } : {}),
+            rawInput: plan.rawInput,
+            budget: { modelCalls: budgetModelCalls },
+            tasks: plan.tasks.map((t) => ({
+              goalText: t.goalText,
+              // §4.5:项目绑定 ⇒ Task allowed_scope 绑定注册表解析的项目目录;未绑定保持既有默认。
+              allowedScope: expectedScope,
+              allowedCommands: t.allowedCommands,
+              priority: t.priority,
+              maxAttempts: t.maxAttempts,
+            })),
+            actor: session.role,
+          });
+          // WEB-UX-03C §4/C1:创建需求即第一条会话消息(会话事实与 Feed 一致;确定性追加,零生命周期变更)。
+          // 该消息同时登记消费映射 → 绑定首 Task(它就是首 Task 的来源;防止 loop 首拍重复派生同义 Task)。
+          // 12:并入创建同一事务 —— Goal+初始 Task+预算+消息+消费原子可见,ACK 丢失重放读到的
+          // 必是完整初始事实;失败整体回滚,绝不留半创建。
+          const firstMsg = await tx.execute(sql`
+            INSERT INTO goal_messages (goal_id, actor, kind, content)
+            VALUES (${r.goalId}, 'USER', 'USER_MESSAGE', ${plan.rawInput})
+            RETURNING id
+          `);
+          if (r.taskIds[0]) {
+            await tx.execute(sql`
+              INSERT INTO goal_message_consumptions (message_id, goal_id, task_id)
+              VALUES (${Number(firstMsg.rows[0]!["id"])}, ${r.goalId}, ${r.taskIds[0]})
+            `);
+          }
+          return r;
+        });
+      } catch (err) {
+        // 12:并发同键 —— 赢家事务已提交 ⇒ 本事务 PK 冲突回滚(零部分状态)⇒ 转重放/冲突判定。
+        if (keyGoalId && isUniqueViolation(err)) {
+          const replay = await resolveGoalCreateReplay(
+            deps,
+            keyGoalId,
+            plan.rawInput,
+            expectedScope,
+            session.role,
+            boundProject,
+          );
+          if (replay) return replay;
+        }
+        throw err;
+      }
       await audit(deps, {
         actor: session.role,
         action: "WEB_GOAL_CREATED",
@@ -376,19 +528,6 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
             }
           : { goalId: created.goalId },
       });
-      // WEB-UX-03C §4/C1:创建需求即第一条会话消息(会话事实与 Feed 一致;确定性追加,零生命周期变更)。
-      // 该消息同时登记消费映射 → 绑定首 Task(它就是首 Task 的来源;防止 loop 首拍重复派生同义 Task)。
-      const firstMsg = await deps.db.execute(sql`
-        INSERT INTO goal_messages (goal_id, actor, kind, content)
-        VALUES (${created.goalId}, 'USER', 'USER_MESSAGE', ${plan.rawInput})
-        RETURNING id
-      `);
-      if (created.taskIds[0]) {
-        await deps.db.execute(sql`
-          INSERT INTO goal_message_consumptions (message_id, goal_id, task_id)
-          VALUES (${Number(firstMsg.rows[0]!["id"])}, ${created.goalId}, ${created.taskIds[0]})
-        `);
-      }
       return ok(
         {
           goalId: created.goalId,

@@ -991,9 +991,97 @@
     }
   }
 
+  // ---- RELAY-GOAL-CREATE-IDEMPOTENCY-12:创建请求键(高熵 UUID;一次「用户明确创建」意图一个) ----
+  // 同一草稿(同内容+同项目)的重试——含服务器已创建但回执丢失后的重发、页面刷新后重输入——
+  // 复用同键,服务端持久幂等返回同一 Goal(不再重复创建);内容或项目变更 ⇒ 新键(用户明确
+  // 要另一个需求,不按纯文本永久去重)。键存 sessionStorage(跨刷新;标签页隔离=各自意图);
+  // 存储不可用(隐私模式)退化每次新键=不差于旧客户端。服务端权威判定,前端不冒充唯一性。
+  var GOAL_CREATE_KEY_STORE = "relay:goal-create-intent";
+  var GOAL_CREATE_KEY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function newCreateKey() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    const b = new Uint8Array(16);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(b);
+    else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    let h = "";
+    for (let j = 0; j < 16; j++)
+      h += (j === 4 || j === 6 || j === 8 || j === 10 ? "-" : "") + b[j].toString(16).padStart(2, "0");
+    return h;
+  }
+  function goalCreateKey(raw, projectId) {
+    try {
+      const stored = JSON.parse(window.sessionStorage.getItem(GOAL_CREATE_KEY_STORE) || "null");
+      if (
+        stored &&
+        stored.rawInput === raw &&
+        (stored.projectId || "") === (projectId || "") &&
+        typeof stored.key === "string" &&
+        GOAL_CREATE_KEY_RE.test(stored.key)
+      )
+        return stored.key;
+    } catch (e) {
+      /* 存储不可用 ⇒ 生成新键 */
+    }
+    const key = newCreateKey();
+    try {
+      window.sessionStorage.setItem(
+        GOAL_CREATE_KEY_STORE,
+        JSON.stringify({ key: key, rawInput: raw, projectId: projectId || "" }),
+      );
+    } catch (e) {
+      /* 同上;服务端仍按键幂等,只是刷新后不复用 */
+    }
+    return key;
+  }
+  function clearCreateKey() {
+    try {
+      window.sessionStorage.removeItem(GOAL_CREATE_KEY_STORE);
+    } catch (e) {
+      /* 忽略 */
+    }
+  }
+  /** 创建请求(带幂等键的 POST /api/goals)。语义与 A.apiPost 一致(credentials/CSRF/401 跳转/
+   *  错误形状 err.status+err.payload)。不扩展 A.apiPost(extraHeaders)的原因:app.js 存在既有
+   *  format 漂移,任何改动都会使 quality format 门(文件级,C5)对该文件整文件检查而红——
+   *  11R 对 style.css 的同款先例(绕开漂移文件,不在其上叠加);故创建面自持fetch,其余调用
+   *  继续走 A.apiPost。 */
+  async function createGoalRequest(payload, key) {
+    const res = await fetch("/api/goals", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        "x-relay-csrf": A.state.csrf || "",
+        "x-relay-idempotency-key": key,
+      },
+      body: JSON.stringify(payload || {}),
+    });
+    if (res.status === 401) {
+      window.location.href = "/login.html";
+      throw new Error("unauthenticated");
+    }
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (err2) {
+      data = {};
+    }
+    if (!res.ok) {
+      const err = new Error(data.error || "http_" + res.status);
+      err.status = res.status;
+      err.payload = data;
+      throw err;
+    }
+    return data;
+  }
+
   /** 空白态「开始」与终态「新建后续任务」共用的显式创建入口(POST /api/goals;既有授权/项目边界不变:
    *  projectId 仅接受注册表内项目并由服务端权威解析,未登记 ⇒ 400 fail-closed)。
-   *  WEB-UX-11R:在途旗标+双按钮禁用 ⇒ 重复点击/网络重发不重复创建;失败草稿保留在输入框。 */
+   *  WEB-UX-11R:在途旗标+双按钮禁用 ⇒ 重复点击/网络重发不重复创建;失败草稿保留在输入框。
+   *  WEB-UX-12:带高熵请求键 ⇒ 服务器已创建但回执丢失时,重试返回同一 Goal(服务端持久幂等)。 */
   async function createFromComposer() {
     const input = $("#ws-input");
     const sendBtn = $("#ws-send");
@@ -1012,16 +1100,23 @@
       if (msg) msg.textContent = "内容过长(上限 2000 字)";
       return;
     }
+    const projectId = sel && sel.value ? sel.value : "";
     state.creatingGoal = true;
     sendBtn.disabled = true;
     if (followBtn) followBtn.disabled = true;
     try {
       const payload = { rawInput: raw };
-      if (sel && sel.value) payload.projectId = sel.value;
-      const res = await A.apiPost("/api/goals", payload);
+      if (projectId) payload.projectId = projectId;
+      const res = await createGoalRequest(payload, goalCreateKey(raw, projectId));
+      clearCreateKey(); // 成功确认 ⇒ 意图闭环;下次创建取新键
       window.location.href = "/workspace?goal=" + encodeURIComponent(res.goalId);
     } catch (e) {
-      if (msg) msg.textContent = "创建失败,请稍后重试"; // P1-1:内部错误不直出;草稿保留在输入框
+      // 12:409=键冲突(确定性拒绝)⇒ 清键让下次提交取新键;其余(网络失败/5xx=结果未知)
+      // 保留键 ⇒ 重试同键交由服务端幂等判定(已创建 ⇒ 返回同一 Goal;未创建 ⇒ 正常创建)。
+      if (msg)
+        msg.textContent =
+          e && e.status === 409 ? "请求标识冲突:该标识已绑定其他内容,请直接重试" : "创建失败,请稍后重试"; // P1-1:内部错误不直出;草稿保留在输入框
+      if (e && e.status === 409) clearCreateKey();
       state.creatingGoal = false;
       sendBtn.disabled = false;
       if (followBtn) followBtn.disabled = false;
