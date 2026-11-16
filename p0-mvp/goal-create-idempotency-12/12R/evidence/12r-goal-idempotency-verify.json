@@ -1,0 +1,232 @@
+{
+  "tag": "verify",
+  "contract": "RELAY-GOAL-CREATE-IDEMPOTENCY-12R",
+  "boundary": "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
+  "viewports": {
+    "desktop": "1440x900",
+    "mobile": "390x844"
+  },
+  "capturedAt": "2026-11-16T22:23:39.874Z",
+  "consoleErrors": {
+    "desktop": [
+      "console.error Failed to load resource: net::ERR_FAILED",
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ],
+    "mobile": [
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ]
+  },
+  "steps": [
+    {
+      "step": "t5/no-key-twice",
+      "viewport": "api",
+      "facts": {
+        "before": 0,
+        "after": 2,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-edf24c08-a4f2-4989-ab1b-4e4b83323d46",
+        "goal2": "goal-9663d88c-395f-450d-8e16-001b558fb0cd"
+      }
+    },
+    {
+      "step": "t6/different-keys-same-text",
+      "viewport": "api",
+      "facts": {
+        "before": 2,
+        "after": 4,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-3053014c-8f74-05c2-0cc1-e83ff4608423",
+        "goal2": "goal-580f232b-628e-83bf-066c-eef6c1b470c3"
+      }
+    },
+    {
+      "step": "t4/key-format-gate",
+      "viewport": "api",
+      "facts": {
+        "before": 4,
+        "mid": 4,
+        "after": 5,
+        "statuses": "400,400,400,400,400",
+        "okStatus": 201
+      }
+    },
+    {
+      "step": "t8/replay-determinism",
+      "viewport": "api",
+      "facts": {
+        "before": 5,
+        "after": 6,
+        "status1": 201,
+        "status2": 200,
+        "goal1": "goal-1c586242-8cc9-1f1e-3d54-77a613e701c0",
+        "goal2": "goal-1c586242-8cc9-1f1e-3d54-77a613e701c0",
+        "replayFlag": true,
+        "tasks": 1,
+        "messages": 1,
+        "consumptions": 1,
+        "ledger": 1,
+        "auditPlanned": 1,
+        "auditWebCreated": 1,
+        "auditTaskPlanned": 1
+      }
+    },
+    {
+      "step": "t2/concurrent-same-key",
+      "viewport": "api",
+      "facts": {
+        "before": 6,
+        "after": 7,
+        "statusA": 201,
+        "statusB": 200,
+        "goalA": "goal-400affe4-3541-685b-29ae-2016ca58d7ff",
+        "goalB": "goal-400affe4-3541-685b-29ae-2016ca58d7ff"
+      }
+    },
+    {
+      "step": "t3/conflict-matrix",
+      "viewport": "api",
+      "facts": {
+        "before": 7,
+        "midCount": 8,
+        "midCount2": 8,
+        "after": 8,
+        "status1": 201,
+        "status2": 409,
+        "status3": 409,
+        "status4": 409,
+        "err2": "goal_create_key_conflict",
+        "err4": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t1/ack-loss-committed",
+      "viewport": "desktop",
+      "facts": {
+        "before": 8,
+        "afterLoss": 9,
+        "committedStatus": 201,
+        "draftKept": "T1 桌面 ACK 丢失重试幂等",
+        "lostGoalId": "goal-50b999ac-9b0f-1b24-ab63-d385acccfa84"
+      }
+    },
+    {
+      "step": "t1/retry",
+      "viewport": "desktop",
+      "facts": {
+        "retryGoalId": "goal-50b999ac-9b0f-1b24-ab63-d385acccfa84",
+        "afterRetry": 9,
+        "lostGoalId": "goal-50b999ac-9b0f-1b24-ab63-d385acccfa84",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t7/refresh-retry",
+      "viewport": "desktop",
+      "facts": {
+        "before": 9,
+        "after": 10,
+        "committedStatus": 201,
+        "lostGoalId": "goal-568528f7-4e1b-811f-fe73-f0f22758e225",
+        "retryGoalId": "goal-568528f7-4e1b-811f-fe73-f0f22758e225",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t1m/mobile-ack-loss",
+      "viewport": "mobile",
+      "facts": {
+        "before": 10,
+        "after": 11,
+        "committedStatus": 201,
+        "lostGoalId": "goal-882019a6-e5e3-42bb-f097-9703ccb800ff",
+        "retryGoalId": "goal-882019a6-e5e3-42bb-f097-9703ccb800ff",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t12/alias-same-path",
+      "viewport": "api",
+      "facts": {
+        "before": 11,
+        "after": 12,
+        "status1": 201,
+        "status2": 409,
+        "goalId": "goal-d90e849a-9dbf-632f-bd24-9c2f609154f4",
+        "replayGoalId": "",
+        "replayProjectId": "",
+        "err2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t13/uuid-equivalence",
+      "viewport": "api",
+      "facts": {
+        "before": 12,
+        "mid": 13,
+        "after": 13,
+        "status1": 201,
+        "status2": 200,
+        "status3": 200,
+        "goalId": "goal-28b5549f-2582-51a0-2492-eb7b7dfad34a",
+        "upperGoalId": "goal-28b5549f-2582-51a0-2492-eb7b7dfad34a",
+        "spaceGoalId": "goal-28b5549f-2582-51a0-2492-eb7b7dfad34a",
+        "upperReplay": true
+      }
+    },
+    {
+      "step": "t14/registry-drift",
+      "viewport": "api",
+      "facts": {
+        "before": 13,
+        "after": 14,
+        "status1": 201,
+        "status2": 409,
+        "replayProject": "null",
+        "err2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t15/binding-boundary",
+      "viewport": "api",
+      "facts": {
+        "before": 14,
+        "mid": 15,
+        "after": 16,
+        "a1": 201,
+        "a2": 409,
+        "b1": 201,
+        "b2": 409,
+        "a2Project": "null",
+        "errA2": "goal_create_key_conflict",
+        "errB2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t16/legacy-derivation",
+      "viewport": "api",
+      "facts": {
+        "before": 16,
+        "after": 17,
+        "status": 409,
+        "legacyId": "goal-43369d4c-ef6a-beb5-ea47-35e77a61a849",
+        "err": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t9/console-errors-classified",
+      "viewport": "both",
+      "facts": {
+        "desktopReal": 0,
+        "desktopNoise": 2,
+        "desktopNoiseExpected": 2,
+        "mobileReal": 0,
+        "mobileNoise": 1,
+        "mobileNoiseExpected": 1,
+        "desktopRealDetail": null,
+        "mobileRealDetail": null
+      }
+    }
+  ]
+}

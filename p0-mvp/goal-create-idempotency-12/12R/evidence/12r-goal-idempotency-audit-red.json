@@ -1,0 +1,232 @@
+{
+  "tag": "audit-red",
+  "contract": "RELAY-GOAL-CREATE-IDEMPOTENCY-12R",
+  "boundary": "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
+  "viewports": {
+    "desktop": "1440x900",
+    "mobile": "390x844"
+  },
+  "capturedAt": "2026-11-16T22:20:33.640Z",
+  "consoleErrors": {
+    "desktop": [
+      "console.error Failed to load resource: net::ERR_FAILED",
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ],
+    "mobile": [
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ]
+  },
+  "steps": [
+    {
+      "step": "t5/no-key-twice",
+      "viewport": "api",
+      "facts": {
+        "before": 0,
+        "after": 2,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-4e417756-45d0-4d4a-b4ad-3cb732a5c6d5",
+        "goal2": "goal-420d49eb-6e14-4aeb-8dee-d77e641969e0"
+      }
+    },
+    {
+      "step": "t6/different-keys-same-text",
+      "viewport": "api",
+      "facts": {
+        "before": 2,
+        "after": 4,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-1ee22d5d-1cbd-99af-416b-4ac1698531d5",
+        "goal2": "goal-4a4ef819-c59f-c417-3445-f81e16e4883e"
+      }
+    },
+    {
+      "step": "t4/key-format-gate",
+      "viewport": "api",
+      "facts": {
+        "before": 4,
+        "mid": 4,
+        "after": 5,
+        "statuses": "400,400,400,400,400",
+        "okStatus": 201
+      }
+    },
+    {
+      "step": "t8/replay-determinism",
+      "viewport": "api",
+      "facts": {
+        "before": 5,
+        "after": 6,
+        "status1": 201,
+        "status2": 200,
+        "goal1": "goal-11fef891-085d-4aae-a747-816d33fff88b",
+        "goal2": "goal-11fef891-085d-4aae-a747-816d33fff88b",
+        "replayFlag": true,
+        "tasks": 1,
+        "messages": 1,
+        "consumptions": 1,
+        "ledger": 1,
+        "auditPlanned": 1,
+        "auditWebCreated": 1,
+        "auditTaskPlanned": 1
+      }
+    },
+    {
+      "step": "t2/concurrent-same-key",
+      "viewport": "api",
+      "facts": {
+        "before": 6,
+        "after": 7,
+        "statusA": 201,
+        "statusB": 200,
+        "goalA": "goal-87f81aa0-15b6-a2fd-13e1-1713fec2f348",
+        "goalB": "goal-87f81aa0-15b6-a2fd-13e1-1713fec2f348"
+      }
+    },
+    {
+      "step": "t3/conflict-matrix",
+      "viewport": "api",
+      "facts": {
+        "before": 7,
+        "midCount": 8,
+        "midCount2": 8,
+        "after": 8,
+        "status1": 201,
+        "status2": 409,
+        "status3": 409,
+        "status4": 409,
+        "err2": "goal_create_key_conflict",
+        "err4": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t1/ack-loss-committed",
+      "viewport": "desktop",
+      "facts": {
+        "before": 8,
+        "afterLoss": 9,
+        "committedStatus": 201,
+        "draftKept": "T1 桌面 ACK 丢失重试幂等",
+        "lostGoalId": "goal-097f862a-bc77-0063-d3fe-b97e3bf797a3"
+      }
+    },
+    {
+      "step": "t1/retry",
+      "viewport": "desktop",
+      "facts": {
+        "retryGoalId": "goal-097f862a-bc77-0063-d3fe-b97e3bf797a3",
+        "afterRetry": 9,
+        "lostGoalId": "goal-097f862a-bc77-0063-d3fe-b97e3bf797a3",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t7/refresh-retry",
+      "viewport": "desktop",
+      "facts": {
+        "before": 9,
+        "after": 10,
+        "committedStatus": 201,
+        "lostGoalId": "goal-60e4d7eb-4c06-4c31-c210-317fc9ad916b",
+        "retryGoalId": "goal-60e4d7eb-4c06-4c31-c210-317fc9ad916b",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t1m/mobile-ack-loss",
+      "viewport": "mobile",
+      "facts": {
+        "before": 10,
+        "after": 11,
+        "committedStatus": 201,
+        "lostGoalId": "goal-47c14a81-5587-fe0b-99b1-9f0e208e08e0",
+        "retryGoalId": "goal-47c14a81-5587-fe0b-99b1-9f0e208e08e0",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t12/alias-same-path",
+      "viewport": "api",
+      "facts": {
+        "before": 11,
+        "after": 12,
+        "status1": 201,
+        "status2": 200,
+        "goalId": "goal-eb40acb1-c37d-b4b3-72f8-3c8c2dbe1241",
+        "replayGoalId": "goal-eb40acb1-c37d-b4b3-72f8-3c8c2dbe1241",
+        "replayProjectId": "alias-same-path",
+        "err2": ""
+      }
+    },
+    {
+      "step": "t13/uuid-equivalence",
+      "viewport": "api",
+      "facts": {
+        "before": 12,
+        "mid": 14,
+        "after": 14,
+        "status1": 201,
+        "status2": 201,
+        "status3": 200,
+        "goalId": "goal-b24f7720-8a65-155a-a934-5def791a0d8b",
+        "upperGoalId": "goal-b7f633fb-9f70-848c-ce50-8e467cc6f4cc",
+        "spaceGoalId": "goal-b24f7720-8a65-155a-a934-5def791a0d8b",
+        "upperReplay": false
+      }
+    },
+    {
+      "step": "t14/registry-drift",
+      "viewport": "api",
+      "facts": {
+        "before": 14,
+        "after": 15,
+        "status1": 201,
+        "status2": 200,
+        "replayProject": "{\"projectId\":\"p-alpha\",\"path\":\"/tmp/webux12-proj-PrRRxX\",\"repo\":\"moved-repo.example\",\"branch\":null}",
+        "err2": ""
+      }
+    },
+    {
+      "step": "t15/binding-boundary",
+      "viewport": "api",
+      "facts": {
+        "before": 15,
+        "mid": 16,
+        "after": 17,
+        "a1": 201,
+        "a2": 200,
+        "b1": 201,
+        "b2": 200,
+        "a2Project": "{\"projectId\":\"ws-alias\",\"path\":\"/workspace\",\"repo\":null,\"branch\":null}",
+        "errA2": "",
+        "errB2": ""
+      }
+    },
+    {
+      "step": "t16/legacy-derivation",
+      "viewport": "api",
+      "facts": {
+        "before": 17,
+        "after": 18,
+        "status": 409,
+        "legacyId": "goal-702c3edd-6b20-afd7-73d8-415ee97ed6df",
+        "err": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t9/console-errors-classified",
+      "viewport": "both",
+      "facts": {
+        "desktopReal": 0,
+        "desktopNoise": 2,
+        "desktopNoiseExpected": 2,
+        "mobileReal": 0,
+        "mobileNoise": 1,
+        "mobileNoiseExpected": 1,
+        "desktopRealDetail": null,
+        "mobileRealDetail": null
+      }
+    }
+  ]
+}

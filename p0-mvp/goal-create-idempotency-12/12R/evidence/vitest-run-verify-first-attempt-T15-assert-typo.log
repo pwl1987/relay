@@ -1,0 +1,48 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts (15 tests | 1 failed) 2660ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T5 旧客户端兼容(控制):无键调用行为不变,同文案两次=两个独立 Goal 37ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T6 不同键同文案(控制):两次明确新建意图=两个独立 Goal,不按纯文本永久去重 21ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T4 键格式/容量门:非法键 400 且零创建;合法 UUID 接受 27ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T8 重放确定性:同键重试=同 GoalId/同初始 Task;DB 恰一套 Goal/Task/消费/预算/审计 21ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T2 并发同键两请求:恰一个 Goal,双方同 goalId(201+幂等重放) 16ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T3 同键异 payload/项目绑定:409 冲突零新建;跨会话重用异内容亦 409  355ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1 ACK 丢失重试不重复创建(桌面):服务器已 201→回执丢弃→同草稿重试=同一 Goal  385ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T7 ACK 丢失后页面刷新:重输入同草稿重试仍返回同一 Goal(键跨刷新持久)  311ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1m ACK 丢失重试不重复创建(手机 390×844) 250ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T12 同目录项目别名(12R Major-P1):同键同内容异项目身份 ⇒ 409,不得以相同路径掩盖身份冲突 16ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T13 UUID 等价表示(12R Minor-K1):同一 UUID 大小写/边界空白=同一持久创建意图 ⇒ 200 同 Goal 19ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T14 注册表漂移(12R):同 name 注册事实变更(repo 补登)后同键重放 ⇒ 409,不按现状谎报归属 12ms
+   × RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T15 绑定边界(12R):无绑定↔绑定项目在默认 scope 巧合相等时,同键异绑定状态 ⇒ 409 28ms
+     → expected 15 to be 16 // Object.is equality
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T16 旧派生格式键(12R 历史兼容):规范化前已消费的键重试 ⇒ 不重复创建第二个 Goal 7ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T9 全程浏览器错误分类门(桌面+手机):零真实错误;注入性 ERR_FAILED 恰=注入次数 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/webux12-goal-idempotency.test.ts > RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T15 绑定边界(12R):无绑定↔绑定项目在默认 scope 巧合相等时,同键异绑定状态 ⇒ 409
+AssertionError: expected 15 to be 16 // Object.is equality
+
+- Expected
++ Received
+
+- 16
++ 15
+
+ ❯ test/e2e/webux12-goal-idempotency.test.ts:842:21
+    840|         expect(a2.status).toBe(409);
+    841|         expect(b2.status).toBe(409);
+    842|         expect(mid).toBe(before + 2);
+       |                     ^
+    843|         expect(after).toBe(before + 2); // 两意图各自恰一个 Goal,冲突零新建
+    844|       } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  06:23:05
+   Duration  4.47s (transform 475ms, setup 0ms, collect 1.53s, tests 2.66s, environment 0ms, prepare 74ms)
+
