@@ -1,0 +1,6 @@
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-16T09:23:12.2287712Z ===== [format] npx biome format src/server/api.ts test/e2e/webux12-goal-idempotency.test.ts web/workspace.js =====
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-16T09:23:28.6687872Z [2m Test Files [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-16T09:23:49.5173030Z  [2m[90m↓[39m[22m test/e2e/webux12-goal-idempotency.test.ts [2m([22m[2m10 tests[22m[2m | [22m[33m10 skipped[39m[2m)[22m
+test	quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-16T09:26:22.2664145Z [2m Test Files [22m [1m[32m75 passed[39m[22m[2m | [22m[33m17 skipped[39m[90m (92)[39m
+e2e	browser journeys(J1..J5)	2026-11-16T09:26:44.7927903Z  [32m✓[39m test/e2e/webux12-goal-idempotency.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 2865[2mms[22m[39m
+e2e	browser journeys(J1..J5)	2026-11-16T09:28:17.0719085Z [2m Test Files [22m [1m[32m7 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (9)[39m

@@ -2,6 +2,7 @@
 
 > 合同:CURRENT.md「RELAY-GOAL-CREATE-IDEMPOTENCY-12 🔵 ACTIVE」(登记于 **809291f**,2026-11-16;基线=11R 收口 3e38ab5;协调方对 11R 整体裁决 REWORK,唯一 Major-R2=POST /api/goals 已提交 201 后响应丢失,客户端按界面提示重试 ⇒ 重复 Goal+初始 Task)。
 > 结论口径:**工程面(A 冷启动→B 先红反例→C 最小实现→D 红绿+回归→E 独立 Reviewer)完成与否以 Reviewer 终裁为准**;WEB-UX-03 用户 Mac 实机 UX ACCEPTED 仍唯一归属用户本人;生产预检 NO-GO 维持,零生产触碰。
+> **E 独立 Reviewer 终裁:PASS(0 Major;4 Minor 全部登记/收口建议性质,不阻断)**——独立临时克隆(detached 854204b)红态反向补丁两次复现**恰 7 failed|3 passed(失败集一致)**、绿态 **10/10**、恢复零残留、PG 零残留、生产 PID 前后一致、CI 854204b 双绿 gh 独立核验;实现八项重点(键门/派生持久性/重放三要素/并发事务/原子创建/禁令逐条/授权零绕过/11R 未推倒)逐项亲核属实。REVIEW 原文入库=`REVIEW-RELAY-GOAL-CREATE-IDEMPOTENCY-12.md`。Minor 消化:Minor-4(MAC 卡口径时点)=本次收口提交刷新(见下);Minor-1~3(数组顺序敏感比较/actor 检查降级分支/23505 识别深度)=登记为后续防御性候选,现路径均不可达且退化方向 fail-closed(误 409/500+保留键重试兜底),如实登记不实施(扩展克制)。
 
 ## 1. A 冷启动与差距审计(合同 A)
 
@@ -56,7 +57,13 @@
 
 生产影响=**零**:零生产 DB DDL/DML(隔离栈+一次性 schema,用后即毁)/零生产进程触碰(PID 未变)/零配置/重启/迁移/egress/防火墙/端口/零真实模型(stub 不可达层)/零外部 GitHub 业务交付(一次性本地 bare 远端)/保护物 10 项 mtime 集合 sha256 前后一致(2b75973b…)。测试 schema `webux12-e2e-goal-idempotency` 已随 stopStack 清理,零容器/端口残留。
 
-## 6. 如实 NOT_RUN
+## 6. CI 时序(exact-head 如实)
+
+- 基线回执:809291f(合同提交)Actions **43829665976** test+e2e 双 success(GitHub check-runs API 亲核,推送前)。
+- **实施提交 854204b exact-head Actions 43839187535 test+e2e 双 success**(e2e job 09:22:43Z→09:28:20Z;test job 09:22:43Z→09:26:24Z;一次通过零重跑)。**webux12 幂等 harness 在 CI 宿主分支真跑 ✓ 10 tests[2865ms]**;e2e job 全量 **56 passed | 2 skipped** 与本地同口径(2 skipped=03C/03D 显式证据门);test job quality:full **75 passed | 17 skipped (92)**(webux12 经 RELAY_E2E 门在 quality 步自动 skip=设计内;lint+format[变更集]+typecheck+单测+真 PG 集成真跑)。摘录=`evidence/ci-e2ejob-854204b-webux12-excerpt.log`;回执=`evidence/ci-checkruns-854204b.json`(未跟踪,循 bacc849/02348b6/48efc19/3e38ab5 例)。
+- 收口提交(§6 回填+REVIEW 入库+CURRENT/CONTINUATION+MAC 卡收口口径)自身 CI 于推送后核验,回执留未跟踪。
+
+## 7. 如实 NOT_RUN
 
 - **同键异操作者(第二操作者)的 e2e 反例**:NOT_RUN——Auth 单操作者配置,隔离栈无法构造第二操作者会话;服务端 actor 比对逻辑已实现(经 GOAL_PLANNED 审计),其行为由实现审查与代码走查保证,单操作者等价路径由 T8(同操作者重放)覆盖。
 - **非 ASCII 键的传输面**:HTTP 头不可携带非 ASCII(任何合规客户端 API 拒发)——服务端字符集校验保留为纵深防御,不可经 e2e 构造。
