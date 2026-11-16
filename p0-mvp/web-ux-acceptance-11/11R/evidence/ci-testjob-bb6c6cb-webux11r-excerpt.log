@@ -1,0 +1,19 @@
+# CI exact-head bb6c6cb Actions 43823828852 e2e job(133152818810,success)摘录——webux11r 宿主分支真跑:
+2026-11-16T07:28:36.9748917Z  ✓ test/e2e/webux11r-terminal-execute.test.ts (10 tests) 116259ms
+
+# 同 job 全绿链摘录(03D/11):
+2026-11-16T07:29:28.1302156Z    ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M1 390×844 新建任务:无横向溢出+移动顶栏+唯一输入+Composer 贴底+抽屉冒烟 → 开始 → 进入 Conversation  778ms
+2026-11-16T07:29:28.1305593Z    ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M3 Decision 内联单手处理:主按钮 ≥44px 触控 → 允许 → 原地更新(不跳页)+ 执行继续  21728ms
+2026-11-16T07:29:28.1306374Z    ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M7 Drawer:项目分组可见 → 切换会话 → 遮罩关闭回原会话(上下文不变,§4)  597ms
+2026-11-16T07:29:28.1307043Z    ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M8 长会话 20+ 条:贴底自动滚;向上查看不强制拉回;「回到最新」(§10)  5626ms
+2026-11-16T07:29:28.1307666Z    ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M9 断网恢复:横幅文案+会话不清空;恢复自动轮询;写失败不假成功(§13)  4729ms
+2026-11-16T07:29:28.1308333Z    ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M10 桌面回归(1440×900):三层布局/顶栏/Enter 发送/右栏折叠 —— 03C.1 行为不回退(§15)  479ms
+2026-11-16T07:31:08.2710605Z    ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D1 登录首屏+空状态(无项目/无任务):首次用户第一眼看到什么  972ms
+2026-11-16T07:31:08.2711282Z    ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D2 一句话建需求 → Conversation;推进 → Result;追问(held)→ 刷新保持  1466ms
+# CI exact-head bb6c6cb Actions 43823828852 test job(133152818412,success)摘录:
+2026-11-16T07:26:36.3896151Z ===== [format] PASS (exit=0, 341ms) =====
+2026-11-16T07:26:44.5085945Z ===== [typecheck] PASS (exit=0, 8119ms) =====
+2026-11-16T07:26:58.6031501Z  Test Files  21 passed (21)
+2026-11-16T07:26:58.7455761Z ===== [unit] PASS (exit=0, 14237ms) =====
+2026-11-16T07:30:30.7491383Z  Test Files  75 passed | 16 skipped (91)
+# quality:full 总量=75 passed | 16 skipped (91);test job 07:26:08Z→07:30:35Z,e2e job 07:26:08Z→07:31:19Z

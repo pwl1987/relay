@@ -56,7 +56,13 @@
 
 生产影响=**零**:零生产进程触碰(PID 未变)/零生产 DB 读写(隔离栈+一次性 schema)/零配置/重启/迁移/egress/防火墙/端口/零真实模型(stub 不可达层)/零外部 GitHub 业务交付(一次性本地 bare 远端)/保护物 9 项 mtime 执行前后逐一核对一致。**执行记录(如实)**:本轮回归后清理污染时曾误将自有 5 文件修复一并 `git checkout` 回退——当即发现,按上下文逐字重放(+99/-24 同 patch)并**全量复验**(绿轮重跑 10/10、e2e 全量重跑 46p|2s、quality:quick 重跑 PASS);最终提交以 Reviewer 独立红绿复现为准。
 
-## 6. 如实 NOT_RUN
+## 6. CI 时序(exact-head 如实)
+
+- 基线回执:cebeb4f(合同提交)Actions **43781867386** test+e2e 双 success(GitHub check-runs API 亲核,推送前)。
+- **实施提交 bb6c6cb exact-head Actions 43823828852 test+e2e 双 success**(e2e job 07:26:08Z→07:31:19Z;test job 07:26:08Z→07:30:35Z;一次通过零重跑)。**webux11r 终态/暂停态执行按钮 harness 在 CI 宿主分支真跑 10/10(116.3s,含 ACTIVE 正例执行链与桌面+手机双视口)**;e2e job 全量与本地同口径(2 skipped=03C/03D 显式证据门);test job quality:full 全量 **75 passed | 16 skipped (91)**(webux11r harness 在 quality 步经 RELAY_E2E 门自动 skip=设计内;lint/format/typecheck PASS,unit 21 文件 182/182)。摘录=`evidence/ci-testjob-bb6c6cb-webux11r-excerpt.log`。
+- 收口提交(本报告 CI 回填+CURRENT/CONTINUATION)自身 CI 于推送后核验,回执留未跟踪(循 bacc849/02348b6/48efc19 例)。
+
+## 7. 如实 NOT_RUN
 
 - 用户 Mac 实机 UX 验收:**NOT_RUN(唯一归属=用户本人;ACCEPTED 不得由 Agent 写入)**;MAC-ACCEPTANCE-CARD.md 已按 11R 行为更新(终态「新建后续任务」/暂停指引)。
 - 手机真机(VPN/安全区/软键盘):NOT_TESTED(390×844 真实 Chromium 等效覆盖)。
