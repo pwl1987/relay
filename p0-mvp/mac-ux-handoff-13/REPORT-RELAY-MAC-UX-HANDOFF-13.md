@@ -5,14 +5,14 @@
 
 ## 0. 结论(工程面)
 
-**UX_HANDOFF_READY(工程自评,待独立 Reviewer 终裁)**:最新 main 的隔离 Web 预览已可安全起停、正确登录并完成首次使用全旅程;启动脚本临时目录泄漏已按「只清自有」口径修复并有红/绿与三次真实交付链实证;Mac 一页操作卡已按 13 口径校订。等待两件用户本人动作:①按 `MAC-ACCEPTANCE-CARD.md` 在 Mac 实机体验并反馈(USER_DECISION:用户 Mac UX 体验反馈);②生产 D3 是否另行授权(与本包无关,未动)。
+**UX_HANDOFF_READY(独立 Reviewer 两轮复核:Round 1 REWORK(2 Major/3 Minor,登记与证据面)→ 执行方全部消化 → Round 2 PASS(0 阻断;REVIEW 原文+消化记录+Round 2 终裁全文入库)**:最新 main 的隔离 Web 预览已可安全起停、正确登录并完成首次使用全旅程;启动脚本临时目录泄漏已按「只清自有」口径修复并有红/绿与三次真实交付链实证;Mac 一页操作卡已按 13 口径校订。等待两件用户本人动作:①按 `MAC-ACCEPTANCE-CARD.md` 在 Mac 实机体验并反馈(**USER_DECISION:用户 Mac UX 体验反馈**=工程阶段唯一剩余门,Agent 不代宣布 UX ACCEPTED);②生产 D3 是否另行授权(与本包无关,未动,预检 NO-GO 维持)。
 
 ## 1. 冷启动/现状先核(A 项,全部亲核)
 
 - live main `40279ed` → 快进 `5457922`(13 合同提交;仅 CURRENT/CONTINUATION/协调方 12R Review 三文件,零代码);本地无分叉、无 stash、单 worktree;唯一 Writer,生产 PID **3242781/3242782**(2026-11-13 02:00:08 启动)前后未变=现役旧进程未被触碰。
 - 合同提交 CI **44012161445@5457922** test+e2e 双 success;job 日志亲读含计数口径:e2e **61 passed|2 skipped(63)**、webux12 **15 tests 真跑**、test job quality:full **75 passed|17 skipped(92 files)**。
 - 受保护 12 项(config/、soak-r3b/、10 份历史 CI 回执)零触碰零纳提交;权威文档 README/ARCHITECTURE_BASELINE/ADR-0010/WEB_UX_03_CONTRACT/MAC 卡/preview 脚本逐读。
-- **新事实如实登记**:测试库 `p01a_*` schema 冷启动实测 **0 个**(12R 收口时登记的 25 个历史会话残留 schema,已被 12R 协调方按其抽核方法学清理;本轮零清理动作,非本轮所为)。`/tmp/webux11-preview-{reg,remote-base,stage}-*` 历史泄漏目录冷启动实测 **各 4 套(12 个)+2 个旧日志**(11 轮以来每次预览运行遗留;verify 类 0 个)——按硬禁令**不清算、不归咎本轮**,仅作修复前基线。
+- **基线登记(实施提交曾失实,经独立 Reviewer Major-1 指认后按 13 收口更正)**:测试库 relayp000 中 **25 个历史 `p01a_*` 残留 schema 全部在场、一个未清**(经授权测试三元组 127.0.0.1:55433/**relayp000** 实测;名单=c1_hb_err×4/c1_toolev×4/c2_budget×3/c2_runner×2/dbg_pie2e×5/p02a×1/rev1×1/review_f_cli×1/review_probe_f1×1/webux02×3,与合同"25 个不得清理"吻合)。**口径教训如实登记**:`docker exec relay-p000-pg psql -U postgres` 不带 `-d relayp000` 时默认连 postgres 库 ⇒ 该查询恒得假 0——实施提交 b78b8ac 的 REPORT/提交信息曾据此误记"冷启动实测 0 个、已被 12R 协调方清理",系**错误查询口径假象**,本轮从未清理任何 schema。正确口径:`psql -U postgres -d relayp000 -Atc "SELECT count(*) FROM information_schema.schemata WHERE schema_name LIKE 'p01a_%';"`。`/tmp/webux11-preview-{reg,remote-base,stage}-*` 历史泄漏目录冷启动实测 **各 4 套(12 个)+2 个旧日志**(11 轮以来每次预览运行遗留;verify 类 0 个)——按硬禁令**不清算、不归咎本轮**,仅作修复前基线。
 
 ## 2. B 项缺陷复现(先红)
 
@@ -31,13 +31,13 @@
 3. **启动窗口 schema 收尾**:`createTestDb` 以 promise 登记,早到信号的 shutdown 会 `await` 它并正常 DROP——启动窗口终止零 schema 残留。
 4. **verify scratch 即时清理**:每次交付核验 `finally` 中 safeRm 自删(原先每核验留一个目录)。
 5. **evidenceChecks 绿路径配置**(冒烟实证后补,与 webux11 e2e 夹具同款 deterministic_test):**修复前实测**——无功能证据配置时每个任务都走 D3 `functional_evidence_unconfigured` 保守停机(NEEDS_DECISION),批准后 fallback=null ⇒ **FAILED**,预览永远到不了 MAC 卡承诺的「已完成」绿路径(REAL API 冒烟亲证,changeset/交付已发生,GIT_COMMIT_BOUND+CHANGESET_RECORDED 在审计);配置后 stub 交付物 `delivered.txt:ok` 恰可通过 ⇒ Gate PASS ⇒ COMPLETED。纯脚本面配置,零 src/ 改动。
-6. 测试 harness 永久脱敏:证据 JSON 不落口令前缀/全文(stdoutTail 口令行 `***REDACTED***`);红态 JSON 中已有口令字段原地脱敏并在此如实登记(硬禁令:口令/Cookie/CSRF 禁止提交)。
+6. 测试 harness 凭据脱敏(**实施提交曾失实,经独立 Reviewer Major-2 指认后按 13 收口更正**):口令本体全程零入库(stdoutTail 口令行 `***REDACTED***`、pwHead 前缀移除)✓;但实施提交的 harness 曾自创 `bodyHead: loginBody.slice(0,120)` 诊断字段,**其内嵌登录响应体含 csrfToken 值前缀(60 hex)随两份证据 JSON 入库**——违反合同硬禁令字面(口令/Cookie/CSRF 禁止提交),且实施提交信息"CSRF 零入库"声明与事实相反。收口更正:①harness 移除 bodyHead 字段(任何响应体片段不再进证据);②入库 `preview-lifecycle-verify.json` 以修复后 harness 重生成(零 hex);③入库 `preview-lifecycle-audit-red.json` 的 csrf 前缀原地脱敏为 `***CSRF-REDACTED***`;④如实登记:b78b8ac 历史提交中仍含该截断前缀(一次性进程已退出即失效的内存 token,截断前缀,实质泄露风险≈0,口令本体确零入库;不 rewrite 已推送历史,以本收口提交为净化版本)。
 
 ## 4. D 项绿轮+真实交付链实证
 
 - focused 测试 TAG=verify **2/2 passed**×2 次(biome 格式化后复验同绿):T1=登录面 302/401→200/200+exit 0+端口释放+schema 删除+**/tmp 零新增**;T2=启动窗口(reg 目录已现=处理器已装)SIGTERM ⇒ exit 0+零泄漏+零 schema 残留。
 - **三次真实交付链冒烟**(真实脚本子进程+真实 HTTP/CSRF+隔离 PG):①无 evidenceChecks 轮=真实走通「创建→进度→D3 决策→批复」全链并如实记录 FAILED 结果(fail-closed 设计面);②有 evidenceChecks 轮=创建→COMPLETED(任务 ACCEPTED、Gate PASS、changeset 1);③截图轮=8 张双视口截图。**三次退出差分均为「恰删自建 3 目录、零新增」**(only-own 语义实证);verify scratch 全程 0 残留;孤儿进程 0;p01a_webux11_preview schema 残留 0。
-- 红态轮测试自身造成的泄漏目录(无哨兵、归属不可证)**如实登记、不清算**(遵守「不得粗暴删 /tmp」),与 12 个历史目录一并留作基线。
+- 红态轮泄漏总量(Reviewer Minor-m1 指认后按 13 收口补登):实施窗口(2026-11-18 02:11~02:22)内,修复前脚本的手工冒烟 1 套+测试迭代(假红×2 轮/独立复刻/audit-red 证据轮/交付冒烟轮)共 **17 套 51 目录**泄漏(每轮 3 目录;修复后运行即自清);加历史 4 套 12 目录,实施提交时点 /tmp 实有 **21 套 63 目录+2 旧日志**(Reviewer 亲测分组与执行方 mtime 分组一致)。全部无哨兵、归属不可证 ⇒ **如实登记、不清算**(遵守「不得粗暴删 /tmp」),与 12 个历史目录一并留作基线;Reviewer 红态复现另产生 2 套 6 目录(其 REVIEW 已自行登记,亦不清算)。
 
 ## 5. E 项真浏览器验收预演(C 项全旅程)
 
@@ -56,13 +56,13 @@
 
 `p0-mvp/web-ux-acceptance-11/MAC-ACCEPTANCE-CARD.md` 校订:顶部口径按 13 刷新(12R 协调方已 PASS;重试安全=同一意图·同项目·同键);A/B 差异表更新(B=11~13 全部修复;生产 PID 未变);启动方法保留前台一条命令+新增**可选限时后台** `timeout 30m node scripts/webux11-preview.mjs`(到点自动退出并清理,不长期占用);退出与清理保证(含 SIGHUP=关终端场景)如实写入并注明 SIGKILL 例外;截图指针指向本包 8 张真实预览截图;三条测试需求与旅程表按绿路径实证刷新;口令/凭据零出现于卡面。
 
-## 7. G 项独立 Reviewer 与 CI(E 项,收口提交回填)
+## 7. G 项独立 Reviewer 与 CI(E 项)
 
-- 独立 Reviewer:临时克隆 detached 实施提交,隔离冷启动亲测(红态复现方法=取实施提交父版本的脚本;绿态全套件;起停/只清自有/CSRF/回环绑定/HTTPS 禁令/历史 UI 回归/卡准确性),终裁原文入库 `REVIEW-RELAY-MAC-UX-HANDOFF-13.md`。
-- exact-head CI:见收口提交回填(实施提交 SHA+run id+双 job 计数,必须含测试数量核对,防 ba70fd0 式「绿而不全」)。
+- **独立 Reviewer 终裁原文入库** `REVIEW-RELAY-MAC-UX-HANDOFF-13.md`(临时克隆 detached b78b8ac,隔离冷启动亲测:变更面 22 文件恰在合同范围零 src/零 web/零 migrations;红态=父版本脚本恰 2 failed 均泄漏各 +3 目录;绿态 lifecycle 2/2+webux11 6/6+webux12 15/15;真实起停 SIGTERM 与 SIGHUP 两轮均 exit 清理/恰删自建 3 目录/仅绑 127.0.0.1/零孤儿/schema 零残留;脚本修复面与 safe-rm 守卫逐条亲读;MAC 卡逐条对照;CI 独立核验;生产 PID/保护物/零 commit 边界全过)。**终裁=REWORK(2 Major/3 Minor)**,范围=登记与证据面、不涉修复逻辑本体;**执行方按上列 §1/§3⑥/§4 补登与脱敏全部消化**(本收口提交即净化版本),消化记录附于 REVIEW 文末。
+- **exact-head CI(实施提交)**:**44150658655@b78b8ac test+e2e 双 success 一次通过**;job 日志亲读含计数口径:e2e **63 passed|2 skipped(65)**=基线 61+新增 2,webux13-preview-lifecycle **2 tests 真跑**(1896ms,T1/T2 具名),webux12 15、webux11 6(81.5s)、webux11r 10;test job quality:full **76 passed|17 skipped(93 files)/Tests 484 passed|85 skipped(569)**=基线 75|17(92)+新文件 1(其 RELAY_E2E 未开启分支的门测试 1 test 真实断言通过),quality:quick 21 files/182 tests 不变——**变更面与计数逐项精确对账,无 ba70fd0 式「绿而不全」**;biome format 覆盖两个新增文件。回执 ci-checkruns-b78b8ac.json+ci-e2ejob-b78b8ac-excerpt.log 留未跟踪循例。收口提交自身 CI 推送后核验。
 
 ## 8. 边界/生产影响/未验证项
 
 - 生产影响=**零**:零生产读写/迁移/DDL/重启/配置/egress/防火墙/公网暴露/模型付费/外部 GitHub 交付;全部真实读写=一次性 p01a_ schema+本地 bare+合成数据,用后即毁;现役 relay-web/worker(PID 3242781/3242782)未动;保护物 12 项零触碰。
-- 未验证/限制(如实):SIGKILL 强杀不可清理(进程内无法拦截,设计限制);手机真机(VPN/刘海/软键盘)=NOT_TESTED;**用户 Mac 实机体验=NOT_RUN(本包唯一剩余门=USER_DECISION)**;真实模型 F1/F2、24h、生产切换均维持既有口径未动。
-- 生成物:`p0-mvp/mac-ux-handoff-13/`(REPORT/REVIEW/evidence×10/screenshots×9);变更面=preview 脚本+新测试+MAC 卡,合计零 src/、零 web/、零迁移、零新依赖。
+- 未验证/限制(如实):SIGKILL 强杀不可清理(进程内无法拦截,设计限制);手机真机(VPN/刘海/软键盘)=NOT_TESTED;**用户 Mac 实机体验=NOT_RUN(本包唯一剩余门=USER_DECISION)**;真实模型 F1/F2、24h、生产切换均维持既有口径未动。Reviewer 观察项(登记不实施):harness 指定 TAG 字面复跑会覆盖同名 TAG 的既有封存证据(Minor-m3,非 13 引入,列入后续 harness 加固候选)。
+- 生成物:`p0-mvp/mac-ux-handoff-13/`(REPORT+REVIEW;**evidence 9 文件**[5 日志+2 生命周期 JSON+2 CI 计数日志,另 2 份 CI 回执留未跟踪循例——实施提交 §8 曾笔误「evidence×10」,经 Reviewer Minor-m2 指认更正];screenshots 8 png+manifest);变更面=preview 脚本+新测试+MAC 卡+REPORT/REVIEW,合计零 src/、零 web/、零迁移、零新依赖。

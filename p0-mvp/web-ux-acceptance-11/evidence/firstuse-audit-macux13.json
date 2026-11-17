@@ -1,0 +1,371 @@
+{
+  "tag": "macux13",
+  "contract": "RELAY-WEB-UX-ACCEPTANCE-11",
+  "boundary": "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
+  "viewports": {
+    "desktop": "1440x900",
+    "mobile": "390x844"
+  },
+  "capturedAt": "2026-11-17T18:30:31.725Z",
+  "consoleErrors": {
+    "desktop": [],
+    "mobile": []
+  },
+  "steps": [
+    {
+      "step": "d1-login-first-screen",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/login.html",
+      "facts": {
+        "title": "Relay · 登录",
+        "bodyText": "\n    Relay\n    AI 软件开发工作台\n    \n      操作口令\n      \n      \n      \n        登录\n      \n      \n        口令只用于服务端加密比对,不会写入日志或响应;会话保存在服务器端,Cookie 为 HttpOnly + SameSite=Strict。\n        写操作还需要 CSRF 令牌与状态版本校验。\n      \n    \n    \n    \n  \n\n"
+      }
+    },
+    {
+      "step": "d2-workspace-empty-no-project-no-goal",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/workspace",
+      "facts": {
+        "heroTitle": "今天想让 Relay 做什么?",
+        "heroSub": "尚无项目:直接在下方输入一句话即可开始;如需按项目组织,先在左侧「项目」页添加项目。",
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        还没有任务。点上方「＋ 新建任务」开始。\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "工作区",
+        "inputPlaceholder": "告诉 Relay 你想做什么……",
+        "sendLabel": "开始",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "今天想让 Relay 做什么?尚无项目:直接在下方输入一句话即可开始;如需按项目组织,先在左侧「项目」页添加项目。",
+        "workBlockText": null,
+        "resultCardText": null,
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "d3-goal-created",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-c1f2dcf3-04ba-4985-bb8b-2100d3008803",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 感觉登录页不好用,想让登录更快更清楚",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": true,
+        "projectSelectVisible": false,
+        "projectFirstOption": null,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你感觉登录页不好用,想让登录更快更清楚已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "workBlockText": "已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "resultCardText": null,
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "d4-result",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-c1f2dcf3-04ba-4985-bb8b-2100d3008803",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 感觉登录页不好用,想让登录更快更清楚",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "你感觉登录页不好用,想让登录更快更清楚✓ Relay 已完成本轮工作感觉登录页不好用,想让登录更快更清楚✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作感觉登录页不好用,想让登录更快更清楚✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "d5-followup-held",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-c1f2dcf3-04ba-4985-bb8b-2100d3008803",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 感觉登录页不好用,想让登录更快更清楚",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "你感觉登录页不好用,想让登录更快更清楚你按钮还是太浅,再明显一点。Relay已记录你的补充。该需求已完结,不会自动创建新执行任务;如需继续,请新建一个需求。✓ Relay 已完成本轮工作感觉登录页不好用,想让登录更快更清楚✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作感觉登录页不好用,想让登录更快更清楚✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null,
+        "heldAck": "Relay已记录你的补充。该需求已完结,不会自动创建新执行任务;如需继续,请新建一个需求。"
+      }
+    },
+    {
+      "step": "d6-refresh-kept",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-c1f2dcf3-04ba-4985-bb8b-2100d3008803",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 感觉登录页不好用,想让登录更快更清楚",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "你感觉登录页不好用,想让登录更快更清楚你按钮还是太浅,再明显一点。Relay已记录你的补充。该需求已完结,不会自动创建新执行任务;如需继续,请新建一个需求。✓ Relay 已完成本轮工作感觉登录页不好用,想让登录更快更清楚✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作感觉登录页不好用,想让登录更快更清楚✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "d7-decision-inline",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-45b28235-f315-3c47-523e-225aac2ececb",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定目标:被 D3 卡住的扩大作用域工作1感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定1\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 目标:被 D3 卡住的扩大作用域工作",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": true,
+        "projectSelectVisible": false,
+        "projectFirstOption": null,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你目标:被 D3 卡住的扩大作用域工作等待你的决定○项目分析○代码修改○自动测试○独立复核○交付⚠ 需要你的决定需要扩大到 src/styles/,是否允许?建议:允许本次修改风险:较低,可回滚截止:2026/11/18 04:29:12允许 / 批准不允许稍后处理",
+        "workBlockText": "等待你的决定○项目分析○代码修改○自动测试○独立复核○交付",
+        "resultCardText": null,
+        "decisionCardText": "⚠ 需要你的决定需要扩大到 src/styles/,是否允许?建议:允许本次修改风险:较低,可回滚截止:2026/11/18 04:29:12允许 / 批准不允许稍后处理",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "d8-decision-approved",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-45b28235-f315-3c47-523e-225aac2ececb",
+      "facts": {
+        "approvedNotice": "✓ 已批准,Relay 继续执行"
+      }
+    },
+    {
+      "step": "m1-login-first-screen",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/login.html",
+      "facts": {
+        "title": "Relay · 登录"
+      }
+    },
+    {
+      "step": "m2-workspace-empty",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/workspace",
+      "facts": {
+        "heroTitle": "今天想让 Relay 做什么?",
+        "heroSub": "尚无项目:直接在下方输入一句话即可开始;如需按项目组织,先在左侧「项目」页添加项目。",
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定目标:被 D3 卡住的扩大作用域工作感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "工作区",
+        "inputPlaceholder": "告诉 Relay 你想做什么……",
+        "sendLabel": "开始",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "今天想让 Relay 做什么?尚无项目:直接在下方输入一句话即可开始;如需按项目组织,先在左侧「项目」页添加项目。",
+        "workBlockText": null,
+        "resultCardText": null,
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "m3-drawer-open",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/workspace",
+      "facts": {
+        "heroTitle": "今天想让 Relay 做什么?",
+        "heroSub": "尚无项目:直接在下方输入一句话即可开始;如需按项目组织,先在左侧「项目」页添加项目。",
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定目标:被 D3 卡住的扩大作用域工作感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "工作区",
+        "inputPlaceholder": "告诉 Relay 你想做什么……",
+        "sendLabel": "开始",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "今天想让 Relay 做什么?尚无项目:直接在下方输入一句话即可开始;如需按项目组织,先在左侧「项目」页添加项目。",
+        "workBlockText": null,
+        "resultCardText": null,
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "m4-goal-created",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-62e0783e-7f58-55bc-043a-9d0dc20ab331",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定手机上让 Relay 优化登录页的提示文字目标:被 D3 卡住的扩大作用域工作感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 手机上让 Relay 优化登录页的提示文字",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": true,
+        "projectSelectVisible": false,
+        "projectFirstOption": null,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你手机上让 Relay 优化登录页的提示文字已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "workBlockText": "已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "resultCardText": null,
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "m5-result",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-62e0783e-7f58-55bc-043a-9d0dc20ab331",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定手机上让 Relay 优化登录页的提示文字目标:被 D3 卡住的扩大作用域工作感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 手机上让 Relay 优化登录页的提示文字",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "你手机上让 Relay 优化登录页的提示文字✓ Relay 已完成本轮工作手机上让 Relay 优化登录页的提示文字✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作手机上让 Relay 优化登录页的提示文字✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "m6-followup-held",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-62e0783e-7f58-55bc-043a-9d0dc20ab331",
+      "facts": {
+        "heldAck": "Relay已记录你的补充。该需求已完结,不会自动创建新执行任务;如需继续,请新建一个需求。"
+      }
+    },
+    {
+      "step": "m7-decision-inline",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-4e11f06d-477c-2554-3419-c90f2c394c3f",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定目标:被 D3 卡住的样式范围扩展(手机)1手机上让 Relay 优化登录页的提示文字目标:被 D3 卡住的扩大作用域工作感觉登录页不好用,想让登录更快更清楚\n        \n          待我决定1\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 目标:被 D3 卡住的样式范围扩展(手机)",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": true,
+        "projectSelectVisible": false,
+        "projectFirstOption": null,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你目标:被 D3 卡住的样式范围扩展(手机)等待你的决定○项目分析○代码修改○自动测试○独立复核○交付⚠ 需要你的决定需要修改 src/styles/,这个目录超出了当前授权。建议:允许本次修改风险:较低,可回滚截止:2026/11/18 04:29:37允许 / 批准不允许稍后处理",
+        "workBlockText": "等待你的决定○项目分析○代码修改○自动测试○独立复核○交付",
+        "resultCardText": null,
+        "decisionCardText": "⚠ 需要你的决定需要修改 src/styles/,这个目录超出了当前授权。建议:允许本次修改风险:较低,可回滚截止:2026/11/18 04:29:37允许 / 批准不允许稍后处理",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null,
+        "approveButtonHeight": 44
+      }
+    },
+    {
+      "step": "m8-decision-approved",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:38505/workspace?goal=goal-4e11f06d-477c-2554-3419-c90f2c394c3f",
+      "facts": {
+        "approvedNotice": "✓ 已批准,Relay 继续执行"
+      }
+    },
+    {
+      "step": "d9-failed-terminal",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:45897/workspace?goal=goal-f783e352-5571-7e8a-5b3b-a1cc0e8d2a8b",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定目标:模型不可用时的一次失败执行观察\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 目标:模型不可用时的一次失败执行观察",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "你目标:模型不可用时的一次失败执行观察✗ 本轮工作未完成,需要处理✗代码修改未完成下一步:点「查看原因」了解详情;如要重试,请新建一个需求,把要做的事再告诉 Relay。查看原因",
+        "workBlockText": "✗ 本轮工作未完成,需要处理✗代码修改未完成下一步:点「查看原因」了解详情;如要重试,请新建一个需求,把要做的事再告诉 Relay。查看原因",
+        "resultCardText": null,
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "d10-failed-reason-opened",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:45897/workspace?goal=goal-f783e352-5571-7e8a-5b3b-a1cc0e8d2a8b",
+      "facts": {
+        "heroTitle": null,
+        "heroSub": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定目标:模型不可用时的一次失败执行观察\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 目标:模型不可用时的一次失败执行观察",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "projectSelectVisible": true,
+        "projectFirstOption": "尚未配置项目 — 直接开始",
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "你目标:模型不可用时的一次失败执行观察✗ 本轮工作未完成,需要处理✗代码修改未完成下一步:点「查看原因」了解详情;如要重试,请新建一个需求,把要做的事再告诉 Relay。查看原因",
+        "workBlockText": "✗ 本轮工作未完成,需要处理✗代码修改未完成下一步:点「查看原因」了解详情;如要重试,请新建一个需求,把要做的事再告诉 Relay。查看原因",
+        "resultCardText": null,
+        "decisionCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    }
+  ]
+}

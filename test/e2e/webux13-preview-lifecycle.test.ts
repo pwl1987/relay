@@ -157,14 +157,13 @@ async function loginAndProbe(base: string, password: string): Promise<ProbeResul
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ password, operator: "owner" }),
   });
-  const loginBody = await login.text().catch(() => "");
   const setCookie = login.headers.get("set-cookie") ?? "";
   record("login-session", {
     status: login.status,
     hasCookie: setCookie.length > 0,
-    // 诊断字段(红态定位用):仅口令长度,不落任何口令前缀/全文(13 硬禁令:口令禁止入库)
+    // 诊断字段(红态定位用):仅口令长度;响应体一律不落盘(Reviewer Major-2:body 曾含 csrfToken 前缀,
+    // 合同硬禁令=口令/Cookie/CSRF 禁止入库 ⇒ 任何响应体片段不再进证据)
     pwLen: password.length,
-    bodyHead: loginBody.slice(0, 120),
   });
   const authedWs = await fetch(`${base}/workspace`, { headers: { cookie: setCookie }, redirect: "manual" });
   record("authed-workspace", { status: authedWs.status });

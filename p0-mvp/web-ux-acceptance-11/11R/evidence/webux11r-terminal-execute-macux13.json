@@ -1,0 +1,514 @@
+{
+  "tag": "macux13",
+  "contract": "RELAY-WEB-UX-ACCEPTANCE-11R",
+  "boundary": "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
+  "viewports": {
+    "desktop": "1440x900",
+    "mobile": "390x844"
+  },
+  "capturedAt": "2026-11-17T18:32:50.257Z",
+  "consoleErrors": {
+    "desktop": [],
+    "mobile": []
+  },
+  "steps": [
+    {
+      "step": "t1-completed-terminal-facts",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-4420f8e5-e052-ff6f-b515-8ff0cceda513",
+      "facts": {
+        "goalState": "COMPLETED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 11R-T1:正常完成的登录页优化需求",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 38,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": true,
+        "projectOptionCount": 2,
+        "projectSelected": "",
+        "feedText": "你11R-T1:正常完成的登录页优化需求✓ Relay 已完成本轮工作11R-T1:正常完成的登录页优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作11R-T1:正常完成的登录页优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t1-terminal-execute-hidden",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-4420f8e5-e052-ff6f-b515-8ff0cceda513",
+      "facts": {
+        "note": "修后:终态无执行按钮(绿轮形态)"
+      }
+    },
+    {
+      "step": "t2-terminal-before-followup",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-54d33714-feff-57fc-0d62-a8425365eb8f",
+      "facts": {
+        "goalState": "COMPLETED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 11R-T2A:结果卡片文案优化需求",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 38,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": true,
+        "projectOptionCount": 2,
+        "projectSelected": "",
+        "feedText": "你11R-T2A:结果卡片文案优化需求✓ Relay 已完成本轮工作11R-T2A:结果卡片文案优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作11R-T2A:结果卡片文案优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t2-followup-created",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-0e84b056-91e0-8716-df51-39474ddbed5b",
+      "facts": {
+        "httpStatus": 201,
+        "rawInput": "请把结果卡片里的技术详情折叠起来,默认只看结论",
+        "projectId": null,
+        "newGoalId": "goal-0e84b056-91e0-8716-df51-39474ddbed5b"
+      }
+    },
+    {
+      "step": "t2-new-goal-view",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-0e84b056-91e0-8716-df51-39474ddbed5b",
+      "facts": {
+        "goalState": "ACTIVE",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定请把结果卡片里的技术详情折叠起来,默认只看结论11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 请把结果卡片里的技术详情折叠起来,默认只看结论",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": true,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": false,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 0,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": false,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你请把结果卡片里的技术详情折叠起来,默认只看结论已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "workBlockText": "已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "resultCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t2-double-click-guard",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-41d6252b-a8e5-e7a4-46f5-042e21969525",
+      "facts": {
+        "postCount": 1
+      }
+    },
+    {
+      "step": "t2-empty-text-guard",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-54d33714-feff-57fc-0d62-a8425365eb8f",
+      "facts": {
+        "goalState": "COMPLETED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 11R-T2A:结果卡片文案优化需求",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 38,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "先写一句你想让 Relay 做的事",
+        "projectSelectVisible": true,
+        "projectOptionCount": 2,
+        "projectSelected": "",
+        "feedText": "你11R-T2A:结果卡片文案优化需求✓ Relay 已完成本轮工作11R-T2A:结果卡片文案优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作11R-T2A:结果卡片文案优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t2-server-error-draft-kept",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-54d33714-feff-57fc-0d62-a8425365eb8f",
+      "facts": {
+        "goalState": "COMPLETED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 11R-T2A:结果卡片文案优化需求",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "服务端报错时的草稿保留验证",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 38,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "创建失败,请稍后重试",
+        "projectSelectVisible": true,
+        "projectOptionCount": 2,
+        "projectSelected": "",
+        "feedText": "你11R-T2A:结果卡片文案优化需求✓ Relay 已完成本轮工作11R-T2A:结果卡片文案优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作11R-T2A:结果卡片文案优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t2-retry-after-error-ok",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-6e6d10dd-936b-9d1a-1b75-1b9c654efbaa",
+      "facts": {
+        "url": "http://127.0.0.1:35877/workspace?goal=goal-6e6d10dd-936b-9d1a-1b75-1b9c654efbaa"
+      }
+    },
+    {
+      "step": "t2b-terminal-bound-facts",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-3be6e247-1a32-8892-9863-9925843ffb71",
+      "facts": {
+        "goalState": "COMPLETED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        p-alpha11R-T2B:带项目绑定的暗色模式需求项目未绑定服务端报错时的草稿保留验证重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "p-alpha · 11R-T2B:带项目绑定的暗色模式需求",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 38,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": true,
+        "projectOptionCount": 2,
+        "projectSelected": "p-alpha",
+        "feedText": "你11R-T2B:带项目绑定的暗色模式需求✓ Relay 已完成本轮工作11R-T2B:带项目绑定的暗色模式需求✓代码修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作11R-T2B:带项目绑定的暗色模式需求✓代码修改技术详情",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t2b-terminal-bound-facts-settled",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-3be6e247-1a32-8892-9863-9925843ffb71",
+      "facts": {
+        "goalState": "COMPLETED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        p-alpha11R-T2B:带项目绑定的暗色模式需求项目未绑定服务端报错时的草稿保留验证重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "p-alpha · 11R-T2B:带项目绑定的暗色模式需求",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 38,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": true,
+        "projectOptionCount": 2,
+        "projectSelected": "p-alpha",
+        "feedText": "你11R-T2B:带项目绑定的暗色模式需求✓ Relay 已完成本轮工作11R-T2B:带项目绑定的暗色模式需求✓代码修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作11R-T2B:带项目绑定的暗色模式需求✓代码修改技术详情",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t2b-followup-created",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-5dc2a5a0-0e65-b92f-9591-6a4236780dd2",
+      "facts": {
+        "httpStatus": 201,
+        "projectId": "p-alpha",
+        "newGoalId": "goal-5dc2a5a0-0e65-b92f-9591-6a4236780dd2"
+      }
+    },
+    {
+      "step": "t3-paused-facts",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-fd2f216b-218b-94c3-e281-727bdd481ced",
+      "facts": {
+        "goalState": "PAUSED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        p-alpha继续为同一项目补一个浅色模式开关11R-T2B:带项目绑定的暗色模式需求项目未绑定11R-T3:被暂停的需求会话(夹具构造)服务端报错时的草稿保留验证重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n     ",
+        "title": "项目未绑定 · 11R-T3:被暂停的需求会话(夹具构造)",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": false,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 0,
+        "stateHintVisible": true,
+        "stateHintText": "该需求已暂停:暂不能执行新任务;如需继续,请先通过任务恢复操作恢复,Relay 不会自动恢复。",
+        "composerMsgText": "",
+        "projectSelectVisible": false,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你11R-T3:被暂停的需求会话(夹具构造)",
+        "workBlockText": null,
+        "resultCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t3-paused-send-held-ack",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-fd2f216b-218b-94c3-e281-727bdd481ced",
+      "facts": {
+        "heldAck": "Relay已记录你的补充。该需求会话已暂停,不会自动创建新执行任务;如需继续,请新建一个需求。"
+      }
+    },
+    {
+      "step": "t3-backend-held-negative",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-fd2f216b-218b-94c3-e281-727bdd481ced",
+      "facts": {
+        "httpStatus": 201,
+        "held": true,
+        "followUpTaskId": null,
+        "tasksBefore": 1
+      }
+    },
+    {
+      "step": "t5-active-facts",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-f8892d29-af75-b811-f15b-d19e03f27a65",
+      "facts": {
+        "goalState": "ACTIVE",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        p-alpha继续为同一项目补一个浅色模式开关11R-T2B:带项目绑定的暗色模式需求项目未绑定11R-T5:ACTIVE 态会话中追加显式执行11R-T3:被暂停的需求会话(夹具构造)服务端报错时的草稿保留验证重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI",
+        "title": "项目未绑定 · 11R-T5:ACTIVE 态会话中追加显式执行",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": true,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": false,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 0,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": false,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你11R-T5:ACTIVE 态会话中追加显式执行已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "workBlockText": "已纳入执行队列,即将开始○项目分析○代码修改○自动测试○独立复核○交付",
+        "resultCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t5-executive-request-derived",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-f8892d29-af75-b811-f15b-d19e03f27a65",
+      "facts": {
+        "httpStatus": 201,
+        "followUpTaskId": "task-31718029-04d7-41c6-85df-0aeaec35e641",
+        "queuedExecute": null,
+        "held": null,
+        "tasksAfter": 2
+      }
+    },
+    {
+      "step": "t6-mobile-terminal-facts",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-7ded8c47-3388-f01a-ff45-4b2ffe22629a",
+      "facts": {
+        "goalState": "COMPLETED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        p-alpha继续为同一项目补一个浅色模式开关11R-T2B:带项目绑定的暗色模式需求项目未绑定手机端:完成卡片信息层级优化需求11R-T5:ACTIVE 态会话中追加显式执行服务端报错时的草稿保留验证重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T3:被暂停的需求会话(夹具构造)11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n          \n          项目\n          总览",
+        "title": "项目未绑定 · 手机端:完成卡片信息层级优化需求",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 44,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": true,
+        "projectOptionCount": 2,
+        "projectSelected": "",
+        "feedText": "你手机端:完成卡片信息层级优化需求✓ Relay 已完成本轮工作手机端:完成卡片信息层级优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "workBlockText": null,
+        "resultCardText": "✓ Relay 已完成本轮工作手机端:完成卡片信息层级优化需求✓代码修改✓4 项测试✓独立复核通过✓已提交 GitHub1 个文件查看修改技术详情",
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t6-mobile-followup-created",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-57079761-a5f1-30e0-f601-0cdcf0a4c015",
+      "facts": {
+        "newGoalId": "goal-57079761-a5f1-30e0-f601-0cdcf0a4c015"
+      }
+    },
+    {
+      "step": "t6-mobile-paused-facts",
+      "viewport": "mobile",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-59a5b135-8781-ff04-d611-cdf3c6e638d4",
+      "facts": {
+        "goalState": "PAUSED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        p-alpha继续为同一项目补一个浅色模式开关11R-T2B:带项目绑定的暗色模式需求项目未绑定手机端:被暂停的需求(夹具构造)手机端继续:把完成卡片的技术细节默认折叠手机端:完成卡片信息层级优化需求11R-T5:ACTIVE 态会话中追加显式执行服务端报错时的草稿保留验证重复点击防护验证请把结果卡片里的技术详情折叠起来,默认只看结论11R-T3:被暂停的需求会话(夹具构造)11R-T2A:结果卡片文案优化需求11R-T1:正常完成的登录页优化需求\n        \n          待我决定0\n",
+        "title": "项目未绑定 · 手机端:被暂停的需求(夹具构造)",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": false,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 0,
+        "stateHintVisible": true,
+        "stateHintText": "该需求已暂停:暂不能执行新任务;如需继续,请先通过任务恢复操作恢复,Relay 不会自动恢复。",
+        "composerMsgText": "",
+        "projectSelectVisible": false,
+        "projectOptionCount": 0,
+        "projectSelected": "",
+        "feedText": "你手机端:被暂停的需求(夹具构造)",
+        "workBlockText": null,
+        "resultCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t7-completed-held",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-f8892d29-af75-b811-f15b-d19e03f27a65",
+      "facts": {
+        "held": true,
+        "tasks": 1
+      }
+    },
+    {
+      "step": "t7-paused-held",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-f8892d29-af75-b811-f15b-d19e03f27a65",
+      "facts": {
+        "held": true,
+        "tasks": 1
+      }
+    },
+    {
+      "step": "t7-unknown-project-rejected",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-f8892d29-af75-b811-f15b-d19e03f27a65",
+      "facts": {
+        "httpStatus": 400,
+        "error": "unknown_project"
+      }
+    },
+    {
+      "step": "t7-empty-and-too-long-rejected",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35877/workspace?goal=goal-f8892d29-af75-b811-f15b-d19e03f27a65",
+      "facts": {
+        "empty": 400,
+        "tooLong": 400
+      }
+    },
+    {
+      "step": "t4-failed-terminal-facts",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35655/workspace?goal=goal-bfbf7cf2-e022-0d0e-785f-af7739f1ad51",
+      "facts": {
+        "goalState": "FAILED",
+        "heroTitle": null,
+        "sidebarText": "\n        RelayAI 软件开发工作台\n        ＋ 新建任务\n        项目未绑定11R-T4:模型不可用时的一次失败执行\n        \n          待我决定0\n          \n          项目\n          总览(旧)\n          AI 资源\n          系统状态\n          退出登录\n        \n      ",
+        "title": "项目未绑定 · 11R-T4:模型不可用时的一次失败执行",
+        "inputPlaceholder": "继续告诉 Relay……",
+        "inputValue": "",
+        "sendLabel": "发送",
+        "executeVisible": false,
+        "executeLabel": "交给 Relay 执行",
+        "followupVisible": true,
+        "followupLabel": "新建后续任务",
+        "followupHeight": 38,
+        "stateHintVisible": false,
+        "stateHintText": "",
+        "composerMsgText": "",
+        "projectSelectVisible": true,
+        "projectOptionCount": 1,
+        "projectSelected": "",
+        "feedText": "你11R-T4:模型不可用时的一次失败执行✗ 本轮工作未完成,需要处理✗代码修改未完成下一步:点「查看原因」了解详情;如要重试,请新建一个需求,把要做的事再告诉 Relay。查看原因",
+        "workBlockText": "✗ 本轮工作未完成,需要处理✗代码修改未完成下一步:点「查看原因」了解详情;如要重试,请新建一个需求,把要做的事再告诉 Relay。查看原因",
+        "resultCardText": null,
+        "composerBottomGap": 0,
+        "horizontalOverflow": null
+      }
+    },
+    {
+      "step": "t4-followup-created-on-failed",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35655/workspace?goal=goal-81f1d4ec-f717-c725-ab16-395dee60274b",
+      "facts": {
+        "httpStatus": 201,
+        "newGoalId": "goal-81f1d4ec-f717-c725-ab16-395dee60274b"
+      }
+    },
+    {
+      "step": "t4-backend-held-negative",
+      "viewport": "desktop",
+      "url": "http://127.0.0.1:35655/workspace?goal=goal-81f1d4ec-f717-c725-ab16-395dee60274b",
+      "facts": {
+        "held": true,
+        "tasksBefore": 1
+      }
+    }
+  ]
+}

@@ -37,7 +37,7 @@
         "hasCookie": true,
         "pwLen": 12,
         "pwHead": "***REDACTED***",
-        "bodyHead": "{\"ok\":true,\"authenticated\":true,\"role\":\"owner\",\"csrfToken\":\"55f3d0c6576adab07090b516abff1f4382648d0955c9ced11449197619ab"
+        "bodyHead": "{\"ok\":true,\"authenticated\":true,\"role\":\"owner\",\"csrfToken\":\"***CSRF-REDACTED***"
       }
     },
     {

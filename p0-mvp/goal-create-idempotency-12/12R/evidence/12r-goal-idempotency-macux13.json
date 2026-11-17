@@ -1,0 +1,232 @@
+{
+  "tag": "macux13",
+  "contract": "RELAY-GOAL-CREATE-IDEMPOTENCY-12R",
+  "boundary": "SIMULATED(合成业务数据+确定性 stub,零真实模型)× REAL(真实 Web 实现/真 Chromium 操作/真隔离 PG)",
+  "viewports": {
+    "desktop": "1440x900",
+    "mobile": "390x844"
+  },
+  "capturedAt": "2026-11-17T18:30:43.785Z",
+  "consoleErrors": {
+    "desktop": [
+      "console.error Failed to load resource: net::ERR_FAILED",
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ],
+    "mobile": [
+      "console.error Failed to load resource: net::ERR_FAILED"
+    ]
+  },
+  "steps": [
+    {
+      "step": "t5/no-key-twice",
+      "viewport": "api",
+      "facts": {
+        "before": 0,
+        "after": 2,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-f0f784d5-dfc4-49aa-9b4d-9b407ba2bbc7",
+        "goal2": "goal-9bee5a1c-b72b-4698-8240-1a6e16112cd4"
+      }
+    },
+    {
+      "step": "t6/different-keys-same-text",
+      "viewport": "api",
+      "facts": {
+        "before": 2,
+        "after": 4,
+        "status1": 201,
+        "status2": 201,
+        "goal1": "goal-ec291f6d-da85-4a0c-6e0e-b7bd8e51d595",
+        "goal2": "goal-990a8594-5747-0dcf-fe55-55fb621fc242"
+      }
+    },
+    {
+      "step": "t4/key-format-gate",
+      "viewport": "api",
+      "facts": {
+        "before": 4,
+        "mid": 4,
+        "after": 5,
+        "statuses": "400,400,400,400,400",
+        "okStatus": 201
+      }
+    },
+    {
+      "step": "t8/replay-determinism",
+      "viewport": "api",
+      "facts": {
+        "before": 5,
+        "after": 6,
+        "status1": 201,
+        "status2": 200,
+        "goal1": "goal-a12b22b1-4dc8-5810-9a3e-a9808bb0249a",
+        "goal2": "goal-a12b22b1-4dc8-5810-9a3e-a9808bb0249a",
+        "replayFlag": true,
+        "tasks": 1,
+        "messages": 1,
+        "consumptions": 1,
+        "ledger": 1,
+        "auditPlanned": 1,
+        "auditWebCreated": 1,
+        "auditTaskPlanned": 1
+      }
+    },
+    {
+      "step": "t2/concurrent-same-key",
+      "viewport": "api",
+      "facts": {
+        "before": 6,
+        "after": 7,
+        "statusA": 201,
+        "statusB": 200,
+        "goalA": "goal-932fcaea-8e61-0e28-fcdf-9d51e59756fd",
+        "goalB": "goal-932fcaea-8e61-0e28-fcdf-9d51e59756fd"
+      }
+    },
+    {
+      "step": "t3/conflict-matrix",
+      "viewport": "api",
+      "facts": {
+        "before": 7,
+        "midCount": 8,
+        "midCount2": 8,
+        "after": 8,
+        "status1": 201,
+        "status2": 409,
+        "status3": 409,
+        "status4": 409,
+        "err2": "goal_create_key_conflict",
+        "err4": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t1/ack-loss-committed",
+      "viewport": "desktop",
+      "facts": {
+        "before": 8,
+        "afterLoss": 9,
+        "committedStatus": 201,
+        "draftKept": "T1 桌面 ACK 丢失重试幂等",
+        "lostGoalId": "goal-9c141890-0d75-dfd6-db1c-b0bfa5ccdf8c"
+      }
+    },
+    {
+      "step": "t1/retry",
+      "viewport": "desktop",
+      "facts": {
+        "retryGoalId": "goal-9c141890-0d75-dfd6-db1c-b0bfa5ccdf8c",
+        "afterRetry": 9,
+        "lostGoalId": "goal-9c141890-0d75-dfd6-db1c-b0bfa5ccdf8c",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t7/refresh-retry",
+      "viewport": "desktop",
+      "facts": {
+        "before": 9,
+        "after": 10,
+        "committedStatus": 201,
+        "lostGoalId": "goal-508f1677-e43f-ea70-3069-e9d7832cebb6",
+        "retryGoalId": "goal-508f1677-e43f-ea70-3069-e9d7832cebb6",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t1m/mobile-ack-loss",
+      "viewport": "mobile",
+      "facts": {
+        "before": 10,
+        "after": 11,
+        "committedStatus": 201,
+        "lostGoalId": "goal-65d2ab61-6ccb-ce9e-80e7-b493f9acad83",
+        "retryGoalId": "goal-65d2ab61-6ccb-ce9e-80e7-b493f9acad83",
+        "sameGoal": true
+      }
+    },
+    {
+      "step": "t12/alias-same-path",
+      "viewport": "api",
+      "facts": {
+        "before": 11,
+        "after": 12,
+        "status1": 201,
+        "status2": 409,
+        "goalId": "goal-138d1889-f7f1-13ae-021a-82abd7b92582",
+        "replayGoalId": "",
+        "replayProjectId": "",
+        "err2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t13/uuid-equivalence",
+      "viewport": "api",
+      "facts": {
+        "before": 12,
+        "mid": 13,
+        "after": 13,
+        "status1": 201,
+        "status2": 200,
+        "status3": 200,
+        "goalId": "goal-d7cb4743-9732-baf9-9d7a-30def46b5e7e",
+        "upperGoalId": "goal-d7cb4743-9732-baf9-9d7a-30def46b5e7e",
+        "spaceGoalId": "goal-d7cb4743-9732-baf9-9d7a-30def46b5e7e",
+        "upperReplay": true
+      }
+    },
+    {
+      "step": "t14/registry-drift",
+      "viewport": "api",
+      "facts": {
+        "before": 13,
+        "after": 14,
+        "status1": 201,
+        "status2": 409,
+        "replayProject": "null",
+        "err2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t15/binding-boundary",
+      "viewport": "api",
+      "facts": {
+        "before": 14,
+        "mid": 15,
+        "after": 16,
+        "a1": 201,
+        "a2": 409,
+        "b1": 201,
+        "b2": 409,
+        "a2Project": "null",
+        "errA2": "goal_create_key_conflict",
+        "errB2": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t16/legacy-derivation",
+      "viewport": "api",
+      "facts": {
+        "before": 16,
+        "after": 17,
+        "status": 409,
+        "legacyId": "goal-9b6bd780-2ac0-ed22-88b2-bbeaed3d9977",
+        "err": "goal_create_key_conflict"
+      }
+    },
+    {
+      "step": "t9/console-errors-classified",
+      "viewport": "both",
+      "facts": {
+        "desktopReal": 0,
+        "desktopNoise": 2,
+        "desktopNoiseExpected": 2,
+        "mobileReal": 0,
+        "mobileNoise": 1,
+        "mobileNoiseExpected": 1,
+        "desktopRealDetail": null,
+        "mobileRealDetail": null
+      }
+    }
+  ]
+}
