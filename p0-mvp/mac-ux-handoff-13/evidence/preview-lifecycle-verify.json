@@ -1,0 +1,116 @@
+{
+  "tag": "verify",
+  "contract": "RELAY-MAC-UX-HANDOFF-13",
+  "capturedAt": "2026-11-17T18:40:51.316Z",
+  "boundary": "REAL(真实预览进程起停/真实 HTTP+Cookie 登录/真实隔离 PG catalog 只读计数)× SIMULATED(预览执行链=确定性 stub,零真实模型/零外部 GitHub)",
+  "steps": [
+    {
+      "step": "tmp-before",
+      "facts": {
+        "count": 63
+      }
+    },
+    {
+      "step": "started",
+      "facts": {
+        "pid": 3714839,
+        "port": 40005
+      }
+    },
+    {
+      "step": "unauth-workspace",
+      "facts": {
+        "status": 302,
+        "redirect": "/login.html"
+      }
+    },
+    {
+      "step": "unauth-health",
+      "facts": {
+        "status": 401
+      }
+    },
+    {
+      "step": "login-session",
+      "facts": {
+        "status": 200,
+        "hasCookie": true,
+        "pwLen": 12,
+        "bodyHead": "{\"ok\":true,\"authenticated\":true,\"role\":\"owner\",\"csrfToken\":\"a73087710d1207b703f17b86edc695d89364107032893d361ed3b70299db"
+      }
+    },
+    {
+      "step": "authed-workspace",
+      "facts": {
+        "status": 200
+      }
+    },
+    {
+      "step": "authed-health",
+      "facts": {
+        "status": 200
+      }
+    },
+    {
+      "step": "probe",
+      "facts": {
+        "unauthWs": 302,
+        "unauthHealth": 401,
+        "login": 200,
+        "authedWs": 200,
+        "authedHealth": 200
+      }
+    },
+    {
+      "step": "terminated",
+      "facts": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "step": "tmp-after",
+      "facts": {
+        "count": 63,
+        "newDirs": 0
+      }
+    },
+    {
+      "step": "schema",
+      "facts": {
+        "before": 0,
+        "after": 0
+      }
+    },
+    {
+      "step": "t2-terminated",
+      "facts": {
+        "code": 0,
+        "signal": null,
+        "termBeforeBanner": false,
+        "stdoutTail": "37/workspace\n  Mac 经 SSH:ssh -L 46737:127.0.0.1:46737 <你的VM80账号@10.30.5.80>  →  http://localhost:46737/workspace\n  本次登录口令(仅打印一次):***REDACTED***\n  说明:执行链为确定性 stub(非真实模型);Ctrl+C 退出并清理一次性数据(含 /tmp 一次性目录)。\n"
+      }
+    },
+    {
+      "step": "t2-facts",
+      "facts": {
+        "newDirs": 0,
+        "schemaBefore": 0,
+        "schemaAfter": 0
+      }
+    }
+  ],
+  "t1": {
+    "port": 40005,
+    "exit": {
+      "code": 0,
+      "signal": null
+    }
+  },
+  "t2": {
+    "exit": {
+      "code": 0,
+      "signal": null
+    }
+  }
+}

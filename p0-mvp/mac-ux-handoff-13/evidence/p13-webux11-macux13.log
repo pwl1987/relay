@@ -1,0 +1,15 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/webux11-firstuse-audit.test.ts (6 tests) 83142ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D1 登录首屏+空状态(无项目/无任务):首次用户第一眼看到什么  1195ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D2 一句话建需求 → Conversation;推进 → Result;追问(held)→ 刷新保持  2331ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D3 Decision 内联(等待用户决定):卡文案+三按钮+批准后继续  22132ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > M1 手机 390×844:登录→空状态→抽屉→建需求→Result→追问→Decision(≥44px 触控)  14210ms
+   ✓ WEB-UX-11 失败/停止态(模型不可用确定性链;无桩注入=连真实 runtime 到不可达地址) > D4 失败态:任务终败后工作块如实呈现+查看原因入口(模型不可用首用场景)  42326ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  02:29:06
+   Duration  84.96s (transform 539ms, setup 0ms, collect 1.54s, tests 83.14s, environment 0ms, prepare 75ms)
+

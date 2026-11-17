@@ -1,0 +1,15 @@
+{
+  "takenAt": "2026-11-17T18:35:31.919Z",
+  "base": "http://127.0.0.1:18884",
+  "shots": [
+    "01-login",
+    "02-desktop-blank",
+    "03-desktop-progress",
+    "04-desktop-result",
+    "05-desktop-followup-created",
+    "06-mobile-blank",
+    "07-mobile-progress",
+    "08-mobile-result"
+  ],
+  "consoleErrors": []
+}

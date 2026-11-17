@@ -36,6 +36,7 @@ import { createLiveWorkerDriver } from "../src/server/worker.ts";
 import { DEFAULT_DELIVERY_POLICY } from "../src/core/delivery-policy.ts";
 import { createGitHubPushExecutor } from "../src/core/executors/github-push.ts";
 import { makeCommitBindingVerifier, verifyRemoteCommitContent } from "../src/runtime/git-candidate.ts";
+import { markTemp, safeRm, RUN_SENTINEL } from "../src/runtime/safe-rm.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const stubPath = join(repoRoot, "test", "helpers", "stub-pi.mjs");
@@ -45,8 +46,63 @@ const argPort = (() => {
   return Number.isInteger(v) && v > 0 && v < 65536 ? v : 8790;
 })();
 
+// ---- RELAY-MAC-UX-HANDOFF-13 修复:一次性临时目录登记与安全清理 ----
+// 缺陷(13 合同 B):原实现 reg/remoteBase/stage/verify 四类 mkdtempSync 目录退出后全部遗留
+// (shutdown 只调 t.cleanup() 清 DB schema),每次运行在 /tmp 泄漏一套目录。
+// 修复口径:①只登记并只清理**本进程自己创建**的目录(safeRm 哨兵守卫,绝不碰历史/他人目录);
+//   ②信号处理器在创建任何目录**之前**注册 ⇒ 启动窗口收到 SIGINT/SIGTERM/SIGHUP 也能收尾
+//   (SSH 会话断开=SIGHUP 也覆盖);③exit 钩子兜底未捕获异常路径;SIGKILL 无法拦截(如实限制)。
+const tempRoots = [];
+function newTemp(prefix) {
+  const dir = markTemp(mkdtempSync(join(tmpdir(), prefix)));
+  tempRoots.push(dir);
+  return dir;
+}
+function cleanupTempRoots() {
+  const roots = [...tempRoots];
+  for (const dir of roots) {
+    try {
+      safeRm(dir, { roots, sentinel: RUN_SENTINEL });
+    } catch (e) {
+      console.error("[preview] temp 清理:", e?.message ?? String(e));
+    }
+  }
+  tempRoots.length = 0;
+}
+
+let closing = false;
+let timer = null;
+let server = null;
+let tReady = null; // createTestDb promise:启动窗口终止也要等它完成并用其收尾 DROP schema
+async function shutdown() {
+  if (closing) return;
+  closing = true;
+  if (timer) clearInterval(timer);
+  if (server) await new Promise((r) => server.close(() => r()));
+  if (tReady) {
+    try {
+      const tt = await tReady;
+      await tt.cleanup();
+    } catch (e) {
+      console.error("[preview] cleanup:", e?.message ?? String(e));
+    }
+  }
+  cleanupTempRoots();
+  process.exit(0);
+}
+process.on("SIGINT", () => void shutdown());
+process.on("SIGTERM", () => void shutdown());
+process.on("SIGHUP", () => void shutdown());
+// 兜底:未捕获异常/其他 exit 路径(同步清理;SIGKILL 无法拦截,如实限制)
+process.on("exit", () => {
+  try {
+    cleanupTempRoots();
+  } catch {}
+});
+
 const password = randomBytes(9).toString("base64url");
-const t = await createTestDb("webux11-preview");
+tReady = createTestDb("webux11-preview");
+const t = await tReady;
 const auth = new Auth({
   password,
   sessionTtlMs: 3_600_000,
@@ -56,12 +112,12 @@ const auth = new Auth({
   lockoutMs: 60_000,
 });
 // 首次使用空状态:一次性空项目注册表(绝不指向受保护 config/projects.json)
-const reg = join(mkdtempSync(join(tmpdir(), "webux11-preview-reg-")), "projects.json");
+const reg = join(newTemp("webux11-preview-reg-"), "projects.json");
 writeFileSync(reg, JSON.stringify({ projects: [] }));
 process.env["RELAY_PROJECTS_FILE"] = reg;
 
 /** 每任务独立 bare 远端(与 e2e 夹具同语义:propose 先推 base=远端 HEAD 基线,交付按快进推进;零外部 GitHub 写入)。 */
-const remoteBase = mkdtempSync(join(tmpdir(), "webux11-preview-remote-base-"));
+const remoteBase = newTemp("webux11-preview-remote-base-");
 const remotes = new Map();
 function remoteFor(taskId) {
   let r = remotes.get(taskId);
@@ -121,6 +177,12 @@ const driver = createLiveWorkerDriver({
         env: { mode: "preview-stub", host: "preview" },
       });
     }),
+  // 13 修复(冒烟实证后补):与 e2e journey 夹具同款确定性功能证据配置——
+  // 缺席时每个任务都会因 functional_evidence_unconfigured 走 D3 保守停机(批准后 FAILED),
+  // 预览永远到不了 MAC 卡承诺的「已完成」绿路径;配置后 stub 交付物 delivered.txt:ok 恰可通过。
+  evidenceChecks: [
+    { kind: "deterministic_test", command: ["cat", "delivered.txt"], cwdWorkspace: true, expectOutputContains: "ok" },
+  ],
   delivery: {
     propose: async (c) => {
       const remote = remoteFor(c.taskId);
@@ -140,19 +202,28 @@ const driver = createLiveWorkerDriver({
     io: async (c) => ({
       executor: createGitHubPushExecutor({ sourceRepo: c.stageRepoDir, credentialFile: null }),
       verifyRemoteContent: async (commitSha) => {
-        const scratch = mkdtempSync(join(tmpdir(), "webux11-preview-verify-"));
-        const r = await verifyRemoteCommitContent({
-          target: remoteFor(c.taskId).url,
-          commitSha,
-          manifest: c.manifest,
-          scratchDir: scratch,
-        });
-        return r.ok ? { ok: true } : { ok: false, mismatches: r.mismatches };
+        const scratch = newTemp("webux11-preview-verify-");
+        try {
+          const r = await verifyRemoteCommitContent({
+            target: remoteFor(c.taskId).url,
+            commitSha,
+            manifest: c.manifest,
+            scratchDir: scratch,
+          });
+          return r.ok ? { ok: true } : { ok: false, mismatches: r.mismatches };
+        } finally {
+          // 每次交付核验后立即清自己的 scratch(13 缺陷修复:原先每次核验都在 /tmp 留一个目录)
+          try {
+            safeRm(scratch, { roots: [scratch, ...tempRoots], sentinel: RUN_SENTINEL });
+          } catch (e) {
+            console.error("[preview] verify scratch 清理:", e?.message ?? String(e));
+          }
+        }
       },
       manifest: c.manifest,
     }),
   },
-  stageBaseDir: mkdtempSync(join(tmpdir(), "webux11-preview-stage-")),
+  stageBaseDir: newTemp("webux11-preview-stage-"),
 });
 
 const handle = createRelayServer({
@@ -165,10 +236,11 @@ const handle = createRelayServer({
   staticDir: join(repoRoot, "web"),
   defaultGoalBudgetModelCalls: 12,
 });
+server = handle.server;
 await new Promise((resolve) => handle.server.listen(argPort, "127.0.0.1", () => resolve(null)));
 
 // 自动推进(每 2.5s 一拍;异常不终止预览——如实打印后继续)
-const timer = setInterval(() => {
+timer = setInterval(() => {
   driver.tick().catch((e) => console.error("[preview] tick:", e?.message ?? String(e)));
 }, 2500);
 
@@ -178,20 +250,4 @@ console.log(
   `  Mac 经 SSH:ssh -L ${argPort}:127.0.0.1:${argPort} <你的VM80账号@10.30.5.80>  →  http://localhost:${argPort}/workspace`,
 );
 console.log(`  本次登录口令(仅打印一次):${password}`);
-console.log("  说明:执行链为确定性 stub(非真实模型);Ctrl+C 退出并清理一次性数据。");
-
-let closing = false;
-async function shutdown() {
-  if (closing) return;
-  closing = true;
-  clearInterval(timer);
-  await new Promise((r) => handle.server.close(() => r()));
-  try {
-    await t.cleanup();
-  } catch (e) {
-    console.error("[preview] cleanup:", e?.message ?? String(e));
-  }
-  process.exit(0);
-}
-process.on("SIGINT", () => void shutdown());
-process.on("SIGTERM", () => void shutdown());
+console.log("  说明:执行链为确定性 stub(非真实模型);Ctrl+C 退出并清理一次性数据(含 /tmp 一次性目录)。");

@@ -1,0 +1,63 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/e2e/webux13-preview-lifecycle.test.ts (2 tests | 2 failed) 2586ms
+   × webux13 preview lifecycle(RELAY_E2E 门) > T1 就绪后 SIGTERM:登录面 302/401→200,退出后端口释放+schema 删除+/tmp 零新增 1396ms
+     → 预览自身新建临时目录必须在退出后零残留(历史目录不计): expected [ …(3) ] to deeply equal []
+   × webux13 preview lifecycle(RELAY_E2E 门) > T2 启动窗口 SIGTERM(reg 目录已现=处理器已装):exit 0+零泄漏+零 schema 残留 1188ms
+     → 启动窗口终止同样零临时目录泄漏: expected [ …(3) ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/webux13-preview-lifecycle.test.ts > webux13 preview lifecycle(RELAY_E2E 门) > T1 就绪后 SIGTERM:登录面 302/401→200,退出后端口释放+schema 删除+/tmp 零新增
+AssertionError: 预览自身新建临时目录必须在退出后零残留(历史目录不计): expected [ …(3) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "/tmp/webux11-preview-reg-uVlGdq",
++   "/tmp/webux11-preview-remote-base-GND10h",
++   "/tmp/webux11-preview-stage-16DIHx",
++ ]
+
+ ❯ test/e2e/webux13-preview-lifecycle.test.ts:257:52
+    255|     record("schema", { before: beforeSchemas, after: schemaAfter });
+    256|     evidenceExtra = { ...evidenceExtra, t1: { port, exit: { code, sign…
+    257|     expect(newDirs, "预览自身新建临时目录必须在退出后零残留(历史目录不计)").toEqual([]);
+       |                                                    ^
+    258|     expect(schemaAfter - beforeSchemas, "一次性 schema 必须删除(零残留)").toBe(0…
+    259|   }, 90_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/e2e/webux13-preview-lifecycle.test.ts > webux13 preview lifecycle(RELAY_E2E 门) > T2 启动窗口 SIGTERM(reg 目录已现=处理器已装):exit 0+零泄漏+零 schema 残留
+AssertionError: 启动窗口终止同样零临时目录泄漏: expected [ …(3) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "/tmp/webux11-preview-reg-3vnicY",
++   "/tmp/webux11-preview-remote-base-XzS05f",
++   "/tmp/webux11-preview-stage-KmuBM3",
++ ]
+
+ ❯ test/e2e/webux13-preview-lifecycle.test.ts:289:40
+    287|     evidenceExtra = { ...evidenceExtra, t2: { exit: { code, signal } }…
+    288|     expect(code, "启动窗口 SIGTERM 也必须优雅清理 exit 0").toBe(0);
+    289|     expect(newDirs, "启动窗口终止同样零临时目录泄漏").toEqual([]);
+       |                                        ^
+    290|     expect(schemaAfter - beforeSchemas, "启动窗口终止零 schema 残留(createTestD…
+    291|   }, 90_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  02:22:17
+   Duration  2.91s (transform 50ms, setup 0ms, collect 67ms, tests 2.59s, environment 0ms, prepare 74ms)
+

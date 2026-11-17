@@ -1,0 +1,5 @@
+Relay 隔离预览(最新 main × 合成数据)已启动:
+  本机访问   http://127.0.0.1:18883/workspace
+  Mac 经 SSH:ssh -L 18883:127.0.0.1:18883 <你的VM80账号@10.30.5.80>  →  http://localhost:18883/workspace
+  本次登录口令(仅打印一次):***REDACTED***
+  说明:执行链为确定性 stub(非真实模型);Ctrl+C 退出并清理一次性数据(含 /tmp 一次性目录)。
