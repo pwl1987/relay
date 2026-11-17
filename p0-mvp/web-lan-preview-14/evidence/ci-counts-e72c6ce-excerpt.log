@@ -1,0 +1,9 @@
+browser journeys(J1..J5)	2026-11-17T22:58:11.3433696Z  ✓ test/e2e/webux13-preview-lifecycle.test.ts (4 tests) 3719ms
+browser journeys(J1..J5)	2026-11-17T22:58:20.7319513Z  Test Files  8 passed | 2 skipped (10)
+browser journeys(J1..J5)	2026-11-17T22:58:20.7320884Z       Tests  65 passed | 2 skipped (67)
+quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-17T22:53:19.6212840Z ===== [format] npx biome format scripts/webux11-preview.mjs test/e2e/webux13-preview-lifecycle.test.ts =====
+quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-17T22:53:41.5451475Z  Test Files  21 passed (21)
+quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-17T22:53:41.5457818Z       Tests  182 passed (182)
+quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-17T22:55:20.0624713Z  ✓ test/e2e/webux13-preview-lifecycle.test.ts (1 test) 3ms
+quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-17T22:57:09.1536610Z  Test Files  76 passed | 17 skipped (93)
+quality:full(除浏览器;lint+format 变更集+typecheck+单测+真 PG 集成+容器门)	2026-11-17T22:57:09.1538401Z       Tests  484 passed | 85 skipped (569)
