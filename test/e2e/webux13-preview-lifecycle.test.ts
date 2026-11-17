@@ -1,8 +1,9 @@
 // RELAY-MAC-UX-HANDOFF-13 预览生命周期 focused harness(合同 B/C:安全起停与临时目录清理)。
 // 真实子进程 = node scripts/webux11-preview.mjs(最新 main 预览脚本本体)+ 真实隔离测试 PG + 真实 HTTP。
 // 门:RELAY_E2E=1 才跑(常规 vitest 全量自动 skip,不假装)。
-// 产出:p0-mvp/mac-ux-handoff-13/evidence/preview-lifecycle-<TAG>.json(缺省 TAG=ci 回归安全;
-//   证据轮显式 TAG=verify,与 webux11 harness M2 教训同口径——证据轮与回归轮分离)。
+// 产出:<包>/evidence/preview-lifecycle-<TAG>.json(缺省 TAG=ci 回归安全;证据轮显式 TAG=verify,
+//   与 webux11 harness M2 教训同口径——证据轮与回归轮分离)。14 起缺省落 p0-mvp/web-lan-preview-14/
+//   (可用 WEBUX13_OUT_DIR 覆盖;13 封存证据在 mac-ux-handoff-13/ 原样不动)。
 // 只清自有口径(硬边界):测试只做 /tmp/webux11-preview-* 前后差分断言「零新增」,
 //   绝不删除/清算历史遗留目录(历史泄漏归历史,不归咎本轮);schema 残留断言同样只看本轮自建 label。
 // 边界:SIMULATED(零真实模型/零外部 GitHub/预览执行链为确定性 stub)× REAL(真实进程起停/真实
@@ -11,17 +12,20 @@
 //   T1 就绪后 SIGTERM(优雅)⇒ exit 0+端口释放+一次性 schema 删除+/tmp 零新增(修复前=泄漏一套目录)。
 //   T2 启动窗口 SIGTERM(reg 目录已现=信号处理器已装)⇒ exit 0+零泄漏+零 schema 残留
 //     (修复前处理器在 listen 之后才注册 ⇒ 默认终止,进程被信号杀死且目录全漏)。
+//   T3 --lan(14 合同):经本机非回环 IPv4 真实探针(302/401→随机口令登录 200→授权 200/200)
+//     +banner 打印 LAN URL+SIGTERM exit 0+/tmp 零新增+schema 零残留(清理语义与 T1 同口径)。
+//   T4 缺省绑定面防回归门:无 --lan 时经 LAN IP 连接必须被拒绝(仅回环)+回环仍正常。
 import { afterAll, describe, expect, it } from "vitest";
 import { spawn, type ChildProcess } from "node:child_process";
 import { connect, createServer } from "node:net";
 import { readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { networkInterfaces, tmpdir } from "node:os";
 import pg from "pg";
 
 const E2E = process.env.RELAY_E2E === "1";
 const TAG = process.env.WEBUX13_TAG ?? "ci";
-const OUT_DIR = join(process.cwd(), "p0-mvp", "mac-ux-handoff-13", "evidence");
+const OUT_DIR = process.env.WEBUX13_OUT_DIR ?? join(process.cwd(), "p0-mvp", "web-lan-preview-14", "evidence");
 const PASSWORD_LINE = /本次登录口令\(仅打印一次\):(\S+)/; // 字面括号必须转义(未转义=捕获组语义,永不匹配)
 const TMP_PREFIXES = [
   join(tmpdir(), "webux11-preview-reg-"),
@@ -111,12 +115,24 @@ interface Preview {
   child: ChildProcess;
   base: string;
   password: string;
+  /** 仅用于断言(如 banner 是否打印 LAN URL);stdout 含一次性口令,原文绝不进证据(13 Major-2 教训)。 */
+  stdoutText: string;
 }
 
-async function startPreview(port: number): Promise<Preview> {
+/** 本机第一个非内部 IPv4(缺网卡的宿主不存在 ⇒ 直接失败,不假通过)。 */
+function lanIPv4(): string {
+  for (const list of Object.values(networkInterfaces())) {
+    for (const ni of list ?? []) {
+      if (ni.family === "IPv4" && !ni.internal) return ni.address;
+    }
+  }
+  throw new Error("本机无非内部 IPv4,无法进行 LAN 绑定面测试");
+}
+
+async function startPreview(port: number, extraArgs: string[] = []): Promise<Preview> {
   const child = spawn(
     process.execPath,
-    [join(process.cwd(), "scripts", "webux11-preview.mjs"), "--port", String(port)],
+    [join(process.cwd(), "scripts", "webux11-preview.mjs"), "--port", String(port), ...extraArgs],
     {
       stdio: ["ignore", "pipe", "pipe"],
       env: process.env,
@@ -143,7 +159,7 @@ async function startPreview(port: number): Promise<Preview> {
   const m = PASSWORD_LINE.exec(stdout);
   if (!m) throw new Error(`preview stdout 未打印口令:\n${stdout}\n${stderr}`);
   // 恰一个捕获组 ⇒ 口令=m[1](曾误取 m[2]=undefined ⇒ 登录 401 假失败,教训=非空断言不能替代组号核对)
-  return { child, base, password: m[1]! };
+  return { child, base, password: m[1]!, stdoutText: stdout };
 }
 
 /** 未授权面+登录+授权面(与协调方 B 项冒烟同口径:302/401 → 200/200/200)。 */
@@ -295,5 +311,81 @@ describe("webux13 preview lifecycle(RELAY_E2E 门)", () => {
     expect(code, "启动窗口 SIGTERM 也必须优雅清理 exit 0").toBe(0);
     expect(newDirs, "启动窗口终止同样零临时目录泄漏").toEqual([]);
     expect(schemaAfter - beforeSchemas, "启动窗口终止零 schema 残留(createTestDb 半途也必须收尾)").toBe(0);
+  }, 90_000);
+
+  it("T3 --lan:经本机非回环 IPv4 可达(302/401→200),banner 打印 LAN URL,退出零泄漏", async () => {
+    const lanIp = lanIPv4();
+    record("t3-lan-ip", { lanIp });
+    const before = listPreviewTmp();
+    const beforeSchemas = await previewSchemaCount();
+    const port = await pickFreePort();
+    const preview = await startPreview(port, ["--lan"]);
+    // 探针经 LAN IP 发起(而非回环)=绑定面本体;登录面断言与 T1 同口径
+    const lanBase = `http://${lanIp}:${port}`;
+    let probe: ProbeResult;
+    try {
+      probe = await loginAndProbe(lanBase, preview.password);
+    } catch (err) {
+      preview.child.kill("SIGTERM");
+      throw err;
+    }
+    record("t3-probe", {
+      unauthWs: probe.unauth[0],
+      unauthHealth: probe.unauth[1],
+      login: probe.loginStatus,
+      authedWs: probe.authed[0],
+      authedHealth: probe.authed[1],
+    });
+    try {
+      expect(probe.unauth, "LAN 探针:未授权 /workspace 必须 302 且 /api/health 401").toEqual([302, 401]);
+      expect(probe.loginStatus, "随机口令经 LAN 登录必须 200 且有会话 Cookie").toBe(200);
+      expect(probe.hasCookie).toBe(true);
+      expect(probe.authed, "LAN 登录后 /workspace 与 /api/health 必须 200").toEqual([200, 200]);
+      // banner 必须打印 LAN 访问 URL(用户可见入口);仅断言布尔,stdout 原文不进证据(含一次性口令)
+      expect(preview.stdoutText.includes(`${lanBase}/workspace`), "banner 必须打印 LAN URL").toBe(true);
+    } catch (err) {
+      preview.child.kill("SIGTERM");
+      throw err;
+    }
+    const { code, signal } = await terminate(preview.child);
+    record("t3-terminated", { code, signal: signal ?? null });
+    expect(code, "SIGTERM 应走优雅清理路径 exit 0").toBe(0);
+    await waitFor(() => portClosed(port), 10_000, "port release");
+    const after = listPreviewTmp();
+    const newDirs = after.filter((d) => !before.includes(d));
+    const schemaAfter = await previewSchemaCount();
+    record("t3-facts", { newDirs: newDirs.length, schemaBefore: beforeSchemas, schemaAfter });
+    evidenceExtra = { ...evidenceExtra, t3: { lanIp, exit: { code, signal } } };
+    expect(newDirs, "--lan 运行同样只清自有、退出零残留").toEqual([]);
+    expect(schemaAfter - beforeSchemas, "一次性 schema 必须删除(零残留)").toBe(0);
+  }, 90_000);
+
+  it("T4 缺省绑定面防回归门:无 --lan 经 LAN IP 连接必须被拒绝,回环仍正常", async () => {
+    const lanIp = lanIPv4();
+    const before = listPreviewTmp();
+    const port = await pickFreePort();
+    const preview = await startPreview(port); // 无 --lan ⇒ 缺省仅 127.0.0.1
+    // 回环:服务器真实在场(就绪判据已含 401;此处显式复核防「LAN 拒绝=服务没起来」假绿)
+    const loopback = await fetch(`${preview.base}/api/health`);
+    record("t4-loopback", { status: loopback.status });
+    expect(loopback.status, "回环 /api/health 必须 401(服务在场)").toBe(401);
+    // LAN IP:必须连接拒绝(缺省语义防回归;ECONNREFUSED 即抛错)
+    let lanRejected = false;
+    let lanErrKind = "";
+    try {
+      const r = await fetch(`http://${lanIp}:${port}/api/health`, { signal: AbortSignal.timeout(3_000) });
+      record("t4-lan-unexpected", { status: r.status });
+    } catch (e) {
+      lanRejected = true;
+      lanErrKind = (e as Error)?.name ?? String(e);
+      record("t4-lan-rejected", { errKind: lanErrKind });
+    }
+    evidenceExtra = { ...evidenceExtra, t4: { lanIp, lanRejected, lanErrKind } };
+    expect(lanRejected, "缺省模式经 LAN IP 必须不可达(仅回环绑定防回归)").toBe(true);
+    const { code } = await terminate(preview.child);
+    expect(code).toBe(0);
+    const after = listPreviewTmp();
+    const newDirs = after.filter((d) => !before.includes(d));
+    expect(newDirs, "T4 退出同样零泄漏").toEqual([]);
   }, 90_000);
 });

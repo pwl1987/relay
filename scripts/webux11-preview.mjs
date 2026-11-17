@@ -6,11 +6,17 @@
 //   VM80:  node scripts/webux11-preview.mjs            (默认 127.0.0.1:8790;--port 可改)
 //   Mac:   ssh -L 8790:127.0.0.1:8790 <你的VM80账号@10.30.5.80>
 //          然后浏览器打开 http://localhost:8790/workspace  (用脚本打印的一次性口令登录)
+//   局域网直接访问(可选,RELAY-WEB-LAN-PREVIEW-14):node scripts/webux11-preview.mjs --lan
+//          ⇒ 显式绑定 0.0.0.0(server 层 G-1 要求的 RELAY_WEB_ALLOW_NON_LOOPBACK=1 由脚本设置),
+//            同一可信局域网内设备(如 Mac)可直接浏览器打开 banner 打印的 http://<LAN IP>:<port>/workspace,
+//            免 SSH 隧道。**仅限可信局域网;严禁任何端口映射/反向隧道把预览暴露到公网**(LAN≠公网)。
+//            缺省(无 --lan)行为不变,仍仅 127.0.0.1。
 //
 // 隔离与边界(逐条):
 //   - 数据库=共享测试实例上的一次性独立 schema(p01a_ 前缀;testdb 授权守卫 fail-closed,
 //     任何非 127.0.0.1:55433/relayp000 目标在连接前即拒绝)⇒ 生产 relay_console 零读写;退出即删 schema。
-//   - Web 绑定=127.0.0.1(server 层 G-1:非回环绑定默认拒绝;不开放公网,Mac 只经 SSH 转发)。
+//   - Web 绑定=127.0.0.1 缺省(server 层 G-1:非回环绑定默认拒绝;不开放公网,Mac 只经 SSH 转发);
+//     显式 --lan 才放行局域网绑定(G-1 显式机制原样使用,零 src/ 改动;仍禁公网暴露)。
 //   - 登录口令=每次运行随机生成,仅启动时打印一次,不写盘、不进日志文件。
 //   - 项目注册表=一次性空文件(真实「首次使用:零项目」状态)。想带项目体验:自行导出
 //     RELAY_PROJECTS_FILE=<你的注册表文件> 后再运行(仍只读该文件,不写回)。
@@ -25,7 +31,7 @@
 import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { networkInterfaces, tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTestDb } from "../test/setup/testdb.ts";
@@ -45,6 +51,23 @@ const argPort = (() => {
   const v = i >= 0 ? Number(process.argv[i + 1]) : NaN;
   return Number.isInteger(v) && v > 0 && v < 65536 ? v : 8790;
 })();
+
+// ---- RELAY-WEB-LAN-PREVIEW-14:显式局域网访问开关(缺省行为逐字节不变) ----
+// 缺省(无 --lan)=仅 127.0.0.1(G-1 缺省面);--lan=显式放行非回环绑定(server 层
+// ensureLoopbackBind 要求 RELAY_WEB_ALLOW_NON_LOOPBACK=1,由本脚本按机制设计设置;零 src/ 改动)。
+const argLan = process.argv.includes("--lan");
+if (argLan) process.env["RELAY_WEB_ALLOW_NON_LOOPBACK"] = "1";
+const bindHost = argLan ? "0.0.0.0" : "127.0.0.1";
+/** 全部非内部 IPv4(--lan 时打印用户可达 URL;多网卡如实全列)。 */
+function lanIPv4List() {
+  const out = [];
+  for (const list of Object.values(networkInterfaces())) {
+    for (const ni of list ?? []) {
+      if (ni.family === "IPv4" && !ni.internal) out.push(ni.address);
+    }
+  }
+  return out;
+}
 
 // ---- RELAY-MAC-UX-HANDOFF-13 修复:一次性临时目录登记与安全清理 ----
 // 缺陷(13 合同 B):原实现 reg/remoteBase/stage/verify 四类 mkdtempSync 目录退出后全部遗留
@@ -231,13 +254,13 @@ const handle = createRelayServer({
   auth,
   worker: driver,
   workerMode: "stub",
-  host: "127.0.0.1",
+  host: bindHost,
   port: argPort,
   staticDir: join(repoRoot, "web"),
   defaultGoalBudgetModelCalls: 12,
 });
 server = handle.server;
-await new Promise((resolve) => handle.server.listen(argPort, "127.0.0.1", () => resolve(null)));
+await new Promise((resolve) => handle.server.listen(argPort, bindHost, () => resolve(null)));
 
 // 自动推进(每 2.5s 一拍;异常不终止预览——如实打印后继续)
 timer = setInterval(() => {
@@ -246,8 +269,16 @@ timer = setInterval(() => {
 
 console.log("Relay 隔离预览(最新 main × 合成数据)已启动:");
 console.log(`  本机访问   http://127.0.0.1:${argPort}/workspace`);
-console.log(
-  `  Mac 经 SSH:ssh -L ${argPort}:127.0.0.1:${argPort} <你的VM80账号@10.30.5.80>  →  http://localhost:${argPort}/workspace`,
-);
+if (argLan) {
+  for (const ip of lanIPv4List()) {
+    console.log(`  局域网访问 http://${ip}:${argPort}/workspace   (Mac/手机等同网段浏览器直接打开)`);
+  }
+  console.log("  ⚠ 局域网模式(--lan):仅限可信局域网;严禁任何端口映射/反向隧道把本预览暴露到公网(LAN≠公网)。");
+} else {
+  console.log(
+    `  Mac 经 SSH:ssh -L ${argPort}:127.0.0.1:${argPort} <你的VM80账号@10.30.5.80>  →  http://localhost:${argPort}/workspace`,
+  );
+  console.log("  局域网直接访问(可选):重启并加 --lan 旗标(仅限可信局域网;禁公网暴露)。");
+}
 console.log(`  本次登录口令(仅打印一次):${password}`);
 console.log("  说明:执行链为确定性 stub(非真实模型);Ctrl+C 退出并清理一次性数据(含 /tmp 一次性目录)。");

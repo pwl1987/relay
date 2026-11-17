@@ -1,0 +1,25 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/e2e/webux13-preview-lifecycle.test.ts (4 tests | 1 failed) 4877ms
+   ✓ webux13 preview lifecycle(RELAY_E2E 门) > T1 就绪后 SIGTERM:登录面 302/401→200,退出后端口释放+schema 删除+/tmp 零新增  1380ms
+   ✓ webux13 preview lifecycle(RELAY_E2E 门) > T2 启动窗口 SIGTERM(reg 目录已现=处理器已装):exit 0+零泄漏+零 schema 残留  1192ms
+   × webux13 preview lifecycle(RELAY_E2E 门) > T3 --lan:经本机非回环 IPv4 可达(302/401→200),banner 打印 LAN URL,退出零泄漏 1153ms
+     → fetch failed
+   ✓ webux13 preview lifecycle(RELAY_E2E 门) > T4 缺省绑定面防回归门:无 --lan 经 LAN IP 连接必须被拒绝,回环仍正常  1149ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/webux13-preview-lifecycle.test.ts > webux13 preview lifecycle(RELAY_E2E 门) > T3 --lan:经本机非回环 IPv4 可达(302/401→200),banner 打印 LAN URL,退出零泄漏
+TypeError: fetch failed
+Caused by: Error: connect ECONNREFUSED 10.30.5.80:34461
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: -111, code: 'ECONNREFUSED', syscall: 'connect', address: '10.30.5.80', port: 34461 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  06:51:43
+   Duration  5.22s (transform 62ms, setup 0ms, collect 81ms, tests 4.88s, environment 0ms, prepare 81ms)
+

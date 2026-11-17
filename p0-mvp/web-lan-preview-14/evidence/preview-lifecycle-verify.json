@@ -1,0 +1,203 @@
+{
+  "tag": "verify",
+  "contract": "RELAY-MAC-UX-HANDOFF-13",
+  "capturedAt": "2026-11-17T22:50:15.677Z",
+  "boundary": "REAL(真实预览进程起停/真实 HTTP+Cookie 登录/真实隔离 PG catalog 只读计数)× SIMULATED(预览执行链=确定性 stub,零真实模型/零外部 GitHub)",
+  "steps": [
+    {
+      "step": "tmp-before",
+      "facts": {
+        "count": 69
+      }
+    },
+    {
+      "step": "started",
+      "facts": {
+        "pid": 81596,
+        "port": 41621
+      }
+    },
+    {
+      "step": "unauth-workspace",
+      "facts": {
+        "status": 302,
+        "redirect": "/login.html"
+      }
+    },
+    {
+      "step": "unauth-health",
+      "facts": {
+        "status": 401
+      }
+    },
+    {
+      "step": "login-session",
+      "facts": {
+        "status": 200,
+        "hasCookie": true,
+        "pwLen": 12
+      }
+    },
+    {
+      "step": "authed-workspace",
+      "facts": {
+        "status": 200
+      }
+    },
+    {
+      "step": "authed-health",
+      "facts": {
+        "status": 200
+      }
+    },
+    {
+      "step": "probe",
+      "facts": {
+        "unauthWs": 302,
+        "unauthHealth": 401,
+        "login": 200,
+        "authedWs": 200,
+        "authedHealth": 200
+      }
+    },
+    {
+      "step": "terminated",
+      "facts": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "step": "tmp-after",
+      "facts": {
+        "count": 69,
+        "newDirs": 0
+      }
+    },
+    {
+      "step": "schema",
+      "facts": {
+        "before": 0,
+        "after": 0
+      }
+    },
+    {
+      "step": "t2-terminated",
+      "facts": {
+        "code": 0,
+        "signal": null,
+        "termBeforeBanner": true,
+        "stdoutTail": "0.1:41715 <你的VM80账号@10.30.5.80>  →  http://localhost:41715/workspace\n  局域网直接访问(可选):重启并加 --lan 旗标(仅限可信局域网;禁公网暴露)。\n  本次登录口令(仅打印一次):***REDACTED***\n  说明:执行链为确定性 stub(非真实模型);Ctrl+C 退出并清理一次性数据(含 /tmp 一次性目录)。\n"
+      }
+    },
+    {
+      "step": "t2-facts",
+      "facts": {
+        "newDirs": 0,
+        "schemaBefore": 0,
+        "schemaAfter": 0
+      }
+    },
+    {
+      "step": "t3-lan-ip",
+      "facts": {
+        "lanIp": "10.30.5.80"
+      }
+    },
+    {
+      "step": "unauth-workspace",
+      "facts": {
+        "status": 302,
+        "redirect": "/login.html"
+      }
+    },
+    {
+      "step": "unauth-health",
+      "facts": {
+        "status": 401
+      }
+    },
+    {
+      "step": "login-session",
+      "facts": {
+        "status": 200,
+        "hasCookie": true,
+        "pwLen": 12
+      }
+    },
+    {
+      "step": "authed-workspace",
+      "facts": {
+        "status": 200
+      }
+    },
+    {
+      "step": "authed-health",
+      "facts": {
+        "status": 200
+      }
+    },
+    {
+      "step": "t3-probe",
+      "facts": {
+        "unauthWs": 302,
+        "unauthHealth": 401,
+        "login": 200,
+        "authedWs": 200,
+        "authedHealth": 200
+      }
+    },
+    {
+      "step": "t3-terminated",
+      "facts": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "step": "t3-facts",
+      "facts": {
+        "newDirs": 0,
+        "schemaBefore": 0,
+        "schemaAfter": 0
+      }
+    },
+    {
+      "step": "t4-loopback",
+      "facts": {
+        "status": 401
+      }
+    },
+    {
+      "step": "t4-lan-rejected",
+      "facts": {
+        "errKind": "TypeError"
+      }
+    }
+  ],
+  "t1": {
+    "port": 41621,
+    "exit": {
+      "code": 0,
+      "signal": null
+    }
+  },
+  "t2": {
+    "exit": {
+      "code": 0,
+      "signal": null
+    }
+  },
+  "t3": {
+    "lanIp": "10.30.5.80",
+    "exit": {
+      "code": 0,
+      "signal": null
+    }
+  },
+  "t4": {
+    "lanIp": "10.30.5.80",
+    "lanRejected": true,
+    "lanErrKind": "TypeError"
+  }
+}

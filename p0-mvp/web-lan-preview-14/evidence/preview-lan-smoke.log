@@ -1,0 +1,8 @@
+# RELAY-WEB-LAN-PREVIEW-14 真实 --lan 冒烟(facts-only;口令/Cookie 零落盘)
+capturedAt: 2026-11-18T06:52:06+08:00
+ready401=401 bannerLanUrl=1 bannerWarn=1
+lanUnauth: workspace=[302 http://10.30.5.80:18891/login.html] health=[401]
+lanAuthed: login=[200] workspace=[200] health=[200]
+sigterm: exit=0
+previewTmpDirs: 69->69 (零新增=only-own)
+p01a_schemas: 25->25 (零残留)
