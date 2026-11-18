@@ -1,6 +1,8 @@
 # Relay 当前执行契约
 
-- **RELAY-RESULT-TRUTH-16 🔵 ACTIVE（2026-11-18；产品真相层）**：目标=结果文案完全由真实 delivery/task/run/evidence 事实推导 + 用户“接受结果/拒绝结果”形成独立 append-only 审计事实（绝不与 task ACCEPTED 混谈）+ stub/live 来源显式 + 修改详情入口真实可达。合同：`p0-mvp/result-truth-16/CONTRACT.md`。默认零 migration、零生产、零真实 GitHub 写入；若现有 audit_events 不能安全承载用户验收，必须停下报告，不得自行扩 schema。Writer=本地开发 Agent；协调方独立复核后才可收口。
+- **RELAY-RESULT-TRUTH-16R 🔴 ACTIVE（2026-11-18；16 最小纠偏）**：协调方独立复核 16 判 **REWORK(1 Major)**：用户对旧 changeset A 的 USER_RESULT_ACCEPTED 会被 Goal 级最新事件投影错误继承到后续新 changeset B，导致 B 即使 FAILED 仍显示“用户已接受结果”。16R 只修“验收事实必须绑定具体结果版本”并把结果摘要“GitHub”硬编码标签改为中性“仓库交付/交付状态”。合同：`p0-mvp/result-truth-16/16R/CONTRACT.md`。零 migration、零生产、零状态机改动。Writer=本地开发 Agent；通过协调方复核前不得收口。
+
+- **RELAY-RESULT-TRUTH-16 ⚠️ Agent PASS / 协调方 REWORK（2026-11-18）**：实施 `df3ff59`；exact-head CI `44311004493` test+e2e 双 success，unit 191/191、非浏览器 509p|101s=610、browser 81p|2s=83；结果文案、stub/live、dead control、append-only USER_RESULT 基础闭环均有效。但协调方真实 PG 反例证明旧 changeset 的验收会污染新结果，故不可收口。复核：`p0-mvp/result-truth-16/COORDINATOR-REVIEW-20261118.md`.
 
 - **RELAY-REAL-PROJECT-EXECUTION-15 ✅ 收口（2026-11-18）**：实施 `b50ba29`，协调方独立终裁 **PASS(0 Major)**。三目录唯一真源落地（冻结 project binding → clean Git HEAD 隔离 /workspace → binding repo@branch 交付）；dirty/不可验证 Git 状态 fail-closed；Discovery 任意 projectDir 越权面封堵；登录限速不再信任 XFF。exact-head CI `44293665824@b50ba29`：test+e2e 双 success；unit 191/191；全量非浏览器 499p|95s=594；浏览器 75p|2s=77；dirty-project 6/6、three-dirs 4/4 真跑。提交严格 19 文件 +1564/-195，历史脏文件零夹带。生产影响=零，生产 NO-GO/D3 未授权维持。复核：`p0-mvp/real-project-execution-15/COORDINATOR-REVIEW-20261118.md`。
 
