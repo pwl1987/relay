@@ -297,7 +297,7 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     expect(feed).toContain("登录页不好用"); // 会话连续性:首条需求仍在
     expect(feed).toContain("代码修改"); // 修改阶段(完成后聚合块;原始逐条事件只在技术详情)
     expect(feed).toContain("独立复核通过");
-    expect(feed).toContain("已提交 GitHub");
+    expect(feed).toContain("已交付到仓库");
     // UX4 同阶段不重复渲染:聚合块内每阶段文本唯一
     expect((feed!.match(/代码修改/g) || []).length).toBe(1);
     expect((feed!.match(/独立复核通过/g) || []).length).toBe(1);
@@ -324,7 +324,7 @@ describe.skipIf(!E2E)("WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作�
     await page.waitForSelector('[data-testid="ws-result-card"]');
     const card = await page.textContent('[data-testid="ws-result-card"]');
     expect(card).toContain("已完成本轮工作");
-    expect(card).toContain("已提交 GitHub");
+    expect(card).toContain("已交付到仓库");
     expect(card).toContain("独立复核通过");
     const files = await page.textContent('[data-testid="ws-result-files"]');
     expect(files).toContain("个文件");

@@ -56,7 +56,17 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
   });
 
   it("groupTaskCounts:状态分组计数正确", () => {
-    const g = groupTaskCounts({ RUNNING: 1, VERIFYING: 2, READY: 3, REWORK: 1, NEEDS_DECISION: 4, BLOCKED: 1, FAILED: 2, ACCEPTED: 5, CANCELLED: 1 });
+    const g = groupTaskCounts({
+      RUNNING: 1,
+      VERIFYING: 2,
+      READY: 3,
+      REWORK: 1,
+      NEEDS_DECISION: 4,
+      BLOCKED: 1,
+      FAILED: 2,
+      ACCEPTED: 5,
+      CANCELLED: 1,
+    });
     expect(g).toEqual({ inFlight: 3, ready: 4, waiting: 5, failed: 2, done: 6 });
   });
 
@@ -115,7 +125,9 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
   });
 
   it("P0-UI-5 modelsUsageView:聚合预算/最近调用/失败原因;凭据零出现;probed 恒 false", async () => {
-    const saved = ["RELAY_PI_PROVIDER", "RELAY_PI_MODEL", "RELAY_PI_API_KEY", "RELAY_PI_BASE_URL"].map((k) => [k, process.env[k]] as const);
+    const saved = ["RELAY_PI_PROVIDER", "RELAY_PI_MODEL", "RELAY_PI_API_KEY", "RELAY_PI_BASE_URL"].map(
+      (k) => [k, process.env[k]] as const,
+    );
     for (const [k] of saved) delete process.env[k];
     try {
       const u = await modelsUsageView(t.db);
@@ -137,7 +149,7 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
     }
   });
 
-  it("P0-UI-2 projectsView:注册文件健康事实 + allowed_scope 前缀关联 Goal;坏目录如实 unreachable", async () => {
+  it("P0-UI-2 projectsView:注册文件健康事实 + 冻结绑定关联 Goal;坏目录如实 unreachable", async () => {
     const dir = mkdtempSync(join(tmpdir(), "console-proj-"));
     try {
       const good = join(dir, "proj-a");
@@ -148,10 +160,23 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
       writeFileSync(join(good, "f.txt"), "x\n");
       execFileSync("git", ["-C", good, "add", "-A"], { stdio: "ignore" });
       execFileSync("git", ["-C", good, "commit", "-m", "init"], { stdio: "ignore" });
-      // 项目路径作为 allowed_scope 前缀写入 t-run
+      // 项目路径作为 allowed_scope 前缀写入 t-run/t-dec(旧信号)
       await t.db.execute(sql`UPDATE tasks SET allowed_scope = ${JSON.stringify([good])}::jsonb WHERE id = 't-run'`);
+      await t.db.execute(sql`UPDATE tasks SET allowed_scope = ${JSON.stringify([good])}::jsonb WHERE id = 't-dec'`);
+      // 冻结绑定:仅 g-run 有(GOAL_PLANNED.detail.project);g-dec 同路径但无绑定 ⇒ 不得被关联
+      await t.db.execute(sql`INSERT INTO audit_events (actor, authority, action, detail) VALUES
+        ('owner','SUPERVISOR','GOAL_PLANNED',
+         ${JSON.stringify({ goalId: "g-run", project: { name: "项目A", path: good, repo: "https://example.invalid/a", branch: "main" } })}::jsonb)`);
       const cfg = join(dir, "projects.json");
-      writeFileSync(cfg, JSON.stringify({ projects: [{ name: "项目A", path: good, repo: "https://example.invalid/a", branch: "main" }, { name: "坏项目", path: join(dir, "missing") }] }));
+      writeFileSync(
+        cfg,
+        JSON.stringify({
+          projects: [
+            { name: "项目A", path: good, repo: "https://example.invalid/a", branch: "main" },
+            { name: "坏项目", path: join(dir, "missing") },
+          ],
+        }),
+      );
       const saved = process.env[PROJ_ENV];
       process.env[PROJ_ENV] = cfg;
       try {
@@ -164,6 +189,8 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
         expect(okProj.gitHead).toMatch(/^[0-9a-f]{40}$/);
         expect(okProj.repo).toBe("https://example.invalid/a");
         expect(okProj.recentGoals.map((g) => g.id)).toContain("g-run");
+        // 目录字符串不再冒充项目归属:同路径但无冻结绑定的 Goal 不被关联
+        expect(okProj.recentGoals.map((g) => g.id)).not.toContain("g-dec");
         const bad = v.projects.find((p) => p.name === "坏项目")!;
         expect(bad.health).toBe("unreachable");
         expect(bad.healthDetail).toBeTruthy();
@@ -178,7 +205,10 @@ describe("OPERATOR-CONSOLE-00:控制台扩展视图(合成数据;零模型)", ()
 
   it("P0-UI-6 systemView:HEAD/DB/Worker/GitHub/uptime/最近错误(全只读)", async () => {
     const v = await systemView(t.db, { mode: "external", active: false, lastTick: null });
-    const expectedHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", cwd: join(import.meta.dirname, "../..") }).trim();
+    const expectedHead = execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+      cwd: join(import.meta.dirname, "../.."),
+    }).trim();
     expect(v.relay.head).toBe(expectedHead);
     expect(v.relay.uptimeSeconds).toBeGreaterThanOrEqual(0);
     expect(v.db.ok).toBe(true);

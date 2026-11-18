@@ -50,6 +50,7 @@ import {
   readProjectRegistry,
 } from "./views.ts";
 import { buildCapabilityRegistry } from "./capabilities.ts";
+import { readGoalProjectBinding } from "./project-binding.ts";
 import { redactSecrets, safeErrorMessage } from "./redact.ts";
 import { AuthError, clearCookie, sessionCookie, type Auth, type Session } from "./auth.ts";
 import type { WorkerDriver, WorkerMode } from "./worker.ts";
@@ -242,7 +243,6 @@ async function resolveGoalCreateReplay(
   deps: ApiDeps,
   keyGoalId: string,
   rawInput: string,
-  expectedScope: string[],
   role: string,
   boundProject: { name: string; path: string; repo: string | null; branch: string | null } | null,
   legacyKeyGoalId?: string,
@@ -273,26 +273,8 @@ async function resolveGoalCreateReplay(
     : null;
   if (!projectBindingEqual(frozenProject, requestBinding))
     return fail(409, "goal_create_key_conflict", "同一请求标识已绑定其他项目身份;已拒绝");
-  const cons = await deps.db.execute(sql`
-    SELECT t.allowed_scope AS scope
-    FROM goal_message_consumptions c
-    JOIN tasks t ON t.id = c.task_id
-    WHERE c.goal_id = ${keyGoalId}
-    ORDER BY c.id
-    LIMIT 1
-  `);
-  let scope: unknown = null;
-  if (cons.rows.length > 0) {
-    scope = cons.rows[0]!["scope"];
-  } else {
-    const firstTask = Array.isArray(detail?.tasks) ? detail.tasks[0] : undefined;
-    if (firstTask) {
-      const tr = await deps.db.execute(sql`SELECT allowed_scope AS scope FROM tasks WHERE id = ${firstTask}`);
-      if (tr.rows.length > 0) scope = tr.rows[0]!["scope"];
-    }
-  }
-  if (JSON.stringify(scope ?? []) !== JSON.stringify(expectedScope))
-    return fail(409, "goal_create_key_conflict", "同一请求标识已绑定其他项目;已拒绝");
+  // 作用域不再参与冲突判定:统一模型下 allowed_scope 是项目绑定的派生物(恒为工作区挂载根),
+  // 项目身份权威 = 冻结事实(上方 projectBindingEqual 精确比对)。二者重复判定会误伤历史 Goal。
   const taskRows = await deps.db.execute(
     sql`SELECT task_id AS id FROM goal_message_consumptions WHERE goal_id = ${keyGoalId} ORDER BY id`,
   );
@@ -506,17 +488,15 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const keyGoalId = createKey ? goalIdForCreateKey(createKey) : undefined;
       // 12R 历史兼容:规范化前的原形态派生(仅当表示有差异时非空;旧格式已消费 ⇒ 探测拒绝)。
       const legacyKeyGoalId = originalKey && createKey !== originalKey ? goalIdForCreateKey(originalKey) : undefined;
-      // 期望作用域(创建与重放比对共用同一表达式,防止口径漂移)。
-      const expectedScope = boundProject
-        ? [boundProject.path]
-        : (deps.defaultAllowedScope ?? plan.tasks[0]!.allowedScope);
+      // 期望作用域(统一模型):恒为工作区挂载根(容器 /workspace);项目身份由 GOAL_PLANNED
+      // 冻结事实承载(12R),宿主项目路径不再冒充作用域 —— 否则影响面核验把全部变更判越界。
+      const expectedScope = deps.defaultAllowedScope ?? plan.tasks[0]!.allowedScope;
       // 非并发重试面:同键已有旧成功 ⇒ 幂等重放/冲突(未创建过 ⇒ 返回 null 走正常创建)。
       if (keyGoalId) {
         const replay = await resolveGoalCreateReplay(
           deps,
           keyGoalId,
           plan.rawInput,
-          expectedScope,
           session.role,
           boundProject,
           legacyKeyGoalId,
@@ -532,7 +512,7 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
             budget: { modelCalls: budgetModelCalls },
             tasks: plan.tasks.map((t) => ({
               goalText: t.goalText,
-              // §4.5:项目绑定 ⇒ Task allowed_scope 绑定注册表解析的项目目录;未绑定保持既有默认。
+              // 统一模型:allowed_scope 恒为工作区挂载根;项目身份由 GOAL_PLANNED 冻结事实承载(12R)。
               allowedScope: expectedScope,
               allowedCommands: t.allowedCommands,
               priority: t.priority,
@@ -574,7 +554,6 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
             deps,
             keyGoalId,
             plan.rawInput,
-            expectedScope,
             session.role,
             boundProject,
             legacyKeyGoalId,
@@ -865,8 +844,19 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
     const discoveryMatch = /^\/api\/goals\/([^/]+)\/discovery$/.exec(path);
     if (discoveryMatch && method === "POST") {
       const goalId = decodeURIComponent(discoveryMatch[1]!);
-      const projectDir = str(req.body?.["projectDir"]).trim();
-      if (!projectDir) return fail(400, "project_dir_required", "缺少 projectDir(被调查的项目目录)");
+      // 安全修复:被调查目录不再接受浏览器/请求体提供的 projectDir(客户端可指向任意宿主路径,
+      // 曾可借模型只读会话探测无授权目录)。唯一解析源 = Goal 创建时冻结的项目身份绑定
+      // (注册表按名解析,绑定 path 兜底;与 Diff Viewer 同一规则)。无绑定/无路径 ⇒ FAIL-CLOSED。
+      const binding = await readGoalProjectBinding(deps.db, goalId);
+      const projectDir = binding
+        ? (readProjectRegistry().projects.find((p) => p.name === binding.name)?.path ?? binding.path)
+        : "";
+      if (!projectDir)
+        return fail(
+          409,
+          "project_not_bound",
+          "Goal 无冻结项目绑定(或绑定无项目路径);Discovery 拒绝发起(不接受请求提供目录)",
+        );
       const budgetCalls = int(req.body?.["budgetCalls"]) ?? 3;
       if (budgetCalls <= 0) return fail(400, "budget_calls_invalid", "budgetCalls 必须为正数");
       const provider = process.env.RELAY_PI_PROVIDER;
@@ -1157,15 +1147,20 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       if (!c.gitBaseCommitSha || !c.gitCommitSha) {
         return ok({ available: false, reason: "无 git 提交绑定(候选未生成 commit),无可展示 diff" });
       }
-      const scope = detail.task && detail.task.allowedScope.length ? detail.task.allowedScope[0]! : "";
+      // 项目解析 = Goal 创建时冻结的项目身份绑定(统一模型);作用域恒为工作区挂载根,
+      // 前缀匹配永不相交 ⇒ 只能按绑定查。仅当无冻结事实(历史变更集)时回退旧口径。
       const reg = readProjectRegistry().projects;
-      // REVIEW Minor-1 消化:多项目路径存在前缀包含关系时取最长前缀(最具体)者,避免误配
-      const entry = scope
-        ? reg
-            .filter((p) => p.path === scope || scope.startsWith(p.path) || p.path.startsWith(scope))
-            .sort((a, b) => b.path.length - a.path.length)[0]
-        : undefined;
-      if (!entry) {
+      const binding = detail.goal ? await readGoalProjectBinding(deps.db, detail.goal.id) : null;
+      let projectPath = binding ? (reg.find((p) => p.name === binding.name)?.path ?? binding.path) : "";
+      if (!projectPath && detail.task && detail.task.allowedScope.length) {
+        const legacyScope = detail.task.allowedScope[0]!;
+        // REVIEW Minor-1 消化:多项目路径存在前缀包含关系时取最长前缀(最具体)者,避免误配
+        projectPath =
+          reg
+            .filter((p) => p.path === legacyScope || legacyScope.startsWith(p.path) || p.path.startsWith(legacyScope))
+            .sort((a, b) => b.path.length - a.path.length)[0]?.path ?? "";
+      }
+      if (!projectPath) {
         return ok({
           available: false,
           reason:
@@ -1174,18 +1169,18 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         });
       }
       try {
-        const raw = execFileSync("git", ["-C", entry.path, "diff", c.gitBaseCommitSha + ".." + c.gitCommitSha, "--"], {
+        const raw = execFileSync("git", ["-C", projectPath, "diff", c.gitBaseCommitSha + ".." + c.gitCommitSha, "--"], {
           encoding: "utf8",
           timeout: 15000,
           maxBuffer: 64 * 1024 * 1024,
           stdio: ["ignore", "pipe", "ignore"],
         });
         const LIMIT = 200_000;
-        return ok({ available: true, source: entry.path, truncated: raw.length > LIMIT, diff: raw.slice(0, LIMIT) });
+        return ok({ available: true, source: projectPath, truncated: raw.length > LIMIT, diff: raw.slice(0, LIMIT) });
       } catch {
         return ok({
           available: false,
-          source: entry.path,
+          source: projectPath,
           reason: "本地仓库当前不包含 base/交付提交(交付写入远端;本地同步提交后可查看),不伪造 diff",
         });
       }

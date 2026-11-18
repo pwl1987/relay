@@ -4,6 +4,7 @@ import type { RelayDb } from "../../core/db.ts";
 import { TRANSITIONS, isLegalTransition, type TaskState } from "../../core/lifecycle.ts";
 import { ledgerSnapshot } from "../../core/budget.ts";
 import { readProjectRegistry } from "./projects.ts";
+import { readGoalProjectBinding, WORKSPACE_MOUNT } from "../project-binding.ts";
 import {
   iso,
   num,
@@ -75,7 +76,17 @@ export interface GoalDetail {
   evidence: EvidenceView[];
   gates: GateVerdictView[];
   decisions: DecisionView[];
-  audit: Array<{ seq: number; ts: string; actor: string; authority: string; action: string; taskId: string | null; beforeState: string | null; afterState: string | null; detail: Record<string, unknown> }>;
+  audit: Array<{
+    seq: number;
+    ts: string;
+    actor: string;
+    authority: string;
+    action: string;
+    taskId: string | null;
+    beforeState: string | null;
+    afterState: string | null;
+    detail: Record<string, unknown>;
+  }>;
   budget: Array<{ kind: string; limit: number | null; reserved: number; used: number }>;
   analysis: GoalAnalysis;
   /** REWORK-1:最新 Discovery 记录与来源徽章(model=模型分析;rules=规则面兜底,不冒充模型) */
@@ -118,7 +129,9 @@ export interface GoalAnalysis {
 
 export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalDetail | null> {
   const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
-  const g = await exec.execute(sql`SELECT id, raw_input, state, budget, created_at, updated_at FROM goals WHERE id = ${goalId}`);
+  const g = await exec.execute(
+    sql`SELECT id, raw_input, state, budget, created_at, updated_at FROM goals WHERE id = ${goalId}`,
+  );
   const grow = g.rows[0];
   if (!grow) return null;
 
@@ -158,7 +171,13 @@ export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalD
       createdAt: iso(r["created_at"]) ?? "",
       updatedAt: iso(r["updated_at"]) ?? "",
       openDecision: d
-        ? { id: str(d["id"]), level: str(d["level"]), question: str(d["question"]), state: str(d["state"]), deadline: iso(d["deadline"]) }
+        ? {
+            id: str(d["id"]),
+            level: str(d["level"]),
+            question: str(d["question"]),
+            state: str(d["state"]),
+            deadline: iso(d["deadline"]),
+          }
         : null,
       availableActions: [],
     };
@@ -290,7 +309,10 @@ export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalD
         question: str(r["question"]),
         fallback: json<Record<string, unknown> | null>(r["fallback"], null),
         taskState,
-        blockedReason: tRow && tRow["blocked_reason"] !== null && tRow["blocked_reason"] !== undefined ? str(tRow["blocked_reason"]) : null,
+        blockedReason:
+          tRow && tRow["blocked_reason"] !== null && tRow["blocked_reason"] !== undefined
+            ? str(tRow["blocked_reason"])
+            : null,
         deadline: iso(r["deadline"]),
         reversible: level === "D3",
       }),
@@ -503,7 +525,9 @@ export function buildGoalAnalysis(
       verifiableBy: "budget_ledger 行随每次 Run 结算变化",
     });
   }
-  const pendingD3 = decisions.filter((d) => d.level === "D3" && (d.state === "OPEN" || d.state === "EXPIRED_STILL_BLOCKED"));
+  const pendingD3 = decisions.filter(
+    (d) => d.level === "D3" && (d.state === "OPEN" || d.state === "EXPIRED_STILL_BLOCKED"),
+  );
   if (pendingD3.length > 0) {
     suggestions.push({
       id: "decisions:d3",
@@ -525,7 +549,8 @@ export function buildGoalAnalysis(
         allowedCommands: t.allowedCommands,
         gateRequired: t.gateRequired,
       })),
-      acceptanceBasis: "验收依据 = 绑定当前候选的 Gate PASS(独立 Reviewer 裁决 + 确定性测试证据);任务 ACCEPTED 不等于 Goal 已被用户验收。",
+      acceptanceBasis:
+        "验收依据 = 绑定当前候选的 Gate PASS(独立 Reviewer 裁决 + 确定性测试证据);任务 ACCEPTED 不等于 Goal 已被用户验收。",
       constraints: { budget: goal.budget },
     },
     modelAnalysis: {
@@ -564,7 +589,9 @@ export function deriveGoalPhase(input: {
   nowMs: number;
 }): GoalProgress {
   const inFlight = input.tasks.find((t) => IN_FLIGHT_STATES.includes(t.state));
-  const needsHuman = input.tasks.find((t) => ["NEEDS_DECISION", "NEEDS_RECONCILE", "BLOCKED", "PAUSED"].includes(t.state));
+  const needsHuman = input.tasks.find((t) =>
+    ["NEEDS_DECISION", "NEEDS_RECONCILE", "BLOCKED", "PAUSED"].includes(t.state),
+  );
   const failed = input.tasks.find((t) => t.state === "FAILED");
   const done = input.tasks.length > 0 && input.tasks.every((t) => t.state === "ACCEPTED" || t.state === "CANCELLED");
   const delivered = input.changesets.some((c) => c.deliveryState === "DELIVERED");
@@ -590,7 +617,8 @@ export function deriveGoalPhase(input: {
       basis = "任务 " + inFlight.id + " 处于 " + inFlight.state;
     }
   } else if (needsHuman) {
-    phase = needsHuman.state === "PAUSED" ? "已暂停" : needsHuman.state === "NEEDS_DECISION" ? "等待人工决策" : "已阻塞";
+    phase =
+      needsHuman.state === "PAUSED" ? "已暂停" : needsHuman.state === "NEEDS_DECISION" ? "等待人工决策" : "已阻塞";
     basis = "任务 " + needsHuman.id + " 处于 " + needsHuman.state;
   } else if (failed && input.tasks.every((t) => !IN_FLIGHT_STATES.includes(t.state))) {
     phase = "失败";
@@ -677,11 +705,18 @@ export interface GoalStatusView {
   pendingDecisions: number;
   /** WEB-UX-03C.1 P0-2:项目上下文唯一来源(与侧栏归组同规则);null=未绑定注册表项目(显示"项目未绑定") */
   projectName: string | null;
+  /** 三套目录模型(统一后):项目目录(宿主路径)/ 对话框目录(容器挂载根)/ 交付目标(repo@branch) */
+  projectPath: string | null;
+  workspaceMount: string;
+  deliveryTarget: string | null;
 }
 
 /** Goal 是否有在途执行(LEASED/RUNNING/SUBMITTED/VERIFYING)。follow-up 派生的前置检查。 */
 export async function goalHasInFlightRun(db: RelayDb, goalId: string): Promise<boolean> {
-  const states = sql.join(IN_FLIGHT_STATES.map((s) => sql`${s}`), sql`, `);
+  const states = sql.join(
+    IN_FLIGHT_STATES.map((s) => sql`${s}`),
+    sql`, `,
+  );
   const rows = await db.execute(sql`
     SELECT 1 FROM tasks
     WHERE goal_id = ${goalId} AND state IN (${states})
@@ -713,16 +748,11 @@ export async function goalStatusView(db: RelayDb, goalId: string): Promise<GoalS
     updatedAt: iso(r["updated_at"]),
   }));
   const pendingDecisions = num(decRows.rows[0]?.["n"]);
-  // WEB-UX-03C.1 P0-2:项目上下文唯一来源(与侧栏归组同一规则:最近 Task allowed_scope ↔ 注册表路径;
-  // 无法识别 ⇒ null,客户端如实显示"项目未绑定",禁用"默认工作区"模糊兜底)。
-  const scopeRows = await db.execute(sql`
-    SELECT allowed_scope FROM tasks WHERE goal_id = ${goalId}
-    ORDER BY created_at DESC, id DESC LIMIT 1
-  `);
-  const scope = Array.isArray(scopeRows.rows[0]?.["allowed_scope"])
-    ? (scopeRows.rows[0]!["allowed_scope"] as unknown[]).map(String)
-    : [];
-  const projectName = matchProjectByScope(scope, readProjectRegistry());
+  // 项目上下文唯一来源 = Goal 创建时冻结的项目身份绑定(12R);不再按目录字符串反查
+  // (旧规则把宿主项目路径与 allowed_scope 互为前缀匹配 —— 与统一后的作用域口径冲突)。
+  // 未绑定 ⇒ null,客户端如实显示"项目未绑定",禁用"默认工作区"模糊兜底。
+  const binding = await readGoalProjectBinding(db, goalId);
+  const projectName = binding?.name ?? null;
   return {
     goalId: str(g["id"]),
     goalState: str(g["state"]),
@@ -731,25 +761,10 @@ export async function goalStatusView(db: RelayDb, goalId: string): Promise<GoalS
     tasks,
     pendingDecisions,
     projectName,
+    projectPath: binding?.path ?? null,
+    workspaceMount: WORKSPACE_MOUNT,
+    deliveryTarget: binding?.repo ? `${binding.repo}[${binding.branch ?? "main"}]` : null,
   };
-}
-
-/**
- * 项目归组唯一规则(WEB-UX-03C.1 P0-2:sidebar 与 goalStatus 同源):最近 Task 的 allowed_scope
- * 与注册表路径互为前缀即视为同一项目(与 projectsView 链接规则一致);无匹配 ⇒ null。
- */
-export function matchProjectByScope(
-  scope: string[],
-  registry: { projects: Array<{ name: string; path: string | null }> },
-): string | null {
-  for (const s of scope) {
-    for (const entry of registry.projects) {
-      if (entry.path && (s === entry.path || s.startsWith(entry.path) || entry.path.startsWith(s))) {
-        return entry.name;
-      }
-    }
-  }
-  return null;
 }
 
 /**
@@ -763,18 +778,20 @@ export async function goalFeedView(db: RelayDb, goalId: string, after: number | 
   const limit = 200;
   // WEB-UX-03C 修正:after=null ⇒ 从头拉取(客户端首屏;游标语义 = "id > after",null 视为 0)。
   const afterId = after === null ? 0 : after;
-  const items: GoalFeedItem[] = (await db.execute(sql`
+  const items: GoalFeedItem[] = (
+    await db.execute(sql`
         SELECT id, kind, actor, content, created_at FROM goal_messages
         WHERE goal_id = ${goalId} AND id > ${afterId}
         ORDER BY id ASC
         LIMIT ${limit + 1}
-      `)).rows.map((r) => ({
-        id: num(r["id"]),
-        kind: str(r["kind"]),
-        actor: str(r["actor"]),
-        content: str(r["content"]),
-        createdAt: iso(r["created_at"]),
-      }));
+      `)
+  ).rows.map((r) => ({
+    id: num(r["id"]),
+    kind: str(r["kind"]),
+    actor: str(r["actor"]),
+    content: str(r["content"]),
+    createdAt: iso(r["created_at"]),
+  }));
   const hasMore = items.length > limit;
   const page = hasMore ? items.slice(0, limit) : items;
   const decRows = await db.execute(sql`
@@ -837,7 +854,7 @@ export interface WorkspaceSidebarView {
 
 /**
  * 左侧栏单次投影:Goal 列表(按 updated_at)+ 每 Goal 未决决策数 + 任务状态派生 + 项目归组
- * (归组规则与 projectsView 一致:Goal 最近 Task 的 allowed_scope 与注册表路径互为前缀;浏览器零路径)。
+ * (归组规则与 projectsView 一致:Goal 创建时冻结的项目身份绑定;浏览器零路径)。
  */
 export async function workspaceSidebarView(db: RelayDb): Promise<WorkspaceSidebarView> {
   const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
@@ -846,7 +863,8 @@ export async function workspaceSidebarView(db: RelayDb): Promise<WorkspaceSideba
       (SELECT COUNT(*)::int FROM decisions d WHERE d.goal_id = g.id AND d.state = 'OPEN') AS pending_decisions,
       (SELECT COALESCE(json_agg(t.state), '[]'::json) FROM
          (SELECT state FROM tasks WHERE goal_id = g.id ORDER BY created_at DESC LIMIT 50) t) AS task_states,
-      (SELECT allowed_scope FROM tasks WHERE goal_id = g.id ORDER BY created_at DESC, id DESC LIMIT 1) AS last_scope
+      (SELECT a.detail->'project'->>'name' FROM audit_events a
+        WHERE a.action = 'GOAL_PLANNED' AND a.detail->>'goalId' = g.id ORDER BY a.seq ASC LIMIT 1) AS project_name
     FROM goals g
     ORDER BY g.updated_at DESC
     LIMIT 200
@@ -879,9 +897,8 @@ export async function workspaceSidebarView(db: RelayDb): Promise<WorkspaceSideba
       pendingDecisions: pending,
       phase,
     };
-    // 项目归组:与 goalStatusView.projectName 同一规则(最近 Task allowed_scope ↔ 注册表路径互为前缀)。
-    const scope = Array.isArray(r["last_scope"]) ? (r["last_scope"] as string[]).map(String) : [];
-    const matched = matchProjectByScope(scope, registry);
+    // 项目归组:与 goalStatusView.projectName 同一来源(Goal 创建时冻结的项目身份绑定)。
+    const matched = r["project_name"] === null || r["project_name"] === undefined ? null : String(r["project_name"]);
     if (matched) {
       const list = byProject.get(matched) ?? [];
       list.push(goal);

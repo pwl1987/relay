@@ -493,11 +493,17 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       const goalId = new URL(page.url()).searchParams.get("id") ?? "";
       expect(goalId).toBeTruthy();
 
-      // Task allowed_scope 绑定注册表路径(非浏览器输入)
+      // Task allowed_scope 恒为工作区挂载根(统一口径);项目身份由 GOAL_PLANNED 冻结事实承载
       const scopeRow = await t.db.execute(sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${goalId} LIMIT 1`);
       const scopeVal: unknown = scopeRow.rows[0]!["allowed_scope"];
       const scopeArr = Array.isArray(scopeVal) ? scopeVal : (JSON.parse(String(scopeVal)) as unknown[]);
-      expect(scopeArr).toEqual([projDir]);
+      expect(scopeArr).toEqual(["/workspace"]);
+      const frozenRow = await t.db.execute(
+        sql`SELECT detail->'project' AS project FROM audit_events WHERE action='GOAL_PLANNED' AND detail->>'goalId' = ${goalId} ORDER BY seq LIMIT 1`,
+      );
+      const frozen = (frozenRow.rows[0]?.["project"] ?? null) as { name?: string; path?: string } | null;
+      expect(frozen?.name).toBe("pilot");
+      expect(frozen?.path).toBe(projDir);
 
       // Project 页反向可见该 Goal
       await page.goto(`${base}/projects.html`);
@@ -522,7 +528,9 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J1/J2/J3)", { timeout: 180_0
       expect(overflow).toBeLessThanOrEqual(1);
       await page.setViewportSize({ width: 1280, height: 860 });
       await shot(page, "j7-project-binding.png");
-      s.log.log(`J7 OK:projectId=pilot ⇒ allowed_scope=${projDir};Project 页反向可见;AppShell 侧边栏/手机抽屉正常`);
+      s.log.log(
+        `J7 OK:projectId=pilot ⇒ allowed_scope=/workspace(项目路径=${projDir});Project 页反向可见;AppShell 侧边栏/手机抽屉正常`,
+      );
     } finally {
       if (savedRegistry !== undefined) process.env["RELAY_PROJECTS_FILE"] = savedRegistry;
       else delete process.env["RELAY_PROJECTS_FILE"];

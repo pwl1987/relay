@@ -7,9 +7,15 @@
 import { sql } from "drizzle-orm";
 import type { RelayDb, Exec } from "../core/db.ts";
 import type { GoalLoopTickReport } from "../core/goal-loop.ts";
-import type { ProposeDeliveryInput, DeliveryIO } from "../core/delivery.ts";
-import type { WorkspaceManifest } from "../core/changesets.ts";
 import { appendAudit } from "../core/audit.ts";
+import {
+  assertProjectSeedable,
+  buildBoundDeliveryFactory,
+  readTaskProjectBinding,
+  seedWorkspaceFromProject,
+  type CapturedDelivery,
+  type DeliveryFactory,
+} from "./project-binding.ts";
 import { executeRun } from "../runtime/runner.ts";
 import { runReviewerSession } from "../runtime/reviewer.ts";
 import { resolveVendoredPi, type PiInstallation } from "../runtime/pi-version.ts";
@@ -70,20 +76,7 @@ export interface WorkerDriver {
   lastTick(): { at: string; status: string; summary: Record<string, unknown> } | null;
 }
 
-export interface CapturedDelivery {
-  taskId: string;
-  attempt: number;
-  stageRepoDir: string;
-  manifest: WorkspaceManifest;
-  baseCommitSha: string;
-  commitSha: string;
-}
-
-/** 交付装配:把"本拍捕获的候选事实"接到 core 的交付链上。 */
-export interface DeliveryFactory {
-  propose(captured: CapturedDelivery): Promise<ProposeDeliveryInput>;
-  io(captured: CapturedDelivery): Promise<DeliveryIO>;
-}
+export type { CapturedDelivery, DeliveryFactory };
 
 export interface LiveWorkerOptions {
   db: RelayDb;
@@ -210,6 +203,10 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
         return { status: "IDLE_PROVIDER_DOWN", goalStates: [] };
       }
       const { goalLoopTick } = await import("../core/goal-loop.ts");
+      // 交付目标装配:外部注入优先(测试/预览自备 bare 远端);缺省按 Goal 绑定内建
+      // (凭据/白名单/目标全部由绑定派生 —— 见 server/project-binding.ts)。
+      const deliveryFactory: DeliveryFactory =
+        options.delivery ?? buildBoundDeliveryFactory(options.db, { actor: workerId });
       const report = await goalLoopTick(options.db, {
         actor: workerId,
         workerId,
@@ -217,6 +214,16 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
         runTask: async (claim) => {
           const goalId = await goalIdFor(claim.taskId);
           const goalText = await goalTextFor(claim.taskId);
+          // 三套目录模型(项目目录/对话框目录/交付目标)的唯一真源 = Goal 创建时冻结的项目绑定。
+          // 对话框目录 = 项目目录的工作副本:外部注入的种子优先(测试/预览自备),否则按绑定 seed。
+          const binding = await readTaskProjectBinding(options.db, claim.taskId);
+          const prepareWorkspace =
+            options.prepareWorkspace ??
+            (binding ? (ws: string) => seedWorkspaceFromProject(binding.path, ws) : undefined);
+          // 内建种子的可种子化先验(FAIL-CLOSED 提前到 Run 工作区创建之前):脏项目/非 Git 项目
+          // 在此拒绝 ⇒ 零 Run 占位目录、零 /tmp 泄漏;抛错经租约 attempt 预算有界重试,永不交付。
+          // (外部注入 prepareWorkspace 的测试/预览自备工作区,不在此门内。)
+          if (binding && !options.prepareWorkspace) assertProjectSeedable(binding.path);
           // P0-ACCEPT 缺口 A:task 白名单完整传递(DB → spec → 沙箱 env;读取逻辑可单测)。
           const whitelist = await resolveTaskWhitelist(options.db, claim.taskId);
           // WEB-UX-03C §0.2:本任务经消费映射绑定的 follow-up 用户消息注入 Run 上下文
@@ -260,7 +267,7 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
               heartbeatSeconds: options.heartbeatSeconds ?? 10,
               ...(goalId ? { budget: { goalId, reserveCallsPerRun: options.reserveCallsPerRun ?? 4 } } : {}),
               ...(options.stageBaseDir ? { deliveryStaging: { baseDir: options.stageBaseDir } } : {}),
-              ...(options.prepareWorkspace ? { prepareWorkspace: options.prepareWorkspace } : {}),
+              ...(prepareWorkspace ? { prepareWorkspace } : {}),
               ...(injection ? { argvOverride: injection.argv, envOverride: injection.coderEnv } : {}),
               cancelSignal: abortFlag,
             });
@@ -337,22 +344,18 @@ export function createLiveWorkerDriver(options: LiveWorkerOptions): WorkerDriver
             });
           },
         },
-        ...(options.delivery
-          ? {
-              delivery: {
-                propose: async ({ taskId, attempt }) => {
-                  const c = captured.get(taskId);
-                  if (!c) throw new Error("delivery_not_captured:" + taskId);
-                  return options.delivery!.propose(c);
-                },
-                io: async (taskId) => {
-                  const c = captured.get(taskId);
-                  if (!c) throw new Error("delivery_not_captured:" + taskId);
-                  return options.delivery!.io(c);
-                },
-              },
-            }
-          : {}),
+        delivery: {
+          propose: async ({ taskId, attempt }) => {
+            const c = captured.get(taskId);
+            if (!c) throw new Error("delivery_not_captured:" + taskId);
+            return deliveryFactory.propose(c);
+          },
+          io: async (taskId) => {
+            const c = captured.get(taskId);
+            if (!c) throw new Error("delivery_not_captured:" + taskId);
+            return deliveryFactory.io(c);
+          },
+        },
       });
       last = {
         at: new Date().toISOString(),

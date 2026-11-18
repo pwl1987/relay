@@ -25,7 +25,11 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
     ["RELAY_PI_BASE_URL", process.env.RELAY_PI_BASE_URL],
   ];
 
-  async function api(method: string, path: string, body?: Record<string, unknown>): Promise<{ status: number; body: Record<string, unknown> }> {
+  async function api(
+    method: string,
+    path: string,
+    body?: Record<string, unknown>,
+  ): Promise<{ status: number; body: Record<string, unknown> }> {
     const res = await fetch(base + path, {
       method,
       headers: {
@@ -218,7 +222,7 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
   });
 
   // WEB-UX-01 §4.5:New Goal 项目绑定(浏览器只提交受控 projectId;路径由服务端注册表解析)
-  it("POST /api/goals 项目绑定:projectId ⇒ scope=注册表路径+audit 记录;未知项目 400;浏览器 path 字段被忽略;未绑定保持默认", async () => {
+  it("POST /api/goals 项目绑定:projectId ⇒ 作用域=工作区挂载根+冻结项目身份+audit 记录;未知项目 400;浏览器 path 字段被忽略;未绑定保持默认", async () => {
     const saved = process.env["RELAY_PROJECTS_FILE"];
     const projDir = mkdtempSync(join(tmpdir(), "webux-pilot-"));
     const registryFile = join(mkdtempSync(join(tmpdir(), "webux-registry-")), "projects.json");
@@ -230,28 +234,44 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
     process.env["RELAY_PROJECTS_FILE"] = registryFile;
     try {
       // 1) 绑定创建:body 里塞恶意 path,应被忽略(scope 只来自注册表)
-      const created = await api("POST", "/api/goals", { rawInput: "给试点项目加一个健康检查接口", projectId: "pilot", projectName: "pilot", path: "/etc" });
+      const created = await api("POST", "/api/goals", {
+        rawInput: "给试点项目加一个健康检查接口",
+        projectId: "pilot",
+        projectName: "pilot",
+        path: "/etc",
+      });
       expect(created.status).toBe(201);
       const project = created.body["project"] as Record<string, unknown> | null;
       expect(project?.["projectId"]).toBe("pilot");
       expect(project?.["path"]).toBe(projDir);
       const goalId = String(created.body["goalId"]);
 
-      // Task allowed_scope 绑定项目目录(注册表解析,非浏览器输入;jsonb 可能已由驱动解析)
+      // Task allowed_scope 恒为工作区挂载根(统一口径:宿主项目路径不再冒充作用域)
+      // 项目身份由 GOAL_PLANNED.detail.project 冻结(注册表解析,非浏览器输入)
       const scope = await t.db.execute(sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${goalId} LIMIT 1`);
       const scopeVal: unknown = scope.rows[0]!["allowed_scope"];
       const scopeArr = Array.isArray(scopeVal) ? scopeVal : (JSON.parse(String(scopeVal)) as unknown[]);
-      expect(scopeArr).toEqual([projDir]);
+      expect(scopeArr).toEqual(["/workspace"]);
+      const planned = await t.db.execute(
+        sql`SELECT detail FROM audit_events WHERE action='GOAL_PLANNED' AND detail->>'goalId' = ${goalId} ORDER BY seq LIMIT 1`,
+      );
+      const plannedDetail = planned.rows[0]!["detail"] as { project?: { name?: string; path?: string } };
+      expect(plannedDetail.project?.name).toBe("pilot");
+      expect(plannedDetail.project?.path).toBe(projDir);
 
       // audit 记录选中 Project(含注册表解析路径)
-      const aud = await t.db.execute(sql`SELECT detail FROM audit_events WHERE action='WEB_GOAL_CREATED' ORDER BY seq DESC LIMIT 1`);
+      const aud = await t.db.execute(
+        sql`SELECT detail FROM audit_events WHERE action='WEB_GOAL_CREATED' ORDER BY seq DESC LIMIT 1`,
+      );
       const detailRaw: unknown = aud.rows[0]!["detail"];
-      const detail = (typeof detailRaw === "object" && detailRaw !== null ? detailRaw : JSON.parse(String(detailRaw))) as Record<string, unknown>;
+      const detail = (
+        typeof detailRaw === "object" && detailRaw !== null ? detailRaw : JSON.parse(String(detailRaw))
+      ) as Record<string, unknown>;
       expect(detail["projectId"]).toBe("pilot");
       expect(detail["resolvedPath"]).toBe(projDir);
       expect(detail["scopeSource"]).toBe("registry");
 
-      // Project 页反向可见:projectsView 经 allowed_scope 前缀匹配关联到该 Goal
+      // Project 页反向可见:projectsView 经 Goal 冻结的项目身份绑定关联到该 Goal
       const pv = await api("GET", "/api/projects");
       expect(pv.status).toBe(200);
       const list = (pv.body["projects"] as Record<string, unknown>)["projects"] as Array<Record<string, unknown>>;
@@ -262,7 +282,11 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
       expect(recent.some((g) => g["id"] === goalId)).toBe(true);
 
       // 2) 未登记 projectId ⇒ 400(不接受任意路径/名称)
-      const bad = await api("POST", "/api/goals", { rawInput: "越权路径测试", projectId: "not-registered", path: "/etc/passwd" });
+      const bad = await api("POST", "/api/goals", {
+        rawInput: "越权路径测试",
+        projectId: "not-registered",
+        path: "/etc/passwd",
+      });
       expect(bad.status).toBe(400);
       expect(bad.body["error"]).toBe("unknown_project");
 
@@ -270,7 +294,9 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
       const legacy = await api("POST", "/api/goals", { rawInput: "未绑定项目的目标" });
       expect(legacy.status).toBe(201);
       expect(legacy.body["project"]).toBeNull();
-      const legacyScope = await t.db.execute(sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${String(legacy.body["goalId"])} LIMIT 1`);
+      const legacyScope = await t.db.execute(
+        sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${String(legacy.body["goalId"])} LIMIT 1`,
+      );
       const legacyVal: unknown = legacyScope.rows[0]!["allowed_scope"];
       const legacyArr = Array.isArray(legacyVal) ? legacyVal : (JSON.parse(String(legacyVal)) as unknown[]);
       expect(legacyArr).toEqual(["/workspace"]);
@@ -284,7 +310,9 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
 
   // WEB-UX-01 §4.8:只读 Diff Viewer 数据源(零写操作;不可用时如实返回原因,不伪造 diff)
   it("GET /api/changesets/:id/diff:本地注册仓库两提交⇒available;无提交绑定/未绑定注册表⇒如实不可用", async () => {
-    await t.db.execute(sql`INSERT INTO runs (id, task_id, attempt, model_ref, sandbox, outcome) VALUES ('r-diff','t-api',1,'group/gm','docker','SUCCEEDED')`);
+    await t.db.execute(
+      sql`INSERT INTO runs (id, task_id, attempt, model_ref, sandbox, outcome) VALUES ('r-diff','t-api',1,'group/gm','docker','SUCCEEDED')`,
+    );
     // ① 无 git 提交绑定 ⇒ available=false(候选未生成 commit)
     await t.db.execute(sql`INSERT INTO candidate_changesets (id, task_id, run_id, attempt, base_sha, candidate_sha, requirement_sha, changed_files, impact_scope)
       VALUES ('cs-nogit','t-api','r-diff',1,'aa','bb','cc','{"added":["x.txt"],"modified":[],"removed":[]}','{"inScope":["x.txt"],"violations":[]}')`);
@@ -313,7 +341,9 @@ describe("OPERATOR-CONSOLE-00:控制台 API 与页面路由", () => {
       process.env["RELAY_PROJECTS_FILE"] = registryFile;
 
       await t.db.execute(sql`INSERT INTO goals (id, raw_input, state) VALUES ('g-diff','diff goal','ACTIVE')`);
-      await t.db.execute(sql`INSERT INTO tasks (id, goal_id, state, allowed_scope) VALUES ('t-diff','g-diff','ACCEPTED', ${JSON.stringify([repo])}::jsonb)`);
+      await t.db.execute(
+        sql`INSERT INTO tasks (id, goal_id, state, allowed_scope) VALUES ('t-diff','g-diff','ACCEPTED', ${JSON.stringify([repo])}::jsonb)`,
+      );
       await t.db.execute(sql`INSERT INTO candidate_changesets (id, task_id, run_id, attempt, base_sha, candidate_sha, requirement_sha, changed_files, impact_scope, git_base_commit_sha, git_tree_sha, git_commit_sha, delivery_state)
         VALUES ('cs-diff','t-diff','r-diff',1,'aa','bb','cc','{"added":[],"modified":["a.txt"],"removed":[]}','{"inScope":["a.txt"],"violations":[]}', ${baseSha}, 'tree', ${fixSha}, 'DELIVERED')`);
       const r2 = await api("GET", "/api/changesets/cs-diff/diff");

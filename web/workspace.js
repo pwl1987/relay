@@ -253,12 +253,12 @@
       stages.push({
         key: "deliver",
         cls: "ok",
-        label: "已提交 GitHub",
+        label: "已交付到仓库",
         testid: "ws-result-delivery",
         extra: h("span", { class: "dim", "data-testid": "ws-result-files", text: n + " 个文件" }),
       });
     } else if (failedCs)
-      stages.push({ key: "deliver", cls: "bad", label: "GitHub 交付未成功,需要处理。" }); // P1-1:用户文案,内部原因见技术详情
+      stages.push({ key: "deliver", cls: "bad", label: "交付未成功,需要处理。" }); // P1-1:用户文案,内部原因见技术详情
     else if (undelivered && !active)
       stages.push({ key: "deliver", cls: "warn", label: "交付未完成,需要处理" }); // 本轮候选未交付(如实;不冒充旧轮已提交)
     else if (active) stages.push({ key: "deliver", cls: "idle", label: "交付" });
@@ -515,7 +515,7 @@
     const q = String(d.question || "");
     const isDeliveryFail = q.indexOf("delivery_propose_failed") === 0;
     const qShown = isDeliveryFail
-      ? "GitHub 交付未成功,需要处理。"
+      ? "交付未成功,需要处理。"
       : q.length > 200
         ? q.slice(0, 200) + "…(完整内容见「待我决定」页)"
         : q || "(系统未提供问题描述)";

@@ -64,7 +64,12 @@ export function readProjectRegistry(): { source: string | null; projects: Projec
   }
 }
 
-function localGitFacts(path: string): { exists: boolean; gitBranch: string | null; gitHead: string | null; detail: string | null } {
+function localGitFacts(path: string): {
+  exists: boolean;
+  gitBranch: string | null;
+  gitHead: string | null;
+  detail: string | null;
+} {
   try {
     statSync(path);
   } catch {
@@ -72,7 +77,13 @@ function localGitFacts(path: string): { exists: boolean; gitBranch: string | nul
   }
   const run = (args: string[]): string | null => {
     try {
-      return execFileSync("git", ["-C", path, ...args], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+      return (
+        execFileSync("git", ["-C", path, ...args], {
+          encoding: "utf8",
+          timeout: 5000,
+          stdio: ["ignore", "pipe", "ignore"],
+        }).trim() || null
+      );
     } catch {
       return null;
     }
@@ -82,23 +93,22 @@ function localGitFacts(path: string): { exists: boolean; gitBranch: string | nul
   return { exists: true, gitBranch: run(["rev-parse", "--abbrev-ref", "HEAD"]), gitHead: head, detail: null };
 }
 
-/** P0-UI-2:最小项目列表(注册文件 + 本地只读 git 事实 + 经 allowed_scope 关联的最近 Goal)。 */
+/** P0-UI-2:最小项目列表(注册文件 + 本地只读 git 事实 + 经 Goal 冻结绑定关联的最近 Goal)。 */
 export async function projectsView(db: RelayDb): Promise<ProjectsView> {
   const exec = db as unknown as { execute(q: ReturnType<typeof sql>): Promise<{ rows: Row[] }> };
   const registry = readProjectRegistry();
   const note =
     registry.projects.length === 0
-      ? "未配置项目注册文件(config/projects.json 或 RELAY_PROJECTS_FILE);格式:{\"projects\":[{\"name\",\"path\",\"repo\",\"branch\"}]}。本页仅观察,不调度。"
-      : "来源=项目注册文件;健康=本地目录/git 只读事实;Goal 关联经任务 allowed_scope 前缀匹配(当前 Goal 创建流未绑定项目时显示为空)。";
+      ? '未配置项目注册文件(config/projects.json 或 RELAY_PROJECTS_FILE);格式:{"projects":[{"name","path","repo","branch"}]}。本页仅观察,不调度。'
+      : "来源=项目注册文件;健康=本地目录/git 只读事实;Goal 关联经 Goal 创建时冻结的项目身份绑定(未绑定项目时显示为空)。";
   const projects: ProjectView[] = [];
   for (const entry of registry.projects) {
     const facts = localGitFacts(entry.path);
     const link = await exec.execute(sql`
-      SELECT g.id, g.raw_input, g.state, g.updated_at
-      FROM tasks t
-      JOIN jsonb_array_elements_text(t.allowed_scope) s ON true
-      JOIN goals g ON g.id = t.goal_id
-      WHERE ${entry.path} LIKE s || '%'
+      SELECT DISTINCT g.id, g.raw_input, g.state, g.updated_at
+      FROM goals g
+      JOIN audit_events a ON a.action = 'GOAL_PLANNED' AND a.detail->>'goalId' = g.id
+      WHERE a.detail->'project'->>'name' = ${entry.name}
       ORDER BY g.updated_at DESC
     `);
     const seen = new Set<string>();
@@ -114,7 +124,23 @@ export async function projectsView(db: RelayDb): Promise<ProjectsView> {
       goalCount += 1;
       const st = str(r["state"]);
       // 运行中=尚在推进;已完成=到达成功终态(失败/取消不计入"已完成",如实)
-      if (["READY", "LEASED", "RUNNING", "SUBMITTED", "VERIFYING", "WAITING", "NEEDS_DECISION", "REWORK", "PAUSED", "NEEDS_RECONCILE", "BLOCKED", "PLANNED"].includes(st)) runningCount += 1;
+      if (
+        [
+          "READY",
+          "LEASED",
+          "RUNNING",
+          "SUBMITTED",
+          "VERIFYING",
+          "WAITING",
+          "NEEDS_DECISION",
+          "REWORK",
+          "PAUSED",
+          "NEEDS_RECONCILE",
+          "BLOCKED",
+          "PLANNED",
+        ].includes(st)
+      )
+        runningCount += 1;
       if (["ACCEPTED", "SUCCEEDED", "COMPLETED"].includes(st)) doneCount += 1;
       if (!lastUpdatedAt) lastUpdatedAt = iso(r["updated_at"]);
       if (recentGoals.length < 3) {

@@ -713,9 +713,11 @@ describe.skipIf(!E2E)(
       const { page, base, t } = s;
       const goalId = await createGoalViaWorkspace(page, base, "11R-T2B:带项目绑定的暗色模式需求", PROJECT_NAME);
       // 夹具说明(如实登记):绑定 Goal 的**执行语义**不在本合同 UI 范围——红轮实证:stub 写盘于任务
-      // 工作区,recordChangeset 对 allowedScope=[项目目录] 判 violations ⇒ 任务 NEEDS_RECONCILE
-      // (scope 越界写被授权边界正确拦截,非缺陷;服务端"不扩权"的独立证据)。T2b 只测 UI 后续任务
-      // 流程与项目绑定校验 ⇒ 终态由夹具直接构造(任务 ACCEPTED+Goal COMPLETED)。
+      // 工作区,recordChangeset 对 allowedScope=[项目目录] 判 violations ⇒ 任务 NEEDS_RECONCILE。
+      // **2026-11-18 更正**:该现象不是"越界写被授权边界正确拦截",而是**作用域口径漂移**(任务落库
+      // 的是宿主项目路径,影响面核验却按容器挂载根解释 ⇒ 相对路径全被判越界)。现已统一为
+      // allowed_scope 恒为工作区挂载根,项目身份改由冻结绑定承载。T2b 只测 UI 后续任务流程与
+      // 项目绑定校验 ⇒ 终态仍由夹具直接构造(任务 ACCEPTED+Goal COMPLETED)。
       await t.db.execute(sql`UPDATE tasks SET state = 'ACCEPTED' WHERE goal_id = ${goalId}`);
       await t.db.execute(sql`UPDATE goals SET state = 'COMPLETED', updated_at = now() WHERE id = ${goalId}`);
       await page.goto(`${base}/workspace?goal=${goalId}`);
@@ -764,16 +766,21 @@ describe.skipIf(!E2E)(
       expect(httpStatus).toBe(201);
       expect(payload.projectId).toBe(PROJECT_NAME); // 同项目随迁=用户显式选定,零 allowed_scope 扩权
       expect(newGoalId).toBeTruthy();
-      // 新 Goal 任务 allowed_scope=同一注册表路径(服务端权威解析;零伪造)
+      // 新 Goal 任务作用域=工作区挂载根(统一口径);项目路径由冻结绑定承载(服务端权威解析;零伪造)
       const scopeRow = await t.db.execute(
         sql`SELECT allowed_scope FROM tasks WHERE goal_id = ${newGoalId} ORDER BY created_at ASC LIMIT 1`,
       );
       const scope = (scopeRow.rows[0]?.["allowed_scope"] as string[] | null) ?? [];
-      const regPath = ((scope[0] ?? "") as string) || "";
+      expect(scope).toEqual(["/workspace"]);
       const regParsed = JSON.parse(readFileSync((s as Stack & { registryPath: string }).registryPath, "utf8")) as {
         projects: Array<{ name: string; path: string }>;
       };
-      expect(regPath).toBe(regParsed.projects.find((p) => p.name === PROJECT_NAME)!.path);
+      const frozenRow = await t.db.execute(
+        sql`SELECT detail->'project' AS project FROM audit_events WHERE action='GOAL_PLANNED' AND detail->>'goalId' = ${newGoalId} ORDER BY seq LIMIT 1`,
+      );
+      const frozen = (frozenRow.rows[0]?.["project"] ?? null) as { name?: string; path?: string } | null;
+      expect(frozen?.name).toBe(PROJECT_NAME);
+      expect(frozen?.path).toBe(regParsed.projects.find((p) => p.name === PROJECT_NAME)!.path);
       // 旧 Goal 不变
       await driveGoalUntil(page, t, goalId, "COMPLETED");
       const oldState = await t.db.execute(sql`SELECT state FROM goals WHERE id = ${goalId}`);

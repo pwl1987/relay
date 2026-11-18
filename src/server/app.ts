@@ -42,7 +42,17 @@ const MIME: Record<string, string> = {
 };
 
 /** 业务页面(需会话);其余静态资源公开。 */
-const PAGE_ROUTES = new Set(["/", "/workspace", "/index.html", "/goal.html", "/decisions.html", "/changeset.html", "/projects.html", "/models.html", "/system.html"]);
+const PAGE_ROUTES = new Set([
+  "/",
+  "/workspace",
+  "/index.html",
+  "/goal.html",
+  "/decisions.html",
+  "/changeset.html",
+  "/projects.html",
+  "/models.html",
+  "/system.html",
+]);
 // WEB-UX-03C §2/§10:新增主入口 /workspace(会话式工作区);/ 默认进入工作区(旧页面全部保留可达:旧后台
 // 总览移至 /index.html,任务/待我决定/验收结果/项目等 URL 不变 — 只重定位不删除)。
 const PAGE_ALIASES: Record<string, string> = { "/workspace": "workspace.html", "/": "index.html" };
@@ -104,8 +114,10 @@ function readBody(req: IncomingMessage, limitBytes = 64 * 1024): Promise<string>
 }
 
 function clientIp(req: IncomingMessage): string {
-  const fwd = req.headers["x-forwarded-for"];
-  if (typeof fwd === "string" && fwd.length > 0) return fwd.split(",")[0]!.trim();
+  // 登录限速/锁定键(安全):当前无可信反代部署,X-Forwarded-For 由客户端任意伪造 ——
+  // 按 XFF 取键等于把限速钥匙交给攻击者(轮换伪造地址即可绕过锁定,或伪造他人地址锁人)。
+  // 一律以 socket remoteAddress 为准(连接对端 = 无法谎称)。
+  // 未来引入可信反代时,必须先显式配置可信代理清单/跳数再解析 XFF,不在此默认信任。
   return req.socket.remoteAddress ?? "unknown";
 }
 

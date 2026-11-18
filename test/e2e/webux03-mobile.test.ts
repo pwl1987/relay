@@ -392,7 +392,7 @@ describe.skipIf(!E2E)(
       await page.waitForSelector('[data-testid="ws-result-card"]');
       const card = await page.textContent('[data-testid="ws-result-card"]');
       expect(card).toContain("已完成本轮工作");
-      expect(card).toContain("已提交 GitHub");
+      expect(card).toContain("已交付到仓库");
       expect(card).toContain("独立复核通过");
       expect(card).not.toContain("propose_failed"); // §12:主界面禁内部码
       expect(card).not.toContain("/tmp/");
