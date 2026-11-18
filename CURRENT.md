@@ -1,6 +1,8 @@
 # Relay 当前执行契约
 
-- **RELAY-RESULT-TRUTH-16R 🔴 ACTIVE（2026-11-18；16 最小纠偏）**：协调方独立复核 16 判 **REWORK(1 Major)**：用户对旧 changeset A 的 USER_RESULT_ACCEPTED 会被 Goal 级最新事件投影错误继承到后续新 changeset B，导致 B 即使 FAILED 仍显示“用户已接受结果”。16R 只修“验收事实必须绑定具体结果版本”并把结果摘要“GitHub”硬编码标签改为中性“仓库交付/交付状态”。合同：`p0-mvp/result-truth-16/16R/CONTRACT.md`。零 migration、零生产、零状态机改动。Writer=本地开发 Agent；通过协调方复核前不得收口。
+- **RELAY-MVP-READINESS-REBASELINE-17 🔵 ACTIVE（2026-11-19；MVP 重新基线）**：不再机械加功能，重新核对当前 live main 对 PRD/ADR/历史 final-coverage-matrix 的真实覆盖；强制拆分 Engineering Usable / User UX Acceptance / Model Capability / Production Cutover 四层准入，并给出唯一下一阶段裁决。默认只读审计+隔离主路径验证，零生产、零 migration、无工程 Major 不改产品代码。合同：`p0-mvp/readiness-rebaseline-17/CONTRACT.md`。Writer=本地开发 Agent。
+
+- **RELAY-RESULT-TRUTH-16R ✅ 收口（2026-11-19）**：实施 `6a2f51f`，协调方独立终裁 **PASS(0 Major)**。旧 A 验收不再污染新 B；changeset 按自身版本投影，Goal/workspace 按最新版本投影；无 changeset 拒绝漂浮验收；省略 changesetId 时冻结请求时最新版本；deliveryState 单源绑定；“GitHub”结果标签中性化为“仓库交付”。exact-head CI `44340057681@6a2f51f` 双 success：unit 191/191，非浏览器 517p|103s=620，browser 83p|2s=85。协调方独立 PG 原始反例复测：A accepted 保留、B FAILED userResult=null、Goal current=null。复核：`p0-mvp/result-truth-16/16R/COORDINATOR-REVIEW-20261119.md`.
 
 - **RELAY-RESULT-TRUTH-16 ⚠️ Agent PASS / 协调方 REWORK（2026-11-18）**：实施 `df3ff59`；exact-head CI `44311004493` test+e2e 双 success，unit 191/191、非浏览器 509p|101s=610、browser 81p|2s=83；结果文案、stub/live、dead control、append-only USER_RESULT 基础闭环均有效。但协调方真实 PG 反例证明旧 changeset 的验收会污染新结果，故不可收口。复核：`p0-mvp/result-truth-16/COORDINATOR-REVIEW-20261118.md`.
 
