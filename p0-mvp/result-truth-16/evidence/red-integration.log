@@ -1,0 +1,189 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/integration/result-truth.test.ts (10 tests | 9 failed) 517ms
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T8 无验收事实:goalStatusView.userResult 恒 null(不猜测、不冒充) 16ms
+     → expected undefined to be null
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T9 来源辨识:changeset/goal 视图显式 stub/live/none(复用 runs.model_ref) 11ms
+     → Cannot read properties of undefined (reading 'source')
+   ✓ RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T1 未认证 POST ⇒ 401(验收写入是操作面,匿名零写入) 4ms
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T2 接受结果 ⇒ 201 + append-only 审计事实(绑 Goal+changeset;重载仍可见;快照交付状态) 5ms
+     → expected 404 to be 201 // Object.is equality
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T3 重复接受 ⇒ 追加历史(2 行同向,seq 单调;状态不互相覆盖) 3ms
+     → expected 404 to be 201 // Object.is equality
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T4 非法 decision / 拒绝缺原因 ⇒ 400 零写入(拒绝必须留原因) 3ms
+     → expected 404 to be 400 // Object.is equality
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T5 拒绝结果 ⇒ 原因落审计;重载可见;绝不改 task/Gate 状态、绝不触发 Run 4ms
+     → expected 404 to be 201 // Object.is equality
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T6 changesetId 不属于该 Goal ⇒ 400 零写入(跨 Goal 绑定拒绝) 3ms
+     → expected 404 to be 400 // Object.is equality
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T7 未知 Goal ⇒ 404 零写入 3ms
+     → expected +0 to be 2 // Object.is equality
+   × RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T10 goalDetailView 同源:provenance + userResult 与 status 一致 10ms
+     → Cannot read properties of undefined (reading 'source')
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T8 无验收事实:goalStatusView.userResult 恒 null(不猜测、不冒充)
+AssertionError: expected undefined to be null
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ ❯ test/integration/result-truth.test.ts:137:28
+    135|     const st = await goalStatusView(t.db, g3);
+    136|     expect(st).toBeTruthy();
+    137|     expect(st!.userResult).toBeNull();
+       |                            ^
+    138|   });
+    139| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T9 来源辨识:changeset/goal 视图显式 stub/live/none(复用 runs.model_ref)
+TypeError: Cannot read properties of undefined (reading 'source')
+ ❯ test/integration/result-truth.test.ts:142:27
+    140|   it("T9 来源辨识:changeset/goal 视图显式 stub/live/none(复用 runs.model_ref)", …
+    141|     const d1 = await changesetDetailView(t.db, c1);
+    142|     expect(d1!.provenance.source).toBe("stub");
+       |                           ^
+    143|     expect(d1!.provenance.modelRef).toBe("stub/stub/gm");
+    144|     const d2 = await changesetDetailView(t.db, c2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T2 接受结果 ⇒ 201 + append-only 审计事实(绑 Goal+changeset;重载仍可见;快照交付状态)
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ test/integration/result-truth.test.ts:158:24
+    156|   it("T2 接受结果 ⇒ 201 + append-only 审计事实(绑 Goal+changeset;重载仍可见;快照交付状态)"…
+    157|     const res = await post(`/api/goals/${g1}/result-acceptance`, { dec…
+    158|     expect(res.status).toBe(201);
+       |                        ^
+    159|     const rows = await t.db.execute(sql`
+    160|       SELECT seq, actor, authority, action, detail FROM audit_events
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T3 重复接受 ⇒ 追加历史(2 行同向,seq 单调;状态不互相覆盖)
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ test/integration/result-truth.test.ts:181:24
+    179|   it("T3 重复接受 ⇒ 追加历史(2 行同向,seq 单调;状态不互相覆盖)", async () => {
+    180|     const res = await post(`/api/goals/${g1}/result-acceptance`, { dec…
+    181|     expect(res.status).toBe(201);
+       |                        ^
+    182|     expect(await auditCount("USER_RESULT_ACCEPTED")).toBe(2);
+    183|     const st = await goalStatusView(t.db, g1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T4 非法 decision / 拒绝缺原因 ⇒ 400 零写入(拒绝必须留原因)
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ test/integration/result-truth.test.ts:189:24
+    187|   it("T4 非法 decision / 拒绝缺原因 ⇒ 400 零写入(拒绝必须留原因)", async () => {
+    188|     const bad = await post(`/api/goals/${g1}/result-acceptance`, { dec…
+    189|     expect(bad.status).toBe(400);
+       |                        ^
+    190|     const noReason = await post(`/api/goals/${g1}/result-acceptance`, …
+    191|     expect(noReason.status).toBe(400);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T5 拒绝结果 ⇒ 原因落审计;重载可见;绝不改 task/Gate 状态、绝不触发 Run
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ test/integration/result-truth.test.ts:204:24
+    202|       changesetId: c2,
+    203|     });
+    204|     expect(res.status).toBe(201);
+       |                        ^
+    205|     const rows = await t.db.execute(sql`
+    206|       SELECT actor, authority, detail FROM audit_events WHERE action =…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T6 changesetId 不属于该 Goal ⇒ 400 零写入(跨 Goal 绑定拒绝)
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ test/integration/result-truth.test.ts:226:24
+    224|   it("T6 changesetId 不属于该 Goal ⇒ 400 零写入(跨 Goal 绑定拒绝)", async () => {
+    225|     const res = await post(`/api/goals/${g1}/result-acceptance`, { dec…
+    226|     expect(res.status).toBe(400);
+       |                        ^
+    227|     expect(await auditCount("USER_RESULT_ACCEPTED")).toBe(2); // 仍是 T2…
+    228|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T7 未知 Goal ⇒ 404 零写入
+AssertionError: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ test/integration/result-truth.test.ts:233:54
+    231|     const res = await post("/api/goals/goal-not-exist/result-acceptanc…
+    232|     expect(res.status).toBe(404);
+    233|     expect(await auditCount("USER_RESULT_ACCEPTED")).toBe(2);
+       |                                                      ^
+    234|   });
+    235| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  test/integration/result-truth.test.ts > RELAY-RESULT-TRUTH-16:用户验收 append-only 事实 + 结果来源辨识(API/视图) > T10 goalDetailView 同源:provenance + userResult 与 status 一致
+TypeError: Cannot read properties of undefined (reading 'source')
+ ❯ test/integration/result-truth.test.ts:238:26
+    236|   it("T10 goalDetailView 同源:provenance + userResult 与 status 一致", asyn…
+    237|     const d = await goalDetailView(t.db, g1);
+    238|     expect(d!.provenance.source).toBe("stub");
+       |                          ^
+    239|     expect(d!.userResult!.decision).toBe("accepted");
+    240|     const d2 = await goalDetailView(t.db, g2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 1 passed (10)
+   Start at  20:30:04
+   Duration  1.89s (transform 405ms, setup 0ms, collect 1.09s, tests 517ms, environment 0ms, prepare 78ms)
+

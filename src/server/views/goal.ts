@@ -18,8 +18,10 @@ import {
   type ChangesetSummary,
   type RunView,
   type DecisionView,
+  type ExecutionProvenance,
   availableActionsFor,
   decisionGuidance,
+  deriveExecutionProvenance,
   TIMEOUT_BEHAVIOR,
   IN_FLIGHT_STATES,
 } from "./shared.ts";
@@ -93,6 +95,11 @@ export interface GoalDetail {
   discovery: GoalDiscoveryView;
   /** OPERATOR-CONSOLE-00 P0-UI-3:确定性执行进度(阶段/当前模型/耗时/计数) */
   progress: GoalProgress;
+  /** RESULT-TRUTH-16:执行来源辨识(stub/live/mixed/none;复用 runs.model_ref 单一事实) */
+  provenance: ExecutionProvenance;
+  /** RESULT-TRUTH-16:用户验收事实(append-only audit_events 最新一条;null=用户尚未验收;
+   *  与内部 Gate 的 task ACCEPTED 完全独立,绝不混谈) */
+  userResult: GoalUserResult | null;
 }
 
 export interface GoalDiscoveryView {
@@ -405,6 +412,8 @@ export async function goalDetailView(db: RelayDb, goalId: string): Promise<GoalD
     budget: ledger,
     analysis,
     discovery,
+    provenance: deriveExecutionProvenance(runs),
+    userResult: await readGoalUserResult(db, goalId),
     progress: buildGoalProgress({
       goalState: str(grow["state"]),
       tasks: tasks.map((x) => ({ id: x.id, state: x.state })),
@@ -709,6 +718,50 @@ export interface GoalStatusView {
   projectPath: string | null;
   workspaceMount: string;
   deliveryTarget: string | null;
+  /** RESULT-TRUTH-16:用户验收事实(append-only 审计最新一条;null=用户尚未验收) */
+  userResult: GoalUserResult | null;
+}
+
+// ─── RELAY-RESULT-TRUTH-16:用户验收事实(append-only 审计投影;与内部 Gate 完全分离) ───
+
+export interface GoalUserResult {
+  decision: "accepted" | "rejected";
+  /** 事件时间(audit_events.ts) */
+  at: string | null;
+  /** 拒绝必附原因;接受可为空说明 */
+  reason: string | null;
+  /** 同时绑定的变更集(能绑定时);null=仅 Goal 级 */
+  changesetId: string | null;
+  /** 事件 seq(append-only 追加历史;最新一条为当前事实) */
+  seq: number;
+}
+
+/**
+ * 用户验收事实读取(纯投影):audit_events 里该 Goal 最新一条 USER_RESULT_ACCEPTED /
+ * USER_RESULT_REJECTED(RESULT-TRUTH-16 写入,api.ts result-acceptance 端点唯一写入面)。
+ * 绑定方式与 GOAL_PLANNED 同款:detail->>'goalId'(append-only 触发器保证事实不可改写)。
+ * 重复同向操作 = 追加历史,最新一条即当前事实(不互相覆盖)。
+ */
+export async function readGoalUserResult(db: RelayDb, goalId: string): Promise<GoalUserResult | null> {
+  const rows = await db.execute(sql`
+    SELECT seq, ts, action, detail FROM audit_events
+    WHERE action IN ('USER_RESULT_ACCEPTED', 'USER_RESULT_REJECTED')
+      AND detail->>'goalId' = ${goalId}
+    ORDER BY seq DESC
+    LIMIT 1
+  `);
+  const r = rows.rows[0];
+  if (!r) return null;
+  const detail = json<Record<string, unknown>>(r["detail"], {});
+  const csId = detail["changesetId"];
+  const reason = detail["reason"];
+  return {
+    decision: str(r["action"]) === "USER_RESULT_ACCEPTED" ? "accepted" : "rejected",
+    at: iso(r["ts"]),
+    reason: typeof reason === "string" ? reason : null,
+    changesetId: typeof csId === "string" ? csId : null,
+    seq: num(r["seq"]),
+  };
 }
 
 /** Goal 是否有在途执行(LEASED/RUNNING/SUBMITTED/VERIFYING)。follow-up 派生的前置检查。 */
@@ -764,6 +817,7 @@ export async function goalStatusView(db: RelayDb, goalId: string): Promise<GoalS
     projectPath: binding?.path ?? null,
     workspaceMount: WORKSPACE_MOUNT,
     deliveryTarget: binding?.repo ? `${binding.repo}[${binding.branch ?? "main"}]` : null,
+    userResult: await readGoalUserResult(db, goalId),
   };
 }
 

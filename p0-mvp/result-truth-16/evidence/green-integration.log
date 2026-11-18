@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/integration/result-truth.test.ts (10 tests) 582ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  20:42:00
+   Duration  1.97s (transform 410ms, setup 0ms, collect 1.11s, tests 582ms, environment 0ms, prepare 83ms)
+

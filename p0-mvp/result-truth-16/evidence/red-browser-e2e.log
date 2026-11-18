@@ -1,0 +1,125 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/e2e/result-truth-browser.test.ts (6 tests | 6 failed) 152486ms
+   × RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V1 结果页事实推导:来源行 stub 演示显式;无过期能力声明;验收区=内部通过/用户未验收 30053ms
+     → page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="result-provenance"]') to be visible
+
+   × RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V2 「查看修改详情」真实可达:点击 ⇒ 技术区展开且文件清单可见(dead-control 防回归) 30176ms
+     → page.waitForFunction: Timeout 30000ms exceeded.
+   × RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V3 用户接受结果 ⇒ append-only 审计 + 刷新后仍在;零 Run 触发 30030ms
+     → page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="user-accept-btn"]') to be visible
+
+   × RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V4 用户拒绝结果(带原因)⇒ 原因落审计;刷新后仍在;task 仍 ACCEPTED;给后续指引 30031ms
+     → page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="user-reject-reason"]') to be visible
+
+   × RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V5 工作区结果卡:来源行 stub 演示 + 用户验收最新事实,与验收结果页同源 30119ms
+     → page.textContent: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="ws-result-provenance"]')
+
+   × RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V6 Goal 时间线=最新轮口径:旧轮 DELIVERED + 最新轮 FAILED ⇒ 零旧轮成功文案 186ms
+     → expected '正在交付已完成修改已交付到仓库' to contain '交付遇到问题'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/result-truth-browser.test.ts > RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V1 结果页事实推导:来源行 stub 演示显式;无过期能力声明;验收区=内部通过/用户未验收
+TimeoutError: page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="result-provenance"]') to be visible
+
+ ❯ test/e2e/result-truth-browser.test.ts:187:16
+    185|   it("V1 结果页事实推导:来源行 stub 演示显式;无过期能力声明;验收区=内部通过/用户未验收", async () => {
+    186|     await page.goto(`${base}/changeset.html?id=${encodeURIComponent(ch…
+    187|     await page.waitForSelector('[data-testid="result-provenance"]');
+       |                ^
+    188|     const prov = (await page.textContent('[data-testid="result-provena…
+    189|     expect(prov).toContain("演示");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  test/e2e/result-truth-browser.test.ts > RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V2 「查看修改详情」真实可达:点击 ⇒ 技术区展开且文件清单可见(dead-control 防回归)
+TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.
+ ❯ test/e2e/result-truth-browser.test.ts:214:16
+    212|     expect(openBefore).toBe(false);
+    213|     await page.getByRole("button", { name: "查看修改详情" }).click();
+    214|     await page.waitForFunction(() => {
+       |                ^
+    215|       const el = document.getElementById("cs-tech");
+    216|       return el instanceof HTMLDetailsElement && el.open;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  test/e2e/result-truth-browser.test.ts > RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V3 用户接受结果 ⇒ append-only 审计 + 刷新后仍在;零 Run 触发
+TimeoutError: page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="user-accept-btn"]') to be visible
+
+ ❯ test/e2e/result-truth-browser.test.ts:223:16
+    221|   it("V3 用户接受结果 ⇒ append-only 审计 + 刷新后仍在;零 Run 触发", async () => {
+    222|     await page.goto(`${base}/changeset.html?id=${encodeURIComponent(ch…
+    223|     await page.waitForSelector('[data-testid="user-accept-btn"]');
+       |                ^
+    224|     const runsBefore = await t.db.execute(sql`SELECT count(*)::int AS …
+    225|     await page.click('[data-testid="user-accept-btn"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  test/e2e/result-truth-browser.test.ts > RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V4 用户拒绝结果(带原因)⇒ 原因落审计;刷新后仍在;task 仍 ACCEPTED;给后续指引
+TimeoutError: page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="user-reject-reason"]') to be visible
+
+ ❯ test/e2e/result-truth-browser.test.ts:251:16
+    249|   it("V4 用户拒绝结果(带原因)⇒ 原因落审计;刷新后仍在;task 仍 ACCEPTED;给后续指引", async () => {
+    250|     await page.goto(`${base}/changeset.html?id=${encodeURIComponent(ch…
+    251|     await page.waitForSelector('[data-testid="user-reject-reason"]');
+       |                ^
+    252|     const runsBefore = await t.db.execute(sql`SELECT count(*)::int AS …
+    253|     await page.fill('[data-testid="user-reject-reason"]', "脚本内容不符合预期,需…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  test/e2e/result-truth-browser.test.ts > RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V5 工作区结果卡:来源行 stub 演示 + 用户验收最新事实,与验收结果页同源
+TimeoutError: page.textContent: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="ws-result-provenance"]')
+
+ ❯ test/e2e/result-truth-browser.test.ts:288:30
+    286|     await page.goto(`${base}/workspace?goal=${encodeURIComponent(goalI…
+    287|     await page.waitForSelector('[data-testid="ws-result-card"]');
+    288|     const prov = (await page.textContent('[data-testid="ws-result-prov…
+       |                              ^
+    289|     expect(prov).toContain("演示");
+    290|     const acc = (await page.textContent('[data-testid="ws-result-user-…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  test/e2e/result-truth-browser.test.ts > RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V6 Goal 时间线=最新轮口径:旧轮 DELIVERED + 最新轮 FAILED ⇒ 零旧轮成功文案
+AssertionError: expected '正在交付已完成修改已交付到仓库' to contain '交付遇到问题'
+
+Expected: "交付遇到问题"
+Received: "正在交付已完成修改已交付到仓库"
+
+ ❯ test/e2e/result-truth-browser.test.ts:323:25
+    321|     const deliverStep = steps.find((s) => s.includes("正在交付")) ?? "";
+    322|     const doneStep = steps.find((s) => s.includes("完成")) ?? "";
+    323|     expect(deliverStep).toContain("交付遇到问题"); // 最新轮 FAILED 事实
+       |                         ^
+    324|     expect(deliverStep).not.toContain("修改已交付到仓库"); // 旧轮 DELIVERED 不得冒…
+    325|     expect(doneStep).not.toContain("全部完成"); // 旧轮成功不得冒充本轮完成
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  20:30:31
+   Duration  154.36s (transform 562ms, setup 0ms, collect 1.59s, tests 152.49s, environment 0ms, prepare 76ms)
+

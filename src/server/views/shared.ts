@@ -232,3 +232,33 @@ export function availableActionsFor(task: TaskView, hasOpenDecision: boolean): T
   }
   return actions;
 }
+
+// ─── RELAY-RESULT-TRUTH-16:执行来源辨识(结果真相层;单一事实 = runs.model_ref) ───
+
+export interface ExecutionProvenance {
+  /** stub=桩/演示执行;live=真实模型执行;mixed=同时含桩与真实模型运行;none=无 coder 运行 */
+  source: "stub" | "live" | "mixed" | "none";
+  /** 最新 coder 运行的 model_ref(provider/model;runner.ts 写入;stub provider 恒以 "stub/" 前缀) */
+  modelRef: string | null;
+  sandbox: string | null;
+  coderRunCount: number;
+}
+
+/**
+ * 结果卡执行来源(合同 §三-3:stub/demo 必须显式,不能把桩执行与真实模型执行显示成同一种结果)。
+ * 复用既有 Run 事实,不新增第二套来源:coder run = role 缺失或 "coder"(runs 无 role 列,
+ * reviewer 在 detail.role 锚定 —— 与 workspace.js 工作状态块同口径);stub 判据 = model_ref
+ * 以 "stub/" 前缀(provider/model 拼接,src/runtime/runner.ts 唯一写入点)。
+ * 混合运行如实标 "mixed",绝不把桩演示冒充真实模型交付。
+ */
+export function deriveExecutionProvenance(
+  runs: Array<{ role: string | null; modelRef: string; sandbox: string }>,
+): ExecutionProvenance {
+  const coders = runs.filter((r) => (r.role ?? "coder") === "coder");
+  if (coders.length === 0) return { source: "none", modelRef: null, sandbox: null, coderRunCount: 0 };
+  const stubCount = coders.filter((r) => r.modelRef.startsWith("stub/")).length;
+  const liveCount = coders.length - stubCount;
+  const source = stubCount === 0 ? "live" : liveCount === 0 ? "stub" : "mixed";
+  const latest = coders[0]!;
+  return { source, modelRef: latest.modelRef, sandbox: latest.sandbox, coderRunCount: coders.length };
+}

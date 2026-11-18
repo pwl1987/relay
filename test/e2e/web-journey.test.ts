@@ -636,8 +636,10 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
     const head = await textOf(page, '[data-testid="delivery-remote-head"]');
     expect(head.slice(0, 12)).toBe(commit.slice(0, 12));
     const caveat = await textOf(page, '[data-testid="delivery-caveat"]');
-    expect(caveat).toContain("GitHub");
-    expect(caveat).toContain("尚未接入");
+    // RESULT-TRUTH-16:状态口径按真实事实(「已交付」才表示已按授权写入交付目标);
+    // 过期能力声明(「尚未接入 GitHub 推送交付」)已废除,不得回流。
+    expect(caveat).toContain("只表示内部 Gate 验收通过");
+    expect(caveat).not.toContain("尚未接入");
     await shot(page, "j4-changeset-delivered.png");
     s.log.log(
       `J4 OK:全链 DELIVERED(远端 HEAD=${remoteHead.slice(0, 12)});UI 三 SHA 两两不等;Gate PASS 已消费;页面如实标注 GitHub 真实写入 NOT_VERIFIED`,

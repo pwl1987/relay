@@ -14,10 +14,13 @@ import {
   type RunView,
   type DecisionView,
   type EvidenceView,
+  type ExecutionProvenance,
   availableActionsFor,
   decisionGuidance,
+  deriveExecutionProvenance,
   TIMEOUT_BEHAVIOR,
 } from "./shared.ts";
+import { readGoalUserResult, type GoalUserResult } from "./goal.ts";
 
 export interface ChangesetDetail {
   changeset: ChangesetSummary;
@@ -38,10 +41,24 @@ export interface ChangesetDetail {
     createdAt: string;
     updatedAt: string;
   } | null;
-  intent: { id: string; state: string; capability: string; target: string; branch: string; payloadSha: string; expectedRemoteSha: string; createdAt: string; updatedAt: string } | null;
+  intent: {
+    id: string;
+    state: string;
+    capability: string;
+    target: string;
+    branch: string;
+    payloadSha: string;
+    expectedRemoteSha: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
   decisions: DecisionView[];
   /** 证据时效:绑定候选与当前候选不一致 ⇒ 需要重验 */
   evidenceFreshness: { currentCandidateSha: string; staleGateCount: number; verdict: "FRESH" | "STALE" };
+  /** RESULT-TRUTH-16:执行来源辨识(产生本候选的运行事实;stub/live/mixed/none) */
+  provenance: ExecutionProvenance;
+  /** RESULT-TRUTH-16:所属 Goal 的用户验收事实(null=用户尚未验收;与 task ACCEPTED 独立) */
+  userResult: GoalUserResult | null;
 }
 
 export async function changesetDetailView(db: RelayDb, changesetId: string): Promise<ChangesetDetail | null> {
@@ -66,7 +83,11 @@ export async function changesetDetailView(db: RelayDb, changesetId: string): Pro
     gitBaseCommitSha: row["git_base_commit_sha"] === null ? null : str(row["git_base_commit_sha"]),
     gitTreeSha: row["git_tree_sha"] === null ? null : str(row["git_tree_sha"]),
     gitCommitSha: row["git_commit_sha"] === null ? null : str(row["git_commit_sha"]),
-    changedFiles: json<ChangesetSummary["changedFiles"]>(row["changed_files"], { added: [], modified: [], removed: [] }),
+    changedFiles: json<ChangesetSummary["changedFiles"]>(row["changed_files"], {
+      added: [],
+      modified: [],
+      removed: [],
+    }),
     impactScope: json<ChangesetSummary["impactScope"]>(row["impact_scope"], { inScope: [], violations: [] }),
     deliveryState: str(row["delivery_state"]),
     deliveredRemoteHead: row["delivered_remote_head"] === null ? null : str(row["delivered_remote_head"]),
@@ -101,7 +122,15 @@ export async function changesetDetailView(db: RelayDb, changesetId: string): Pro
       retryNotBefore: iso(trow["retry_not_before"]),
       createdAt: iso(trow["created_at"]) ?? "",
       updatedAt: iso(trow["updated_at"]) ?? "",
-      openDecision: d ? { id: str(d["id"]), level: str(d["level"]), question: str(d["question"]), state: str(d["state"]), deadline: iso(d["deadline"]) } : null,
+      openDecision: d
+        ? {
+            id: str(d["id"]),
+            level: str(d["level"]),
+            question: str(d["question"]),
+            state: str(d["state"]),
+            deadline: iso(d["deadline"]),
+          }
+        : null,
       availableActions: [],
     };
     task.availableActions = availableActionsFor(task, Boolean(d));
@@ -237,7 +266,11 @@ export async function changesetDetailView(db: RelayDb, changesetId: string): Pro
       taskState: task?.state ?? null,
       taskStateVersion: task?.stateVersion ?? null,
       timeoutBehavior: TIMEOUT_BEHAVIOR[level] ?? "未登记",
-      affectedFiles: [...changeset.changedFiles.added, ...changeset.changedFiles.modified, ...changeset.changedFiles.removed],
+      affectedFiles: [
+        ...changeset.changedFiles.added,
+        ...changeset.changedFiles.modified,
+        ...changeset.changedFiles.removed,
+      ],
       reversible: level === "D3",
       canApprove: pending && level !== "D4" && legal,
       canReject: pending && level !== "D4",
@@ -272,6 +305,8 @@ export async function changesetDetailView(db: RelayDb, changesetId: string): Pro
     proposal,
     intent,
     decisions,
+    provenance: deriveExecutionProvenance(runs),
+    userResult: task?.goalId ? await readGoalUserResult(db, task.goalId) : null,
     evidenceFreshness: {
       currentCandidateSha: changeset.candidateSha,
       staleGateCount,

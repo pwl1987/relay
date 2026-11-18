@@ -268,6 +268,9 @@
       stages: stages,
       rawInput: (g.goal && g.goal.rawInput) || "",
       changesetId: delivered ? delivered.id : csList[0] ? csList[0].id : null,
+      // RESULT-TRUTH-16:执行来源辨识与用户验收事实(服务端 goalDetailView 单一推导;纯投影)
+      provenance: g.provenance || null,
+      userResult: g.userResult || null,
     };
   }
 
@@ -346,6 +349,31 @@
       );
     }
     if (isDone) {
+      // RESULT-TRUTH-16:结果卡显式执行来源(stub 演示绝不冒充真实模型;服务端由 runs.model_ref 推导)
+      if (w.provenance && w.provenance.source !== "none") {
+        const provLabel =
+          {
+            stub: "演示执行(stub 桩模型,非真实模型运行)",
+            live: "真实模型执行",
+            mixed: "混合执行(同时含桩与真实模型运行)",
+          }[w.provenance.source] || w.provenance.source;
+        block.appendChild(
+          h("div", {
+            class: "ws-card-sub dim",
+            "data-testid": "ws-result-provenance",
+            text: provLabel + (w.provenance.modelRef ? " · " + w.provenance.modelRef : ""),
+          }),
+        );
+      }
+      // RESULT-TRUTH-16:用户验收事实行(与内部 Gate 分离;最新 append-only 审计事实)
+      const ur = w.userResult;
+      const accText =
+        ur === null
+          ? "用户尚未验收(内部复核通过 ≠ 用户已验收)"
+          : ur.decision === "accepted"
+            ? "用户已接受结果" + (ur.reason ? ":" + ur.reason : "")
+            : "用户已拒绝结果" + (ur.reason ? ":" + ur.reason : "");
+      block.appendChild(h("div", { class: "ws-card-sub", "data-testid": "ws-result-user-acceptance", text: accText }));
       const row = h("div", { class: "row mt8" });
       if (w.changesetId) {
         row.appendChild(

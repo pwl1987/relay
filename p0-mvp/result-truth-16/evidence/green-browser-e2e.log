@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/result-truth-browser.test.ts (6 tests) 2750ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  20:38:51
+   Duration  4.56s (transform 550ms, setup 0ms, collect 1.53s, tests 2.75s, environment 0ms, prepare 77ms)
+

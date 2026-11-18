@@ -1,0 +1,620 @@
+
+> relay@0.1.0-p0 quality:full
+> node scripts/quality.mjs full
+
+
+===== [lint] npx biome lint --reporter=summary src web test scripts bin =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+reporter/violations ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Some lint rules or assist actions reported some violations.
+  
+  i The following files have violations:
+  
+  - src/core/delivery.ts (1 info)
+  - src/core/goal-loop.ts (1 warning, 1 info)
+  - src/runtime/egress.ts (2 warnings)
+  - src/runtime/runner.ts (2 warnings)
+  - src/runtime/sandbox.ts (1 warning)
+  - src/server/worker.ts (1 warning)
+  - test/e2e/web-journey.test.ts (4 warnings)
+  - test/e2e/webux03-screenshots.test.ts (1 warning)
+  - test/e2e/webux03-workspace.test.ts (1 warning)
+  - test/fixtures/f1-tasklist/check.mjs (4 warnings)
+  - test/helpers/run-worker.ts (1 warning)
+  - test/integration/backup-restore.test.ts (1 warning)
+  - test/integration/budget-enforcement.test.ts (2 warnings)
+  - test/integration/changesets.test.ts (2 warnings)
+  - test/integration/check-sandbox-isolation.test.ts (5 warnings)
+  - test/integration/circuit-recovery.test.ts (2 warnings)
+  - test/integration/cli.test.ts (1 warning)
+  - test/integration/discovery.test.ts (3 warnings)
+  - test/integration/egress-enforcement.test.ts (1 warning)
+  - test/integration/egress-isolation-e2e.test.ts (1 warning)
+  - test/integration/f1-ux-journey.test.ts (5 warnings)
+  - test/integration/f2-bug-fix.test.ts (2 warnings)
+  - test/integration/f3-injection.test.ts (2 warnings)
+  - test/integration/gate-integrity-dual.test.ts (1 warning)
+  - test/integration/gate-orchestrator.test.ts (1 warning)
+  - test/integration/git-candidate.test.ts (1 warning)
+  - test/integration/goal-loop.test.ts (3 warnings)
+  - test/integration/heartbeat.test.ts (1 warning)
+  - test/integration/lease-basics.test.ts (1 warning)
+  - test/integration/run-crash-recovery.test.ts (2 warnings)
+  - test/integration/sandbox-enforcement.test.ts (1 warning)
+  - test/integration/v04-crash-recovery.test.ts (1 warning)
+  - test/integration/v05-lost-receipt.test.ts (1 warning)
+  - test/integration/web-api.test.ts (6 warnings)
+  - test/unit/command-scope.test.ts (1 warning)
+  - test/unit/egress-isolation.test.ts (1 info)
+  - web/app.js (10 warnings)
+  - web/changeset.js (1 warning)
+  - web/dashboard.js (2 warnings)
+  - web/decisions.js (1 warning)
+  - web/goal.js (1 warning)
+  - web/login.js (1 warning)
+  - web/models.js (1 warning)
+  - web/projects.js (1 warning)
+  - web/style.css (5 warnings)
+  - web/system.js (1 warning)
+  - web/workspace.js (9 warnings)
+  
+  i The following lint rules have violations:
+  
+  Rule Name                                                 Diagnostics
+  
+  lint/correctness/noUnusedFunctionParameters               4 (4 warnings)
+  lint/suspicious/noTemplateCurlyInString                   1 (1 warning)
+  lint/performance/useDomNodeTextContent                    3 (3 warnings)
+  lint/suspicious/noRedundantUseStrict                      10 (10 warnings)
+  lint/style/useExponentiationOperator                      1 (1 info)
+  lint/style/useShorthandFunctionType                       1 (1 info)
+  lint/style/noDescendingSpecificity                        5 (5 warnings)
+  lint/correctness/noUnusedVariables                        28 (28 warnings)
+  lint/correctness/noUnusedImports                          33 (33 warnings)
+  lint/complexity/noCommaOperator                           1 (1 warning)
+  lint/suspicious/noGlobalIsNan                             2 (2 warnings)
+  lint/suspicious/noExplicitAny                             6 (6 warnings)
+  lint/complexity/noArguments                               2 (2 warnings)
+  lint/complexity/useIndexOf                                1 (1 info)
+  lint/style/useConst                                       3 (3 warnings)
+
+Checked 204 files in 63ms. No fixes applied.
+Found 98 warnings.
+Found 3 infos.
+===== [lint] PASS (exit=0, 481ms) =====
+
+===== [format] npx biome format scripts/webux11-preview.mjs src/server/api.ts src/server/views/changesets.ts src/server/views/goal.ts src/server/views/shared.ts test/e2e/web-journey.test.ts web/changeset.js web/goal.js web/workspace.js test/e2e/result-truth-browser.test.ts test/integration/result-truth.test.ts =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+Checked 11 files in 17ms. No fixes applied.
+===== [format] PASS (exit=0, 438ms) =====
+
+===== [typecheck] npx tsc --noEmit =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+===== [typecheck] PASS (exit=0, 10282ms) =====
+
+===== [unit] npx vitest run test/unit =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/unit/egress-isolation.test.ts (20 tests) 3838ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R7 空链宽限:并发创建者窗口内写入本作用域规则 ⇒ 认领收敛(非接管无主链)  608ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R8 空链宽限超时 ⇒ 拒绝(历史无主链不自动接管)  3012ms
+[restore-target] fail-closed:规范化实例键相同(源=loopback:55433;目标=loopback:55433):同实例别名/端口缺省形态,拒绝恢复(别名不构成隔离证明)
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore-target] fail-closed:规范化实例键相同(源=loopback:5432;目标=loopback:5432):同实例别名/端口缺省形态,拒绝恢复(别名不构成隔离证明)
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore] fail-closed:恢复目标实例与备份源实例相同(RESTORE_URL 是 RELAY_DB_URL 的实例前缀);拒绝在源/生产实例上恢复
+[restore] fail-closed:未提供 RELAY_DB_URL(备份源实例连接串):无法证明恢复目标不是备份源实例;拒绝(09R)
+[restore-target] fail-closed:源实例身份不可证(连接失败:connect ECONNREFUSED 127.0.0.1:1;postgresql://demo@127.0.0.1:1/none);拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore] fail-closed:docker inspect 恢复容器失败(relay-p000-pg):无法证明 RESTORE_URL 与实际执行容器的绑定;拒绝
+[restore-target] fail-closed:RESTORE_URL 端口(55433)与实际恢复容器发布端口(59997)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=10.30.5.80);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore] fail-closed:RELAY_RESTORE_CONTAINER 与源容器同名(relay-p000-pg):容器名欺骗形态;拒绝
+[restore] fail-closed:完成标记数量≠1(缺失=备份失败残留或不完整);拒绝恢复
+ ✓ test/unit/d09r-restore-target.test.ts (27 tests) 1354ms
+   ✓ RELAY-RESTORE-TARGET-09R:动态拒绝矩阵(可控 PATH,危险调用计数=0) > 宿主分支:同实例别名(R1 形态)⇒ 快速门拒绝,psql 调用次数=0  314ms
+ ✓ test/unit/project-binding-seed.test.ts (9 tests) 551ms
+ ✓ test/unit/goal-message-consumption.test.ts (6 tests) 438ms
+ ✓ test/unit/console-views.test.ts (7 tests) 426ms
+ ✓ test/unit/goal-messages.test.ts (6 tests) 405ms
+ ✓ test/unit/pi-version.test.ts (3 tests) 360ms
+   ✓ Pi 版本锁定 > 运行时二探:实际执行 --version 与锁定版本一致  313ms
+ ✓ test/unit/workspace-sidebar.test.ts (2 tests) 302ms
+ ✓ test/unit/web-app.test.ts (4 tests) 276ms
+[backup] fail-closed:未声明 RELAY_BACKUP_SCHEMA(目标 Relay schema 或 all);拒绝生成 manifest(拒绝静默跨 schema 聚合)
+[backup] fail-closed:manifest 目标校验失败(schema=p01a_nonexistent_xyz,未生成任何产物):connect ECONNREFUSED 127.0.0.1:1
+ ✓ test/unit/d09-backup-chain.test.ts (15 tests) 174ms
+ ✓ test/unit/max-output-tokens.test.ts (10 tests) 40ms
+ ✓ test/unit/d08-ephemeral-pg.test.ts (15 tests) 14ms
+ ✓ test/unit/soak-verify.test.ts (9 tests) 11ms
+ ✓ test/unit/lifecycle.test.ts (7 tests) 11ms
+ ✓ test/unit/safe-rm.test.ts (7 tests) 11ms
+ ✓ test/unit/context.test.ts (6 tests) 9ms
+ ✓ test/unit/delivery-policy.test.ts (9 tests) 9ms
+ ✓ test/unit/redact.test.ts (7 tests) 7ms
+ ✓ test/unit/capabilities.test.ts (5 tests) 8ms
+ ✓ test/unit/policy-scope.test.ts (8 tests) 5ms
+ ✓ test/unit/denial-hints.test.ts (5 tests) 5ms
+ ✓ test/unit/command-scope.test.ts (4 tests) 5ms
+
+ Test Files  22 passed (22)
+      Tests  191 passed (191)
+   Start at  20:42:17
+   Duration  18.09s (transform 680ms, setup 0ms, collect 4.60s, tests 8.26s, environment 5ms, prepare 1.56s)
+
+===== [unit] PASS (exit=0, 18943ms) =====
+===== [pg] 测试库 127.0.0.1:55433 已可达(复用,不重建) =====
+
+===== [tests] npx vitest run =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ↓ test/e2e/webux11r-terminal-execute.test.ts (10 tests | 10 skipped)
+ ↓ test/e2e/webux11-firstuse-audit.test.ts (6 tests | 6 skipped)
+ ✓ test/integration/pi-e2e.test.ts (2 tests) 68881ms
+   ✓ 真实 Pi RPC E2E(容器+当前可用 Provider) > 端到端:真实模型读文件/越权被拒/写结果/handoff/推进与 Gate  16018ms
+   ✓ 真实 Pi RPC E2E(容器+当前可用 Provider) > 真实断连恢复:docker kill → rpc_disconnect → 回收重领 → context_rebuild  39759ms
+ ↓ test/e2e/webux03-mobile.test.ts (12 tests | 12 skipped)
+stdout | test/integration/egress-isolation-e2e.test.ts > egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰)
+[egress-isolation-e2e] 兜底清理 deleted=[] skipped=[{"resource":"ctr:relay-test-isoe2e-fwd","reason":"不存在"},{"resource":"iptables","reason":"网络 relay-test-isoe2e-net 非本执行者持有(匿名/他人)⇒ 零 iptables 操作"},{"resource":"net:relay-test-isoe2e-net","reason":"不存在"}]
+
+Error response from daemon: network relay-egress-net not found
+error: no such object: relay-egress-fwd
+Error response from daemon: network relay-egress-net not found
+error: no such object: relay-egress-fwd
+stdout | test/integration/egress-isolation-e2e.test.ts > RELAY-EGRESS-ISOLATION-07R:双作用域隔离与强制同链碰撞(真 docker;零默认资源触碰)
+[egress-isolation-e2e-07r] 兜底 A deleted=[] B deleted=[]
+
+ ✓ test/integration/egress-isolation-e2e.test.ts (11 tests) 28304ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ① 跨进程并发 ensure 安全收敛:双子进程同作用域 ensure ⇒ 恰好一个代理容器,双方 ok  1157ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ② 跨进程复用 + 真实探针:父进程 ensure 同作用域 ⇒ reused:true;模型端口可达+外网阻断  11686ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ③ 未授权 teardown 拒绝:知道作用域名但非持有者 ⇒ 零删除,栈完好(默认域 teardown 同样零越界)  515ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ④ 半残有界恢复:本执行者持有的代理被 stop ⇒ ensure 恢复重建(recovered)且健康  10937ms
+   ✓ egress 资源归属与测试隔离 E2E(RELAY-EGRESS-ISOLATION-07;独立命名空间,零默认资源触碰) > ⑤ 退出后清理:owner 匹配的 teardown 回收全部作用域资源,零残留  502ms
+   ✓ RELAY-EGRESS-ISOLATION-07R:双作用域隔离与强制同链碰撞(真 docker;零默认资源触碰) > 双 scope(共享前 8 字符 id)各自建立:链名不同、规则各归其链  1695ms
+   ✓ RELAY-EGRESS-ISOLATION-07R:双作用域隔离与强制同链碰撞(真 docker;零默认资源触碰) > teardown A 后 B 仍健康;teardown B 后双域零残留  1105ms
+ ✓ test/integration/egress-enforcement.test.ts (4 tests) 14266ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > ensureEgress 幂等建立;二次执行健康复用(不 rm 不重建);verifyEgressRules(作用域链)通过  1094ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > 真实探针:模型端点可达 + 外网被阻断(两个都成立才算约束生效)  11492ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > FAIL-CLOSED:无 egress 状态时 docker executeRun 拒启(不得静默降级 host 网络)  865ms
+   ✓ 网络出口约束(容器+iptables 实测;独立命名空间) > teardownEgress(作用域)只清理本作用域;生产默认链 RELAY-EGRESS 不受影响  658ms
+ ↓ test/e2e/webux03-workspace.test.ts (8 tests | 8 skipped)
+stdout | test/integration/d09-backup-integrity.test.ts
+[d09 门控] docker=true
+
+NOTICE:  database "relay_restore_v1795005881_10634" does not exist, skipping
+ERROR:  audit_events is append-only: DELETE is not allowed
+CONTEXT:  PL/pgSQL function p01a_d09a_2617720c.relay_forbid_audit_mutation() line 3 at RAISE
+deploy/backup.sh: line 19: RELAY_BACKUP_SCHEMA: 需 RELAY_BACKUP_SCHEMA(目标 Relay schema 或 all;拒绝静默整库)
+ls: cannot access '/tmp/d09-backup-gqpO3e/refuse-noschema': No such file or directory
+[backup-validate] fail-closed:目标 schema 不存在:p01a_nonexistent_xyz(连接目标=postgresql://postgres:***@127.0.0.1:32938/relayd08);拒绝备份
+ls: cannot access '/tmp/d09-backup-gqpO3e/refuse-badschema': No such file or directory
+Error response from daemon: No such container: relay-d09-nonexistent-xyz
+[backup] 失败(exit=1):已清理本次 STAMP=20261118T124443Z 残留产物
+[restore] fail-closed:未显式声明 RELAY_RESTORE_ISOLATED=1(恢复目标必须是隔离实例,禁止生产/备份源实例)
+[restore] fail-closed:恢复目标实例与备份源实例相同(RESTORE_URL 是 RELAY_DB_URL 的实例前缀);拒绝在源/生产实例上恢复
+[restore] fail-closed:完成标记数量≠1(缺失=备份失败残留或不完整);拒绝恢复
+NOTICE:  database "relay_restore_v1795005883_1461" does not exist, skipping
+ERROR:  syntax error at or near "THIS"
+LINE 1: THIS IS NOT VALID SQL;
+        ^
+[restore] 失败(exit=3):已清理本次恢复库 relay_restore_v1795005883_1461
+NOTICE:  database "relayd09tamp" does not exist, skipping
+[restore] fail-closed:DELIVERED 集合身份不一致(相同计数不构成通过)
+NOTICE:  database "relayd09faithful" does not exist, skipping
+[restore] fail-closed:审计索引集合不一致(错源/丢失/混入)
+[restore] fail-closed:manifest 缺少 targetSchema/delivered(legacy 或损坏);拒绝核对
+NOTICE:  database "relay_restore_v1795005887_30881" does not exist, skipping
+ ✓ test/integration/d09-backup-integrity.test.ts (5 tests) 11797ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > 主链:schema 模式真实 backup.sh(A 专属)→ 真实 restore-verify.sh(隔离实例)→ 身份核对 + 恢复后可用  2177ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > 扰动 B 不改变 A 的备份产物(manifest/审计索引逐字节相等;B 新行零进入)  540ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > fail-closed 矩阵:未声明 schema/目标不存在/错容器/未声明隔离/恢复=源实例/缺标记/篡改/身份扰动/legacy manifest 一律拒绝  3063ms
+   ✓ RELAY-BACKUP-INTEGRITY-09:修后真实备份/恢复全链(合成双租户一次性 PG) > all 模式 = 显式旧版整库/跨 schema 兼容语义(可重复演示;如实含 public 遗留)  1917ms
+ ↓ test/e2e/webux02-visual.test.ts (3 tests | 3 skipped)
+ ✓ test/integration/v04-crash-recovery.test.ts (2 tests) 10858ms
+   ✓ V04 SIGKILL 崩溃恢复 > 崩溃 → 窗口内权威 → 过期回收 → fencing+1 重领 → 幽灵被拒 → 审计完整  10533ms
+ ↓ test/e2e/web-journey.test.ts (7 tests | 7 skipped)
+NOTICE:  database "relay_restore_v1795005907_21164" does not exist, skipping
+NOTICE:  database "relay_restore_v1795005910_16462" does not exist, skipping
+ ✓ test/integration/d10-cutover-simulation.test.ts (5 tests) 8023ms
+   ✓ RELAY-CUTOVER-READINESS-10:切换前模拟全链(一次性双实例) > ① 目标 schema 备份(09 语义):真跑 backup.sh schema 唯一入口;dump 仅含目标 schema,零兄弟 schema/public 遗留混入;输出零密码(日志脱敏)  532ms
+   ✓ RELAY-CUTOVER-READINESS-10:切换前模拟全链(一次性双实例) > ② 隔离恢复(09R 身份门):真跑 restore-verify.sh(源=src 实例,目标=rst 实例,身份证明通过)→ 恢复库=备份时点 0007 形状(回退目标形状)+ 合成行保真 + 零 decoy 混入 + 输出零密码  1358ms
+   ✓ RELAY-CUTOVER-READINESS-10:切换前模拟全链(一次性双实例) > ③ 0008/0009 增量(08 工具真跑):切换前 preflight db_migrations=FAIL → plan(真实迁移文件 SQL)→ apply(后验全绿/旧行回填 false)→ 重入 skipped_already → 切换后 preflight db_migrations=PASS 且裁决≠GO(其余 UNKNOWN 项如实呈现)  1545ms
+   ✓ RELAY-CUTOVER-READINESS-10:切换前模拟全链(一次性双实例) > ④ 断点/半迁移与回滚条件:再次恢复同一备份(回滚路径=Runbook「schema 回退统一走备份恢复」演练形态)→ fail-at 0009 注入 ⇒ 断点如实(0008 已应用/0009 待执行,不假 GO)→ 续跑完成;迁移后旧代码形态写入成功且默认 false(回退代码无需回滚 schema)  1086ms
+ ✓ test/integration/check-sandbox-isolation.test.ts (17 tests) 6569ms
+   ✓ P0-A 沙箱执行器:边界反例(真实 docker 容器) > 反例 A1:候选检查读取不到 Worker 哨兵 env(显式最小 env,零宿主环境继承)  348ms
+   ✓ P0-A 沙箱执行器:边界反例(真实 docker 容器) > 反例 A3:候选检查写不进容器外宿主哨兵路径(只读根 FS + 非 root)  339ms
+   ✓ P0-A 沙箱执行器:边界反例(真实 docker 容器) > 反例 A3b:候选检查写工作区(容器内 rw 挂载)落盘到宿主工作区,但不落盘到宿主任意路径  356ms
+   ✓ P0-A 沙箱执行器:边界反例(真实 docker 容器) > 反例 A2:cwdWorkspace=false ⇒ 容器内 /tmp 执行、工作区只读(无宿主绕过面)  350ms
+   ✓ P0-A 沙箱执行器:边界反例(真实 docker 容器) > 反例 A4:检查超时 ⇒ docker kill 整容器(全进程组终止;宿主零残留)  3473ms
+   ✓ P0-A 沙箱执行器:边界反例(真实 docker 容器) > 反例 A5:默认禁网(--network none)—— 未授权外网访问失败  394ms
+   ✓ P0-A 沙箱执行器:边界反例(真实 docker 容器) > 合法功能检查通过/失败 + 证据绑定(退出码/命令/环境入证)  675ms
+   ✓ GATE-INTEGRITY-04A 检查工作区安全边界(真实 docker;越界挂载 FAIL-CLOSED) > 合法 tmpdir 工作区不受影响 ⇒ 正常执行(边界不误伤合法 Run 工作区)  341ms
+[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=172.17.0.5);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore-target] fail-closed:RESTORE_URL 端口(32943)与实际恢复容器发布端口(32942)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore-target] fail-closed:RESTORE_URL 端口(32943)与实际恢复容器发布端口(55433)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore] fail-closed:RELAY_RESTORE_CONTAINER 与源容器同名(relay-test-d09r-src-b619c3e6):容器名欺骗形态;拒绝
+[restore-target] fail-closed:源实例身份不可证(连接失败:connect ECONNREFUSED 127.0.0.1:1;postgresql://postgres:***@127.0.0.1:1/none);拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=172.17.0.6);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+ ✓ test/integration/d09r-restore-target-integration.test.ts (6 tests) 5618ms
+   ✓ RELAY-RESTORE-TARGET-09R:恢复目标身份真实隔离回归(一次性双实例) > ① 真值层别名杀:RESTORE_URL 指向源实例 bridge IP(实例键不同 ⇒ 探针层 ⇒ 服务端身份相同 ⇒ 拒绝;docker 分支则在回环门前拒绝)  548ms
+   ✓ RELAY-RESTORE-TARGET-09R:恢复目标身份真实隔离回归(一次性双实例) > ② docker 绑定错位真杀:RELAY_RESTORE_CONTAINER 指向源容器(VM80/docker 分支:发布端口不一致 ⇒ DDL 前拒绝)  497ms
+   ✓ RELAY-RESTORE-TARGET-09R:恢复目标身份真实隔离回归(一次性双实例) > ③ 生产形态容器名误指:RELAY_RESTORE_CONTAINER=relay-p000-pg(仅 docker inspect 元数据,零 exec 零 DB 连接)⇒ 绑定门拒绝  360ms
+   ✓ RELAY-RESTORE-TARGET-09R:恢复目标身份真实隔离回归(一次性双实例) > ⑤ 源实例身份不可证(RELAY_DB_URL 不可达端口,真 ECONNREFUSED)⇒ 保守拒绝且双实例零 DDL(两分支一致)  499ms
+ ✓ test/e2e/webux13-preview-lifecycle.test.ts (1 test) 3ms
+ ✓ test/integration/run-crash-recovery.test.ts (1 test) 5051ms
+   ✓ Run 崩溃恢复:SIGKILL → Tick 回收 → context_rebuild(V04 延伸) > 全链路:A 被杀→回收→B 重领(fencing+1)→重建上下文→VERIFYING;旧 token 推进被拒  4776ms
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] started workerId=e1-worker intervalMs=120 sandbox=docker maxOutputTokens=8192(默认) evidenceChecks=未配置(Gate 保守停机) pid=2081309
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-18T12:45:33.077Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-18T12:45:33.197Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-18T12:45:33.317Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-18T12:45:33.437Z
+
+stdout | test/integration/worker-entry.test.ts > 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)
+[relay-worker] tick status=IDLE_PROVIDER_DOWN claimed=- at=2026-11-18T12:45:33.557Z
+
+ ✓ test/integration/worker-entry.test.ts (3 tests) 5021ms
+   ✓ 阶段 E1:relay-worker 独立入口 > 进程内启动/优雅停:banner+审计+FAIL-CLOSED 空转(provider 未配置零领取)  724ms
+   ✓ 阶段 E1:relay-worker 独立入口 > SIGKILL → 重启:两次 WORKER_STARTED;过期租约被回收重领;零重复副作用  4032ms
+fatal: ambiguous argument 'refs/heads/main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ ✓ test/integration/delivery.test.ts (12 tests) 4923ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > D-8 正链:Proposal→Intent→推送→远端核对 ⇒ DELIVERED;远端头==payload;审计齐备;三 SHA 区分  372ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例2a Token 缺失 ⇒ credential_missing(0 intent);反例2b 远端 401 ⇒ intent FAILED,changeset 非 DELIVERED,远端未被触碰  476ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例3 未经 Gate PASS 的候选不得推送:无已消费 PASS ⇒ no_gate_authorization;任务非 ACCEPTED ⇒ task_not_accepted  403ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例4 远端 HEAD 漂移必须拒绝:外部推进 main 后执行 ⇒ CONFLICT,无覆盖,D3 决策行  325ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 反例8 重复触发交付请求:同 changeset 单 proposal;已 CONSUMED ⇒ no-op,单提交单 intent  404ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 写后内容核验抛错 ⇒ NEEDS_RECONCILE(不误标 DELIVERED);Reconcile 先查真实状态补 DELIVERED  317ms
+   ✓ P0-02B 交付链(bare Git + 真 PG) > 全链(goal-loop 接线):stub Run(git 工作区)→ 变更集+候选 commit → Reviewer PASS → ACCEPTED → 交付 DELIVERED → goal COMPLETED  1039ms
+ ✓ test/integration/gate-integrity-dual.test.ts (11 tests) 4085ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > 双门合法放行:功能检查前/后完整性复验均通过 ⇒ ACCEPTED(两条 phase 完整性证据留档)  426ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > 双门·前置拒绝:功能检查前候选已漂移 ⇒ candidate_manifest_verify_failed 保守停机(Reviewer 未启动)  329ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > 双门·漂移检出:功能检查期间修改候选工作区 ⇒ candidate_drift_after_checks 保守停机(§三.5/6)  374ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > 功能检查失败 + 清单正确 ⇒ REQUIRED_EVIDENCE_FAILED(前置复验通过不掩盖功能失败)  371ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > manifestVerify 未注入 + 功能检查 ⇒ integrity_verify_unavailable FAIL-CLOSED(功能测试不能顶替完整性验证)  307ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > 缺少工作区 ⇒ 不启动任何检查(禁止 process.cwd() 回退)+ workspace_missing FAIL-CLOSED(反例 B 修复)  306ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > docs-only 合法豁免不退化:配置了检查但缺工作区 ⇒ 跳过检查(审计留痕),豁免路径照常 ACCEPTED  310ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > docs-only + 检查 + 工作区齐备 ⇒ 检查照常执行(豁免路径不受双门影响)  367ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > R2-C:绕过编排直录 PASS(仅功能证据、零完整性证据)⇒ record/consume 双侧拒绝 integrity_evidence_missing  326ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > R2-D:非本 Run 工作区(内容相同的外来 /tmp 目录)⇒ workspace_provenance_mismatch FAIL-CLOSED(检查/Reviewer 零执行)  305ms
+   ✓ Gate 完整性双门 + 工作区安全边界(RELAY-GATE-INTEGRITY-04A) > R2-D3:无归属绑定记录(旧格式 runs 行)⇒ 归属校验不可执行,由既有双门/边界把关(登记残留,不虚构拦截)  376ms
+stdout | test/integration/deploy-rehearsal-e2e.test.ts
+[d08-e2e 门控] docker=true
+
+NOTICE:  database "relay_restore_v1795005949" does not exist, skipping
+ ✓ test/integration/deploy-rehearsal-e2e.test.ts (1 test) 3919ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:隔离备份→增量迁移→恢复回退(一次性 PG 容器) > 备份(0007 形状)→ 真实增量迁移 0008/0009 → 恢复回退到 0007(数据/约束/触发器保真)  1291ms
+ ✓ test/unit/egress-isolation.test.ts (20 tests) 3759ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R7 空链宽限:并发创建者窗口内写入本作用域规则 ⇒ 认领收敛(非接管无主链)  608ms
+   ✓ RELAY-EGRESS-ISOLATION-07R 红态:跨作用域链名碰撞与归属误判(模拟执行器,零真实系统调用) > R8 空链宽限超时 ⇒ 拒绝(历史无主链不自动接管)  3013ms
+ ✓ test/integration/gate-orchestrator.test.ts (5 tests) 3803ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > 全链 PASS:coder(stub)→ 证据(真实检查)→ Reviewer(stub PASS)→ ACCEPTED;Reviewer 与 Coder 为不同 Run  704ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > REWORK 流:Reviewer REWORK ⇒ VERIFYING→REWORK→READY(带退避);旧 PASS 不残留  641ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > BLOCK 流:Reviewer BLOCK ⇒ NEEDS_DECISION + D3 决策行;绝不自动 ACCEPTED  648ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > 反例:Coder 自宣 PASS 围栏(fake-self-approve)不构成验收;Review 无围栏有界失败 ⇒ NEEDS_DECISION  902ms
+   ✓ Gate 编排全链(stub;Reviewer 独立 + DONE≠PASS + BLOCK 不自动 ACCEPTED) > Reviewer BLOCK 压过 Coder 自宣:fake-self-approve + Reviewer BLOCK ⇒ NEEDS_DECISION  643ms
+ ✓ test/integration/run-lifecycle.test.ts (7 tests) 3718ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 成功路径:settle+handoff→run=SUCCEEDED→任务 VERIFYING→Gate 后 ACCEPTED  404ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 超时:wall 预算到点→run=TIMEOUT→任务 FAILED(attempt 已消耗)  2090ms
+   ✓ Run 生命周期(stub RPC,真实进程) > 取消:cancelSignal→run=CANCELLED→任务 CANCELLED(终态锁定)  485ms
+ ✓ test/integration/gate-machine-evidence.test.ts (10 tests) 3545ms
+   ✓ Gate 最低机器证据(反例先行) > 反例 A(修复后):代码变更候选 + 零机器检查 + Reviewer 待命 ⇒ 保守停机 NEEDS_DECISION,不烧 Reviewer  368ms
+   ✓ Gate 最低机器证据(反例先行) > 反例 B:docs-only 候选 + 零机器检查 + Reviewer PASS ⇒ ACCEPTED(合法豁免,修复后保留)  601ms
+   ✓ Gate 最低机器证据(反例先行) > D6:gate_required=false + 代码变更 ⇒ 仍强制 Gate(豁免通道关闭;审计留 GATE_REQUIRED_OVERRIDE)  325ms
+   ✓ Gate 最低机器证据(反例先行) > P0-B 反例(修复前实证,修复后翻转):候选完整性通过 + Reviewer PASS 但无功能性证据 ⇒ NEEDS_DECISION(不烧 Reviewer;完整性证据留档)  316ms
+   ✓ Gate 最低机器证据(反例先行) > 功能性证据合法放行:配置 deterministic_test(恒真)⇒ ACCEPTED,证据含功能性 + Reviewer  637ms
+   ✓ Gate 最低机器证据(反例先行) > 必需功能性检查失败 ⇒ 保守停机 evidence_failed(不进 Reviewer,零模型预算)  356ms
+   ✓ Gate 最低机器证据(反例先行) > 生产默认兜底拦截:manifestVerify 复验失败(候选不一致)⇒ NEEDS_DECISION,不进 Reviewer  310ms
+ ✓ test/integration/cli.test.ts (13 tests) 3120ms
+   ✓ P0-REWORK-2:最小 CLI(US-04/V03) > worker tick --stub --seed:CLI 单拍 run+Gate(P0-B 语义:CLI 生产默认无功能性机器检查 ⇒ 保守停机 NEEDS_DECISION,不烧 Reviewer)  424ms
+   ✓ P0-REWORK-2:最小 CLI(US-04/V03) > bin 薄壳真实进程:node bin/relay.mjs doctor 结构化输出与确定性退出码  1944ms
+stdout | test/integration/evidence-gate-rehearsal.test.ts
+[d08-gate 门控] docker=true
+
+ ✓ test/integration/evidence-gate-rehearsal.test.ts (3 tests) 2977ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > 真实 docker 检查执行器:合成候选通过(UID=10001/network=none)+漂移失败(零 stub 冒充)  728ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:功能性 Gate 发布演练(真实 docker 检查) > Gate 发布演练三场景:未配置⇒NEEDS_DECISION / 真实检查通过⇒ACCEPTED / 检查失败⇒保守阻断  1976ms
+stdout | test/integration/task-abort.test.ts > RELAY-CONTROL-READY-03 P1-3:abort 旗标与接管(零模型;真实进程信号) > 跨进程 abort 全链(真实进程):worker 轮询旗标 → cancelSignal → SIGTERM→SIGKILL → run=CANCELLED → 任务 CANCELLED;残余子进程死亡;REQUESTED+CONFIRMED 审计;旧 fencing 推进拒绝
+[diag] pidFile exists: true
+
+ ✓ test/integration/task-abort.test.ts (7 tests) 2836ms
+   ✓ RELAY-CONTROL-READY-03 P1-3:abort 旗标与接管(零模型;真实进程信号) > 跨进程 abort 全链(真实进程):worker 轮询旗标 → cancelSignal → SIGTERM→SIGKILL → run=CANCELLED → 任务 CANCELLED;残余子进程死亡;REQUESTED+CONFIRMED 审计;旧 fencing 推进拒绝  1160ms
+   ✓ RELAY-CONTROL-READY-03 F-1 修复:VERIFYING/Gate 阶段紧急停止真实闭环(零模型;反例先行) > 前置拦截:VERIFYING abort 后 Gate 编排 ⇒ status=CANCELLED;Reviewer 零调用;任务 VERIFYING→CANCELLED;CONFIRMED 审计;零裁决行  351ms
+   ✓ RELAY-CONTROL-READY-03 F-1 修复:VERIFYING/Gate 阶段紧急停止真实闭环(零模型;反例先行) > 后置拦截:Reviewer 期间置旗(旗标在编排内到达)⇒ 裁决不记录不消费,任务 CANCELLED;Reviewer 证据留档  369ms
+   ✓ RELAY-CONTROL-READY-03 F-1 修复:VERIFYING/Gate 阶段紧急停止真实闭环(零模型;反例先行) > 交付防线(goalLoop):Run 成功 → Reviewer 期间置旗 ⇒ Gate CANCELLED ⇒ 交付防线跳过(propose 零调用)  379ms
+ ↓ test/e2e/result-truth-browser.test.ts (6 tests | 6 skipped)
+ ✓ test/integration/discovery.test.ts (9 tests | 3 skipped) 2652ms
+   ✓ P0-REWORK-1:Discovery(stub 解析/持久化/降级) > runGoalDiscovery stub 正链:持久化 SUCCEEDED + SHA + 审计 + runs(role=discovery)  304ms
+   ✓ P0-REWORK-1:Discovery(stub 解析/持久化/降级) > 幂等追加:同一 Goal 两次 analyze ⇒ 两行记录,视图取最新;CLI analyze 全链 + operator 门  1508ms
+ ↓ test/e2e/webux12-goal-idempotency.test.ts (15 tests | 15 skipped)
+ ✓ test/integration/v05-reexecute-safe.test.ts (2 tests) 2440ms
+   ✓ V05 执行前崩溃安全重试(C2) > 执行前被杀 → ABSENT 判定 → 安全重推恰好一次  2045ms
+ ✓ test/integration/circuit-recovery.test.ts (4 tests) 2202ms
+   ✓ 并发/重复 Tick 与进程重启恢复 > loop 子进程 SIGKILL → 新 loop 从 PG 恢复:状态事实仍在库,任务走到 VERIFYING(旧租约回收)  1386ms
+ ✓ test/integration/loop-circuit.test.ts (4 tests) 2081ms
+   ✓ 循环安全器(连续异常 ⇒ 可观测 + 熔断;成功清零;重启恢复) > startSafeLoop:连续 throw 达阈值 ⇒ 逐次回调 + 熔断停止调度(不静默无限循环)  554ms
+   ✓ 循环安全器(连续异常 ⇒ 可观测 + 熔断;成功清零;重启恢复) > 成功清零:交替 throw/成功 ⇒ 连续计数被清零,永不熔断  401ms
+   ✓ 循环安全器(连续异常 ⇒ 可观测 + 熔断;成功清零;重启恢复) > startGoalLoop 接真实 PG:连续 DB 异常 ⇒ TICK_ERROR 审计尽力落库 + 熔断;新循环实例恢复推进  602ms
+ ✓ test/integration/deploy-preflight.test.ts (16 tests) 2105ms
+   ✓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 4) 旧运行状态与恢复门:在途+旧格式无绑定 Run ⇒ NO-GO(D3);Supervisor 回收链恢复后复检只余 READY 排队  372ms
+   ✓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 5) 编排层归属失配/缺失(生产同源):外来目录 ⇒ workspace_provenance_mismatch 零执行;无绑定记录 ⇒ 跳过由双门把关  719ms
+   ✓ 部署准入预检隔离演练(RELAY-DEPLOY-PREFLIGHT-05) > 真实 Docker 沙箱演练(镜像对既定命令支持) > 6) 样例模板命令在检查沙箱执行通过;候选漂移检出;默认禁网 fail-closed  695ms
+ ✓ test/integration/web-api.test.ts (12 tests) 1966ms
+   ✓ P0-02C:API Server(真 PG + 真 HTTP) > 登录失败限速:连续错误口令后被锁定  488ms
+node:fs:2482
+    return binding.writeFileUtf8(
+                   ^
+
+Error: EROFS: read-only file system, open '/workspace/attack.txt'
+    at Object.writeFileSync (node:fs:2482:20)
+    at [eval]:1:15
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3)
+    at node:internal/main/eval_string:71:3 {
+  errno: -30,
+  code: 'EROFS',
+  syscall: 'open',
+  path: '/workspace/attack.txt'
+}
+
+Node.js v24.22.3
+node:fs:2000
+  binding.unlink(getValidatedPath(path));
+          ^
+
+Error: EROFS: read-only file system, unlink '/workspace/candidate.txt'
+    at Object.unlinkSync (node:fs:2000:11)
+    at [eval]:1:15
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3)
+    at node:internal/main/eval_string:71:3 {
+  errno: -30,
+  code: 'EROFS',
+  syscall: 'unlink',
+  path: '/workspace/candidate.txt'
+}
+
+Node.js v24.22.3
+ ✓ test/integration/reviewer-readonly.test.ts (2 tests) 1888ms
+   ✓ P0-02B G-4:Reviewer 候选面 FS 级只读挂载(容器实测) > OS 层证据:Reviewer 同款约束下读候选成功;写/删/替换被内核拒绝(EROFS);对照组(rw)写成功  1875ms
+ ✓ test/integration/lease-expiry-fencing.test.ts (1 test) 1696ms
+   ✓ B2 租约过期与 fencing > 过期回收:fencing 单调 +1;旧 Token 与冒充一律被拒  1430ms
+ ✓ test/integration/delivery-stop.test.ts (10 tests) 1734ms
+ ✓ test/integration/heartbeat.test.ts (4 tests) 1616ms
+   ✓ 心跳续租 > 过期后续租被拒;新 Worker 回收领取  1318ms
+ ✓ test/integration/control-audit.test.ts (6 tests) 1564ms
+   ✓ P1-C C4:STOP_CONFIRMED 类审计失败 ⇒ 重试 + 可观察告警(不静默吞) > DB 持续失败 ⇒ 3 次重试后结构化 console.error 告警,返回 false  503ms
+   ✓ P1-C C5:显式执行防重数据库级互斥(advisory xact lock 串行化) > 确定性交错:A 未提交持锁 ⇒ B 阻塞;A 提交后 B 见到已提交行 ⇒ 不再插入  449ms
+ ✓ test/integration/deploy-rehearsal.test.ts (9 tests) 1481ms
+   ✓ RELAY-DEPLOY-REHEARSAL-08:离线增量迁移演练 > 半迁移断点定位与续跑:failAt 注入失败后 plan 精确报告 pending,不假 GO;resume 完成  347ms
+ ✓ test/integration/c1-safety.test.ts (2 tests) 1475ms
+   ✓ C-1 心跳 DB 异常止损(合同 1) > 第一次异常容忍,第二次连续异常 ⇒ INTERRUPTED + stub 死亡 + 任务停 RUNNING 待回收  665ms
+   ✓ C-1 工具事件 Worker 侧可信持久化(合同 3) > workspace 审计文件缺失时,runs.detail.toolEvents 仍有完整调用记录(含 DENIED)  306ms
+ ↓ test/e2e/three-dirs-consistency.test.ts (4 tests | 4 skipped)
+[restore-target] fail-closed:规范化实例键相同(源=loopback:55433;目标=loopback:55433):同实例别名/端口缺省形态,拒绝恢复(别名不构成隔离证明)
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore-target] fail-closed:规范化实例键相同(源=loopback:5432;目标=loopback:5432):同实例别名/端口缺省形态,拒绝恢复(别名不构成隔离证明)
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore] fail-closed:恢复目标实例与备份源实例相同(RESTORE_URL 是 RELAY_DB_URL 的实例前缀);拒绝在源/生产实例上恢复
+[restore] fail-closed:未提供 RELAY_DB_URL(备份源实例连接串):无法证明恢复目标不是备份源实例;拒绝(09R)
+[restore-target] fail-closed:源实例身份不可证(连接失败:connect ECONNREFUSED 127.0.0.1:1;postgresql://demo@127.0.0.1:1/none);拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore] fail-closed:docker inspect 恢复容器失败(relay-p000-pg):无法证明 RESTORE_URL 与实际执行容器的绑定;拒绝
+[restore-target] fail-closed:RESTORE_URL 端口(55433)与实际恢复容器发布端口(59997)不一致:声明目标≠物理执行目标,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore-target] fail-closed:docker 回退分支要求 RESTORE_URL 为回环地址(实际 host=10.30.5.80);非回环声明目标无法与本地容器绑定,拒绝
+
+[restore] fail-closed:恢复目标身份校验未通过(见上):无法证明目标为隔离实例且非备份源实例;零 DDL 拒绝
+[restore] fail-closed:RELAY_RESTORE_CONTAINER 与源容器同名(relay-p000-pg):容器名欺骗形态;拒绝
+[restore] fail-closed:完成标记数量≠1(缺失=备份失败残留或不完整);拒绝恢复
+ ✓ test/unit/d09r-restore-target.test.ts (27 tests) 1343ms
+   ✓ RELAY-RESTORE-TARGET-09R:动态拒绝矩阵(可控 PATH,危险调用计数=0) > 宿主分支:同实例别名(R1 形态)⇒ 快速门拒绝,psql 调用次数=0  307ms
+ ✓ test/integration/v05-lost-receipt.test.ts (1 test) 1307ms
+   ✓ V05 丢回执恢复(C1) > push 已发生、回执未写时被杀 → reconcile 确认 → 不重推 → 幂等  933ms
+ ✓ test/integration/git-candidate.test.ts (7 tests) 1126ms
+ ✓ test/integration/login-throttle-xff.test.ts (2 tests) 1024ms
+   ✓ REWORK:登录限速键 = socket remoteAddress(伪造 X-Forwarded-For 不稀释失败计数) > 反例:每次轮换伪造 XFF 无法稀释失败计数 ⇒ 第 3 次失败即锁定;锁定后正确口令也不得绕过  377ms
+   ✓ REWORK:登录限速键 = socket remoteAddress(伪造 X-Forwarded-For 不稀释失败计数) > 正链:干净 socket 状态下正确口令登录成功(限速不误伤正常登录;失败清零后可再登录)  381ms
+ ✓ test/integration/goal-loop.test.ts (6 tests) 1004ms
+ ✓ test/integration/budget-turns-cap.test.ts (1 test) 966ms
+   ✓ 回合硬顶(机器强制预算,Run 中) > cap=2 < stub 5 回合 ⇒ BUDGET_EXHAUSTED(budget_turns_cap)+ stub 死亡 + 任务 BLOCKED + used=2  713ms
+ ✓ test/integration/delivery-propose-fallback.test.ts (1 test) 965ms
+   ✓ P0-ACCEPT R-1:propose 装配失败 ⇒ D3 兜底(不冒泡/不回滚 ACCEPTED) > gate ACCEPTED 后 propose 抛错 ⇒ D3 落记 + 审计 + tick 正常返回 + ACCEPTED 不回滚  716ms
+ ✓ test/integration/budget-enforcement.test.ts (5 tests) 965ms
+   ✓ runner × 预算集成(任务级机器强制) > 正常路径:usage 实测入账(STUB_USAGE);预留先于执行(used 在 run 结算后更新)  313ms
+ ✓ test/integration/run-lease-loss.test.ts (1 test) 779ms
+   ✓ 失效 Run 止损:租约丢失 → RPC 子进程立即终止 > reclaim 后:心跳被拒(state_not_leased_chain)→ stub 被杀 → run=INTERRUPTED → 任务不被 A 推进  516ms
+ ✓ test/integration/sandbox-enforcement.test.ts (1 test) 859ms
+   ✓ OS 沙箱强制(容器层) > 容器内边界:uid/能力/文件系统/环境四方面全部收紧  857ms
+ ↓ test/e2e/dirty-project-failclosed.test.ts (6 tests | 6 skipped)
+ ✓ test/integration/console-api.test.ts (9 tests) 648ms
+ ✓ test/integration/worker-safety.test.ts (4 tests) 647ms
+ ✓ test/integration/result-truth.test.ts (10 tests) 552ms
+ ✓ test/unit/project-binding-seed.test.ts (9 tests) 561ms
+ ✓ test/integration/gate-binding.test.ts (5 tests) 553ms
+ ✓ test/integration/extension-policy-parity.test.ts (12 tests) 518ms
+   ✓ relay_exec 与环境清洗 > 超时被硬性终止  502ms
+ ✓ test/integration/intent-drift-reject.test.ts (1 test) 493ms
+ ✓ test/integration/discovery-binding.test.ts (4 tests) 514ms
+ ✓ test/integration/goal-message-authorization.test.ts (16 tests) 445ms
+ ✓ test/unit/goal-message-consumption.test.ts (6 tests) 417ms
+ ✓ test/unit/console-views.test.ts (7 tests) 435ms
+ ✓ test/integration/v08-gate.test.ts (4 tests) 424ms
+ ✓ test/unit/goal-messages.test.ts (6 tests) 400ms
+ ✓ test/integration/verify-lease.test.ts (2 tests) 404ms
+ ✓ test/integration/supervisor-tick.test.ts (3 tests) 393ms
+ ✓ test/unit/pi-version.test.ts (3 tests) 381ms
+   ✓ Pi 版本锁定 > 运行时二探:实际执行 --version 与锁定版本一致  334ms
+ ✓ test/integration/lease-basics.test.ts (2 tests) 344ms
+ ✓ test/integration/heartbeat-leased-chain.test.ts (2 tests) 315ms
+ ✓ test/unit/workspace-sidebar.test.ts (2 tests) 305ms
+ ✓ test/integration/changesets.test.ts (4 tests) 296ms
+ ✓ test/unit/web-app.test.ts (4 tests) 294ms
+[backup] fail-closed:未声明 RELAY_BACKUP_SCHEMA(目标 Relay schema 或 all);拒绝生成 manifest(拒绝静默跨 schema 聚合)
+[backup] fail-closed:manifest 目标校验失败(schema=p01a_nonexistent_xyz,未生成任何产物):connect ECONNREFUSED 127.0.0.1:1
+ ✓ test/unit/d09-backup-chain.test.ts (15 tests) 159ms
+stdout | test/integration/worker-evidence-checks.test.ts > RELAY-CONTROL-READY-03 P0-2:evidenceChecks 环境配置(fail-closed) > startWorkerEntry:合法配置 ⇒ 正常启动(provider 未配置 ⇒ IDLE_PROVIDER_DOWN 不领取)+ 检查随 driver 注入
+[relay-worker] started workerId=relay-worker-1 intervalMs=15000 sandbox=docker maxOutputTokens=8192(默认) evidenceChecks=2 pid=2096767
+
+ ✓ test/integration/worker-evidence-checks.test.ts (6 tests) 44ms
+ ✓ test/unit/max-output-tokens.test.ts (10 tests) 39ms
+ ✓ test/integration/testdb-guard.test.ts (5 tests) 30ms
+ ✓ test/unit/d08-ephemeral-pg.test.ts (15 tests) 14ms
+ ✓ test/unit/soak-verify.test.ts (9 tests) 12ms
+ ✓ test/unit/lifecycle.test.ts (7 tests) 12ms
+ ✓ test/unit/safe-rm.test.ts (7 tests) 11ms
+ ✓ test/unit/context.test.ts (6 tests) 9ms
+ ✓ test/unit/delivery-policy.test.ts (9 tests) 9ms
+ ✓ test/unit/capabilities.test.ts (5 tests) 8ms
+ ✓ test/unit/redact.test.ts (7 tests) 7ms
+stdout | test/integration/github-real.test.ts > P0-02B 真实远端:门禁与夹具自证(始终执行;零远端写入) > 凭据门事实如实记录(缺失⇒后续真实用例 skip;经典⇒拒;API 只读探测不回退 gh 令牌)
+CREDENTIAL_STATE mode=wellformed present=true apiStatus=200 detail=GitHub /user 探测状态 200 (判定次序:形态检查先于 API 探测 —— 形态非法即短路,不打 API;形态合法但 API 401 ⇒ 凭据被拒)
+WRITE_AUTHORIZATION RELAY_GITHUB_REAL_E2E=(未设置) ⇒ 真实远端写入用例跳过(P1-D 默认零远端写入;quality 管线恒剥离该变量)
+
+ ✓ test/integration/github-real.test.ts (5 tests | 3 skipped) 7ms
+ ✓ test/unit/denial-hints.test.ts (5 tests) 5ms
+ ✓ test/unit/policy-scope.test.ts (8 tests) 6ms
+ ✓ test/unit/command-scope.test.ts (4 tests) 5ms
+ ↓ test/e2e/webux03-screenshots.test.ts (1 test | 1 skipped)
+ ↓ test/e2e/webux03d-shots.test.ts (1 test | 1 skipped)
+stdout | test/integration/backup-restore.test.ts
+[缺口 F 门控] RELAY_BACKUP_E2E=false pg_dump=false container_pg_dump=true docker=true 走容器导出=true
+
+ ↓ test/integration/backup-restore.test.ts (1 test | 1 skipped)
+ ↓ test/integration/egress-proxy.test.ts (6 tests | 6 skipped)
+ ↓ test/integration/f1-ux-journey.test.ts (2 tests | 2 skipped)
+ ↓ test/integration/f2-bug-fix.test.ts (2 tests | 2 skipped)
+ ↓ test/integration/f3-injection.test.ts (1 test | 1 skipped)
+ ↓ test/integration/gate-e2e.test.ts (1 test | 1 skipped)
+ ↓ test/integration/live-worker-e2e.test.ts (1 test | 1 skipped)
+
+ Test Files  81 passed | 19 skipped (100)
+      Tests  511 passed | 99 skipped (610)
+   Start at  20:42:36
+   Duration  329.56s (transform 2.04s, setup 0ms, collect 58.97s, tests 246.03s, environment 21ms, prepare 6.98s)
+
+===== [tests] PASS (exit=0, 330423ms) =====
+
+===== [browser] npx vitest run test/e2e =====
+npm warn install-scripts .npmrc allow-scripts setting is being ignored because --allow-scripts was passed on the command line
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/webux13-preview-lifecycle.test.ts (4 tests) 5365ms
+   ✓ webux13 preview lifecycle(RELAY_E2E 门) > T1 就绪后 SIGTERM:登录面 302/401→200,退出后端口释放+schema 删除+/tmp 零新增  1362ms
+   ✓ webux13 preview lifecycle(RELAY_E2E 门) > T2 启动窗口 SIGTERM(reg 目录已现=处理器已装):exit 0+零泄漏+零 schema 残留  1306ms
+   ✓ webux13 preview lifecycle(RELAY_E2E 门) > T3 --lan:经本机非回环 IPv4 可达(302/401→200),banner 打印 LAN URL,退出零泄漏  1435ms
+   ✓ webux13 preview lifecycle(RELAY_E2E 门) > T4 缺省绑定面防回归门:无 --lan 经 LAN IP 连接必须被拒绝,回环仍正常  1258ms
+fatal: ambiguous argument 'refs/heads/main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+fatal: ambiguous argument 'refs/heads/main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ ✓ test/e2e/dirty-project-failclosed.test.ts (6 tests) 807ms
+ ✓ test/e2e/result-truth-browser.test.ts (6 tests) 3651ms
+   ✓ RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V2 「查看修改详情」真实可达:点击 ⇒ 技术区展开且文件清单可见(dead-control 防回归)  1026ms
+ ✓ test/e2e/three-dirs-consistency.test.ts (4 tests) 1383ms
+   ✓ 三套目录模型统一:端到端一致性(真实项目目录 + stub 大脑) > T2~T4 对话框目录=项目目录工作副本 + 零越界 + 真实交付到绑定登记的仓库  856ms
+ ✓ test/e2e/web-journey.test.ts (7 tests) 11034ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J1 模糊需求创建 → 查看系统理解与可验证建议(标注:确定性规则推导,非模型)  833ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J2 D3 长期未审批:被卡任务停留 NEEDS_DECISION、决策仍 OPEN;其他任务正常推进到 ACCEPTED  2680ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J3 Worker 崩溃:Run FAILED 原因可见、任务恢复 READY(有界重试),异常进 Dashboard  1839ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J6 新页面:Projects/Models/System 渲染关键要素 + 手机视口无横向溢出(响应式)  917ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J7 New Goal 项目绑定:受控 projectId ⇒ scope=注册表路径;Project 页反向可见;AppShell 与手机抽屉  535ms
+   ✓ P0-02C 真实浏览器旅程(J4/J5:交付与状态一致) > J4 候选变更 → 独立验证 → Gate → 交付状态正确展示(本地 bare 远端)  2412ms
+   ✓ P0-02C 真实浏览器旅程(J4/J5:交付与状态一致) > J5 刷新与断线重连:页面状态始终与 PostgreSQL 一致;断线时显示『连接中断』而非陈旧值冒充实时  971ms
+ ✓ test/e2e/webux02-visual.test.ts (3 tests) 11834ms
+   ✓ WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机 390×844) > 桌面 1440×900:七个页面整套截图  5439ms
+   ✓ WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机 390×844) > 桌面 1512×982 与 1728×1117:关键页复查  1940ms
+   ✓ WEB-UX-02 视觉验收截图旅程(Mac 三尺寸 + 手机 390×844) > 手机 390×844:工作台/任务/待决定/结果 + 抽屉导航  2357ms
+ ✓ test/e2e/webux03-mobile.test.ts (12 tests) 52108ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M1 390×844 新建任务:无横向溢出+移动顶栏+唯一输入+Composer 贴底+抽屉冒烟 → 开始 → 进入 Conversation  1077ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M3 Decision 内联单手处理:主按钮 ≥44px 触控 → 允许 → 原地更新(不跳页)+ 执行继续  21977ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M5 完成后继续输入(终态;RELAY-SAFETY-CLOSE-02 P0-A):只记录不派生(held 反馈 + 指引新建需求;Composer 常驻)  320ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M7 Drawer:项目分组可见 → 切换会话 → 遮罩关闭回原会话(上下文不变,§4)  719ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M8 长会话 20+ 条:贴底自动滚;向上查看不强制拉回;「回到最新」(§10)  5736ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M9 断网恢复:横幅文案+会话不清空;恢复自动轮询;写失败不假成功(§13)  4842ms
+   ✓ WEB-UX-03D Mobile Journey M1/M3/M4/M5/M7/M8/M9/M10(390×844;交付栈) > M10 桌面回归(1440×900):三层布局/顶栏/Enter 发送/右栏折叠 —— 03C.1 行为不回退(§15)  690ms
+   ✓ WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈) > M2 Conversation 运行状态:工作块(正在修改…)+ 顶栏状态点;同页可见不跳转  6995ms
+   ✓ WEB-UX-03D Mobile Journey M2/M6(慢桩运行态栈) > M6 运行中消息(方案 A 硬门):普通发送永不派生;显式执行排队 → 安全边界消费 → 同会话新执行  8638ms
+ ↓ test/e2e/webux03-screenshots.test.ts (1 test | 1 skipped)
+ ✓ test/e2e/webux03-workspace.test.ts (8 tests) 13408ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C1 新任务:登录默认进工作区;空白态唯一 Composer(UX1/UX2)→ 开始 → 自动进入 Conversation → 首条 USER_MESSAGE 可见  668ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C2 执行状态:完成后工作状态块聚合(需求→修改→测试→复核→交付;同阶段不重复 UX4/UX5;P1-1 无内部码)  1648ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C4 Result:Result 卡出现在同一 Feed(阶段汇总:文件数/验证/复核/交付;技术详情默认关闭可展开)  314ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C3 Decision:Decision Card 内联于当前 Conversation;批准 → 状态更新 + 执行继续  1560ms
+   ✓ WEB-UX-03C 桌面 Journey C1/C2/C4/C3/C5(会话式工作区;交付栈) > C5 Follow-up(终态;RELAY-SAFETY-CLOSE-02 P0-A):完成后继续说 ⇒ 只记录不派生(held 反馈 + 请新建需求指引;消息事实保留)  929ms
+   ✓ WEB-UX-03C 桌面 Journey C6(运行中 Follow-up;硬门) > C6 运行中消息(方案 A 硬门):普通发送永不派生;显式执行排队 → 安全边界消费 → 可审计重激活 → 同会话新执行  7244ms
+ ↓ test/e2e/webux03d-shots.test.ts (1 test | 1 skipped)
+ ✓ test/e2e/webux11-firstuse-audit.test.ts (6 tests) 83764ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D1 登录首屏+空状态(无项目/无任务):首次用户第一眼看到什么  1200ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D2 一句话建需求 → Conversation;推进 → Result;追问(held)→ 刷新保持  2393ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > D3 Decision 内联(等待用户决定):卡文案+三按钮+批准后继续  22103ms
+   ✓ WEB-UX-11 首次使用全链(桌面 1440 + 手机 390;真实 Web 实现×隔离合成栈) > M1 手机 390×844:登录→空状态→抽屉→建需求→Result→追问→Decision(≥44px 触控)  14790ms
+   ✓ WEB-UX-11 失败/停止态(模型不可用确定性链;无桩注入=连真实 runtime 到不可达地址) > D4 失败态:任务终败后工作块如实呈现+查看原因入口(模型不可用首用场景)  42329ms
+ ✓ test/e2e/webux11r-terminal-execute.test.ts (10 tests) 128555ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T1 COMPLETED 桌面:可证伪反例(点击执行=静默 held)+修后钉住(执行按钮退场/新建后续任务在场)  2258ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2 终态新建后续任务全流程(未绑定 Goal):显式创建新 Goal、旧 Goal 历史不重启、重复点击/空文本/服务端报错 fail-closed  3993ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T2b 绑定 Goal 后续任务:项目选择器在场并预选现绑定(用户可改选),服务端按注册表校验、不扩权  1471ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T3 PAUSED 桌面:不暗示可执行、中文恢复指引、不自动恢复;后端 held 负例(零 Task 派生)  1244ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T5 ACTIVE 正例:发送=只记录;交给 Relay 执行=显式授权 ⇒ 安全边界内派生受控 Task(方案 A 不回归)  62462ms
+   ✓ WEB-UX-11R 终态/暂停态执行按钮(Major-U1;ok 栈=COMPLETED/PAUSED/ACTIVE 正例;桌面 1440+手机 390) > T6 手机 390×844:终态执行按钮退场/新建后续任务(≥44px)全流程 + PAUSED 指引;零横向溢出  3484ms
+   ✓ WEB-UX-11R 失败终态(exit-mid 确定性链):执行按钮退场/显式后续任务/后端 held 负例 > T4 FAILED 桌面:失败终态执行按钮退场/新建后续任务全流程;旧 Goal 交付记录不变;后端 held 负例  52638ms
+ ✓ test/e2e/webux12-goal-idempotency.test.ts (15 tests) 2828ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T3 同键异 payload/项目绑定:409 冲突零新建;跨会话重用异内容亦 409  347ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1 ACK 丢失重试不重复创建(桌面):服务器已 201→回执丢弃→同草稿重试=同一 Goal  352ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T7 ACK 丢失后页面刷新:重输入同草稿重试仍返回同一 Goal(键跨刷新持久)  308ms
+
+ Test Files  11 passed | 2 skipped (13)
+      Tests  81 passed | 2 skipped (83)
+   Start at  20:48:07
+   Duration  331.21s (transform 897ms, setup 0ms, collect 13.10s, tests 314.74s, environment 3ms, prepare 923ms)
+
+===== [browser] PASS (exit=0, 332070ms) =====
+
+===== 质量证据: test-evidence/quality-full-2026-11-18T12-42-05/evidence.json =====
+===== full 总裁决: PASS =====

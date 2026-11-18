@@ -12,6 +12,7 @@
 //   POST   /api/goals/:id/messages   follow-up 用户消息(WEB-UX-03C §0;追加+消费语义唯一入口 core.consumeGoalMessages)
 //   GET    /api/goals/:id/feed       Goal Feed 增量投影(游标=消息 id;决策卡+状态快照整体替换)
 //   GET    /api/goals/:id/status     Goal 状态轻量投影
+//   POST   /api/goals/:id/result-acceptance  用户接受/拒绝结果(RESULT-TRUTH-16;append-only 审计事实,与 task ACCEPTED 分离)
 //   GET    /api/workspace/sidebar    工作区左侧栏投影(WEB-UX-03C §3;项目分组/状态点/待决数)
 //   POST   /api/goals/:id/discovery  模型驱动 Discovery(REWORK-1;operator 显式;预算账本)
 //   GET    /api/decisions          Decision Inbox
@@ -833,6 +834,60 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       const status = await goalStatusView(deps.db, goalId);
       if (!status) return fail(404, "goal_not_found", "Goal 不存在");
       return ok({ status });
+    }
+    // RELAY-RESULT-TRUTH-16:用户验收结果 = 独立 append-only 审计事实(USER_RESULT_*)。
+    // 绝不与内部 Gate 的 task ACCEPTED 混谈:本端点只追加审计行,不改 task/Gate 状态、
+    // 不触发 Run、不派生后续任务(拒绝后由 UI 提供「新建后续任务」既有入口)。
+    // 绑定 Goal(必须)+ changeset(可选,须属该 Goal,跨 Goal 绑定 400 fail-closed);
+    // 拒绝必附简短原因(≤500 字);重复操作 = 追加同向事实(可解释历史,不互相覆盖)。
+    // 载体 = 既有 audit_events(append-only 触发器;零 migration/零 schema)。
+    // 审计写入是本端点**唯一产出** ⇒ 事务内直接 appendAudit,失败即请求失败
+    //(不用 best-effort audit() 吞错版 —— 验收事实绝不静默丢失)。
+    const acceptMatch = /^\/api\/goals\/([^/]+)\/result-acceptance$/.exec(path);
+    if (acceptMatch && method === "POST") {
+      const goalId = decodeURIComponent(acceptMatch[1]!);
+      const goalRows = await deps.db.execute(sql`SELECT id FROM goals WHERE id = ${goalId}`);
+      if (goalRows.rows.length === 0) return fail(404, "goal_not_found", "Goal 不存在");
+      const decision = str(req.body?.["decision"]);
+      if (decision !== "accept" && decision !== "reject")
+        return fail(400, "decision_invalid", "decision 必须为 accept 或 reject");
+      const reasonField: unknown = req.body === null || req.body === undefined ? undefined : req.body["reason"];
+      const reasonRaw = typeof reasonField === "string" ? reasonField.trim() : "";
+      if (decision === "reject" && (!reasonRaw || reasonRaw.length > 500))
+        return fail(400, "reason_required", "拒绝必须附简短原因(1~500 字)");
+      if (reasonRaw.length > 500) return fail(400, "reason_too_long", "说明最长 500 字");
+      const csIdRaw = req.body?.["changesetId"];
+      const changesetId = typeof csIdRaw === "string" && csIdRaw.trim() ? csIdRaw.trim() : null;
+      if (changesetId) {
+        const csRows = await deps.db.execute(sql`
+          SELECT cc.id FROM candidate_changesets cc
+          JOIN tasks t ON t.id = cc.task_id
+          WHERE cc.id = ${changesetId} AND t.goal_id = ${goalId}
+        `);
+        if (csRows.rows.length === 0)
+          return fail(400, "changeset_not_in_goal", "changesetId 不属于该 Goal(跨 Goal 绑定拒绝)");
+      }
+      // 接受/拒绝时点的交付事实快照(该 Goal 最新变更集 delivery_state;无变更集=null)
+      const csState = await deps.db.execute(sql`
+        SELECT delivery_state FROM candidate_changesets
+        WHERE task_id IN (SELECT id FROM tasks WHERE goal_id = ${goalId})
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+      const deliveryState = csState.rows[0] ? str(csState.rows[0]!["delivery_state"]) : null;
+      const action = decision === "accept" ? "USER_RESULT_ACCEPTED" : "USER_RESULT_REJECTED";
+      const detail: Record<string, unknown> = { goalId, deliveryState };
+      if (changesetId) detail["changesetId"] = changesetId;
+      if (reasonRaw) detail["reason"] = reasonRaw;
+      const seq = await deps.db.transaction(async (tx) =>
+        appendAudit(tx as unknown as Exec, {
+          actor: session.role,
+          authority: "OWNER",
+          action,
+          detail,
+        }),
+      );
+      return ok({ result: { decision, seq, changesetId, reason: reasonRaw || null, deliveryState } }, 201);
     }
     // WEB-UX-03C §3:工作区左侧栏投影(项目分组任务列表;纯读)。
     const workspaceSidebarMatch = /^\/api\/workspace\/sidebar$/.exec(path);
