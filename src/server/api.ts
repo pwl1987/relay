@@ -858,26 +858,45 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
       if (reasonRaw.length > 500) return fail(400, "reason_too_long", "说明最长 500 字");
       const csIdRaw = req.body?.["changesetId"];
       const changesetId = typeof csIdRaw === "string" && csIdRaw.trim() ? csIdRaw.trim() : null;
+      // 16R(REWORK Major-1):验收必须冻结到**具体结果版本** —— 绑定 changeset 单一来源,
+      // deliveryState 快照恒取被验收的那个 changeset(不再与"Goal 最新"两套来源混用)。
+      // 请求带 changesetId ⇒ 验证属该 Goal(跨 Goal 400 fail-closed);未带 ⇒ 安全解析并
+      // 冻结到请求时最新 changeset,解析后的 id 写进审计(changesetIdSource 可追溯);
+      // Goal 完全无 changeset ⇒ 409 result_not_available(绝不产生无版本身份的漂浮验收)。
+      let boundId: string;
+      let boundDelivery: string | null;
+      let source: "request" | "resolved_latest";
       if (changesetId) {
         const csRows = await deps.db.execute(sql`
-          SELECT cc.id FROM candidate_changesets cc
+          SELECT cc.id, cc.delivery_state FROM candidate_changesets cc
           JOIN tasks t ON t.id = cc.task_id
           WHERE cc.id = ${changesetId} AND t.goal_id = ${goalId}
         `);
         if (csRows.rows.length === 0)
           return fail(400, "changeset_not_in_goal", "changesetId 不属于该 Goal(跨 Goal 绑定拒绝)");
+        boundId = str(csRows.rows[0]!["id"]);
+        boundDelivery = str(csRows.rows[0]!["delivery_state"]);
+        source = "request";
+      } else {
+        const latestCs = await deps.db.execute(sql`
+          SELECT id, delivery_state FROM candidate_changesets
+          WHERE task_id IN (SELECT id FROM tasks WHERE goal_id = ${goalId})
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+        if (latestCs.rows.length === 0)
+          return fail(409, "result_not_available", "该 Goal 尚无任何结果版本(变更集);不创建无版本身份的用户验收事实");
+        boundId = str(latestCs.rows[0]!["id"]);
+        boundDelivery = str(latestCs.rows[0]!["delivery_state"]);
+        source = "resolved_latest";
       }
-      // 接受/拒绝时点的交付事实快照(该 Goal 最新变更集 delivery_state;无变更集=null)
-      const csState = await deps.db.execute(sql`
-        SELECT delivery_state FROM candidate_changesets
-        WHERE task_id IN (SELECT id FROM tasks WHERE goal_id = ${goalId})
-        ORDER BY created_at DESC
-        LIMIT 1
-      `);
-      const deliveryState = csState.rows[0] ? str(csState.rows[0]!["delivery_state"]) : null;
       const action = decision === "accept" ? "USER_RESULT_ACCEPTED" : "USER_RESULT_REJECTED";
-      const detail: Record<string, unknown> = { goalId, deliveryState };
-      if (changesetId) detail["changesetId"] = changesetId;
+      const detail: Record<string, unknown> = {
+        goalId,
+        changesetId: boundId,
+        changesetIdSource: source,
+        deliveryState: boundDelivery,
+      };
       if (reasonRaw) detail["reason"] = reasonRaw;
       const seq = await deps.db.transaction(async (tx) =>
         appendAudit(tx as unknown as Exec, {
@@ -887,7 +906,19 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
           detail,
         }),
       );
-      return ok({ result: { decision, seq, changesetId, reason: reasonRaw || null, deliveryState } }, 201);
+      return ok(
+        {
+          result: {
+            decision,
+            seq,
+            changesetId: boundId,
+            changesetIdSource: source,
+            reason: reasonRaw || null,
+            deliveryState: boundDelivery,
+          },
+        },
+        201,
+      );
     }
     // WEB-UX-03C §3:工作区左侧栏投影(项目分组任务列表;纯读)。
     const workspaceSidebarMatch = /^\/api\/workspace\/sidebar$/.exec(path);

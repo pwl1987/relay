@@ -365,14 +365,15 @@
           }),
         );
       }
-      // RESULT-TRUTH-16:用户验收事实行(与内部 Gate 分离;最新 append-only 审计事实)
+      // RESULT-TRUTH-16:用户验收事实行(与内部 Gate 分离);16R:按"最新 changeset"投影,
+      // 旧版本验收不冒充当前事实 ⇒ 无当前版本验收时显式"尚未验收当前结果"。
       const ur = w.userResult;
       const accText =
         ur === null
-          ? "用户尚未验收(内部复核通过 ≠ 用户已验收)"
+          ? "用户尚未验收当前结果(内部复核通过 ≠ 用户已验收)"
           : ur.decision === "accepted"
-            ? "用户已接受结果" + (ur.reason ? ":" + ur.reason : "")
-            : "用户已拒绝结果" + (ur.reason ? ":" + ur.reason : "");
+            ? "用户已接受当前结果" + (ur.reason ? ":" + ur.reason : "")
+            : "用户已拒绝当前结果" + (ur.reason ? ":" + ur.reason : "");
       block.appendChild(h("div", { class: "ws-card-sub", "data-testid": "ws-result-user-acceptance", text: accText }));
       const row = h("div", { class: "row mt8" });
       if (w.changesetId) {

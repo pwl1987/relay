@@ -615,8 +615,8 @@ describe.skipIf(!E2E)("P0-02C 真实浏览器旅程(J4/J5:交付与状态一致)
     expect(summaryTitle).toBe("已完成");
     const files = await textOf(page, '[data-testid="result-files"]');
     expect(files).toContain("个文件");
-    const github = await textOf(page, '[data-testid="result-github"]');
-    expect(github).toContain("已提交到仓库");
+    const delivery = await textOf(page, '[data-testid="result-delivery"]'); // 16R:标签中性化(GitHub→仓库交付)
+    expect(delivery).toContain("已提交到仓库");
     await openTech(page, "cs-tech");
     await page.waitForSelector('[data-testid="sha-commit"]');
     const cand = await textOf(page, '[data-testid="sha-candidate"]');

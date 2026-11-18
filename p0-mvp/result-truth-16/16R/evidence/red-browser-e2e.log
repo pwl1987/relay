@@ -1,0 +1,51 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ❯ test/e2e/result-truth-16r-browser.test.ts (2 tests | 2 failed) 32198ms
+   × RELAY-RESULT-TRUTH-16R:A 验收后出现 B ⇒ B 不继承 A(真实浏览器) > T1 A 已接受 → 出现 B:B 页/工作区不继承 A 的验收;回看 A 仍已接受 87ms
+     → expected ' 用户已接受结果' to contain '尚未验收'
+   × RELAY-RESULT-TRUTH-16R:A 验收后出现 B ⇒ B 不继承 A(真实浏览器) > T2 结果摘要字段标签中性化:仓库交付(不得硬编码 GitHub) 30019ms
+     → page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="result-delivery"]') to be visible
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/e2e/result-truth-16r-browser.test.ts > RELAY-RESULT-TRUTH-16R:A 验收后出现 B ⇒ B 不继承 A(真实浏览器) > T1 A 已接受 → 出现 B:B 页/工作区不继承 A 的验收;回看 A 仍已接受
+AssertionError: expected ' 用户已接受结果' to contain '尚未验收'
+
+Expected: "尚未验收"
+Received: " 用户已接受结果"
+
+ ❯ test/e2e/result-truth-16r-browser.test.ts:202:20
+    200|     await page.waitForSelector('[data-testid="result-user-acceptance"]…
+    201|     const bState = (await page.textContent('[data-testid="user-result-…
+    202|     expect(bState).toContain("尚未验收"); // 修复前:此处显示 A 的"已接受结果"
+       |                    ^
+    203|     expect(bState).not.toContain("已接受结果");
+    204|     const content = await page.content();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/e2e/result-truth-16r-browser.test.ts > RELAY-RESULT-TRUTH-16R:A 验收后出现 B ⇒ B 不继承 A(真实浏览器) > T2 结果摘要字段标签中性化:仓库交付(不得硬编码 GitHub)
+TimeoutError: page.waitForSelector: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="result-delivery"]') to be visible
+
+ ❯ test/e2e/result-truth-16r-browser.test.ts:221:16
+    219|   it("T2 结果摘要字段标签中性化:仓库交付(不得硬编码 GitHub)", async () => {
+    220|     await page.goto(`${base}/changeset.html?id=${encodeURIComponent(cs…
+    221|     await page.waitForSelector('[data-testid="result-delivery"]');
+       |                ^
+    222|     const label = (await page.textContent('[data-testid="result-delive…
+    223|     expect(label).toContain("仓库交付");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  23:16:17
+   Duration  34.05s (transform 570ms, setup 0ms, collect 1.59s, tests 32.20s, environment 0ms, prepare 74ms)
+

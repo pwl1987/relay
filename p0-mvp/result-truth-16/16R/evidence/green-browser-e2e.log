@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/result-truth-16r-browser.test.ts (2 tests) 2451ms
+ ✓ test/e2e/result-truth-browser.test.ts (6 tests) 3689ms
+   ✓ RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V2 「查看修改详情」真实可达:点击 ⇒ 技术区展开且文件清单可见(dead-control 防回归)  1042ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  23:20:12
+   Duration  9.36s (transform 580ms, setup 0ms, collect 2.65s, tests 6.14s, environment 0ms, prepare 151ms)
+

@@ -20,7 +20,7 @@ import {
   deriveExecutionProvenance,
   TIMEOUT_BEHAVIOR,
 } from "./shared.ts";
-import { readGoalUserResult, type GoalUserResult } from "./goal.ts";
+import { readChangesetUserResult, type GoalUserResult } from "./goal.ts";
 
 export interface ChangesetDetail {
   changeset: ChangesetSummary;
@@ -306,7 +306,9 @@ export async function changesetDetailView(db: RelayDb, changesetId: string): Pro
     intent,
     decisions,
     provenance: deriveExecutionProvenance(runs),
-    userResult: task?.goalId ? await readGoalUserResult(db, task.goalId) : null,
+    // 16R:验收投影按**本 changeset 自身**的 changesetId 精确匹配 —— 旧版本的验收事实
+    // 不得继承到本版本(本版本无对应 USER_RESULT_* ⇒ null = "用户尚未验收该结果")。
+    userResult: task?.goalId ? await readChangesetUserResult(db, task.goalId, changeset.id) : null,
     evidenceFreshness: {
       currentCandidateSha: changeset.candidateSha,
       staleGateCount,

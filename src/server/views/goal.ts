@@ -737,16 +737,37 @@ export interface GoalUserResult {
 }
 
 /**
- * 用户验收事实读取(纯投影):audit_events 里该 Goal 最新一条 USER_RESULT_ACCEPTED /
- * USER_RESULT_REJECTED(RESULT-TRUTH-16 写入,api.ts result-acceptance 端点唯一写入面)。
- * 绑定方式与 GOAL_PLANNED 同款:detail->>'goalId'(append-only 触发器保证事实不可改写)。
- * 重复同向操作 = 追加历史,最新一条即当前事实(不互相覆盖)。
+ * Goal 当前结果版本 = 最新 changeset(与 candidate_changesets 视图同口径:
+ * ORDER BY created_at DESC = API/详情序,csList[0] 即最新)。null = 该 Goal 尚无任何结果版本。
  */
-export async function readGoalUserResult(db: RelayDb, goalId: string): Promise<GoalUserResult | null> {
+export async function readLatestChangesetId(db: RelayDb, goalId: string): Promise<string | null> {
+  const rows = await db.execute(sql`
+    SELECT id FROM candidate_changesets
+    WHERE task_id IN (SELECT id FROM tasks WHERE goal_id = ${goalId})
+    ORDER BY created_at DESC
+    LIMIT 1
+  `);
+  const r = rows.rows[0];
+  return r ? str(r["id"]) : null;
+}
+
+/**
+ * 单个结果版本(changeset)的用户验收事实:audit_events 里**精确匹配该 changesetId** 的
+ * 最新一条 USER_RESULT_ACCEPTED/USER_RESULT_REJECTED。
+ * 16R(REWORK Major-1):验收属于结果版本,不只属于 Goal —— 旧版本的验收事实永久保留、
+ * 可在旧版本页回看,但绝不投影到其它版本。写入面 = api.ts result-acceptance(16R 起
+ * 恒写入解析后的 changesetId;历史上无 changesetId 的漂浮事实匹配不到任何版本 ⇒ 不投影)。
+ */
+export async function readChangesetUserResult(
+  db: RelayDb,
+  goalId: string,
+  changesetId: string,
+): Promise<GoalUserResult | null> {
   const rows = await db.execute(sql`
     SELECT seq, ts, action, detail FROM audit_events
     WHERE action IN ('USER_RESULT_ACCEPTED', 'USER_RESULT_REJECTED')
       AND detail->>'goalId' = ${goalId}
+      AND detail->>'changesetId' = ${changesetId}
     ORDER BY seq DESC
     LIMIT 1
   `);
@@ -762,6 +783,18 @@ export async function readGoalUserResult(db: RelayDb, goalId: string): Promise<G
     changesetId: typeof csId === "string" ? csId : null,
     seq: num(r["seq"]),
   };
+}
+
+/**
+ * Goal 当前验收投影(16R 语义)= **最新 changeset** 自身的验收:
+ * 无任何 changeset ⇒ null;最新 changeset 无对应 USER_RESULT_* ⇒ null(前端显示
+ * "用户尚未验收当前结果"),即使旧 changeset 曾被接受/拒绝 —— 旧事实只在其版本页可见,
+ * 绝不冒充当前事实(协调方反例:A accepted 后新 B=FAILED 曾错误显示"已接受")。
+ */
+export async function readGoalUserResult(db: RelayDb, goalId: string): Promise<GoalUserResult | null> {
+  const latest = await readLatestChangesetId(db, goalId);
+  if (!latest) return null;
+  return readChangesetUserResult(db, goalId, latest);
 }
 
 /** Goal 是否有在途执行(LEASED/RUNNING/SUBMITTED/VERIFYING)。follow-up 派生的前置检查。 */

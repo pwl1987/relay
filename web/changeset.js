@@ -91,7 +91,9 @@
       testid: "result-provenance",
     });
     items.push({
-      label: "GitHub",
+      // 16R(合同 §三):字段标签中性化 —— 交付目标可以是本地 bare/任意登记仓库,
+      // 不得硬编码"GitHub";具体 target/branch 继续由 delivery proposal 事实展示。
+      label: "仓库交付",
       text: deliveryText,
       kind:
         c.deliveryState === "DELIVERED"
@@ -99,7 +101,7 @@
           : c.deliveryState === "CONFLICT" || c.deliveryState === "FAILED"
             ? "bad"
             : "default",
-      testid: "result-github",
+      testid: "result-delivery",
     });
 
     const rows = h(
@@ -161,7 +163,10 @@
       : d.task
         ? "内部复核:" + A.zh(d.task.state)
         : "内部复核:无任务记录";
-    const stateText = ur === null ? "用户尚未验收" : ur.decision === "accepted" ? "用户已接受结果" : "用户已拒绝结果";
+    // 16R:验收属于结果版本 —— 本页投影的是"该 changeset 自己"的验收事实;
+    // 无对应验收 ⇒ 用户尚未验收该结果(旧版本的验收不冒充本版本事实)。
+    const stateText =
+      ur === null ? "用户尚未验收该结果" : ur.decision === "accepted" ? "用户已接受结果" : "用户已拒绝结果";
     const state = h(
       "div",
       { class: "row", "data-testid": "user-result-state-row" },
