@@ -1,6 +1,8 @@
 # Relay 当前执行契约
 
-- **RELAY-MVP-READINESS-REBASELINE-17 🔵 ACTIVE（2026-11-19；MVP 重新基线）**：不再机械加功能，重新核对当前 live main 对 PRD/ADR/历史 final-coverage-matrix 的真实覆盖；强制拆分 Engineering Usable / User UX Acceptance / Model Capability / Production Cutover 四层准入，并给出唯一下一阶段裁决。默认只读审计+隔离主路径验证，零生产、零 migration、无工程 Major 不改产品代码。合同：`p0-mvp/readiness-rebaseline-17/CONTRACT.md`。Writer=本地开发 Agent。
+- **当前阶段：USER_DECISION / NO ACTIVE（2026-11-19）**：`RELAY-MVP-READINESS-REBASELINE-17` 协调方独立终裁 PASS；**工程隔离主链=ENGINEERING_READY(stub 明示)**，但 **整个 Usable MVP 尚未 ACCEPTED**。下一阶段=**用户亲自 Mac LAN + 手机 VPN 实机 UX 验收**（按已更新 `p0-mvp/web-ux-acceptance-11/MAC-ACCEPTANCE-CARD.md`），不是新编码包；Writer=空闲，无 ACTIVE 开发合同。真实模型 F1/F2=NOT_VERIFIED（已授权复验遭上游 502 零 token、第二轮未发起），真实项目自然语言→真实 GitHub Delivery=NOT_VERIFIED；生产仍 NO-GO、D3 未授权。用户反馈前不得代判 UX ACCEPTED、启动 REAL-PILOT / MODEL-POLICY-01 或生产切换。
+
+- **RELAY-MVP-READINESS-REBASELINE-17 ✅ 收口（2026-11-19）**：实施 `2c32f9f` 仅 7 份文档/证据、+539/-0、零产品代码，协调方独立 **PASS(0 Major；1 处验收卡文案漂移已在本收口修正)**。exact-head GitHub CI `44425684041@2c32f9f` test/e2e 双 success：unit 191/191，非浏览器 517p|103s=620，browser 83p|2s=85。协调方独立重跑六套隔离 E2E **40/40**；又对**干净克隆的最新 main** 实际启动一次性预览→登录 HTTP 200→Goal 创建 HTTP 201→Goal COMPLETED + 本地 bare DELIVERED，进程和临时克隆清理成功。只读生产预检经 systemd user bus 正确配置复测 18 项，裁决 NO-GO：0008/0009 缺失、evidence checks 未配置、旧 PID/egress 缺席/部署树 dirty。历史 MVP REWORK 按 ADR-0010 分层重分类，不倒填模型/真机/生产验收；矩阵：`p0-mvp/readiness-rebaseline-17/MATRIX.md`；协调方报告：`p0-mvp/readiness-rebaseline-17/COORDINATOR-REVIEW-20261119.md`。
 
 - **RELAY-RESULT-TRUTH-16R ✅ 收口（2026-11-19）**：实施 `6a2f51f`，协调方独立终裁 **PASS(0 Major)**。旧 A 验收不再污染新 B；changeset 按自身版本投影，Goal/workspace 按最新版本投影；无 changeset 拒绝漂浮验收；省略 changesetId 时冻结请求时最新版本；deliveryState 单源绑定；“GitHub”结果标签中性化为“仓库交付”。exact-head CI `44340057681@6a2f51f` 双 success：unit 191/191，非浏览器 517p|103s=620，browser 83p|2s=85。协调方独立 PG 原始反例复测：A accepted 保留、B FAILED userResult=null、Goal current=null。复核：`p0-mvp/result-truth-16/16R/COORDINATOR-REVIEW-20261119.md`.
 

@@ -1,6 +1,6 @@
 # Relay / HIVE Next 续接（仅导航；不拥有当前合同）
 
-> **2026-11-19 当前 ACTIVE：RELAY-MVP-READINESS-REBASELINE-17。** 16R 已由协调方独立终裁 PASS：实施 `6a2f51f`，exact-head CI `44340057681` 双 success；协调方原始 A accepted→B FAILED 反例已独立闭合。当前不继续机械加功能，而是重新核对当前 main 的 MVP 覆盖，强制拆分 Engineering Usable / User UX Acceptance / Model Capability / Production Cutover 四层准入，并决定下一步究竟应停止编码交用户体验、进入模型能力验证、进入 PRE-D3，还是确有一个最小工程 Major 需要修。合同见 `p0-mvp/readiness-rebaseline-17/CONTRACT.md`。
+> **2026-11-19 最新：17 协调方独立 PASS，当前无 ACTIVE 开发包；下一阶段 USER_DECISION。** `2c32f9f` 仅文档审计，exact-head CI `44425684041` 双 success；协调方独立隔离主路径 40/40、干净克隆预览真实登录→Goal→本地 bare 交付 PASS，生产只读 18 项预检仍 NO-GO。工程主链就绪(stub/隔离证明)，不代表整个 MVP 已验收；真实模型 F1/F2 与真实项目 GitHub Pilot 仍 NOT_VERIFIED。下一步用户亲自在 Mac/手机按 `p0-mvp/web-ux-acceptance-11/MAC-ACCEPTANCE-CARD.md` 实际体验并反馈，Agent 不得代判；在用户反馈、模型窗口/明确授权和生产 D3 授权前不得自行激活新编码包。独立复核见 `p0-mvp/readiness-rebaseline-17/COORDINATOR-REVIEW-20261119.md`。
 
 
 > **2026-11-18 当前 ACTIVE：RELAY-RESULT-TRUTH-16R。** 16 实施 `df3ff59` 的 exact-head CI 虽双绿，但协调方独立真实 PG 反例发现 Major：旧 changeset A 的 USER_RESULT_ACCEPTED 被 Goal 级投影继承到后续新 changeset B，B=FAILED 仍会显示“用户已接受结果”。16R 只修验收事实与具体结果版本绑定：历史 A 验收保留，当前 B 无自身验收则必须显示“用户尚未验收当前结果”；同时把结果摘要硬编码“GitHub”标签改为中性“仓库交付/交付状态”。合同见 `p0-mvp/result-truth-16/16R/CONTRACT.md`。零 migration、零生产、零状态机改动。
