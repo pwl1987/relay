@@ -1,0 +1,33 @@
+
+ RUN  v3.2.7 /home/ubuntu/dev/relay
+
+ ✓ test/e2e/web-journey.test.ts (7 tests) 10566ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J1 模糊需求创建 → 查看系统理解与可验证建议(标注:确定性规则推导,非模型)  801ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J2 D3 长期未审批:被卡任务停留 NEEDS_DECISION、决策仍 OPEN;其他任务正常推进到 ACCEPTED  2681ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J3 Worker 崩溃:Run FAILED 原因可见、任务恢复 READY(有界重试),异常进 Dashboard  1821ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J6 新页面:Projects/Models/System 渲染关键要素 + 手机视口无横向溢出(响应式)  915ms
+   ✓ P0-02C 真实浏览器旅程(J1/J2/J3) > J7 New Goal 项目绑定:受控 projectId ⇒ scope=注册表路径;Project 页反向可见;AppShell 与手机抽屉  542ms
+   ✓ P0-02C 真实浏览器旅程(J4/J5:交付与状态一致) > J4 候选变更 → 独立验证 → Gate → 交付状态正确展示(本地 bare 远端)  1944ms
+   ✓ P0-02C 真实浏览器旅程(J4/J5:交付与状态一致) > J5 刷新与断线重连:页面状态始终与 PostgreSQL 一致;断线时显示『连接中断』而非陈旧值冒充实时  1031ms
+ ✓ test/e2e/result-truth-browser.test.ts (6 tests) 3547ms
+   ✓ RELAY-RESULT-TRUTH-16:交付事实→结果页→用户验收→刷新保持(真实浏览器) > V2 「查看修改详情」真实可达:点击 ⇒ 技术区展开且文件清单可见(dead-control 防回归)  1033ms
+ ✓ test/e2e/webux12-goal-idempotency.test.ts (15 tests) 2563ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T3 同键异 payload/项目绑定:409 冲突零新建;跨会话重用异内容亦 409  353ms
+   ✓ RELAY-GOAL-CREATE-IDEMPOTENCY-12 Goal 创建幂等(Major-R2 ACK 丢失;桌面 1440+手机 390) > T1 ACK 丢失重试不重复创建(桌面):服务器已 201→回执丢弃→同草稿重试=同一 Goal  358ms
+ ✓ test/e2e/result-truth-16r-browser.test.ts (2 tests) 2326ms
+ ✓ test/e2e/three-dirs-consistency.test.ts (4 tests) 1343ms
+   ✓ 三套目录模型统一:端到端一致性(真实项目目录 + stub 大脑) > T2~T4 对话框目录=项目目录工作副本 + 零越界 + 真实交付到绑定登记的仓库  809ms
+fatal: ambiguous argument 'refs/heads/main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+fatal: ambiguous argument 'refs/heads/main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ ✓ test/e2e/dirty-project-failclosed.test.ts (6 tests) 720ms
+
+ Test Files  6 passed (6)
+      Tests  40 passed (40)
+   Start at  07:35:08
+   Duration  28.89s (transform 679ms, setup 0ms, collect 6.27s, tests 21.07s, environment 1ms, prepare 420ms)
+
+EXIT=0
