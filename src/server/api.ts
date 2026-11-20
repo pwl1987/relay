@@ -379,6 +379,8 @@ export async function handleApi(deps: ApiDeps, req: ApiRequest): Promise<ApiResp
         role: session.role,
         csrfToken: session.csrf,
         expiresAt: new Date(session.expiresAt).toISOString(),
+        // T003/NOAUTH-18:仅免登录模式出现该字段;口令模式响应逐字不变(前端据此隐藏退出按钮)
+        ...(deps.auth.passwordless ? { authMode: "none" } : {}),
       });
     }
     if (path === "/api/session" && method === "DELETE") {

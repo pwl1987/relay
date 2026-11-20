@@ -1370,6 +1370,7 @@
       state.goalId = params.get("goal");
       const logout = $("#ws-logout");
       if (logout) {
+        logout.hidden = A.state.authMode === "none"; // 免登录无退可出(T003/NOAUTH-18)
         logout.addEventListener("click", async function () {
           try {
             await fetch("/api/session", {

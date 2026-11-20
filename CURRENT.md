@@ -1,5 +1,18 @@
 # Relay 当前执行契约
 
+- **RELAY-WEB-NOAUTH-18 · ACTIVE（2026-11-20，待总管验收提交）** 生产 8787 自用户内网免口令模式。
+  Writer=relay.dev；基线=`9885ceb`（生产现跑）；生产权限=无（G3 单独放行后 env 加一行+重启双 unit）。
+  范围：web 进程新增显式 opt-in 开关 `RELAY_WEB_AUTH`（未设=口令模式逐字不变；`none`=免登录；
+  其他值=拒绝启动）。`none` 时 `Auth` 合成进程级隐式 operator 会话（resolve 恒命中、logout no-op、
+  login 诚实 401），CSRF/Sec-Fetch-Site/Origin 判定零改动照常生效（csrf token 启动随机、经
+  GET /api/session 下发回带）；`GET /api/session` 仅该模式多返回 `"authMode":"none"`，前端据此隐藏
+  退出按钮；none+非回环绑定 ⇒ 启动 stderr 警告「网内可达即 operator」。
+  验收：①env 未设行为与 9885ceb 逐字一致（现有全套回归绿+新增缺省断言）；②`none` 时 GET / 直入
+  /workspace、API 隐式会话可用、缺 csrf 头 403；③登出 no-op；④非法值拒启；⑤警告行断言；
+  ⑥定向测试+quality:full 本地绿；⑦零 schema/迁移、零新依赖、零生产动作。
+  红线：不碰 config/ 与 soak-r3b/；生产 systemd/env/8787 在 G3 放行前一律不动；不 commit/push（总管统一）。
+  设计：`.dsh-master/out/T003/DESIGN.md`。
+
 - **当前阶段：USER_DECISION / NO ACTIVE（2026-11-19）**：`RELAY-MVP-READINESS-REBASELINE-17` 协调方独立终裁 PASS；**工程隔离主链=ENGINEERING_READY(stub 明示)**，但 **整个 Usable MVP 尚未 ACCEPTED**。下一阶段=**用户亲自 Mac LAN + 手机 VPN 实机 UX 验收**（按已更新 `p0-mvp/web-ux-acceptance-11/MAC-ACCEPTANCE-CARD.md`），不是新编码包；Writer=空闲，无 ACTIVE 开发合同。真实模型 F1/F2=NOT_VERIFIED（已授权复验遭上游 502 零 token、第二轮未发起），真实项目自然语言→真实 GitHub Delivery=NOT_VERIFIED；生产仍 NO-GO、D3 未授权。用户反馈前不得代判 UX ACCEPTED、启动 REAL-PILOT / MODEL-POLICY-01 或生产切换。
 
 - **RELAY-MVP-READINESS-REBASELINE-17 ✅ 收口（2026-11-19）**：实施 `2c32f9f` 仅 7 份文档/证据、+539/-0、零产品代码，协调方独立 **PASS(0 Major；1 处验收卡文案漂移已在本收口修正)**。exact-head GitHub CI `44425684041@2c32f9f` test/e2e 双 success：unit 191/191，非浏览器 517p|103s=620，browser 83p|2s=85。协调方独立重跑六套隔离 E2E **40/40**；又对**干净克隆的最新 main** 实际启动一次性预览→登录 HTTP 200→Goal 创建 HTTP 201→Goal COMPLETED + 本地 bare DELIVERED，进程和临时克隆清理成功。只读生产预检经 systemd user bus 正确配置复测 18 项，裁决 NO-GO：0008/0009 缺失、evidence checks 未配置、旧 PID/egress 缺席/部署树 dirty。历史 MVP REWORK 按 ADR-0010 分层重分类，不倒填模型/真机/生产验收；矩阵：`p0-mvp/readiness-rebaseline-17/MATRIX.md`；协调方报告：`p0-mvp/readiness-rebaseline-17/COORDINATOR-REVIEW-20261119.md`。

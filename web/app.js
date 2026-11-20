@@ -57,7 +57,15 @@
     const d = new Date(v);
     if (isNaN(d.getTime())) return String(v);
     // WEB-UX-02 m8:本地时区 + 中文格式,不再直出 UTC "Z" 后缀(技术详情区如需原始值见 API)
-    return d.toLocaleString("zh-CN", { hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return d.toLocaleString("zh-CN", {
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   }
 
   /** 秒 ⇒ 人读时长(Goal elapsed 用)。 */
@@ -154,9 +162,49 @@
 
   function stateKind(state) {
     const s = String(state || "");
-    if (["ACCEPTED", "DELIVERED", "COMPLETED", "PASS", "SUCCEEDED", "RESOLVED_APPROVED", "IMPLEMENTED", "VERIFIED"].indexOf(s) >= 0) return "ok";
-    if (["FAILED", "CONFLICT", "BLOCK", "REWORK", "REJECTED", "TIMEOUT", "INTERRUPTED", "BUDGET_EXHAUSTED", "CANCELLED", "run_failed", "tick_error"].indexOf(s) >= 0) return "bad";
-    if (["NEEDS_DECISION", "NEEDS_RECONCILE", "BLOCKED", "PAUSED", "EXPIRED_STILL_BLOCKED", "OPEN", "RESOLVED_REJECTED", "D3", "NOT_IMPLEMENTED"].indexOf(s) >= 0) return "warn";
+    if (
+      [
+        "ACCEPTED",
+        "DELIVERED",
+        "COMPLETED",
+        "PASS",
+        "SUCCEEDED",
+        "RESOLVED_APPROVED",
+        "IMPLEMENTED",
+        "VERIFIED",
+      ].indexOf(s) >= 0
+    )
+      return "ok";
+    if (
+      [
+        "FAILED",
+        "CONFLICT",
+        "BLOCK",
+        "REWORK",
+        "REJECTED",
+        "TIMEOUT",
+        "INTERRUPTED",
+        "BUDGET_EXHAUSTED",
+        "CANCELLED",
+        "run_failed",
+        "tick_error",
+      ].indexOf(s) >= 0
+    )
+      return "bad";
+    if (
+      [
+        "NEEDS_DECISION",
+        "NEEDS_RECONCILE",
+        "BLOCKED",
+        "PAUSED",
+        "EXPIRED_STILL_BLOCKED",
+        "OPEN",
+        "RESOLVED_REJECTED",
+        "D3",
+        "NOT_IMPLEMENTED",
+      ].indexOf(s) >= 0
+    )
+      return "warn";
     return "info";
   }
 
@@ -167,6 +215,7 @@
     const body = await res.json();
     state.csrf = body.csrfToken;
     state.role = body.role;
+    state.authMode = body.authMode || null; // T003/NOAUTH-18:仅免登录模式服务端返回 "none"
     return body;
   }
 
@@ -280,7 +329,15 @@
     const kids = [h("span", { class: "side-label", text: item.label })];
     if (item.badge) {
       NAV_BADGES[item.badge] = { el: null };
-      kids.push(h("span", { class: "nav-badge", id: "nav-badge-" + item.badge, hidden: "", "data-testid": "nav-badge-" + item.badge, text: "0" }));
+      kids.push(
+        h("span", {
+          class: "nav-badge",
+          id: "nav-badge-" + item.badge,
+          hidden: "",
+          "data-testid": "nav-badge-" + item.badge,
+          text: "0",
+        }),
+      );
     }
     return h("a", { class: "side-link", href: item.href, "data-nav": item.id }, kids);
   }
@@ -299,13 +356,25 @@
     const sidebar = h(
       "aside",
       { class: "sidebar", id: "app-sidebar", "data-testid": "sidebar" },
-      h("div", { class: "side-brand" },
+      h(
+        "div",
+        { class: "side-brand" },
         h("span", { class: "brand", text: "Relay" }),
-        h("span", { class: "brand-sub", text: "AI 软件开发工作台" })),
+        h("span", { class: "brand-sub", text: "AI 软件开发工作台" }),
+      ),
       nav,
-      h("div", { class: "side-foot" },
-        h("a", { class: "btn btn-primary btn-new-goal", href: "/workspace#new-task", "data-testid": "btn-new-goal", text: "＋ 新建任务" }),
-        h("div", { class: "side-user" },
+      h(
+        "div",
+        { class: "side-foot" },
+        h("a", {
+          class: "btn btn-primary btn-new-goal",
+          href: "/workspace#new-task",
+          "data-testid": "btn-new-goal",
+          text: "＋ 新建任务",
+        }),
+        h(
+          "div",
+          { class: "side-user" },
           h("span", { id: "whoami", class: "whoami", text: state.role ? "身份:" + state.role : "" }),
           h("button", { id: "btn-logout", class: "btn btn-ghost", type: "button", text: "退出登录" }),
         ),
@@ -316,7 +385,13 @@
     const topbar = h(
       "div",
       { class: "mobile-topbar", "data-testid": "mobile-topbar" },
-      h("button", { class: "btn btn-ghost burger", id: "btn-burger", type: "button", "aria-label": "打开导航", text: "☰" }),
+      h("button", {
+        class: "btn btn-ghost burger",
+        id: "btn-burger",
+        type: "button",
+        "aria-label": "打开导航",
+        text: "☰",
+      }),
       h("span", { class: "brand", text: "Relay" }),
       h("a", { class: "btn btn-primary btn-new-goal-sm", href: "/#new-goal", text: "＋ 新建" }),
     );
@@ -345,6 +420,7 @@
 
     const logout = $("#btn-logout");
     if (logout) {
+      logout.hidden = state.authMode === "none"; // 免登录无退可出(T003/NOAUTH-18)
       logout.addEventListener("click", async function () {
         try {
           await fetch("/api/session", {
@@ -416,8 +492,18 @@
       "data-testid": o.inputTestId || "goal-input",
       placeholder: "例如:这个登录页面不太好用,你自己检查一下并改好。",
     });
-    const msg = h("span", { class: "small dim", id: o.msgId || "create-msg", "data-testid": o.msgTestId || "create-msg" });
-    const btn = h("button", { class: "btn btn-primary btn-lg", id: o.btnId || "btn-create-goal", type: "button", "data-testid": o.btnTestId || "btn-create-goal", text: "开始处理" });
+    const msg = h("span", {
+      class: "small dim",
+      id: o.msgId || "create-msg",
+      "data-testid": o.msgTestId || "create-msg",
+    });
+    const btn = h("button", {
+      class: "btn btn-primary btn-lg",
+      id: o.btnId || "btn-create-goal",
+      type: "button",
+      "data-testid": o.btnTestId || "btn-create-goal",
+      text: "开始处理",
+    });
     const note = h(
       "p",
       { class: "small dim mt8" },
@@ -452,7 +538,12 @@
       }
       if (!projects.length) {
         // 03C.1 P0-2:不再用"默认工作区"掩盖未绑定状态;创建后 Goal 未绑注册表项目时如实显示"项目未绑定"
-        sel.appendChild(h("option", { value: "", text: configured ? "暂无项目 — 可直接开始(创建后可在项目页绑定)" : "尚未配置项目 — 可直接开始" }));
+        sel.appendChild(
+          h("option", {
+            value: "",
+            text: configured ? "暂无项目 — 可直接开始(创建后可在项目页绑定)" : "尚未配置项目 — 可直接开始",
+          }),
+        );
       } else {
         sel.appendChild(h("option", { value: "", text: "请选择一个项目" }));
         projects.forEach(function (p) {
@@ -486,7 +577,14 @@
 
     btn.addEventListener("click", submit);
     loadProjects();
-    return { wrap: wrap, loadProjects: loadProjects, focus: function () { ta.focus(); }, select: sel };
+    return {
+      wrap: wrap,
+      loadProjects: loadProjects,
+      focus: function () {
+        ta.focus();
+      },
+      select: sel,
+    };
   }
 
   /** 页面骨架:未登录 ⇒ 跳登录页。opts.bare = 不注入通用侧栏(工作区页自带三层骨架;WEB-UX-03C)。 */

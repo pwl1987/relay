@@ -34,6 +34,8 @@ export interface AuthConfig {
   loginWindowMs: number;
   /** 锁定时长(毫秒) */
   lockoutMs: number;
+  /** RELAY_WEB_AUTH=none:免登录模式,进程级隐式 operator 会话(T003/NOAUTH-18) */
+  passwordless?: boolean;
 }
 
 export type AuthFailure =
@@ -85,13 +87,33 @@ export class Auth {
   private readonly sessionsByRole = new Map<string, number>();
   // P0-ACCEPT 缺口 E:禁用 TS 参数属性(裸 node strip-types 生产入口不支持;P0-02B 环境事实)
   private readonly config: AuthConfig;
+  /** 免登录模式的进程级隐式会话(T003/NOAUTH-18);口令模式恒 null */
+  private readonly implicit: Session | null = null;
 
   constructor(config: AuthConfig) {
     this.config = config;
+    if (config.passwordless) {
+      const now = Date.now();
+      // expiresAt 用有限值(+100 年):api.ts 的 toISOString 对 Infinity 会抛 RangeError。
+      this.implicit = {
+        id: randomToken(),
+        role: config.operators[0] ?? "owner",
+        csrf: randomToken(),
+        createdAt: now,
+        expiresAt: now + 3_155_760_000_000,
+      };
+      this.sessions.set(this.implicit.id, this.implicit);
+      this.sessionsByRole.set(this.implicit.role, 1);
+    }
   }
 
   get operators(): readonly string[] {
     return this.config.operators;
+  }
+
+  /** 免登录模式标志(T003/NOAUTH-18;api 层据此加 authMode 字段)。 */
+  get passwordless(): boolean {
+    return this.config.passwordless === true;
   }
 
   /** 口令派生(scrypt;每次登录现算,内存中不缓存明文)。 */
@@ -132,10 +154,10 @@ export class Auth {
   }
 
   /** 登录:成功 ⇒ 会话;失败 ⇒ AuthError(bad_password / locked_out)。 */
-  async login(
-    password: string,
-    clientKey: string,
-  ): Promise<{ session: Session; role: string }> {
+  async login(password: string, clientKey: string): Promise<{ session: Session; role: string }> {
+    if (this.config.passwordless) {
+      throw new AuthError("missing_credentials", "免登录模式不提供口令登录");
+    }
     if (this.isLocked(clientKey)) {
       throw new AuthError("locked_out", "登录暂时锁定(失败次数过多),请稍后再试");
     }
@@ -167,6 +189,7 @@ export class Auth {
   }
 
   logout(sessionId: string | undefined): void {
+    if (this.config.passwordless) return; // 隐式会话不可退出(T003/NOAUTH-18)
     if (!sessionId) return;
     const s = this.sessions.get(sessionId);
     if (!s) return;
@@ -178,6 +201,7 @@ export class Auth {
 
   /** 解析会话:不存在/过期 ⇒ AuthError。 */
   resolve(sessionId: string | undefined): Session {
+    if (this.implicit) return this.implicit; // 免登录:忽略 cookie,恒命中(T003/NOAUTH-18)
     if (!sessionId) throw new AuthError("unknown_session", "会话不存在");
     const s = this.sessions.get(sessionId);
     if (!s) throw new AuthError("unknown_session", "会话不存在");
@@ -197,7 +221,11 @@ export class Auth {
   }
 
   /** 纵深:同源检查(Origin 存在时必须与 Host 同源;Sec-Fetch-Site 不得为 cross-site)。 */
-  verifySameOrigin(headers: { origin?: string | undefined; host?: string | undefined; secFetchSite?: string | undefined }): void {
+  verifySameOrigin(headers: {
+    origin?: string | undefined;
+    host?: string | undefined;
+    secFetchSite?: string | undefined;
+  }): void {
     const site = headers.secFetchSite;
     if (site && site !== "same-origin" && site !== "none") {
       throw new AuthError("forbidden_cross_site", `跨站请求被拒绝(Sec-Fetch-Site=${site})`);

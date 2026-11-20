@@ -6,10 +6,27 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { connectDb, closeDb } from "../core/db.ts";
 import { Auth } from "./auth.ts";
-import { auditBindRejected, createRelayServer, BindRejectedError } from "./app.ts";
+import { auditBindRejected, createRelayServer, isLoopbackHost, BindRejectedError } from "./app.ts";
 import { createLiveWorkerDriver, createExternalWorkerDriver, type WorkerDriver } from "./worker.ts";
 
 export const PASSWORD_FILE = join(homedir(), ".relay", "credentials", "web-password");
+
+export type WebAuthMode = "password" | "none";
+
+/** 登录模式解析(T003/NOAUTH-18):未设=口令模式逐字不变;显式 "none"=免登录;其他值=拒绝启动(防 typo 悄悄裸奔)。 */
+export function resolveWebAuthMode(env: NodeJS.ProcessEnv = process.env): WebAuthMode {
+  const raw = (env.RELAY_WEB_AUTH ?? "").trim();
+  if (raw === "") return "password";
+  if (raw === "none") return "none";
+  throw new Error(`web_auth_mode_invalid:RELAY_WEB_AUTH 仅接受未设或 "none"(原始值:${raw})`);
+}
+
+/** 免登录+非回环 ⇒ 启动警告行;其余无(纯函数,可测)。 */
+export function webAuthBanner(authMode: WebAuthMode, host: string): string | null {
+  return authMode === "none" && !isLoopbackHost(host)
+    ? "[relay-web] 警告:免登录模式(RELAY_WEB_AUTH=none),网内可达此端口者即可直接操作"
+    : null;
+}
 
 /** 解析口令:env 优先;否则 0600 文件;都没有 ⇒ 拒绝启动(FAIL-CLOSED)。 */
 export function resolveWebPassword(env: NodeJS.ProcessEnv = process.env): string {
@@ -38,7 +55,8 @@ export function resolveOperators(env: NodeJS.ProcessEnv = process.env): string[]
 }
 
 export async function main(): Promise<void> {
-  const password = resolveWebPassword();
+  const authMode = resolveWebAuthMode();
+  const password = authMode === "none" ? "" : resolveWebPassword();
   const operators = resolveOperators();
   const host = process.env.RELAY_WEB_HOST ?? "127.0.0.1";
   const port = Number(process.env.RELAY_WEB_PORT ?? "8787");
@@ -52,6 +70,7 @@ export async function main(): Promise<void> {
     maxLoginFailures: Number(process.env.RELAY_WEB_MAX_LOGIN_FAILURES ?? "5"),
     loginWindowMs: Number(process.env.RELAY_WEB_LOGIN_WINDOW_MS ?? String(10 * 60_000)),
     lockoutMs: Number(process.env.RELAY_WEB_LOCKOUT_MS ?? String(5 * 60_000)),
+    passwordless: authMode === "none",
   });
 
   // worker:默认 external(本进程只读 + 授权操作);配置了模型与 stage 目录才挂真实驱动。
@@ -98,7 +117,11 @@ export async function main(): Promise<void> {
   console.log(
     `[relay-web] listening on http://${host}:${actualPort} (worker=${worker.mode};仅本地;Mac 请用 SSH 端口转发)`,
   );
-  console.log(`[relay-web] operators=${operators.join(",")};口令来源=${process.env.RELAY_WEB_PASSWORD ? "env" : PASSWORD_FILE}`);
+  console.log(
+    `[relay-web] operators=${operators.join(",")};口令来源=${authMode === "none" ? "免登录" : process.env.RELAY_WEB_PASSWORD ? "env" : PASSWORD_FILE}`,
+  );
+  const noauthWarn = webAuthBanner(authMode, host);
+  if (noauthWarn) console.warn(noauthWarn);
 
   const shutdown = async (): Promise<void> => {
     console.log("[relay-web] shutting down");

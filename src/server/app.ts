@@ -67,10 +67,14 @@ export class BindRejectedError extends Error {
   }
 }
 
+/** 回环判定(ensureLoopbackBind 与免登录警告行共用,单一权威)。 */
+export function isLoopbackHost(host: string): boolean {
+  return host === "127.0.0.1" || host === "::1" || host === "localhost";
+}
+
 /** G-1:非回环绑定必须显式放行(默认拒绝;不开放公网)。 */
 export function ensureLoopbackBind(host: string): void {
-  const isLoopback = host === "127.0.0.1" || host === "::1" || host === "localhost";
-  if (!isLoopback && process.env.RELAY_WEB_ALLOW_NON_LOOPBACK !== "1") {
+  if (!isLoopbackHost(host) && process.env.RELAY_WEB_ALLOW_NON_LOOPBACK !== "1") {
     throw new BindRejectedError(
       host,
       `refuse_non_loopback_bind:绑定 ${host} 需要显式 RELAY_WEB_ALLOW_NON_LOOPBACK=1(默认仅监听本地地址,Mac 通过 SSH 端口转发访问)`,
